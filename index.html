@@ -131,6 +131,21 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .detail-hero-text h2{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:4px}
 .detail-hero-text p{font-size:13px;color:rgba(255,255,255,.4)}
 .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.detail-tabs{display:flex;gap:2px;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:20px}
+.detail-tab{flex:1;padding:8px;font-size:13px;font-weight:600;border:none;border-radius:8px;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);transition:all .15s;text-align:center}
+.detail-tab.active{background:var(--card);color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.contract-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--radius-sm);transition:all .1s}
+.contract-item:hover{background:var(--bg);padding-left:8px;padding-right:8px;margin:0 -8px}
+.contract-item:last-child{border-bottom:none}
+.contract-icon{width:36px;height:36px;border-radius:8px;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.contract-info{flex:1;min-width:0}
+.contract-name{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px}
+.contract-sub{font-size:11px;color:var(--text3)}
+.contract-badges{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.cst-진행중{background:#e8f5e9;color:#2e7d32}
+.cst-완료{background:var(--bg);color:var(--text3)}
+.cst-검토중{background:#fff8e1;color:#f57f17}
+.cst-해지{background:var(--red-bg);color:var(--red)}
 .section-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
 .info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg)}
 .info-row:last-child{border-bottom:none}
@@ -395,11 +410,11 @@ table{border-collapse:collapse;min-width:100%}
 const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null;
-let projects=[],members=[],clients=[],notices=[],schedules=[];
+let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
 let curPage='clients',curGView='project';
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
-let editingProjId=null,formMembers=[],editingClientId=null;
+let editingProjId=null,formMembers=[],editingClientId=null,editingContractId=null;
 let projectComments=[],activeReplyParentId=null;
 
 const TYPES={'감사':'#4E5968','세무':'#3182F6','밸류에이션':'#8B7CF6','자문':'#5B8DEF','실사':'#2BB673','기타':'#7B8794'};
@@ -475,20 +490,22 @@ async function api(method,path,body){
 async function loadAll(){
   setStatus('불러오는 중...');
   try{
-    const[projs,mems,pm,cls,nts,schs]=await Promise.all([
+    const[projs,mems,pm,cls,nts,schs,ctrs,blogs]=await Promise.all([
       api('GET','projects?select=*&order=start_date'),
       api('GET','members?select=*&order=name'),
       api('GET','project_members?select=project_id,member_id,members(name)'),
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
-      api('GET','schedules?select=*&order=start_date')
+      api('GET','schedules?select=*&order=start_date'),
+      api('GET','contracts?select=*&order=created_at.desc'),
+      api('GET','billing_logs?select=*&order=created_at.desc')
     ]);
     members=mems||[];
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
-    clients=cls||[];notices=nts||[];
+    clients=cls||[];notices=nts||[];contracts=ctrs||[];billingLogs=blogs||[];
     schedules=(schs||[]).map(s=>({...s,start:s.start_date,end:s.end_date,member_name:s.member_name||members.find(m=>m.id===s.member_id)?.name||''}));
     populateMemberFilter();
-    setStatus('✓ '+clients.length+'개 고객사 · '+projects.length+'개 프로젝트 · '+schedules.length+'개 일정','ok');
+    setStatus('✓ '+clients.length+'개 고객사 · '+projects.length+'개 프로젝트','ok');
     updateNoticeDot();
   }catch(e){setStatus('오류: '+e.message,'err');}
 }
@@ -680,26 +697,31 @@ function renderClients(){
   const today=new Date();
   grid.innerHTML=filtered.map(c=>{
     const cp=projects.filter(p=>p.client_id===c.id);
+    const cc=contracts.filter(ct=>ct.client_id===c.id);
     const active=cp.filter(p=>p.status==='진행중');
     const mems=[...new Set(cp.flatMap(p=>p.members))];
     const chips=cp.slice(0,3).map(p=>'<span class="chip" style="background:'+TYPES[p.type]+'">'+p.type+'</span>').join('');
     const warns=cp.filter(p=>(toDate(p.end)<today&&p.status!=='완료')||(p.status==='완료'&&p.is_billable&&p.billing_status==='미청구')).length;
+    const activeContracts=cc.filter(ct=>ct.contract_status==='진행중').length;
     return '<div class="client-card" onclick="openClientDetail(this.dataset.id)" data-id="'+c.id+'">'
-      +'<div class="client-card-head"><div class="client-avatar">'+c.name.charAt(0)+'</div>'
+      +'<div class="client-card-head"><div class="client-avatar">'+esc(c.name.charAt(0))+'</div>'
       +(warns?'<span class="client-warn">⚠ '+warns+'</span>':'')+'</div>'
-      +'<div class="client-name">'+c.name+'</div>'
+      +'<div class="client-name">'+esc(c.name)+'</div>'
       +'<div class="client-industry">'+(c.industry||'업종 미입력')+'</div>'
       +'<div class="chip-row">'+chips+(cp.length>3?'<span style="font-size:11px;color:var(--text3);padding:3px 0">외 '+(cp.length-3)+'건</span>':'')+'</div>'
-      +'<div class="client-footer"><span class="client-members">'+mems.slice(0,3).join(' · ')+'</span><span class="client-active">'+active.length+'건 진행중</span></div>'
+      +'<div class="client-footer"><span class="client-members">'+mems.slice(0,3).join(' · ')+'</span>'
+      +'<span class="client-active">'+active.length+'건 진행중'+(activeContracts?' · 계약 '+activeContracts:'')+'</span></div>'
       +'</div>';
   }).join('');
 }
 
-function openClientDetail(id){
+function openClientDetail(id, tab='projects'){
   const c=clients.find(x=>x.id===id);if(!c)return;
   const cp=projects.filter(p=>p.client_id===id);
+  const cc=contracts.filter(ct=>ct.client_id===id);
   const mems=[...new Set(cp.flatMap(p=>p.members))];
   const today=new Date();
+
   const projItems=cp.map(p=>{
     const od=toDate(p.end)<today&&p.status!=='완료';
     const ub=p.status==='완료'&&p.is_billable&&p.billing_status==='미청구';
@@ -708,7 +730,7 @@ function openClientDetail(id){
     return '<div class="proj-item" onclick="openProjModal(this.dataset.id)" data-id="'+p.id+'">'
       +'<div class="proj-dot" style="background:'+TYPES[p.type]+'"></div>'
       +'<div class="proj-info">'
-      +'<div class="proj-name">'+p.name+'</div>'
+      +'<div class="proj-name">'+esc(p.name)+'</div>'
       +'<div class="proj-sub">'+p.start+' ~ '+p.end+(p.members.length?' · '+p.members.join(', '):'')+'</div>'
       +(od?'<div class="proj-warn">⏰ 기간 초과 — 완료 처리 필요</div>':'')
       +(ub?'<div class="proj-warn">💰 완료됐으나 빌링 미처리</div>':'')
@@ -719,25 +741,249 @@ function openClientDetail(id){
       +(p.billing_amount?'<span style="font-size:11px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')
       +'</div></div>';
   }).join('');
+
+  const contractItems=cc.map(ct=>{
+    // 이 계약에 연결된 프로젝트들
+    const ctProjs=projects.filter(p=>p.contract_id===ct.id);
+    const billedAmt=ctProjs.reduce((s,p)=>s+(p.billing_amount&&p.billing_status!=='미청구'?Number(p.billing_amount):0),0);
+    const totalAmt=ct.contract_amount?Number(ct.contract_amount):0;
+    const pct=totalAmt>0?Math.min(100,Math.round(billedAmt/totalAmt*100)):0;
+    const stCls='cst-'+(ct.contract_status||'검토중');
+    const amt=totalAmt?totalAmt.toLocaleString()+'원'+(ct.vat_included?' (VAT포함)':' (VAT별도)'):'금액 미입력';
+    const unbilledProjs=ctProjs.filter(p=>p.status==='완료'&&p.is_billable&&p.billing_status==='미청구');
+    return '<div class="contract-item" onclick="openContractDetail(this.dataset.id)" data-id="'+ct.id+'">'
+      +'<div class="contract-icon">📄</div>'
+      +'<div class="contract-info">'
+      +'<div class="contract-name">'+esc(ct.contract_name||'제목 없음')+'</div>'
+      +'<div class="contract-sub">'
+      +(ct.contract_code?ct.contract_code+' · ':'')
+      +(ct.contract_type?ct.contract_type+' · ':'')
+      +amt
+      +'</div>'
+      +(ct.contract_start_date?'<div class="contract-sub">'+ct.contract_start_date+' ~ '+(ct.contract_end_date||'')+'</div>':'')
+      +(totalAmt&&ctProjs.length?'<div style="margin-top:6px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px"><span>빌링 진행률</span><span>'+billedAmt.toLocaleString()+'원 / '+totalAmt.toLocaleString()+'원 ('+pct+'%)</span></div><div style="background:var(--bg);border-radius:20px;height:5px;overflow:hidden"><div style="width:'+pct+'%;height:100%;border-radius:20px;background:'+(pct>=100?'var(--green)':pct>50?'var(--blue)':'var(--orange)')+'"></div></div></div>':'')
+      +(unbilledProjs.length?'<div style="font-size:11px;color:var(--red);margin-top:4px;font-weight:600">⚠ 미청구 프로젝트 '+unbilledProjs.length+'건</div>':'')
+      +'</div>'
+      +'<div class="contract-badges">'
+      +'<span class="badge '+stCls+'">'+(ct.contract_status||'검토중')+'</span>'
+      +'<span style="font-size:11px;color:var(--text3)">프로젝트 '+ctProjs.length+'건</span>'
+      +'</div></div>';
+  }).join('');
+
+  const tabContent=tab==='projects'
+    ?'<div class="card"><div class="section-label">관련 프로젝트 ('+cp.length+'건) <button class="btn primary sm" onclick="openProjModal(null,\''+id+'\')">+ 추가</button></div>'
+      +(projItems||'<div style="color:var(--text3);font-size:13px;padding:12px 0">프로젝트가 없습니다</div>')
+      +'</div>'
+    :tab==='contracts'
+    ?'<div class="card"><div class="section-label">계약서 ('+cc.length+'건) <button class="btn primary sm" onclick="openContractModal(null,\''+id+'\')">+ 추가</button></div>'
+      +(contractItems||'<div style="color:var(--text3);font-size:13px;padding:12px 0">등록된 계약이 없습니다</div>')
+      +'</div>'
+    :'<div class="card"><div class="section-label">고객사 정보</div>'
+      +'<div class="info-row"><span class="info-label">담당자</span><span class="info-value">'+(c.contact_name||'—')+'</span></div>'
+      +'<div class="info-row"><span class="info-label">이메일</span><span class="info-value">'+(c.contact_email||'—')+'</span></div>'
+      +'<div class="info-row"><span class="info-label">연락처</span><span class="info-value">'+(c.contact_phone||'—')+'</span></div>'
+      +'<div class="info-row"><span class="info-label">담당 인력</span><span class="info-value">'+(mems.join(', ')||'—')+'</span></div>'
+      +'<div class="info-row"><span class="info-label">업종</span><span class="info-value">'+(c.industry||'—')+'</span></div>'
+      +'</div>'
+      +'<div class="card" style="margin-top:14px"><div class="section-label">메모</div>'
+      +'<div class="memo-area">'+(c.memo||'메모 없음')+'</div>'
+      +'</div>';
+
   document.getElementById('detailContent').innerHTML=
     '<div class="detail-hero">'
-    +'<div class="detail-avatar">'+c.name.charAt(0)+'</div>'
-    +'<div class="detail-hero-text" style="flex:1"><h2>'+c.name+'</h2><p>'+(c.industry||'업종 미입력')+'</p></div>'
+    +'<div class="detail-avatar">'+esc(c.name.charAt(0))+'</div>'
+    +'<div class="detail-hero-text" style="flex:1"><h2>'+esc(c.name)+'</h2><p>'+(c.industry||'업종 미입력')+'</p></div>'
     +(isAdmin||c.created_by===currentUser?.id?'<button class="btn sm" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff" onclick="openClientModal(\''+c.id+'\')">수정</button>':'')
     +'</div>'
-    +'<div class="detail-grid">'
-    +'<div class="card"><div class="section-label">고객사 정보</div>'
-    +'<div class="info-row"><span class="info-label">담당자</span><span class="info-value">'+(c.contact_name||'—')+'</span></div>'
-    +'<div class="info-row"><span class="info-label">이메일</span><span class="info-value">'+(c.contact_email||'—')+'</span></div>'
-    +'<div class="info-row"><span class="info-label">연락처</span><span class="info-value">'+(c.contact_phone||'—')+'</span></div>'
-    +'<div class="info-row"><span class="info-label">담당 인력</span><span class="info-value">'+(mems.join(', ')||'—')+'</span></div>'
+    +'<div class="detail-tabs">'
+    +'<button class="detail-tab'+(tab==='projects'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'projects\')">프로젝트 ('+cp.length+')</button>'
+    +'<button class="detail-tab'+(tab==='contracts'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'contracts\')">계약 ('+cc.length+')</button>'
+    +'<button class="detail-tab'+(tab==='info'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'info\')">정보 / 메모</button>'
     +'</div>'
-    +'<div class="card"><div class="section-label">메모</div><div class="memo-area">'+(c.memo||'메모 없음')+'</div></div>'
-    +'</div>'
-    +'<div class="card"><div class="section-label">관련 프로젝트 ('+cp.length+'건) <button class="btn primary sm" onclick="openProjModal(null,\''+id+'\')">+ 추가</button></div>'
-    +(projItems||'<div style="color:var(--text3);font-size:13px;padding:12px 0">프로젝트가 없습니다</div>')
-    +'</div>';
+    +tabContent;
   setPage('detail');
+}
+
+// ── Contract Modal ──
+function openContractModal(eid, preClientId){
+  editingContractId=eid||null;
+  const ct=eid?contracts.find(x=>x.id===eid):null;
+  const editable=!ct||isAdmin||ct.created_by===currentUser?.id;
+  const cOpts=clients.map(c=>'<option value="'+c.id+'"'+((ct&&ct.client_id===c.id)||(preClientId===c.id)?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+  const statusOpts=['검토중','진행중','완료','해지'].map(s=>'<option '+(ct&&ct.contract_status===s?'selected':'')+'>'+s+'</option>').join('');
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:560px"><div class="modal-title">'+(ct?(editable?'계약 수정':'계약 상세'):'계약 추가')+'</div>'
+    +'<div class="form-row"><label class="form-label">고객사</label><select id="ctClient" '+(editable?'':'disabled')+'><option value="">고객사 선택</option>'+cOpts+'</select></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약명</label><input id="ctName" value="'+esc(ct?ct.contract_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">계약 코드</label><input id="ctCode" value="'+esc(ct?ct.contract_code||'':'')+'" placeholder="예) BX-2026-001" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 유형</label><input id="ctType" value="'+esc(ct?ct.contract_type||'':'')+'" placeholder="예) 감사, 세무자문" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">상태</label><select id="ctStatus" '+(editable?'':'disabled')+'>'+statusOpts+'</select></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 시작일</label><input type="date" id="ctStart" value="'+(ct?ct.contract_start_date||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">계약 종료일</label><input type="date" id="ctEnd" value="'+(ct?ct.contract_end_date||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 금액 (원)</label><input id="ctAmt" type="number" value="'+(ct&&ct.contract_amount?ct.contract_amount:'')+'" placeholder="예) 10000000" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">VAT</label><select id="ctVat" '+(editable?'':'disabled')+'><option value="false" '+(ct&&ct.vat_included===false?'selected':'')+'>VAT 별도</option><option value="true" '+(ct&&ct.vat_included===true?'selected':'')+'>VAT 포함</option></select></div></div>'
+    +'<div class="divider">담당자 정보</div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">우리 측 빌링 담당</label><input id="ctBillingContact" value="'+esc(ct?ct.billing_contact_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">빌링 담당 이메일</label><input id="ctBillingEmail" value="'+esc(ct?ct.billing_contact_email||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">거래처 담당자</label><input id="ctCpContact" value="'+esc(ct?ct.counterparty_contact_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">거래처 이메일</label><input id="ctCpEmail" value="'+esc(ct?ct.counterparty_contact_email||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="divider">계약 내용</div>'
+    +'<div class="form-row"><label class="form-label">용역 내용</label><textarea id="ctDesc" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(ct?ct.description||'':'')+'</textarea></div>'
+    +'<div class="form-row"><label class="form-label">납품물 / 결과물</label><textarea id="ctDeliv" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(ct?ct.deliverables||'':'')+'</textarea></div>'
+    +'<div class="form-row"><label class="form-label">메모</label><textarea id="ctMemo" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(ct?ct.memo||'':'')+'</textarea></div>'
+    +'<div class="modal-footer">'
+    +(ct&&editable?'<button class="btn danger" data-id="'+ct.id+'" onclick="deleteContract(this.dataset.id)">삭제</button>':'<div></div>')
+    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'
+    +(editable?'<button class="btn primary" onclick="saveContract()">저장</button>':'')
+    +'</div></div></div></div>';
+  if(editable) document.getElementById('ctName').focus();
+}
+
+async function saveContract(){
+  const client_id=document.getElementById('ctClient').value;
+  const contract_name=document.getElementById('ctName').value.trim();
+  if(!contract_name){alert('계약명을 입력해주세요.');return;}
+  const body={
+    client_id:client_id||null,
+    contract_name,
+    contract_code:document.getElementById('ctCode').value.trim()||null,
+    contract_type:document.getElementById('ctType').value.trim()||null,
+    contract_status:document.getElementById('ctStatus').value,
+    contract_start_date:document.getElementById('ctStart').value||null,
+    contract_end_date:document.getElementById('ctEnd').value||null,
+    contract_amount:document.getElementById('ctAmt').value?parseInt(document.getElementById('ctAmt').value):null,
+    vat_included:document.getElementById('ctVat').value==='true',
+    billing_contact_name:document.getElementById('ctBillingContact').value.trim()||null,
+    billing_contact_email:document.getElementById('ctBillingEmail').value.trim()||null,
+    counterparty_contact_name:document.getElementById('ctCpContact').value.trim()||null,
+    counterparty_contact_email:document.getElementById('ctCpEmail').value.trim()||null,
+    description:document.getElementById('ctDesc').value.trim()||null,
+    deliverables:document.getElementById('ctDeliv').value.trim()||null,
+    memo:document.getElementById('ctMemo').value.trim()||null
+  };
+  try{
+    if(editingContractId){
+      await api('PATCH','contracts?id=eq.'+editingContractId,{...body,updated_at:new Date().toISOString()});
+    }else{
+      body.created_by=currentUser.id;
+      await api('POST','contracts',body);
+    }
+    closeModal();
+    await loadAll();
+    if(client_id)openClientDetail(client_id,'contracts');
+    else renderClients();
+  }catch(e){alert('저장 오류: '+e.message);}
+}
+
+async function deleteContract(id){
+  const ct=contracts.find(x=>x.id===id);
+  if(!confirm('"'+(ct?.contract_name||'이 계약')+'"을 삭제할까요?'))return;
+  try{
+    await api('DELETE','contracts?id=eq.'+id);
+    closeModal();
+    await loadAll();
+    if(ct?.client_id)openClientDetail(ct.client_id,'contracts');
+    else renderClients();
+  }catch(e){alert('오류: '+e.message);}
+}
+
+function openContractDetail(id){
+  const ct=contracts.find(x=>x.id===id);if(!ct)return;
+  const client=clients.find(c=>c.id===ct.client_id);
+  const ctProjs=projects.filter(p=>p.contract_id===id);
+  const totalAmt=ct.contract_amount?Number(ct.contract_amount):0;
+  const billedAmt=ctProjs.reduce((s,p)=>s+(p.billing_amount&&p.billing_status!=='미청구'?Number(p.billing_amount):0),0);
+  const collectedAmt=ctProjs.reduce((s,p)=>s+(p.billing_amount&&p.billing_status==='수금완료'?Number(p.billing_amount):0),0);
+  const pct=totalAmt>0?Math.min(100,Math.round(billedAmt/totalAmt*100)):0;
+  const stCls='cst-'+(ct.contract_status||'검토중');
+
+  const projRows=ctProjs.map(p=>{
+    const od=toDate(p.end)<new Date()&&p.status!=='완료';
+    const ub=p.status==='완료'&&p.is_billable&&p.billing_status==='미청구';
+    const stBadge=p.status==='진행중'?'badge-blue':p.status==='완료'?'badge-gray':'badge-orange';
+    const blBadge=!p.is_billable?'badge-gray':p.billing_status==='수금완료'?'badge-green':p.billing_status==='청구완료'?'badge-blue':'badge-red';
+    return '<div class="proj-item" onclick="openProjModal(this.dataset.id)" data-id="'+p.id+'">'
+      +'<div class="proj-dot" style="background:'+TYPES[p.type]+'"></div>'
+      +'<div class="proj-info">'
+      +'<div class="proj-name">'+esc(p.name)+'</div>'
+      +'<div class="proj-sub">'+p.start+' ~ '+p.end+(p.members.length?' · '+p.members.join(', '):'')+'</div>'
+      +(od?'<div class="proj-warn">⏰ 기간 초과</div>':'')
+      +(ub?'<div class="proj-warn">💰 빌링 미처리</div>':'')
+      +'</div>'
+      +'<div class="proj-badges">'
+      +'<span class="badge '+stBadge+'">'+p.status+'</span>'
+      +(p.is_billable?'<span class="badge '+blBadge+'">'+p.billing_status+'</span>':'<span class="badge badge-gray">비청구</span>')
+      +(p.billing_amount?'<span style="font-size:11px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')
+      +'</div></div>';
+  }).join('');
+
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:640px"><div class="modal-title">'+esc(ct.contract_name||'계약 상세')+'</div>'
+    // 계약 요약 카드
+    +'<div style="background:var(--navy);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap">'
+    +'<div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px">고객사</div><div style="font-size:14px;font-weight:700;color:#fff">'+esc(client?.name||'—')+'</div></div>'
+    +'<div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px">계약 금액</div><div style="font-size:14px;font-weight:700;color:#fff">'+(totalAmt?totalAmt.toLocaleString()+'원':'미입력')+'</div></div>'
+    +'<div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px">기간</div><div style="font-size:14px;font-weight:700;color:#fff">'+(ct.contract_start_date?ct.contract_start_date+' ~ '+(ct.contract_end_date||''):'미입력')+'</div></div>'
+    +'<div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:4px">상태</div><span class="badge '+stCls+'">'+(ct.contract_status||'검토중')+'</span></div>'
+    +'</div>'
+    // 빌링 진행률
+    +(totalAmt?'<div class="card" style="margin-bottom:14px"><div class="section-label">빌링 현황</div>'
+      +'<div style="display:flex;gap:20px;margin-bottom:12px;flex-wrap:wrap">'
+      +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">계약 총액</div><div style="font-size:18px;font-weight:800;color:var(--navy)">'+totalAmt.toLocaleString()+'원</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">청구 완료</div><div style="font-size:18px;font-weight:800;color:var(--blue)">'+billedAmt.toLocaleString()+'원</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">수금 완료</div><div style="font-size:18px;font-weight:800;color:var(--green)">'+collectedAmt.toLocaleString()+'원</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">미청구 잔액</div><div style="font-size:18px;font-weight:800;color:'+(totalAmt-billedAmt>0?'var(--red)':'var(--green)')+'">'+Math.max(0,totalAmt-billedAmt).toLocaleString()+'원</div></div>'
+      +'</div>'
+      +'<div style="background:var(--bg);border-radius:20px;height:8px;overflow:hidden"><div style="width:'+pct+'%;height:100%;border-radius:20px;background:'+(pct>=100?'var(--green)':pct>50?'var(--blue)':'var(--orange)')+'"></div></div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;text-align:right">'+pct+'% 청구 완료</div>'
+      +'</div>':'')
+    // 계약 상세 정보
+    +'<div class="card" style="margin-bottom:14px"><div class="section-label">계약 정보</div>'
+    +(ct.contract_code?'<div class="info-row"><span class="info-label">계약 코드</span><span class="info-value">'+esc(ct.contract_code)+'</span></div>':'')
+    +(ct.contract_type?'<div class="info-row"><span class="info-label">계약 유형</span><span class="info-value">'+esc(ct.contract_type)+'</span></div>':'')
+    +(ct.vat_included!=null?'<div class="info-row"><span class="info-label">VAT</span><span class="info-value">'+(ct.vat_included?'포함':'별도')+'</span></div>':'')
+    +(ct.billing_contact_name?'<div class="info-row"><span class="info-label">빌링 담당</span><span class="info-value">'+esc(ct.billing_contact_name)+(ct.billing_contact_email?' ('+esc(ct.billing_contact_email)+')':'')+'</span></div>':'')
+    +(ct.counterparty_contact_name?'<div class="info-row"><span class="info-label">거래처 담당</span><span class="info-value">'+esc(ct.counterparty_contact_name)+(ct.counterparty_contact_email?' ('+esc(ct.counterparty_contact_email)+')':'')+'</span></div>':'')
+    +(ct.description?'<div class="info-row" style="flex-direction:column;align-items:flex-start"><span class="info-label" style="margin-bottom:4px">용역 내용</span><span style="font-size:12px;color:var(--text2);line-height:1.6">'+esc(ct.description)+'</span></div>':'')
+    +(ct.memo?'<div class="info-row" style="flex-direction:column;align-items:flex-start"><span class="info-label" style="margin-bottom:4px">메모</span><span style="font-size:12px;color:var(--text2)">'+esc(ct.memo)+'</span></div>':'')
+    +'</div>'
+    // 연결된 프로젝트
+    +'<div class="card"><div class="section-label">연결된 프로젝트 ('+ctProjs.length+'건) '
+    +'<button class="btn primary sm" onclick="openProjModalWithContract(\''+id+'\',\''+ct.client_id+'\')">+ 프로젝트 추가</button></div>'
+    +(projRows||'<div style="color:var(--text3);font-size:13px;padding:12px 0">연결된 프로젝트가 없습니다</div>')
+    +'</div>'
+    +'<div class="modal-footer"><div></div>'
+    +'<div class="modal-footer-right">'
+    +(isAdmin||ct.created_by===currentUser?.id?'<button class="btn ghost" onclick="closeModal();openContractModal(\''+id+'\')">수정</button>':'')
+    +'<button class="btn ghost" onclick="closeModal()">닫기</button>'
+    +'</div></div>'
+    +'</div></div>';
+}
+
+function openProjModalWithContract(contractId, clientId){
+  closeModal();
+  setTimeout(()=>{
+    openProjModal(null, clientId, contractId);
+  },60);
+}
+
+function autoFillFromContract(contractId){
+  if(!contractId)return;
+  const ct=contracts.find(x=>x.id===contractId);
+  if(!ct)return;
+  // 기간 자동 채움 (비어있을 때만)
+  const startEl=document.getElementById('fStart');
+  const endEl=document.getElementById('fEnd');
+  if(startEl&&!startEl.value&&ct.contract_start_date) startEl.value=ct.contract_start_date;
+  if(endEl&&!endEl.value&&ct.contract_end_date) endEl.value=ct.contract_end_date;
+  // 빌링 금액 힌트 표시
+  if(ct.contract_amount){
+    const amtEl=document.getElementById('fAmt');
+    if(amtEl&&!amtEl.value) amtEl.placeholder='계약금액: '+Number(ct.contract_amount).toLocaleString()+'원';
+  }
+  refreshConflict();
 }
 
 // ── Client Modal ──
@@ -909,20 +1155,35 @@ function renderLegend(){
 }
 
 // ── Project Modal ──
-function openProjModal(eid,preClientId){
+function openProjModal(eid,preClientId,preContractId){
   editingProjId=eid||null;
   const p=eid?projects.find(x=>x.id===eid):null;
   formMembers=p?[...p.members]:(currentMember?[currentMember.name]:[]);
   const editable=!p||canEdit(p);
   const d=daysInMonth(curYear,curMonth);
-  const cOpts=clients.map(c=>'<option value="'+c.id+'"'+((p&&p.client_id===c.id)||(preClientId===c.id)?' selected':'')+'>'+c.name+'</option>').join('');
-  const mOpts=members.map(m=>'<option value="'+m.name+'">'+m.name+'</option>').join('');
+  const selClientId=p?.client_id||preClientId||'';
+  const selContractId=p?.contract_id||preContractId||'';
+  const cOpts=clients.map(c=>'<option value="'+c.id+'"'+(selClientId===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+  // 선택된 고객사의 계약 목록
+  const clientContracts=contracts.filter(ct=>ct.client_id===selClientId);
+  const ctOpts=clientContracts.map(ct=>'<option value="'+ct.id+'"'+(selContractId===ct.id?' selected':'')+'>'+esc(ct.contract_name)+(ct.contract_amount?' ('+Number(ct.contract_amount).toLocaleString()+'원)':'')+'</option>').join('');
+  const mOpts=members.map(m=>'<option value="'+m.name+'">'+esc(m.name)+'</option>').join('');
   const isBillable=p?p.is_billable!==false:true;
+
+  // 연결된 계약 정보 표시용
+  const linkedContract=selContractId?contracts.find(x=>x.id===selContractId):null;
+
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
     +'<div class="modal"><div class="modal-title">'+(p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가')+'</div>'
-    +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="'+(p?p.name:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">고객사</label><select id="fClient" '+(editable?'':'disabled')+'><option value="">고객사 없음</option>'+cOpts+'</select></div>'
+    +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="'+esc(p?p.name:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-half">'
+    +'<div class="form-row"><label class="form-label">고객사</label><select id="fClient" '+(editable?'onchange="onClientChange()"':'disabled')+'><option value="">고객사 없음</option>'+cOpts+'</select></div>'
+    +'<div class="form-row"><label class="form-label">계약 연결 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label>'
+    +'<select id="fContract" '+(editable?'onchange="onContractChange()"':'disabled')+'>'
+    +'<option value="">계약 없음</option>'+ctOpts+'</select></div>'
+    +'</div>'
+    +(linkedContract?'<div id="contractHint" style="background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--blue);margin-bottom:10px">📄 '+esc(linkedContract.contract_name)+(linkedContract.contract_amount?' · 계약금액 '+Number(linkedContract.contract_amount).toLocaleString()+'원':'')+(linkedContract.contract_start_date?' · '+linkedContract.contract_start_date+' ~ '+(linkedContract.contract_end_date||''):'')+'</div>':'<div id="contractHint"></div>')
     +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="fType" '+(editable?'':'disabled')+'>'+Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')+'</select></div>'
     +'<div class="form-row"><label class="form-label">상태</label><select id="fStatus" '+(editable?'':'disabled')+'><option '+(p&&p.status==='진행중'?'selected':'')+'>진행중</option><option '+(p&&p.status==='예정'?'selected':'')+'>예정</option><option '+(p&&p.status==='완료'?'selected':'')+'>완료</option></select></div></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="'+(p?p.start:curYear+'-'+pad(curMonth)+'-01')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
@@ -934,12 +1195,12 @@ function openProjModal(eid,preClientId){
     +'<div class="checkbox-row"><input type="checkbox" id="fBillable" '+(isBillable?'checked':'')+' '+(editable?'':'disabled')+'/><label for="fBillable">빌링 대상 프로젝트</label></div>'
     +'<div id="billingFields" style="'+(isBillable?'':'display:none')+'">'
     +'<div class="form-half"><div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" '+(editable?'':'disabled')+'>'+['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></div>'
-    +'<div class="form-row"><label class="form-label">금액 (원)</label><input id="fAmt" type="number" value="'+(p&&p.billing_amount?p.billing_amount:'')+'" placeholder="예) 5000000" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="'+(p&&p.billing_note?p.billing_note:'')+'" placeholder="인보이스 번호, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">이번 청구 금액 (원)</label><input id="fAmt" type="number" value="'+(p&&p.billing_amount?p.billing_amount:'')+'" placeholder="'+(linkedContract?.contract_amount?'계약금액: '+Number(linkedContract.contract_amount).toLocaleString():'예) 5000000')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="'+esc(p&&p.billing_note?p.billing_note:'')+'" placeholder="인보이스 번호, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">프로젝트 정보와 고객사 정보를 바탕으로 세금계산서 발행 요청 메일 문안을 바로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="'+(p?p.id:'')+'" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div><div class="muted" style="margin-top:8px">추가 입력값은 브라우저에만 저장됩니다.</div></div>'
     +'</div>'
     +'<div class="divider">메모</div>'
-    +'<div class="form-row"><textarea id="fMemo" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+( p&&p.memo?p.memo:'')+'</textarea></div>'
+    +'<div class="form-row"><textarea id="fMemo" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p&&p.memo?p.memo:'')+'</textarea></div>'
     +(p?'<div class="divider">작업 메모 / 답글</div><div id="projectCommentSection"><div class="comment-system">댓글을 불러오는 중입니다.</div></div>':'')
     +(!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':'')
     +'<div id="conflictArea"></div>'
@@ -955,6 +1216,35 @@ function openProjModal(eid,preClientId){
   }
   document.getElementById('fName').focus();
   if(p) loadProjectComments(p.id);
+}
+
+function onClientChange(){
+  const clientId=document.getElementById('fClient')?.value||'';
+  const ctSel=document.getElementById('fContract');
+  if(!ctSel)return;
+  const clientContracts=contracts.filter(ct=>ct.client_id===clientId);
+  ctSel.innerHTML='<option value="">계약 없음</option>'
+    +clientContracts.map(ct=>'<option value="'+ct.id+'">'+esc(ct.contract_name)+(ct.contract_amount?' ('+Number(ct.contract_amount).toLocaleString()+'원)':'')+'</option>').join('');
+  updateContractHint('');
+}
+
+function onContractChange(){
+  const ctId=document.getElementById('fContract')?.value||'';
+  updateContractHint(ctId);
+  autoFillFromContract(ctId);
+}
+
+function updateContractHint(ctId){
+  const hint=document.getElementById('contractHint');if(!hint)return;
+  if(!ctId){hint.innerHTML='';hint.style.display='none';return;}
+  const ct=contracts.find(x=>x.id===ctId);if(!ct){hint.innerHTML='';return;}
+  hint.style.display='block';
+  hint.innerHTML='📄 '+esc(ct.contract_name)
+    +(ct.contract_amount?' · 계약금액 '+Number(ct.contract_amount).toLocaleString()+'원':'')
+    +(ct.contract_start_date?' · '+ct.contract_start_date+' ~ '+(ct.contract_end_date||''):'');
+  // 빌링 금액 placeholder도 업데이트
+  const amtEl=document.getElementById('fAmt');
+  if(amtEl&&!amtEl.value&&ct.contract_amount) amtEl.placeholder='계약금액: '+Number(ct.contract_amount).toLocaleString()+'원';
 }
 
 function renderMemberTags(){
@@ -974,16 +1264,15 @@ function refreshConflict(){
 
 function copyProj(){
   const p=projects.find(x=>x.id===editingProjId);if(!p)return;
-  const cid=p.client_id;
   closeModal();
   setTimeout(()=>{
-    openProjModal(null,cid);
+    openProjModal(null,p.client_id,p.contract_id);
     setTimeout(()=>{
-      document.getElementById('fName').value=p.name+' (복사)';
+      document.getElementById('fName').value=esc(p.name)+' (복사)';
       if(document.getElementById('fType'))document.getElementById('fType').value=p.type;
       if(document.getElementById('fStatus'))document.getElementById('fStatus').value='예정';
       formMembers=[...p.members];renderMemberTags();
-    },60);
+    },80);
   },60);
 }
 
@@ -994,6 +1283,7 @@ async function saveProj(){
   const end=document.getElementById('fEnd').value;
   const status=document.getElementById('fStatus').value;
   const client_id=document.getElementById('fClient').value||null;
+  const contract_id=document.getElementById('fContract')?.value||null;
   const is_billable=document.getElementById('fBillable').checked;
   const billing_status=is_billable?document.getElementById('fBilling').value:'미청구';
   const billing_amount=is_billable&&document.getElementById('fAmt').value?parseInt(document.getElementById('fAmt').value):null;
@@ -1003,16 +1293,20 @@ async function saveProj(){
   if(start>end){alert('종료일이 시작일보다 빠릅니다.');return;}
   try{
     if(editingProjId){
-      await api('PATCH','projects?id=eq.'+editingProjId,{name,type,start_date:start,end_date:end,status,client_id,is_billable,billing_status,billing_amount,billing_note,memo});
+      await api('PATCH','projects?id=eq.'+editingProjId,{name,type,start_date:start,end_date:end,status,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo});
       await api('DELETE','project_members?project_id=eq.'+editingProjId);
     }else{
-      const res=await api('POST','projects',{name,type,start_date:start,end_date:end,status,client_id,is_billable,billing_status,billing_amount,billing_note,memo,created_by:currentUser.id});
+      const res=await api('POST','projects',{name,type,start_date:start,end_date:end,status,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,created_by:currentUser.id});
       editingProjId=res[0].id;
     }
     for(const mn of formMembers){const mem=members.find(m=>m.name===mn);if(mem)await api('POST','project_members',{project_id:editingProjId,member_id:mem.id});}
     closeModal();await loadAll();
     if(curPage==='gantt')renderGantt();
-    else if(curPage==='detail'){const cid=clients.find(c=>projects.find(p=>p.id===editingProjId)?.client_id===c.id)?.id;if(cid)openClientDetail(cid);else setPage('clients');}
+    else if(curPage==='detail'){
+      const savedProj=projects.find(p=>p.id===editingProjId);
+      const cid=savedProj?.client_id;
+      if(cid)openClientDetail(cid,'projects');else setPage('clients');
+    }
     else renderClients();
   }catch(e){alert('저장 오류: '+e.message);}
 }
