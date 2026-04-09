@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>성연회계법인</title>
+<title>Bexley</title>
 <style>
 :root{
   --bg:#f2f4f6;
@@ -80,7 +80,8 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .alert-title.red{color:var(--red)}
 .alert-title.orange{color:var(--orange)}
 .alert-items{display:flex;flex-wrap:wrap;gap:4px}
-.alert-tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+.alert-tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;border:none;cursor:pointer;font-family:inherit}
+.alert-tag:hover{opacity:.88}
 .alert-tag.red{background:#ffe0e3;color:var(--red)}
 .alert-tag.orange{background:#ffe4cc;color:var(--orange)}
 
@@ -91,6 +92,16 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .pinned-card-title{font-size:13px;font-weight:700;color:#fff;margin-bottom:3px}
 .pinned-card-preview{font-size:11px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pinned-card-date{font-size:11px;color:rgba(255,255,255,.3);flex-shrink:0}
+
+
+.weekly-schedule-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.weekly-list{display:flex;flex-direction:column;gap:8px}
+.weekly-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--bg)}
+.weekly-item:last-child{border-bottom:none}
+.weekly-name{font-size:13px;font-weight:800;color:var(--navy)}
+.weekly-sub{font-size:11px;color:#5b6b7f;margin-top:4px;font-weight:600}
+.weekly-empty{font-size:12px;color:var(--text3);padding:8px 0}
+@media (max-width: 768px){.weekly-schedule-grid{grid-template-columns:1fr}}
 
 /* Board */
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
@@ -152,17 +163,17 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .month-nav-btn:hover{background:var(--bg);color:var(--text)}
 .gantt-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
 table{border-collapse:collapse;min-width:100%}
-.th-label{position:sticky;left:0;z-index:3;background:#f8f9fa;font-size:11px;font-weight:700;color:var(--text3);padding:10px 14px;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border2);min-width:140px;letter-spacing:.2px;text-transform:uppercase}
+.th-label{position:sticky;left:0;z-index:3;background:#f7fafc;font-size:11px;font-weight:800;color:#6b7684;padding:10px 14px;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid #dbe2ea;min-width:160px;letter-spacing:.2px;text-transform:uppercase}
 .th-day{font-size:10px;color:var(--text3);padding:6px 2px;text-align:center;min-width:28px;border-bottom:1px solid var(--border);font-weight:500}
 .th-day.weekend{background:#fafafa;color:var(--blue)}
 .th-day.today-h{background:var(--blue);color:#fff;font-weight:800}
 .sec-row td{background:#f8f9fa;font-size:11px;font-weight:700;color:var(--text3);padding:5px 14px;border-top:1px solid var(--border);letter-spacing:.2px;text-transform:uppercase}
-.row-label{position:sticky;left:0;z-index:2;background:var(--card);font-size:12px;color:var(--text);padding:6px 14px;white-space:nowrap;border-right:1px solid var(--border2);vertical-align:middle;cursor:pointer}
-.row-label:hover{background:var(--bg)}
-.row-label .rn{font-weight:700;color:var(--navy);letter-spacing:-.2px}
-.row-label .rs{font-size:11px;color:var(--text3);margin-top:2px}
-.row-label.row-warn{background:#fffbf0}
-.row-label.row-conflict{background:#fff5f5}
+.row-label{position:sticky;left:0;z-index:2;background:linear-gradient(180deg,#ffffff 0%,#fbfcfe 100%);font-size:12px;color:var(--text);padding:8px 14px;white-space:nowrap;border-right:1px solid #dbe2ea;vertical-align:middle;cursor:pointer}
+.row-label:hover{background:#f4f8fd}
+.row-label .rn{font-weight:800;color:var(--navy);letter-spacing:-.2px}
+.row-label .rs{font-size:11px;color:#5b6b7f;margin-top:4px;font-weight:600}
+.row-label.row-warn{background:#fff8f2}
+.row-label.row-conflict{background:#fff6f8}
 .cell{min-width:28px;height:34px;padding:0;position:relative;border-right:1px solid #f0f2f4}
 .cell.weekend{background:#fafafa}
 .cell.today-c{background:rgba(49,130,246,.06)}
@@ -180,6 +191,8 @@ table{border-collapse:collapse;min-width:100%}
 /* Dash */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.stat-card.clickable{cursor:pointer;transition:all .15s}
+.stat-card.clickable:hover{border-color:var(--blue);box-shadow:var(--shadow);transform:translateY(-2px)}
 .stat-label{font-size:12px;font-weight:600;color:var(--text3);margin-bottom:10px}
 .stat-num{font-size:32px;font-weight:800;color:var(--navy);letter-spacing:-1px;line-height:1}
 .stat-sub{font-size:11px;color:var(--text3);margin-top:6px}
@@ -237,6 +250,19 @@ table{border-collapse:collapse;min-width:100%}
 .helper-text{font-size:12px;color:var(--text2);line-height:1.7}
 .copy-area{width:100%;min-height:220px;padding:12px 14px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text2);font-family:inherit;line-height:1.7;resize:vertical}
 .muted{font-size:11px;color:var(--text3)}
+
+.comment-list{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.comment-item{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff}
+.comment-item.reply{margin-left:26px;background:var(--bg)}
+.comment-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.comment-author{font-size:12px;font-weight:700;color:var(--navy)}
+.comment-date{font-size:11px;color:var(--text3)}
+.comment-body{font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap}
+.comment-actions{display:flex;gap:6px;margin-top:8px}
+.comment-editor{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.comment-empty{font-size:12px;color:var(--text3);padding:10px 0}
+.comment-system{background:var(--bg);border:1px dashed var(--border2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text3);line-height:1.6}
+
 /* Popup */
 .popup-bg{position:fixed;inset:0;background:rgba(25,31,40,.75);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
 .popup-box{background:var(--card);border-radius:20px;padding:32px;width:400px;max-width:100%;text-align:center}
@@ -273,7 +299,7 @@ table{border-collapse:collapse;min-width:100%}
   <div class="login-box">
     <div class="login-logo">
       <div class="login-logo-mark">S</div>
-      <h1>성연회계법인</h1>
+      <h1>Bexley</h1>
       <p>업무 관리 시스템</p>
     </div>
     <div class="login-tabs">
@@ -290,7 +316,7 @@ table{border-collapse:collapse;min-width:100%}
 <!-- 메인 -->
 <div id="mainApp" style="display:none">
   <div class="header">
-    <div class="header-logo">성연<span>.</span></div>
+    <div class="header-logo">Bexley</div>
     <nav class="header-nav">
       <button class="nav-btn active" id="navClients" onclick="setPage('clients')">고객사</button>
       <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">스케줄</button>
@@ -310,6 +336,7 @@ table{border-collapse:collapse;min-width:100%}
     <!-- 고객사 -->
     <div id="pageClients" style="display:none">
       <div id="alertWrap" class="alert-wrap"></div>
+      <div id="memberScheduleWrap"></div>
       <div id="pinnedWrap"></div>
       <div class="section-header">
         <h2 class="section-title" id="boardTitle">고객사</h2>
@@ -339,9 +366,9 @@ table{border-collapse:collapse;min-width:100%}
         </div>
         <button class="btn sm" id="gvp" onclick="setGView('project')">프로젝트별</button>
         <button class="btn sm" id="gvm" onclick="setGView('member')">인력별</button>
-        <button class="btn sm" onclick="goToday()">오늘</button>
-        <select id="memberFilter" style="font-size:12px"><option value="me">내 프로젝트</option><option value="">전체</option></select>
-        <button class="btn primary sm" onclick="openProjModal()" style="margin-left:auto">+ 프로젝트</button>
+        <select id="memberFilter" style="font-size:12px"><option value="me">내 일정</option><option value="">전체</option></select>
+        <button class="btn sm" onclick="openScheduleModal()" style="margin-left:auto">+ 일정</button>
+        <button class="btn primary sm" onclick="openProjModal()">+ 프로젝트</button>
       </div>
       <div class="gantt-wrap" id="ganttWrap"></div>
       <div class="legend" id="legend"></div>
@@ -368,15 +395,21 @@ table{border-collapse:collapse;min-width:100%}
 const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null;
-let projects=[],members=[],clients=[],notices=[];
-let noticeReadIds=new Set();
+let projects=[],members=[],clients=[],notices=[],schedules=[];
 let curPage='clients',curGView='project';
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
 let editingProjId=null,formMembers=[],editingClientId=null;
+let projectComments=[],activeReplyParentId=null;
 
-const TYPES={'감사':'#191f28','세무':'#1b64da','밸류에이션':'#f04452','자문':'#6b4fbb','실사':'#00a65a','휴가':'#8b95a1','기타':'#4e5968'};
+const TYPES={'감사':'#4E5968','세무':'#3182F6','밸류에이션':'#8B7CF6','자문':'#5B8DEF','실사':'#2BB673','기타':'#7B8794'};
 const ST_OP={'진행중':1,'예정':.5,'완료':.3};
+const SCHEDULE_META={
+  leave:{label:'휴가',color:'#52C41A'},
+  fieldwork:{label:'필드웍',color:'#5B8DEF'},
+  internal:{label:'내부업무',color:'#8B95A1'},
+  project:{label:'프로젝트 일정',color:'#3182f6'}
+};
 
 // ── Auth ──
 function saveSession(s){accessToken=s.access_token;refreshToken=s.refresh_token;currentUser=s.user;localStorage.setItem('sb_a',accessToken);localStorage.setItem('sb_r',refreshToken);}
@@ -442,23 +475,20 @@ async function api(method,path,body){
 async function loadAll(){
   setStatus('불러오는 중...');
   try{
-    const readPath=currentUser?.id
-      ? 'notice_reads?user_id=eq.'+encodeURIComponent(currentUser.id)+'&select=notice_id'
-      : null;
-    const [projs,mems,pm,cls,nts,reads]=await Promise.all([
+    const[projs,mems,pm,cls,nts,schs]=await Promise.all([
       api('GET','projects?select=*&order=start_date'),
       api('GET','members?select=*&order=name'),
       api('GET','project_members?select=project_id,member_id,members(name)'),
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
-      readPath ? api('GET',readPath).catch(()=>[]) : Promise.resolve([])
+      api('GET','schedules?select=*&order=start_date')
     ]);
     members=mems||[];
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
     clients=cls||[];notices=nts||[];
-    noticeReadIds=new Set((reads||[]).map(r=>r.notice_id));
+    schedules=(schs||[]).map(s=>({...s,start:s.start_date,end:s.end_date,member_name:s.member_name||members.find(m=>m.id===s.member_id)?.name||''}));
     populateMemberFilter();
-    setStatus('✓ '+clients.length+'개 고객사 · '+projects.length+'개 프로젝트','ok');
+    setStatus('✓ '+clients.length+'개 고객사 · '+projects.length+'개 프로젝트 · '+schedules.length+'개 일정','ok');
     updateNoticeDot();
   }catch(e){setStatus('오류: '+e.message,'err');}
 }
@@ -471,19 +501,8 @@ function setStatus(msg,type=''){
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function noticeReadKey(id){return 'notice_read_'+(currentUser?.id||'guest')+'_'+id;}
-function isNoticeRead(id){return noticeReadIds.has(id)||localStorage.getItem(noticeReadKey(id))==='1';}
-async function markNoticeRead(id){
-  try{
-    if(currentUser?.id){
-      await api('POST','notice_reads',{notice_id:id,user_id:currentUser.id});
-      noticeReadIds.add(id);
-    }
-  }catch(e){
-    console.warn('notice_reads insert failed',e);
-  }
-  localStorage.setItem(noticeReadKey(id),'1');
-  noticeReadIds.add(id);
-}
+function isNoticeRead(id){return localStorage.getItem(noticeReadKey(id))==='1';}
+function markNoticeRead(id){localStorage.setItem(noticeReadKey(id),'1');}
 function getUnreadRequiredNotices(){return notices.filter(n=>n.require_confirm&&!isNoticeRead(n.id));}
 function billingDraftKey(id){return 'billing_draft_'+(currentUser?.id||'guest')+'_'+id;}
 function getBillingDraft(id){try{return JSON.parse(localStorage.getItem(billingDraftKey(id))||'{}');}catch(e){return {};}}
@@ -493,42 +512,48 @@ async function copyText(text){
   catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('메일 문안을 복사했습니다.');}
 }
 function inferBillingMonth(project){const base=project?.end||project?.start||new Date().toISOString().slice(0,10);const d=toDate(base);return d.getFullYear()+'년 '+String(d.getMonth()+1).padStart(2,'0')+'월';}
+function formatBillingDate(value){
+  if(!value) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(value)){
+    const d=toDate(value);
+    return (d.getMonth()+1)+'월 '+d.getDate()+'일';
+  }
+  return value;
+}
 function buildBillingEmail(project, client, helper){
-  const owner=helper.billing_owner||project?.billing_owner||currentMember?.name||currentUser?.email||'';
+  const taxName=helper.tax_invoice_name||'';
+  const companyName=client?.name||'';
+  const contractName=project?.name||'';
   const amount=helper.billing_amount||project?.billing_amount||'';
-  const month=helper.billing_month||project?.billing_month||inferBillingMonth(project);
-  const taxContact=helper.tax_invoice_contact||project?.tax_invoice_contact||[client?.contact_name, client?.contact_email].filter(Boolean).join(' / ');
-  const filePath=helper.file_path||project?.file_path||'';
-  const note=helper.extra_note||project?.billing_note||'';
-  return `[세금계산서 발행 요청] ${client?.name||'고객사명'} / ${project?.name||'프로젝트명'} / ${month}
+  const issueDate=formatIssueDateInput(helper.issue_date||'');
+  const contactName=helper.client_contact_name||client?.contact_name||'';
+  const contactEmail=helper.client_contact_email||client?.contact_email||'';
+  return `안녕하세요, ${taxName}님 
+${companyName} ${contractName} 관련하여 다음과 같이 세금계산서 발급 부탁드립니다.  
 
-안녕하세요.
+대상회사 : ${companyName}
+빌링금액 : ${amount?Number(amount).toLocaleString():''} ${amount?'(VAT별도)':''}
+일자 : ${issueDate}
+품목 : ${contractName}
+발급이메일 : ${contactName} ${contactEmail}`;
+}
 
-아래 건 세금계산서 발행 요청드립니다.
-
-1. 기본 정보
-- 고객사: ${client?.name||''}
-- 프로젝트명: ${project?.name||''}
-- 담당자: ${owner}
-- 공급가액: ${amount?Number(amount).toLocaleString()+'원':''}
-- 발행 기준월: ${month}
-- 세금계산서 담당자: ${taxContact}
-
-2. 파일 정리 위치
-- ${filePath||'파일 경로 입력 필요'}
-
-3. 저장 필요 자료
-- 계약서 또는 발주서
-- 금액 산정 근거 파일
-- 세금계산서 발행 관련 메일
-- 발행 완료 자료
-
-4. 비고
-- ${note||'-'}
-
-발행 완료 후 시스템 내 빌링 상태를 업데이트 부탁드립니다.
-
-감사합니다.`;
+function formatCommentDate(ts){
+  if(!ts)return '';
+  const d=new Date(ts);
+  const yy=d.getFullYear();
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const dd=String(d.getDate()).padStart(2,'0');
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mi=String(d.getMinutes()).padStart(2,'0');
+  return `${yy}.${mm}.${dd} ${hh}:${mi}`;
+}
+function formatIssueDateInput(value){
+  const v=String(value||'').trim();
+  if(!v)return '';
+  const m=v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m)return `${Number(m[2])}월 ${Number(m[3])}일`;
+  return v;
 }
 
 // ── Alerts ──
@@ -536,25 +561,64 @@ function getAlerts(){
   const today=new Date();today.setHours(0,0,0,0);
   const overdue=[],unbilled=[];
   projects.forEach(p=>{
-    if(toDate(p.end)<today&&p.status!=='완료')overdue.push(p.name);
-    if(p.status==='완료'&&p.is_billable&&p.billing_status==='미청구')unbilled.push(p.name);
+    if(toDate(p.end)<today&&p.status!=='완료')overdue.push({id:p.id,name:p.name});
+    if(p.status==='완료'&&p.is_billable&&p.billing_status==='미청구')unbilled.push({id:p.id,name:p.name});
   });
   return{overdue,unbilled};
 }
-
+function openAlertProject(id){
+  if(!id)return;
+  openProjModal(id);
+}
+function getWeekBounds(){
+  const base=new Date();
+  base.setHours(0,0,0,0);
+  const day=base.getDay();
+  const diffToMonday=(day+6)%7;
+  const start=new Date(base);
+  start.setDate(base.getDate()-diffToMonday);
+  const end=new Date(start);
+  end.setDate(start.getDate()+6);
+  end.setHours(23,59,59,999);
+  return {start,end};
+}
+function formatRangeShort(start,end){
+  const s=toDate(start),e=toDate(end);
+  const sm=s.getMonth()+1, sd=s.getDate(), em=e.getMonth()+1, ed=e.getDate();
+  return sm===em && sd===ed ? `${sm}.${sd}` : `${sm}.${sd} ~ ${em}.${ed}`;
+}
+function getWeeklySchedules(){
+  const {start,end}=getWeekBounds();
+  const inWeek=s=>toDate(s.start)<=end && toDate(s.end)>=start;
+  const sortFn=(a,b)=>toDate(a.start)-toDate(b.start) || (a.member_name||'').localeCompare(b.member_name||'');
+  return {
+    leave:schedules.filter(s=>s.schedule_type==='leave'&&inWeek(s)).sort(sortFn),
+    fieldwork:schedules.filter(s=>s.schedule_type==='fieldwork'&&inWeek(s)).sort(sortFn)
+  };
+}
+function renderWeeklyScheduleSummary(){
+  const el=document.getElementById('memberScheduleWrap');
+  if(!el)return;
+  const week=getWeeklySchedules();
+  const section=(title,icon,type,items,badgeClass)=>`<div class="card"><div class="section-label">${icon} ${title}</div><div class="weekly-list">${items.length?items.map(s=>`<div class="weekly-item"><div><div class="weekly-name">${esc(s.member_name||'담당자 미지정')}</div><div class="weekly-sub">${formatRangeShort(s.start,s.end)}${s.location?` · ${esc(s.location)}`:''}${s.title?` · ${esc(s.title)}`:''}</div></div><span class="badge ${badgeClass}">${scheduleLabel(type)}</span></div>`).join(''):`<div class="weekly-empty">${type==='leave'?'이번 주 휴가 일정이 없습니다.':type==='fieldwork'?'이번 주 필드웍 일정이 없습니다.':'이번 주 일정이 없습니다.'}</div>`}</div></div>`;
+  el.innerHTML='<div class="weekly-schedule-grid">'
+    +section('이번 주 휴가자','🌿','leave',week.leave,'badge-green')
+    +section('이번 주 필드웍','🚗','fieldwork',week.fieldwork,'badge-orange')
+    +'</div>';
+}
 function renderAlerts(){
   const{overdue,unbilled}=getAlerts();
   const el=document.getElementById('alertWrap');
   let html='';
-  if(overdue.length)html+='<div class="alert-card red" onclick="setPage(\'gantt\')">'
+  if(overdue.length)html+='<div class="alert-card red" onclick="openAlertProject(\''+overdue[0].id+'\')">'
     +'<div class="alert-icon">⏰</div><div class="alert-body">'
-    +'<div class="alert-title red">기간 초과 — 완료 처리 필요 ('+overdue.length+'건)</div>'
-    +'<div class="alert-items">'+overdue.slice(0,5).map(n=>'<span class="alert-tag red">'+n+'</span>').join('')+'</div>'
+    +'<div class="alert-title red">기한이 지났는데 아직 진행중인 프로젝트 ('+overdue.length+'건)</div>'
+    +'<div class="alert-items">'+overdue.slice(0,5).map(x=>'<span class="alert-tag red" onclick="event.stopPropagation();openAlertProject(\''+x.id+'\')">'+esc(x.name)+'</span>').join('')+'</div>'
     +'</div></div>';
-  if(unbilled.length)html+='<div class="alert-card orange" onclick="setPage(\'dash\')">'
+  if(unbilled.length)html+='<div class="alert-card orange" onclick="openAlertProject(\''+unbilled[0].id+'\')">'
     +'<div class="alert-icon">💰</div><div class="alert-body">'
-    +'<div class="alert-title orange">완료됐으나 빌링 미처리 ('+unbilled.length+'건)</div>'
-    +'<div class="alert-items">'+unbilled.slice(0,5).map(n=>'<span class="alert-tag orange">'+n+'</span>').join('')+'</div>'
+    +'<div class="alert-title orange">완료됐지만 아직 빌링하지 않은 프로젝트 ('+unbilled.length+'건)</div>'
+    +'<div class="alert-items">'+unbilled.slice(0,5).map(x=>'<span class="alert-tag orange" onclick="event.stopPropagation();openAlertProject(\''+x.id+'\')">'+esc(x.name)+'</span>').join('')+'</div>'
     +'</div></div>';
   el.innerHTML=html;
 }
@@ -572,8 +636,8 @@ function checkPopup(){
     +'<button class="btn primary" style="width:100%;padding:12px;font-size:14px;font-weight:800" data-id="'+n.id+'" onclick="acknowledgeNotice(this.dataset.id)">확인했습니다</button>'
     +'</div></div>';
 }
-async function acknowledgeNotice(id){
-  await markNoticeRead(id);
+function acknowledgeNotice(id){
+  markNoticeRead(id);
   document.getElementById('popupArea').innerHTML='';
   updateNoticeDot();
   checkPopup();
@@ -588,7 +652,7 @@ function setPage(page){
   const navs={clients:'navClients',detail:'navClients',gantt:'navGantt',dash:'navDash',notice:'navNotice'};
   document.getElementById(pages[page]).style.display='block';
   document.getElementById(navs[page]).classList.add('active');
-  if(page==='clients'){renderAlerts();renderClients();}
+  if(page==='clients'){renderAlerts();renderWeeklyScheduleSummary();renderClients();}
   else if(page==='gantt')renderGantt();
   else if(page==='dash')renderDash();
   else if(page==='notice')renderNotices();
@@ -719,8 +783,16 @@ function hasConflict(p){if(p.type==='휴가')return false;return projects.some(o
 function getConflicts(mems,s,e,xid){return projects.filter(o=>{if(o.id===xid||o.type==='휴가')return false;if(!mems.some(m=>o.members.includes(m)))return false;return toDate(s)<=toDate(o.end)&&toDate(e)>=toDate(o.start);}).map(o=>o.name);}
 function canEdit(p){return isAdmin||(currentUser&&p.created_by===currentUser.id);}
 function isOverdue(p){return toDate(p.end)<new Date()&&p.status!=='완료';}
-function goToday(){curYear=NOW.getFullYear();curMonth=NOW.getMonth()+1;renderGantt();}
-
+function scheduleLabel(type){return SCHEDULE_META[type]?.label||type||'일정';}
+function scheduleColor(type){return SCHEDULE_META[type]?.color||'#8b95a1';}
+function isScheduleConflict(s){
+  if(!s.member_name)return false;
+  return projects.some(p=>p.members.includes(s.member_name)&&toDate(s.start)<=toDate(p.end)&&toDate(s.end)>=toDate(p.start)&&p.status!=='완료');
+}
+function findScheduleProjectConflict(s){
+  if(!s.member_name)return [];
+  return projects.filter(p=>p.members.includes(s.member_name)&&toDate(s.start)<=toDate(p.end)&&toDate(s.end)>=toDate(p.start)&&p.status!=='완료');
+}
 function setGView(v){
   curGView=v;
   ['gvp','gvm'].forEach(id=>{document.getElementById(id).style.cssText='';});
@@ -728,9 +800,10 @@ function setGView(v){
   renderGantt();
 }
 
+
 function populateMemberFilter(){
   const sel=document.getElementById('memberFilter');const prev=sel.value;
-  sel.innerHTML='<option value="me">내 프로젝트</option><option value="">전체</option>';
+  sel.innerHTML='<option value="me">내 일정</option><option value="">전체</option>';
   members.forEach(m=>{const o=document.createElement('option');o.value=m.name;o.textContent=m.name;sel.appendChild(o);});
   if(prev&&prev!=='me'&&prev!=='')sel.value=prev;
 }
@@ -745,16 +818,34 @@ function renderGantt(){
     if(mf&&mf!=='me'&&!p.members.includes(mf))return false;
     return toDate(p.start)<=mLast&&toDate(p.end)>=mFirst;
   });
-  if(!projs.length){document.getElementById('ganttWrap').innerHTML='<div class="empty-state" style="padding:40px">이 달에 프로젝트가 없습니다.</div>';renderLegend();return;}
-  let html='<table><thead><tr><th class="th-label">'+(curGView==='project'?'프로젝트':'인력')+'</th>';
-  for(let d=1;d<=days;d++){const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);const wd=['일','월','화','수','목','금','토'][new Date(curYear,curMonth-1,d).getDay()];html+='<th class="th-day '+(td?'today-h':wk?'weekend':'')+'">'+d+'<br><span style="font-size:9px;font-weight:400">'+wd+'</span></th>';}
+  let schs=schedules.filter(s=>{
+    const owner=s.member_name||'';
+    if(mf==='me'&&currentMember&&owner!==currentMember.name)return false;
+    if(mf&&mf!=='me'&&owner!==mf)return false;
+    return toDate(s.start)<=mLast&&toDate(s.end)>=mFirst;
+  });
+  if(!projs.length&&!schs.length){document.getElementById('ganttWrap').innerHTML='<div class="empty-state" style="padding:40px">이 달에 프로젝트와 일정이 없습니다.</div>';renderLegend();return;}
+  let html='<table><thead><tr><th class="th-label">'+(curGView==='project'?'구분':'인력')+'</th>';
+  for(let d=1;d<=days;d++){
+    const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);const wd=['일','월','화','수','목','금','토'][new Date(curYear,curMonth-1,d).getDay()];
+    html+='<th class="th-day '+(td?'today-h':wk?'weekend':'')+'">'+d+'<br><span style="font-size:9px;font-weight:400">'+wd+'</span></th>';
+  }
   html+='</tr></thead><tbody>';
   if(curGView==='project'){
     const bt={};projs.forEach(p=>{(bt[p.type]=bt[p.type]||[]).push(p);});
-    Object.entries(bt).forEach(([type,ps])=>{html+='<tr class="sec-row"><td colspan="'+(days+1)+'">'+type+' · '+ps.length+'건</td></tr>';ps.forEach(p=>{html+=gRow(p,days);});});
+    Object.entries(bt).forEach(([type,ps])=>{html+='<tr class="sec-row"><td colspan="'+(days+1)+'">프로젝트 · '+type+' · '+ps.length+'건</td></tr>';ps.forEach(p=>{html+=gRow(p,days);});});
+    const st={};schs.forEach(s=>{(st[s.schedule_type]=st[s.schedule_type]||[]).push(s);});
+    Object.entries(st).forEach(([type,items])=>{html+='<tr class="sec-row"><td colspan="'+(days+1)+'">일정 · '+scheduleLabel(type)+' · '+items.length+'건</td></tr>';items.forEach(s=>{html+=scheduleRow(s,days);});});
   }else{
     const mems=mf==='me'?[currentMember?.name].filter(Boolean):mf?[mf]:members.map(m=>m.name);
-    mems.forEach(name=>{const mp=projs.filter(p=>p.members.includes(name));if(!mp.length)return;html+='<tr class="sec-row"><td colspan="'+(days+1)+'">'+name+' · '+mp.length+'건</td></tr>';mp.forEach(p=>{html+=gRow(p,days);});});
+    mems.forEach(name=>{
+      const mp=projs.filter(p=>p.members.includes(name));
+      const ms=schs.filter(s=>(s.member_name||'')===name);
+      if(!mp.length&&!ms.length)return;
+      html+='<tr class="sec-row"><td colspan="'+(days+1)+'">'+name+' · 프로젝트 '+mp.length+'건 · 일정 '+ms.length+'건</td></tr>';
+      mp.forEach(p=>{html+=gRow(p,days);});
+      ms.forEach(s=>{html+=scheduleRow(s,days);});
+    });
   }
   html+='</tbody></table>';
   document.getElementById('ganttWrap').innerHTML=html;
@@ -775,10 +866,31 @@ function gRow(p,days){
   for(let d=1;d<=days;d++){
     const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
     const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
-    if(d===barS){cells+='<td class="'+cls+'" style="position:relative"><div class="bar'+(conf?' conflict':'')+'" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+p.name+'">'+(span>=5?p.name:'')+'</div></td>';}
+    if(d===barS){cells+='<td class="'+cls+'" style="position:relative"><div class="bar'+(conf?' conflict':'')+'" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+'">'+(span>=4?esc(p.name):'')+'</div></td>';}
     else{cells+='<td class="'+cls+'"></td>';}
   }
   return '<tr><td class="'+rowCls+'" onclick="openProjModal(\''+p.id+'\')">'+lbl+'</td>'+cells+'</tr>';
+}
+
+function scheduleRow(s,days){
+  const conflict=s.schedule_type==='leave'||s.schedule_type==='fieldwork'?findScheduleProjectConflict(s):[];
+  const color=scheduleColor(s.schedule_type);
+  const sS=toDate(s.start),sE=toDate(s.end);
+  const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
+  const barS=sS<mFirst?1:sS.getDate();const barE=sE>mLast?days:sE.getDate();const span=barE-barS+1;
+  const badges=(conflict.length?'<span class="g-badge conflict">⚡배정 확인</span>':'');
+  const rowCls='row-label'+(conflict.length?' row-conflict':'');
+  const subtitle=[scheduleLabel(s.schedule_type),s.member_name||'미배정',s.location||''].filter(Boolean).join(' · ');
+  const lbl='<div class="rn">'+esc(s.title||scheduleLabel(s.schedule_type))+badges+'</div><div class="rs">'+esc(subtitle)+'</div>';
+  let cells='';
+  for(let d=1;d<=days;d++){
+    const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
+    const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
+    if(d===barS){
+      cells+='<td class="'+cls+'" style="position:relative"><div class="bar'+(conflict.length?' conflict':'')+'" style="left:2px;right:0;background:'+color+';color:#fff;opacity:.9;border:1px solid rgba(255,255,255,.38);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc(s.title||scheduleLabel(s.schedule_type)):'')+'</div></td>';
+    } else cells+='<td class="'+cls+'"></td>';
+  }
+  return '<tr><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
 }
 
 function fixBars(){
@@ -790,7 +902,10 @@ function fixBars(){
 }
 
 function renderLegend(){
-  document.getElementById('legend').innerHTML=Object.entries(TYPES).map(([k,c])=>'<div class="legend-item"><div class="legend-dot" style="background:'+c+'"></div>'+k+'</div>').join('')+'<div class="legend-item" style="margin-left:12px;gap:8px"><span style="opacity:.3">■</span> 완료 <span style="opacity:.5">■</span> 예정 <span>■</span> 진행중</div>';
+  document.getElementById('legend').innerHTML=
+    Object.entries(TYPES).map(([k,c])=>'<div class="legend-item"><div class="legend-dot" style="background:'+c+'"></div>'+k+'</div>').join('')+
+    Object.entries(SCHEDULE_META).filter(([k])=>k!=='project').map(([k,v])=>'<div class="legend-item"><div class="legend-dot" style="background:'+v.color+';border:1px dashed rgba(0,0,0,.15)"></div>'+v.label+'</div>').join('')+
+    '<div class="legend-item" style="margin-left:12px;gap:8px"><span style="opacity:.3">■</span> 완료 <span style="opacity:.5">■</span> 예정 <span>■</span> 진행중</div>';
 }
 
 // ── Project Modal ──
@@ -820,13 +935,12 @@ function openProjModal(eid,preClientId){
     +'<div id="billingFields" style="'+(isBillable?'':'display:none')+'">'
     +'<div class="form-half"><div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" '+(editable?'':'disabled')+'>'+['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></div>'
     +'<div class="form-row"><label class="form-label">금액 (원)</label><input id="fAmt" type="number" value="'+(p&&p.billing_amount?p.billing_amount:'')+'" placeholder="예) 5000000" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">빌링 담당자</label><input id="fBOwner" value="'+(p&&p.billing_owner?p.billing_owner:'')+'" placeholder="예) 김장한" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div><div class="form-row"><label class="form-label">발행 기준월</label><input id="fBMonth" value="'+(p&&p.billing_month?p.billing_month:'')+'" placeholder="예) 2026년 04월" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">세금계산서 담당자</label><input id="fBTax" value="'+(p&&p.tax_invoice_contact?p.tax_invoice_contact:'')+'" placeholder="예) 홍길동 / tax@company.com" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div><div class="form-row"><label class="form-label">파일 경로</label><input id="fBPath" value="'+(p&&p.file_path?p.file_path:'')+'" placeholder="예) Teams > 고객관리 > A사 > 2026 > Billing" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
     +'<div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="'+(p&&p.billing_note?p.billing_note:'')+'" placeholder="인보이스 번호, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">프로젝트 정보와 고객사 정보를 바탕으로 세금계산서 발행 요청 메일 문안을 바로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="'+(p?p.id:'')+'" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div><div class="muted" style="margin-top:8px">프로젝트 저장 시 빌링 메일 관련 정보도 함께 저장됩니다.</div></div>'
+    +'<div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">프로젝트 정보와 고객사 정보를 바탕으로 세금계산서 발행 요청 메일 문안을 바로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="'+(p?p.id:'')+'" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div><div class="muted" style="margin-top:8px">추가 입력값은 브라우저에만 저장됩니다.</div></div>'
     +'</div>'
     +'<div class="divider">메모</div>'
     +'<div class="form-row"><textarea id="fMemo" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+( p&&p.memo?p.memo:'')+'</textarea></div>'
+    +(p?'<div class="divider">작업 메모 / 답글</div><div id="projectCommentSection"><div class="comment-system">댓글을 불러오는 중입니다.</div></div>':'')
     +(!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':'')
     +'<div id="conflictArea"></div>'
     +'<div class="modal-footer">'
@@ -840,6 +954,7 @@ function openProjModal(eid,preClientId){
     document.getElementById('fEnd').oninput=refreshConflict;
   }
   document.getElementById('fName').focus();
+  if(p) loadProjectComments(p.id);
 }
 
 function renderMemberTags(){
@@ -882,20 +997,16 @@ async function saveProj(){
   const is_billable=document.getElementById('fBillable').checked;
   const billing_status=is_billable?document.getElementById('fBilling').value:'미청구';
   const billing_amount=is_billable&&document.getElementById('fAmt').value?parseInt(document.getElementById('fAmt').value):null;
-  const billing_owner=is_billable?document.getElementById('fBOwner').value.trim()||null:null;
-  const billing_month=is_billable?document.getElementById('fBMonth').value.trim()||null:null;
-  const tax_invoice_contact=is_billable?document.getElementById('fBTax').value.trim()||null:null;
-  const file_path=is_billable?document.getElementById('fBPath').value.trim()||null:null;
   const billing_note=is_billable?document.getElementById('fBNote').value.trim()||null:null;
   const memo=document.getElementById('fMemo').value.trim()||null;
   if(!name||!start||!end){alert('프로젝트명, 시작일, 종료일을 입력해주세요.');return;}
   if(start>end){alert('종료일이 시작일보다 빠릅니다.');return;}
   try{
     if(editingProjId){
-      await api('PATCH','projects?id=eq.'+editingProjId,{name,type,start_date:start,end_date:end,status,client_id,is_billable,billing_status,billing_amount,billing_owner,billing_month,tax_invoice_contact,file_path,billing_note,memo});
+      await api('PATCH','projects?id=eq.'+editingProjId,{name,type,start_date:start,end_date:end,status,client_id,is_billable,billing_status,billing_amount,billing_note,memo});
       await api('DELETE','project_members?project_id=eq.'+editingProjId);
     }else{
-      const res=await api('POST','projects',{name,type,start_date:start,end_date:end,status,client_id,is_billable,billing_status,billing_amount,billing_owner,billing_month,tax_invoice_contact,file_path,billing_note,memo,created_by:currentUser.id});
+      const res=await api('POST','projects',{name,type,start_date:start,end_date:end,status,client_id,is_billable,billing_status,billing_amount,billing_note,memo,created_by:currentUser.id});
       editingProjId=res[0].id;
     }
     for(const mn of formMembers){const mem=members.find(m=>m.name===mn);if(mem)await api('POST','project_members',{project_id:editingProjId,member_id:mem.id});}
@@ -918,37 +1029,33 @@ function openBillingMailModal(pid){
   if(!project){alert('먼저 프로젝트를 저장한 뒤 사용해주세요.');return;}
   const client=clients.find(c=>c.id===project.client_id)||{};
   const draft=getBillingDraft(targetId);
-  const owner=draft.billing_owner||project.billing_owner||currentMember?.name||currentUser?.email||'';
-  const billingMonth=draft.billing_month||project.billing_month||inferBillingMonth(project);
-  const taxContact=draft.tax_invoice_contact||project.tax_invoice_contact||[client.contact_name,client.contact_email].filter(Boolean).join(' / ');
-  const filePath=draft.file_path||project.file_path||'';
-  const extraNote=draft.extra_note||project.billing_note||'';
+  const taxName=draft.tax_invoice_name||'';
+  const issueDate=draft.issue_date||'2026-04-01';
+  const contactName=draft.contact_name||client.contact_name||'';
+  const contactEmail=draft.contact_email||client.contact_email||'';
   const amount=draft.billing_amount||project.billing_amount||'';
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
     +'<div class="modal" style="width:620px"><div class="modal-title">빌링 요청 메일 문안</div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">고객사</label><input id="bmClient" value="'+esc(client.name||'')+'" readonly style="background:var(--bg)"/></div>'
-    +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="bmProject" value="'+esc(project.name||'')+'" readonly style="background:var(--bg)"/></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">담당자</label><input id="bmOwner" value="'+esc(owner)+'"/></div><div class="form-row"><label class="form-label">발행 기준월</label><input id="bmMonth" value="'+esc(billingMonth)+'" placeholder="예) 2026년 04월"/></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">공급가액</label><input id="bmAmount" type="number" value="'+esc(amount)+'" placeholder="예) 5000000"/></div><div class="form-row"><label class="form-label">세금계산서 담당자</label><input id="bmTax" value="'+esc(taxContact)+'" placeholder="예) 홍길동 / tax@company.com"/></div></div>'
-    +'<div class="form-row"><label class="form-label">파일 경로</label><input id="bmPath" value="'+esc(filePath)+'" placeholder="예) Teams > 고객관리 > A사 > 2026 > Billing"/></div>'
-    +'<div class="form-row"><label class="form-label">비고</label><input id="bmNote" value="'+esc(extraNote)+'" placeholder="예) 인보이스 번호, 특이사항"/></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">회사이름</label><input id="bmClient" value="'+esc(client.name||'')+'" readonly style="background:var(--bg)"/></div><div class="form-row"><label class="form-label">계약이름</label><input id="bmProject" value="'+esc(project.name||'')+'" readonly style="background:var(--bg)"/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">세금계산서 발급 담당자</label><input id="bmTaxName" value="'+esc(taxName)+'" placeholder="예) 홍길동"/></div><div class="form-row"><label class="form-label">일자</label><input id="bmIssueDate" value="'+esc(issueDate)+'" placeholder="예) 2026-04-01 또는 4월 1일"/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약금액</label><input id="bmAmount" type="number" value="'+esc(amount)+'" placeholder="예) 5000000"/></div><div class="form-row"><label class="form-label">거래처 담당자 이름</label><input id="bmContactName" value="'+esc(contactName)+'" placeholder="예) 김담당"/></div></div>'
+    +'<div class="form-row"><label class="form-label">거래처 담당자 이메일주소</label><input id="bmContactEmail" value="'+esc(contactEmail)+'" placeholder="예) billing@company.com"/></div>'
     +'<div class="form-row"><label class="form-label">메일 문안</label><textarea id="bmPreview" class="copy-area" readonly></textarea></div>'
-    +'<div class="modal-footer"><div class="muted">프로젝트 저장값을 기본으로 불러오며, 임시 수정값은 현재 브라우저에도 저장됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn" data-id="'+targetId+'" onclick="refreshBillingPreview(this.dataset.id)">새로고침</button><button class="btn primary" data-id="'+targetId+'" onclick="copyBillingMail(this.dataset.id)">문안 복사</button></div></div>'
+    +'<div class="modal-footer"><div class="muted">프로젝트와 고객사 정보 기반으로 문안이 생성됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn" data-id="'+targetId+'" onclick="refreshBillingPreview(this.dataset.id)">새로고침</button><button class="btn primary" data-id="'+targetId+'" onclick="copyBillingMail(this.dataset.id)">문안 복사</button></div></div>'
     +'</div></div>';
-  ['bmOwner','bmMonth','bmAmount','bmTax','bmPath','bmNote'].forEach(id=>{document.getElementById(id).addEventListener('input',()=>refreshBillingPreview(targetId));});
+  ['bmTaxName','bmIssueDate','bmAmount','bmContactName','bmContactEmail'].forEach(id=>{document.getElementById(id).addEventListener('input',()=>refreshBillingPreview(targetId));});
   refreshBillingPreview(targetId);
 }
 function refreshBillingPreview(pid){
   const project=projects.find(x=>x.id===pid); if(!project)return;
   const client=clients.find(c=>c.id===project.client_id)||{};
   const helper={
-    billing_owner:document.getElementById('bmOwner')?.value.trim()||'',
-    billing_month:document.getElementById('bmMonth')?.value.trim()||'',
+    tax_invoice_name:document.getElementById('bmTaxName')?.value.trim()||'',
+    issue_date:document.getElementById('bmIssueDate')?.value.trim()||'',
     billing_amount:document.getElementById('bmAmount')?.value.trim()||'',
-    tax_invoice_contact:document.getElementById('bmTax')?.value.trim()||'',
-    file_path:document.getElementById('bmPath')?.value.trim()||'',
-    extra_note:document.getElementById('bmNote')?.value.trim()||''
+    client_contact_name:document.getElementById('bmContactName')?.value.trim()||'',
+    client_contact_email:document.getElementById('bmContactEmail')?.value.trim()||''
   };
   saveBillingDraft(pid,helper);
   const text=buildBillingEmail(project,client,helper);
@@ -956,22 +1063,207 @@ function refreshBillingPreview(pid){
 }
 async function copyBillingMail(pid){refreshBillingPreview(pid);await copyText(document.getElementById('bmPreview').value);}
 
+async function loadProjectComments(projectId){
+  const el=document.getElementById('projectCommentSection');
+  if(!el)return;
+  el.innerHTML='<div class="comment-system">댓글을 불러오는 중입니다.</div>';
+  try{
+    projectComments=await api('GET','project_comments?project_id=eq.'+projectId+'&select=*&order=created_at.asc');
+    activeReplyParentId=null;
+    renderProjectComments(projectId);
+  }catch(e){
+    console.error(e);
+    projectComments=[];
+    el.innerHTML='<div class="comment-system">댓글을 불러오지 못했습니다. RLS 정책 또는 project_comments 테이블 권한을 확인해주세요.</div>';
+  }
+}
+function renderProjectComments(projectId){
+  const el=document.getElementById('projectCommentSection');
+  if(!el)return;
+  const roots=projectComments.filter(c=>!c.parent_id);
+  const editor=''
+    +'<div class="comment-editor">'
+    +'<div class="form-row" style="margin-bottom:8px"><label class="form-label">메모 남기기</label><textarea id="newCommentText" rows="3" placeholder="프로젝트 진행 상황, 요청사항, 인수인계 메모 등을 남겨보세요." style="resize:vertical"></textarea></div>'
+    +'<div style="display:flex;justify-content:flex-end"><button class="btn primary sm" onclick="submitProjectComment(\''+projectId+'\')">등록</button></div>'
+    +'</div>';
+  if(!roots.length){
+    el.innerHTML='<div class="comment-empty">아직 등록된 메모가 없습니다.</div>'+editor;
+    return;
+  }
+  el.innerHTML='<div class="comment-list">'+roots.map(c=>renderCommentItem(c,projectId,false)).join('')+'</div>'+editor;
+}
+function renderCommentItem(comment,projectId,isReply){
+  const replies=projectComments.filter(c=>c.parent_id===comment.id);
+  const mine=isAdmin||comment.created_by===currentUser?.id;
+  const author=comment.author_name||comment.author||'작성자';
+  return '<div class="comment-item'+(isReply?' reply':'')+'">'
+    +'<div class="comment-meta"><div><span class="comment-author">'+esc(author)+'</span> <span class="comment-date">'+formatCommentDate(comment.created_at)+'</span></div></div>'
+    +'<div class="comment-body">'+esc(comment.content||'')+'</div>'
+    +'<div class="comment-actions">'
+    +'<button class="btn ghost sm" onclick="toggleReplyForm(\''+comment.id+'\',\''+projectId+'\')">답글</button>'
+    +(mine?'<button class="btn ghost sm" onclick="deleteProjectComment(\''+comment.id+'\',\''+projectId+'\')">삭제</button>':'')
+    +'</div>'
+    +(activeReplyParentId===comment.id?renderReplyEditor(comment.id,projectId):'')
+    +replies.map(r=>renderCommentItem(r,projectId,true)).join('')
+    +'</div>';
+}
+function renderReplyEditor(parentId,projectId){
+  return '<div class="comment-editor">'
+    +'<div class="form-row" style="margin-bottom:8px"><textarea id="replyText_'+parentId+'" rows="2" placeholder="답글을 입력하세요." style="resize:vertical"></textarea></div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:6px"><button class="btn ghost sm" onclick="cancelReplyForm(\''+projectId+'\')">취소</button><button class="btn primary sm" onclick="submitProjectComment(\''+projectId+'\',\''+parentId+'\')">등록</button></div>'
+    +'</div>';
+}
+function toggleReplyForm(parentId,projectId){
+  activeReplyParentId=activeReplyParentId===parentId?null:parentId;
+  renderProjectComments(projectId);
+}
+function cancelReplyForm(projectId){
+  activeReplyParentId=null;
+  renderProjectComments(projectId);
+}
+async function submitProjectComment(projectId,parentId=''){
+  const textarea=document.getElementById(parentId?'replyText_'+parentId:'newCommentText');
+  const content=textarea?.value.trim();
+  if(!content){alert('내용을 입력해주세요.');return;}
+  const body={
+    project_id:projectId,
+    parent_id:parentId||null,
+    content,
+    author_name:currentMember?.name||currentUser?.email||'작성자',
+    created_by:currentUser?.id||null,
+    member_id:currentMember?.id||null
+  };
+  try{
+    await api('POST','project_comments',body);
+    activeReplyParentId=null;
+    await loadProjectComments(projectId);
+  }catch(e){
+    alert('댓글 저장 오류: '+e.message);
+  }
+}
+async function deleteProjectComment(commentId,projectId){
+  if(!confirm('이 메모를 삭제할까요?'))return;
+  try{
+    await api('DELETE','project_comments?or=(id.eq.'+commentId+',parent_id.eq.'+commentId+')');
+    await loadProjectComments(projectId);
+  }catch(e){
+    alert('삭제 오류: '+e.message);
+  }
+}
+
+
+// ── Schedule Modal ──
+function openScheduleModal(eid){
+  const s=eid?schedules.find(x=>x.id===eid):null;
+  const editable=!s||isAdmin||s.created_by===currentUser?.id;
+  const memberOptions=members.map(m=>'<option value="'+esc(m.name)+'" '+(s&&s.member_name===m.name?'selected':'')+'>'+esc(m.name)+'</option>').join('');
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal"><div class="modal-title">'+(s?(editable?'일정 수정':'일정 상세'):'일정 추가')+'</div>'
+    +'<div class="form-row"><label class="form-label">일정명</label><input id="scTitle" value="'+esc(s?s.title:'')+'" placeholder="예) 연차, 부산 필드웍, 내부 회의" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="scType" '+(editable?'':'disabled')+'>'
+      +'<option value="leave" '+(s&&s.schedule_type==='leave'?'selected':'')+'>휴가</option>'
+      +'<option value="fieldwork" '+(s&&s.schedule_type==='fieldwork'?'selected':'')+'>필드웍</option>'
+      +'<option value="internal" '+(s&&s.schedule_type==='internal'?'selected':'')+'>내부업무</option>'
+    +'</select></div>'
+    +'<div class="form-row"><label class="form-label">담당자</label><select id="scMember" '+(editable?'':'disabled')+'><option value="">담당자 선택</option>'+memberOptions+'</select></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">시작일</label><input type="date" id="scStart" value="'+(s?s.start:(curYear+'-'+pad(curMonth)+'-01'))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">종료일</label><input type="date" id="scEnd" value="'+(s?s.end:(curYear+'-'+pad(curMonth)+'-01'))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-row"><label class="form-label">장소 / 방문처</label><input id="scLocation" value="'+esc(s?s.location||'':'')+'" placeholder="필드웍인 경우 입력" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">메모</label><textarea id="scMemo" rows="3" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(s?s.memo||'':'')+'</textarea></div>'
+    +(editable?'<div id="scheduleConflictArea"></div>':'')
+    +(s&&editable?'<div class="readonly-notice">휴가와 필드웍은 프로젝트와 분리해 관리하는 일정입니다.</div>':'')
+    +'<div class="modal-footer">'
+    +(s&&editable?'<button class="btn danger" onclick="deleteSchedule(\''+s.id+'\')">삭제</button>':'<div></div>')
+    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" data-id="'+(s?s.id:'')+'" onclick="saveSchedule(this.dataset.id)">저장</button>':'')+'</div>'
+    +'</div></div></div>';
+  if(editable){['scType','scMember','scStart','scEnd'].forEach(id=>document.getElementById(id)?.addEventListener('input',refreshScheduleConflict)); refreshScheduleConflict();}
+}
+function refreshScheduleConflict(){
+  const type=document.getElementById('scType')?.value;
+  const memberName=document.getElementById('scMember')?.value;
+  const start=document.getElementById('scStart')?.value;
+  const end=document.getElementById('scEnd')?.value;
+  const area=document.getElementById('scheduleConflictArea');
+  if(!area)return;
+  if(!memberName||!start||!end||(type!=='leave'&&type!=='fieldwork')){area.innerHTML='';return;}
+  const conflicts=projects.filter(p=>p.members.includes(memberName)&&toDate(start)<=toDate(p.end)&&toDate(end)>=toDate(p.start)&&p.status!=='완료');
+  area.innerHTML=conflicts.length?'<div class="conflict-warn">⚠ 해당 기간에 배정된 프로젝트: '+conflicts.map(p=>p.name).join(', ')+'</div>':'';
+}
+async function saveSchedule(eid){
+  const title=document.getElementById('scTitle').value.trim();
+  const schedule_type=document.getElementById('scType').value;
+  const member_name=document.getElementById('scMember').value;
+  const member=members.find(m=>m.name===member_name);
+  const start_date=document.getElementById('scStart').value;
+  const end_date=document.getElementById('scEnd').value;
+  const location=document.getElementById('scLocation').value.trim()||null;
+  const memo=document.getElementById('scMemo').value.trim()||null;
+  if(!title||!member_name||!start_date||!end_date){alert('일정명, 담당자, 시작일, 종료일을 입력해주세요.');return;}
+  if(start_date>end_date){alert('종료일이 시작일보다 빠릅니다.');return;}
+  const body={title,schedule_type,member_id:member?.id||null,member_name,start_date,end_date,location,memo};
+  try{
+    if(eid) await api('PATCH','schedules?id=eq.'+eid,body);
+    else {body.created_by=currentUser?.id||null; await api('POST','schedules',body);} 
+    closeModal();await loadAll(); if(curPage==='gantt')renderGantt(); else renderClients();
+  }catch(e){alert('일정 저장 오류: '+e.message);} 
+}
+async function deleteSchedule(id){
+  if(!confirm('일정을 삭제할까요?'))return;
+  try{await api('DELETE','schedules?id=eq.'+id);closeModal();await loadAll();if(curPage==='gantt')renderGantt();else renderClients();}catch(e){alert('오류: '+e.message);} 
+}
+
 // ── Dashboard ──
-function renderDash(){
-  const today=new Date();
+function openDashDrilldown(type){
+  if(type==='clients'){ setPage('clients'); return; }
   const active=projects.filter(p=>p.status==='진행중');
   const overdue=projects.filter(p=>isOverdue(p));
   const unbilled=projects.filter(p=>p.status==='완료'&&p.is_billable&&p.billing_status==='미청구');
+  const leaves=schedules.filter(s=>s.schedule_type==='leave');
+  const fieldworks=schedules.filter(s=>s.schedule_type==='fieldwork');
+  let title='상세 보기', body='';
+  if(type==='active'){
+    title='진행중 프로젝트';
+    body=active.length?active.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · '+p.start+' ~ '+p.end)+'</div><div class="notice-preview">'+esc((p.members||[]).join(', ')||'담당자 미배정')+'</div></div>').join(''):'<div class="notice-empty">진행중 프로젝트가 없습니다.</div>';
+  }else if(type==='overdue'){
+    title='기간 초과 프로젝트';
+    body=overdue.length?overdue.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 종료일 '+p.end)+'</div><div class="notice-preview">'+esc((p.members||[]).join(', ')||'담당자 미배정')+'</div></div>').join(''):'<div class="notice-empty">기간 초과 프로젝트가 없습니다.</div>';
+  }else if(type==='unbilled'){
+    title='빌링 미처리 프로젝트';
+    body=unbilled.length?unbilled.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc((p.billing_amount?Number(p.billing_amount).toLocaleString()+'원 · ':'')+(p.billing_note||'청구 필요'))+'</div></div>').join(''):'<div class="notice-empty">빌링 미처리 프로젝트가 없습니다.</div>';
+  }else if(type==='leave'){
+    title='휴가 일정';
+    body=leaves.length?leaves.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(s.member_name||'미지정')+'</div><div class="notice-meta">'+esc((s.title||'휴가')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc(s.memo||'')+'</div></div>').join(''):'<div class="notice-empty">휴가 일정이 없습니다.</div>';
+  }else if(type==='fieldwork'){
+    title='필드웍 일정';
+    body=fieldworks.length?fieldworks.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(s.member_name||'미지정')+'</div><div class="notice-meta">'+esc((s.title||'필드웍')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc([s.location,s.memo].filter(Boolean).join(' · '))+'</div></div>').join(''):'<div class="notice-empty">필드웍 일정이 없습니다.</div>';
+  }
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:640px"><div class="modal-title">'+title+'</div>'
+    +'<div style="max-height:70vh;overflow-y:auto">'+body+'</div>'
+    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
+    +'</div></div>';
+}
+
+function renderDash(){
+  const active=projects.filter(p=>p.status==='진행중');
+  const overdue=projects.filter(p=>isOverdue(p));
+  const unbilled=projects.filter(p=>p.status==='완료'&&p.is_billable&&p.billing_status==='미청구');
+  const leaveCnt=schedules.filter(s=>s.schedule_type==='leave').length;
+  const fieldworkCnt=schedules.filter(s=>s.schedule_type==='fieldwork').length;
   const memberLoad=members.map(m=>({name:m.name,cnt:active.filter(p=>p.members.includes(m.name)).length})).sort((a,b)=>b.cnt-a.cnt);
   const maxL=Math.max(...memberLoad.map(m=>m.cnt),1);
   const bt={};projects.forEach(p=>{bt[p.type]=(bt[p.type]||0)+1;});const tot=projects.length||1;
   const el=document.getElementById('pageDash');
   el.innerHTML=
     '<div class="stat-grid">'
-    +'<div class="stat-card"><div class="stat-label">고객사</div><div class="stat-num">'+clients.length+'</div><div class="stat-sub">전체 거래처</div></div>'
-    +'<div class="stat-card"><div class="stat-label">진행중</div><div class="stat-num" style="color:var(--blue)">'+active.length+'</div><div class="stat-sub">현재 진행</div></div>'
-    +'<div class="stat-card '+(overdue.length?'warn':'ok')+'"><div class="stat-label">기간 초과</div><div class="stat-num">'+overdue.length+'</div><div class="stat-sub">'+(overdue.length?'확인 필요':'이상 없음')+'</div></div>'
-    +'<div class="stat-card '+(unbilled.length?'warn':'ok')+'"><div class="stat-label">빌링 미처리</div><div class="stat-num">'+unbilled.length+'</div><div class="stat-sub">'+(unbilled.length?'청구 필요':'이상 없음')+'</div></div>'
+    +'<div class="stat-card clickable" onclick="openDashDrilldown(\'clients\')"><div class="stat-label">고객사</div><div class="stat-num">'+clients.length+'</div><div class="stat-sub">전체 거래처</div></div>'
+    +'<div class="stat-card clickable" onclick="openDashDrilldown(\'active\')"><div class="stat-label">진행중</div><div class="stat-num" style="color:var(--blue)">'+active.length+'</div><div class="stat-sub">현재 진행</div></div>'
+    +'<div class="stat-card clickable '+(overdue.length?'warn':'ok')+'" onclick="openDashDrilldown(\'overdue\')"><div class="stat-label">기간 초과</div><div class="stat-num">'+overdue.length+'</div><div class="stat-sub">'+(overdue.length?'확인 필요':'이상 없음')+'</div></div>'
+    +'<div class="stat-card clickable '+(unbilled.length?'warn':'ok')+'" onclick="openDashDrilldown(\'unbilled\')"><div class="stat-label">빌링 미처리</div><div class="stat-num">'+unbilled.length+'</div><div class="stat-sub">'+(unbilled.length?'청구 필요':'이상 없음')+'</div></div>'
+    +'<div class="stat-card clickable" onclick="openDashDrilldown(\'leave\')"><div class="stat-label">휴가 일정</div><div class="stat-num" style="color:var(--green)">'+leaveCnt+'</div><div class="stat-sub">등록된 휴가</div></div>'
+    +'<div class="stat-card clickable" onclick="openDashDrilldown(\'fieldwork\')"><div class="stat-label">필드웍 일정</div><div class="stat-num" style="color:var(--orange)">'+fieldworkCnt+'</div><div class="stat-sub">등록된 필드웍</div></div>'
     +'</div>'
     +'<div class="dash-row">'
     +'<div class="card"><div class="section-label">인력별 업무량 (진행중) <span style="font-size:10px;font-weight:400;color:var(--text3)">3건 이상 = 과부하</span></div>'
@@ -980,8 +1272,8 @@ function renderDash(){
     +'<div class="card"><div class="section-label">유형별 현황</div>'
     +Object.entries(bt).sort((a,b)=>b[1]-a[1]).map(([t,c])=>'<div class="load-row"><div class="load-name">'+t+'</div><div class="load-bar-wrap"><div class="load-bar" style="width:'+Math.round(c/tot*100)+'%;background:'+TYPES[t]+'"></div></div><div class="load-count">'+c+'</div></div>').join('')
     +'</div></div>'
-    +(overdue.length?'<div class="card"><div class="section-label">기간 초과 목록</div>'+overdue.map(p=>'<div class="info-row"><span class="info-label" style="width:auto;flex:1">'+p.name+'</span><span class="info-value" style="color:var(--red);font-weight:700">'+p.end+' 초과</span></div>').join('')+'</div>':'')
-    +(unbilled.length?'<div class="card" style="margin-top:14px"><div class="section-label">빌링 미처리 목록</div>'+unbilled.map(p=>'<div class="info-row"><span class="info-label" style="width:auto;flex:1">'+p.name+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')+'<span class="badge badge-red" style="margin-left:8px">청구 필요</span></div>').join('')+'</div>':'');
+    +(overdue.length?'<div class="card"><div class="section-label">기간 초과 목록</div>'+overdue.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="info-value" style="color:var(--red);font-weight:700">'+p.end+' 초과</span></div>').join('')+'</div>':'')
+    +(unbilled.length?'<div class="card" style="margin-top:14px"><div class="section-label">빌링 미처리 목록</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')+'<span class="badge badge-red" style="margin-left:8px">청구 필요</span></div>').join('')+'</div>':'');
 }
 
 // ── Notices ──
