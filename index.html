@@ -728,7 +728,6 @@ async function renderPortal(){
   if(!portalClient){el.innerHTML='';return;}
   el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px 0">불러오는 중...</div>';
   try{
-    // 이 고객사의 프로젝트 조회 (내부 정보 제외)
     const [projs, pm, updates] = await Promise.all([
       fetch(SB_URL+'/rest/v1/projects?client_id=eq.'+portalClient.id+'&select=id,name,type,start_date,end_date,status&order=start_date.desc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
       fetch(SB_URL+'/rest/v1/project_members?select=project_id,members(name)',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
@@ -746,16 +745,26 @@ async function renderPortal(){
       +'</div>'
       +(p.members.length?'<div class="portal-proj-members">'+p.members.map(m=>'<span class="portal-member-chip">'+esc(m)+'</span>').join('')+'</div>':'')
       +'</div>';
+
+    // 재무제표 있는지 확인
+    const finReports=await fetch(SB_URL+'/rest/v1/financial_reports?client_id=eq.'+portalClient.id+'&select=id,period&order=period.desc&limit=1',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()).catch(()=>[]);
+    const hasFinance=finReports&&finReports.length>0;
+
     el.innerHTML=
-      // 고객사 히어로
+      // 히어로
       '<div class="portal-hero">'
       +'<div class="portal-hero-avatar">'+esc(portalClient.name.charAt(0))+'</div>'
       +'<div class="portal-hero-text"><h2>'+esc(portalClient.name)+'</h2>'
       +'<p>'+esc(portalClient.contact_name||'')+(portalClient.contact_email?' · '+esc(portalClient.contact_email):'')+'</p></div>'
       +'</div>'
-      // OneDrive 문서함
-      +(portalClient.onedrive_url?'<a href="'+esc(portalClient.onedrive_url)+'" target="_blank" class="portal-drive-btn" style="display:inline-flex;margin-bottom:24px">📁 문서함 열기 (OneDrive)</a>':'')
-      // 업데이트
+      // 탭
+      +'<div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)">'
+      +'<button id="ptab-업무" onclick="switchPortalTab(\'업무\')" style="padding:10px 18px;border:none;background:transparent;font-size:13px;font-weight:700;color:var(--blue);border-bottom:2px solid var(--blue);margin-bottom:-2px;cursor:pointer">업무 현황</button>'
+      +(hasFinance?'<button id="ptab-재무" onclick="switchPortalTab(\'재무\')" style="padding:10px 18px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer">재무제표</button>':'')
+      +(portalClient.onedrive_url?'<button id="ptab-문서" onclick="switchPortalTab(\'문서\')" style="padding:10px 18px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer">📁 문서함</button>':'')
+      +'</div>'
+      // 업무 탭 (기본)
+      +'<div id="ptab-content-업무">'
       +((updates&&updates.length)?'<div class="portal-section-label">업데이트 ('+updates.length+'건)</div>'
         +updates.map(u=>'<div class="portal-proj-card">'
           +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
@@ -766,12 +775,26 @@ async function renderPortal(){
           +(u.file_url?'<a href="'+esc(u.file_url)+'" target="_blank" class="portal-drive-btn" style="font-size:12px;padding:8px 14px">📎 '+esc(u.file_label||'첨부 파일 열기')+'</a>':'')
           +'</div>').join('')
         :'')
-      // 진행 중
       +'<div class="portal-section-label">진행 중인 업무 ('+active.length+'건)</div>'
       +(active.length?active.map(projCard).join(''):'<div class="portal-empty">현재 진행 중인 업무가 없습니다.</div>')
-      // 완료
-      +(done.length?'<div class="portal-section-label">완료된 업무 ('+done.length+'건)</div>'+done.map(projCard).join(''):'');
+      +(done.length?'<div class="portal-section-label">완료된 업무 ('+done.length+'건)</div>'+done.map(projCard).join(''):'')
+      +'</div>'
+      // 재무 탭
+      +(hasFinance?'<div id="ptab-content-재무" style="display:none"><div id="portalFinanceWrap"><div style="color:var(--text3);text-align:center;padding:40px">불러오는 중...</div></div></div>':'')
+      // 문서 탭
+      +(portalClient.onedrive_url?'<div id="ptab-content-문서" style="display:none"><div style="text-align:center;padding:40px"><a href="'+esc(portalClient.onedrive_url)+'" target="_blank" class="portal-drive-btn" style="display:inline-flex;font-size:15px;padding:14px 28px">📁 OneDrive 문서함 열기</a></div></div>':'');
+
+    if(hasFinance) loadPortalFinance(portalClient.id);
   }catch(e){el.innerHTML='<div class="portal-empty">불러오기 실패: '+esc(e.message)+'</div>';}
+}
+
+function switchPortalTab(tab){
+  ['업무','재무','문서'].forEach(t=>{
+    const btn=document.getElementById('ptab-'+t);
+    const content=document.getElementById('ptab-content-'+t);
+    if(btn){btn.style.color=t===tab?'var(--blue)':'var(--text3)';btn.style.borderBottom=t===tab?'2px solid var(--blue)':'none';btn.style.marginBottom=t===tab?'-2px':'0';}
+    if(content)content.style.display=t===tab?'block':'none';
+  });
 }
 
 async function initApp(){
@@ -1205,6 +1228,8 @@ function openClientDetail(id, tab='projects'){
     ?'<div class="card"><div class="section-label">계약서 ('+cc.length+'건) <button class="btn primary sm" onclick="openContractModal(null,\''+id+'\')">+ 추가</button></div>'
       +(contractItems||'<div style="color:var(--text3);font-size:13px;padding:12px 0">등록된 계약이 없습니다</div>')
       +'</div>'
+    :tab==='finance'
+    ?'<div id="financeTabWrap"><div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">불러오는 중...</div></div>'
     :tab==='updates'
     ?'<div class="card"><div class="section-label">고객사 업데이트 '
       +(isAssigned?'<button class="btn primary sm" onclick="openUpdateModal(null,\''+id+'\')">+ 작성</button>':'')
@@ -1249,6 +1274,7 @@ function openClientDetail(id, tab='projects'){
     +tabContent;
   setPage('detail');
   if(tab==='updates') loadClientUpdates(id);
+  if(tab==='finance') loadFinanceTab(id);
 }
 
 // ── Contract Modal ──
@@ -2960,7 +2986,416 @@ function renderContractsPage(){
   el.innerHTML=html;
 }
 
-// ── 계약 인라인 토글 ──
+// ── 재무제표 ──────────────────────────────────────────────────
+
+// 위하고 엑셀 파싱 (브라우저에서 직접)
+async function parseFinancialExcel(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=async(e)=>{
+      try{
+        // SheetJS로 파싱
+        const XLSX=window.XLSX;
+        if(!XLSX){reject(new Error('SheetJS 로드 필요'));return;}
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+        // 기간 추출 (row 0)
+        const headerStr=(rows[0]||[]).join(' ');
+        const pm=headerStr.match(/\[(\d{4})\/(\d{2})\/\d{2}\s*~\s*(\d{4})\/(\d{2})\/\d{2}\]/);
+        let period='', periodType='연간';
+        if(pm){
+          const sy=pm[1],sm=pm[2],ey=pm[3],em=pm[4];
+          if(sy===ey&&sm===em){period=sy+'-'+sm;periodType='월';}
+          else if(sy===ey){period=sy;periodType='연간';}
+          else{period=sy+'~'+ey;periodType='연간';}
+        }
+
+        // 항목 파싱
+        const items=[];
+        let sortOrder=0;
+        const romanPat=/^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/;
+        const midPat=/^\([0-9]+\)/;
+        const rootWords=['자산','부채','자본'];
+
+        for(let i=2;i<rows.length;i++){
+          const row=rows[i];
+          const rawName=row[0];
+          if(!rawName||String(rawName).trim()==='')continue;
+          const name=String(rawName).trim();
+          const isRoot=rootWords.includes(name);
+          const isMajor=romanPat.test(name)||isRoot;
+          const isMid=midPat.test(name);
+          let amt=null;
+          const v=isMajor||isMid?row[2]:row[1]??row[2];
+          if(v!==null&&v!==undefined){
+            const n=parseFloat(String(v).replace(/,/g,''));
+            if(!isNaN(n))amt=Math.round(n);
+          }
+          const level=isMajor?'major':isMid?'mid':'sub';
+          items.push({level,account_name:name,amount:amt,sort_order:sortOrder++});
+        }
+        resolve({period,periodType,items});
+      }catch(err){reject(err);}
+    };
+    reader.onerror=()=>reject(new Error('파일 읽기 실패'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// SheetJS 동적 로드
+function loadSheetJS(){
+  return new Promise((resolve)=>{
+    if(window.XLSX){resolve();return;}
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=resolve;
+    document.head.appendChild(s);
+  });
+}
+
+async function loadFinanceTab(clientId){
+  const el=document.getElementById('financeTabWrap');if(!el)return;
+  try{
+    const reports=await api('GET','financial_reports?client_id=eq.'+clientId+'&order=period.desc&select=*');
+    renderFinanceTab(clientId, reports||[]);
+  }catch(e){
+    el.innerHTML='<div style="color:var(--text3);padding:20px;text-align:center">재무제표를 불러올 수 없습니다.</div>';
+  }
+}
+
+function renderFinanceTab(clientId, reports){
+  const el=document.getElementById('financeTabWrap');if(!el)return;
+  const plReports=reports.filter(r=>r.report_type==='손익계산서').sort((a,b)=>b.period.localeCompare(a.period));
+  const bsReports=reports.filter(r=>r.report_type==='재무상태표').sort((a,b)=>b.period.localeCompare(a.period));
+
+  let html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
+    +'<div style="font-size:15px;font-weight:800;color:var(--navy)">재무제표</div>'
+    +(isAdmin?'<button class="btn primary sm" onclick="openFinanceUploadModal(\''+clientId+'\')">+ 재무제표 업로드</button>':'')
+    +'</div>';
+
+  if(!reports.length){
+    html+='<div class="card" style="text-align:center;padding:40px;color:var(--text3)">'
+      +'<div style="font-size:32px;margin-bottom:12px">📊</div>'
+      +'<div style="font-size:14px;font-weight:700;margin-bottom:6px">등록된 재무제표가 없습니다</div>'
+      +(isAdmin?'<div style="font-size:12px">위하고에서 내려받은 엑셀 파일을 업로드하세요</div>':'')
+      +'</div>';
+  } else {
+    // 기간 목록 (토글)
+    const allPeriods=[...new Set(reports.map(r=>r.period))].sort((a,b)=>b.localeCompare(a));
+    const selectedPeriod=allPeriods[0];
+
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">'
+      +allPeriods.map(p=>'<button onclick="selectFinancePeriod(\''+clientId+'\',\''+p+'\')" id="fp-'+p.replace(/[^a-z0-9]/gi,'_')+'" class="btn '+(p===selectedPeriod?'primary':'ghost')+' sm">'+p+'</button>').join('')
+      +'</div>';
+
+    html+='<div id="financeContent"></div>';
+  }
+  el.innerHTML=html;
+  if(reports.length) renderFinancePeriod(clientId, reports, reports[0]?.period);
+}
+
+async function selectFinancePeriod(clientId, period){
+  // 버튼 active 토글
+  document.querySelectorAll('[id^="fp-"]').forEach(b=>b.className=b.className.replace('primary','ghost'));
+  const btn=document.getElementById('fp-'+period.replace(/[^a-z0-9]/gi,'_'));
+  if(btn)btn.className=btn.className.replace('ghost','primary');
+  const reports=await api('GET','financial_reports?client_id=eq.'+clientId+'&order=period.desc&select=*');
+  renderFinancePeriod(clientId, reports||[], period);
+}
+
+async function renderFinancePeriod(clientId, reports, period){
+  const el=document.getElementById('financeContent');if(!el)return;
+  const periodReports=reports.filter(r=>r.period===period);
+  const plRep=periodReports.find(r=>r.report_type==='손익계산서');
+  const bsRep=periodReports.find(r=>r.report_type==='재무상태표');
+
+  // 항목 로드
+  let plItems=[], bsItems=[];
+  if(plRep){
+    plItems=await api('GET','financial_items?report_id=eq.'+plRep.id+'&order=sort_order.asc')||[];
+  }
+  if(bsRep){
+    bsItems=await api('GET','financial_items?report_id=eq.'+bsRep.id+'&order=sort_order.asc')||[];
+  }
+
+  const fmtAmt=n=>{
+    if(n===null||n===undefined)return '—';
+    const abs=Math.abs(n);
+    if(abs>=100000000)return (n/100000000).toFixed(1)+'억';
+    if(abs>=10000)return (n/10000).toFixed(0)+'만';
+    return n.toLocaleString();
+  };
+  const fmtFull=n=>n!=null?n.toLocaleString()+'원':'—';
+
+  const renderItems=(items,type)=>{
+    if(!items.length)return '<div style="color:var(--text3);padding:20px;text-align:center;font-size:13px">데이터가 없습니다</div>';
+    // 핵심 지표 (대분류만)
+    const majors=items.filter(it=>it.level==='major'&&it.amount!=null);
+    const keyMetrics=majors.slice(0,type==='pl'?8:4);
+
+    let html='';
+    // 핵심 수치 그리드
+    if(keyMetrics.length){
+      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px">'
+        +keyMetrics.map(it=>{
+          const isNeg=it.account_name.includes('원가')||it.account_name.includes('비용')||it.account_name.includes('비');
+          const color=it.amount<0?'var(--red)':isNeg?'var(--text2)':'var(--blue)';
+          return '<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px">'
+            +'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(it.account_name.replace(/^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+\.\s*/,''))+'</div>'
+            +'<div style="font-size:18px;font-weight:900;color:'+color+'">'+fmtAmt(it.amount)+'</div>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+    }
+
+    // 전체 상세 테이블
+    html+='<div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+      +'<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">'
+      +'<span>계정과목</span><span>금액</span></div>';
+    items.forEach(it=>{
+      if(!it.account_name||it.account_name==='nan')return;
+      const isMajor=it.level==='major';
+      const isMid=it.level==='mid';
+      const bg=isMajor?'var(--blue-light)':isMid?'var(--bg)':'var(--card)';
+      const fw=isMajor?'800':isMid?'700':'400';
+      const fs=isMajor?'13':isMid?'12':'12';
+      const pl=isMajor?'12':isMid?'20':'28';
+      const color=isMajor?'var(--navy)':isMid?'var(--text2)':'var(--text2)';
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px 6px '+pl+'px;background:'+bg+';border-top:1px solid var(--border)">'
+        +'<span style="font-size:'+fs+'px;font-weight:'+fw+';color:'+color+'">'+esc(it.account_name)+'</span>'
+        +(it.amount!=null?'<span style="font-size:12px;font-weight:'+(isMajor?'700':'400')+';color:'+(isMajor?'var(--navy)':'var(--text3)')+';white-space:nowrap">'+it.amount.toLocaleString()+'</span>':'')
+        +'</div>';
+    });
+    html+='</div>';
+    return html;
+  };
+
+  let content='';
+
+  // 이슈 코멘트
+  const plMemo=plRep?.memo||bsRep?.memo||'';
+  content+='<div class="card" style="margin-bottom:14px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    +'<div class="section-label" style="margin:0">이슈 / 코멘트</div>'
+    +(isAdmin?'<button class="btn sm" onclick="openFinanceMemoModal(\''+clientId+'\',\''+period+'\')">수정</button>':'')
+    +'</div>'
+    +(plMemo
+      ?'<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap">'+esc(plMemo)+'</div>'
+      :'<div style="color:var(--text3);font-size:13px">등록된 코멘트가 없습니다.</div>')
+    +'</div>';
+
+  // 손익계산서
+  if(plRep){
+    content+='<div class="card" style="margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+      +'<div class="section-label" style="margin:0">손익계산서</div>'
+      +(isAdmin?'<button class="btn danger sm" onclick="deleteFinanceReport(\''+plRep.id+'\',\''+clientId+'\',\''+period+'\')">삭제</button>':'')
+      +'</div>'
+      +renderItems(plItems,'pl')
+      +'</div>';
+  }
+
+  // 재무상태표
+  if(bsRep){
+    content+='<div class="card" style="margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+      +'<div class="section-label" style="margin:0">재무상태표</div>'
+      +(isAdmin?'<button class="btn danger sm" onclick="deleteFinanceReport(\''+bsRep.id+'\',\''+clientId+'\',\''+period+'\')">삭제</button>':'')
+      +'</div>'
+      +renderItems(bsItems,'bs')
+      +'</div>';
+  }
+
+  el.innerHTML=content||'<div style="color:var(--text3);padding:20px;text-align:center">이 기간의 데이터가 없습니다.</div>';
+}
+
+// 업로드 모달
+async function openFinanceUploadModal(clientId){
+  await loadSheetJS();
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:480px">'
+    +'<div class="modal-title">📊 재무제표 업로드</div>'
+    +'<div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:var(--blue);margin-bottom:16px">'
+    +'💡 위하고에서 내려받은 <strong>손익계산서(과목별)</strong> 또는 <strong>재무상태표(과목별)</strong> 엑셀 파일을 그대로 올려주세요.</div>'
+    +'<div class="form-row"><label class="form-label">보고서 종류</label>'
+    +'<select id="finReportType"><option value="손익계산서">손익계산서</option><option value="재무상태표">재무상태표</option></select></div>'
+    +'<div class="form-row"><label class="form-label">엑셀 파일 (위하고 원본)</label>'
+    +'<input type="file" id="finFile" accept=".xlsx,.xls" style="font-size:13px"/></div>'
+    +'<div id="finPreview" style="margin-top:12px"></div>'
+    +'<div class="modal-footer"><div></div>'
+    +'<div class="modal-footer-right">'
+    +'<button class="btn ghost" onclick="closeModal()">취소</button>'
+    +'<button class="btn primary" data-cid="'+clientId+'" onclick="uploadFinanceReport(this.dataset.cid)">저장</button>'
+    +'</div></div></div></div>';
+  document.getElementById('finFile').addEventListener('change', async(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    const prev=document.getElementById('finPreview');
+    prev.innerHTML='<div style="color:var(--text3);font-size:12px">파싱 중...</div>';
+    try{
+      const result=await parseFinancialExcel(file);
+      window._finParseResult=result;
+      const majors=result.items.filter(it=>it.level==='major'&&it.amount!=null).slice(0,5);
+      prev.innerHTML='<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:8px">✓ 파싱 완료 — '+result.items.length+'개 항목 인식, 기간: '+result.period+'</div>'
+        +majors.map(it=>'<div style="font-size:12px;color:var(--text2);padding:3px 0">'+esc(it.account_name)+': <strong>'+it.amount.toLocaleString()+'</strong></div>').join('')
+        +'</div>';
+    }catch(err){
+      prev.innerHTML='<div style="color:var(--red);font-size:12px">파싱 오류: '+esc(err.message)+'</div>';
+    }
+  });
+}
+
+async function uploadFinanceReport(clientId){
+  const result=window._finParseResult;
+  if(!result){alert('파일을 먼저 선택해주세요.');return;}
+  const reportType=document.getElementById('finReportType').value;
+  try{
+    // 기존 같은 기간+타입 삭제
+    const existing=await api('GET','financial_reports?client_id=eq.'+clientId+'&period=eq.'+result.period+'&report_type=eq.'+reportType+'&select=id');
+    for(const r of (existing||[])){
+      await api('DELETE','financial_items?report_id=eq.'+r.id);
+      await api('DELETE','financial_reports?id=eq.'+r.id);
+    }
+    // 새로 저장
+    const rep=await api('POST','financial_reports',{
+      client_id:clientId,period:result.period,period_type:result.periodType,
+      report_type:reportType,uploaded_by:currentUser?.id
+    });
+    const repId=rep?.[0]?.id;if(!repId)throw new Error('저장 실패');
+    // 항목 배치 저장 (50개씩)
+    const items=result.items.map(it=>({...it,report_id:repId}));
+    for(let i=0;i<items.length;i+=50){
+      await api('POST','financial_items',items.slice(i,i+50));
+    }
+    closeModal();
+    window._finParseResult=null;
+    await openClientDetail(clientId,'finance');
+  }catch(e){alert('업로드 오류: '+e.message);}
+}
+
+async function deleteFinanceReport(repId, clientId, period){
+  if(!confirm('이 재무제표를 삭제할까요?'))return;
+  try{
+    await api('DELETE','financial_items?report_id=eq.'+repId);
+    await api('DELETE','financial_reports?id=eq.'+repId);
+    await openClientDetail(clientId,'finance');
+  }catch(e){alert('오류: '+e.message);}
+}
+
+function openFinanceMemoModal(clientId, period){
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:460px">'
+    +'<div class="modal-title">이슈 / 코멘트 작성</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">'+period+' 기간 메모</div>'
+    +'<div class="form-row"><textarea id="finMemo" rows="6" style="resize:vertical" placeholder="주요 이슈, 특이사항, 담당자 코멘트 등을 자유롭게 작성하세요"></textarea></div>'
+    +'<div class="modal-footer"><div></div>'
+    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button>'
+    +'<button class="btn primary" data-cid="'+clientId+'" data-period="'+period+'" onclick="saveFinanceMemo(this.dataset.cid,this.dataset.period)">저장</button>'
+    +'</div></div></div></div>';
+
+  // 기존 메모 로드
+  api('GET','financial_reports?client_id=eq.'+clientId+'&period=eq.'+period+'&select=id,memo&limit=1')
+    .then(reps=>{
+      const memo=(reps||[])[0]?.memo||'';
+      document.getElementById('finMemo').value=memo;
+    });
+}
+
+async function saveFinanceMemo(clientId, period){
+  const memo=document.getElementById('finMemo').value.trim();
+  try{
+    // 이 기간 모든 report에 메모 저장
+    const reps=await api('GET','financial_reports?client_id=eq.'+clientId+'&period=eq.'+period+'&select=id');
+    for(const r of (reps||[])){
+      await api('PATCH','financial_reports?id=eq.'+r.id,{memo});
+    }
+    closeModal();
+    await openClientDetail(clientId,'finance');
+  }catch(e){alert('오류: '+e.message);}
+}
+
+// 포털에서 재무제표 표시
+async function loadPortalFinance(clientId){
+  const el=document.getElementById('portalFinanceWrap');if(!el)return;
+  try{
+    const reports=await api('GET','financial_reports?client_id=eq.'+clientId+'&order=period.desc&select=*');
+    if(!reports||!reports.length){
+      el.innerHTML='<div style="color:var(--text3);text-align:center;padding:40px;font-size:13px">등록된 재무제표가 없습니다.</div>';
+      return;
+    }
+    // 기간 버튼
+    const periods=[...new Set(reports.map(r=>r.period))].sort((a,b)=>b.localeCompare(a));
+    let html='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">'
+      +periods.map((p,i)=>'<button onclick="selectPortalFinancePeriod(\''+clientId+'\',\''+p+'\')" id="pfp-'+p.replace(/[^a-z0-9]/gi,'_')+'" style="padding:6px 14px;border-radius:20px;border:1px solid '+(i===0?'var(--blue)':'var(--border)')+';background:'+(i===0?'var(--blue)':'transparent')+';color:'+(i===0?'#fff':'var(--text2)')+';font-size:12px;font-weight:700;cursor:pointer">'+p+'</button>').join('')
+      +'</div>'
+      +'<div id="portalFinanceContent"></div>';
+    el.innerHTML=html;
+    await selectPortalFinancePeriod(clientId, periods[0]);
+  }catch(e){
+    el.innerHTML='<div style="color:var(--text3);padding:20px">재무제표를 불러올 수 없습니다.</div>';
+  }
+}
+
+async function selectPortalFinancePeriod(clientId, period){
+  document.querySelectorAll('[id^="pfp-"]').forEach(b=>{
+    b.style.background='transparent';b.style.color='var(--text2)';b.style.borderColor='var(--border)';
+  });
+  const btn=document.getElementById('pfp-'+period.replace(/[^a-z0-9]/gi,'_'));
+  if(btn){btn.style.background='var(--blue)';btn.style.color='#fff';btn.style.borderColor='var(--blue)';}
+
+  const el=document.getElementById('portalFinanceContent');
+  el.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">불러오는 중...</div>';
+
+  const reports=await api('GET','financial_reports?client_id=eq.'+clientId+'&period=eq.'+period+'&select=*');
+  const plRep=(reports||[]).find(r=>r.report_type==='손익계산서');
+  const bsRep=(reports||[]).find(r=>r.report_type==='재무상태표');
+
+  let plItems=[],bsItems=[];
+  if(plRep) plItems=await api('GET','financial_items?report_id=eq.'+plRep.id+'&order=sort_order.asc')||[];
+  if(bsRep) bsItems=await api('GET','financial_items?report_id=eq.'+bsRep.id+'&order=sort_order.asc')||[];
+
+  const memo=plRep?.memo||bsRep?.memo||'';
+  let html='';
+
+  // 이슈 코멘트
+  if(memo){
+    html+='<div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:14px;border-left:3px solid var(--blue)">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px">📌 이슈 / 코멘트</div>'
+      +'<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap">'+esc(memo)+'</div>'
+      +'</div>';
+  }
+
+  const renderPortalItems=(items)=>{
+    const majors=items.filter(it=>it.level==='major'&&it.amount!=null);
+    let h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px">'
+      +majors.map(it=>'<div style="background:var(--bg);border-radius:8px;padding:10px 12px">'
+        +'<div style="font-size:9px;font-weight:700;color:var(--text3);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(it.account_name.replace(/^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+\.\s*/,''))+'</div>'
+        +'<div style="font-size:16px;font-weight:900;color:var(--navy)">'+(Math.abs(it.amount)>=100000000?(it.amount/100000000).toFixed(1)+'억':it.amount.toLocaleString())+'</div>'
+        +'</div>').join('')
+      +'</div>';
+    // 상세 테이블
+    h+='<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">';
+    items.forEach(it=>{
+      if(!it.account_name)return;
+      const isMajor=it.level==='major',isMid=it.level==='mid';
+      h+='<div style="display:flex;justify-content:space-between;padding:6px 12px 6px '+(isMajor?'12':isMid?'20':'28')+'px;background:'+(isMajor?'var(--blue-light)':isMid?'var(--bg)':'var(--card)')+';border-top:1px solid var(--border)">'
+        +'<span style="font-size:12px;font-weight:'+(isMajor?'800':isMid?'600':'400')+';color:'+(isMajor?'var(--navy)':'var(--text2)')+'">'+esc(it.account_name)+'</span>'
+        +(it.amount!=null?'<span style="font-size:12px;color:'+(isMajor?'var(--navy)':'var(--text3)')+'">'+it.amount.toLocaleString()+'</span>':'')
+        +'</div>';
+    });
+    h+='</div>';
+    return h;
+  };
+
+  if(plItems.length) html+='<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">손익계산서</div>'+renderPortalItems(plItems)+'</div>';
+  if(bsItems.length) html+='<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">재무상태표</div>'+renderPortalItems(bsItems)+'</div>';
+
+  el.innerHTML=html||'<div style="color:var(--text3);text-align:center;padding:20px">이 기간의 데이터가 없습니다.</div>';
+}
 async function toggleContractManaged(id, newVal){
   try{
     await api('PATCH','contracts?id=eq.'+id,{is_managed:newVal});
