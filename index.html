@@ -418,6 +418,7 @@ table{border-collapse:collapse;min-width:100%}
   <div class="header">
     <div class="header-logo" onclick="setPage('clients')" style="cursor:pointer">Bexley</div>
     <nav class="header-nav">
+      <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
       <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">스케줄</button>
       <button class="nav-btn" id="navTeam" onclick="setPage('team')">팀</button>
       <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
@@ -440,7 +441,7 @@ table{border-collapse:collapse;min-width:100%}
       <div id="pinnedWrap"></div>
       <div id="alertWrap"></div>
       <div class="section-header">
-        <h2 class="section-title" id="boardTitle">고객사</h2>
+        <h2 class="section-title" id="boardTitle">거래처</h2>
         <div class="filter-row">
           <div class="toggle-wrap">
             <button class="toggle-btn active" id="myFilterBtn" onclick="toggleMyFilter()">내 고객사</button>
@@ -455,6 +456,18 @@ table{border-collapse:collapse;min-width:100%}
         </div>
       </div>
       <div class="board-grid" id="clientGrid"></div>
+    </div>
+
+    <!-- 계약 탭 -->
+    <div id="pageContracts" style="display:none">
+      <div class="section-header" style="margin-bottom:20px">
+        <h2 class="section-title">계약</h2>
+        <div class="filter-row">
+          <input id="contractSearch" placeholder="거래처 또는 계약명 검색" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;width:220px" oninput="renderContractsPage()"/>
+          <button class="btn primary sm" onclick="openContractModal()">+ 계약 추가</button>
+        </div>
+      </div>
+      <div id="contractsPageContent"></div>
     </div>
 
     <!-- 팀 탭 -->
@@ -472,7 +485,7 @@ table{border-collapse:collapse;min-width:100%}
 
     <!-- 상세 -->
     <div id="pageDetail" style="display:none">
-      <div class="detail-back" onclick="setPage('clients')">← 목록으로</div>
+      <div class="detail-back" onclick="setPage('clients')">← 거래처 목록</div>
       <div id="detailContent"></div>
     </div>
 
@@ -568,7 +581,7 @@ const TYPES={'감사':'#6366F1','세무':'#06B6D4','밸류에이션':'#8B5CF6','
 const ST_OP={'진행중':1,'예정':.5,'완료':.3};
 const SCHEDULE_META={
   leave:{label:'휴가',color:'#F59E0B'},
-  fieldwork:{label:'필드웍',color:'#06B6D4'},
+  fieldwork:{label:'필드웍',color:'#EF4444'},
   internal:{label:'내부업무',color:'#8B5CF6'},
   project:{label:'프로젝트 일정',color:'#6366F1'}
 };
@@ -925,29 +938,39 @@ function renderWeeklyScheduleSummary(){
   if(!el)return;
   const thisWeek=getWeeklySchedules(0);
   const nextWeek=getWeeklySchedules(1);
+  const {start:ts}=getWeekBounds(0);
+  const {start:ns}=getWeekBounds(1);
+  const tsEnd=new Date(ts);tsEnd.setDate(ts.getDate()+4);
+  const nsEnd=new Date(ns);nsEnd.setDate(ns.getDate()+4);
+  const fmtWR=(s,e)=>(s.getMonth()+1)+'.'+s.getDate()+' ~ '+(e.getMonth()+1)+'.'+e.getDate();
   const hasNext=nextWeek.leave.length||nextWeek.fieldwork.length;
-  const section=(title,icon,type,items,badgeClass)=>
-    `<div><div class="section-label" style="margin-bottom:8px">${icon} ${title}</div><div class="weekly-list">${
-      items.length
-        ?items.map(s=>`<div class="weekly-item"><div><div class="weekly-name">${esc(s.member_name||'미지정')}</div><div class="weekly-sub">${formatRangeShort(s.start,s.end)}${s.location?` · ${esc(s.location)}`:''}${s.title?` · ${esc(s.title)}`:''}</div></div><span class="badge ${badgeClass}">${scheduleLabel(type)}</span></div>`).join('')
-        :`<div class="weekly-empty">없음</div>`
-    }</div></div>`;
+  const sRow=s=>'<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">'
+    +'<div style="width:7px;height:7px;border-radius:50%;background:'+(s.schedule_type==='leave'?'var(--orange)':'#EF4444')+';flex-shrink:0"></div>'
+    +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--navy)">'+esc(s.member_name||'미지정')+'</div>'
+    +'<div style="font-size:11px;color:var(--text3)">'+formatRangeShort(s.start,s.end)+(s.location?' · '+esc(s.location):'')+'</div></div>'
+    +'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+(s.schedule_type==='leave'?'#FFF7ED':'#FEF2F2')+';color:'+(s.schedule_type==='leave'?'var(--orange)':'#EF4444')+'">'+scheduleLabel(s.schedule_type)+'</span>'
+    +'</div>';
+  const col=(label,items)=>'<div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">'+(label==='휴가'?'🌿 휴가':'🚗 필드웍')+'</div>'
+    +(items.length?items.map(sRow).join(''):'<div style="font-size:12px;color:var(--text3);padding:8px 0">없음</div>')
+    +'</div>';
   el.innerHTML='<div class="card" style="margin-bottom:16px">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-    +'<div class="section-label" style="margin:0">팀 일정</div>'
+    +'<div class="section-label" style="margin-bottom:16px">팀 일정</div>'
+    +'<div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px">'
+    +'<span style="font-size:11px;font-weight:800;color:var(--blue)">이번 주</span>'
+    +'<span style="font-size:11px;color:var(--text3)">'+fmtWR(ts,tsEnd)+'</span>'
     +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:'+(hasNext?'20':'0')+'px">'
-    +section('이번 주 휴가','🌿','leave',thisWeek.leave,'badge-orange')
-    +section('이번 주 필드웍','🚗','fieldwork',thisWeek.fieldwork,'badge-blue')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:'+(hasNext?'20':'4')+'px">'
+    +col('휴가',thisWeek.leave)+col('필드웍',thisWeek.fieldwork)
     +'</div>'
-    +(hasNext
-      ?'<div style="border-top:1px solid var(--border);padding-top:16px">'
-       +'<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:12px">다음 주</div>'
-       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'
-       +section('다음 주 휴가','🌿','leave',nextWeek.leave,'badge-orange')
-       +section('다음 주 필드웍','🚗','fieldwork',nextWeek.fieldwork,'badge-blue')
-       +'</div></div>'
-      :'')
+    +(hasNext?'<div style="border-top:1px solid var(--border);padding-top:16px">'
+      +'<div style="background:var(--bg2);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px">'
+      +'<span style="font-size:11px;font-weight:800;color:var(--text2)">다음 주</span>'
+      +'<span style="font-size:11px;color:var(--text3)">'+fmtWR(ns,nsEnd)+'</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'
+      +col('휴가',nextWeek.leave)+col('필드웍',nextWeek.fieldwork)
+      +'</div></div>':'')
     +'</div>';
 }
 function renderMyWeek(){
@@ -1064,15 +1087,16 @@ function acknowledgeNotice(id){
 // ── Pages ──
 function setPage(page,extra){
   curPage=page;
-  ['pageClients','pageDetail','pageContract','pageTeam','pageGantt','pageDash','pageNotice','pageFun'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  ['navGantt','navTeam','navDash','navNotice','navFun'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
-  const isHome=['clients','detail','contract'].includes(page);
+  ['pageClients','pageDetail','pageContract','pageContracts','pageTeam','pageGantt','pageDash','pageNotice','pageFun'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  ['navContracts','navGantt','navTeam','navDash','navNotice','navFun'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  const isHome=['clients','detail','contract','contracts'].includes(page);
   document.querySelector('.header-logo').style.color=isHome?'var(--blue)':'var(--navy)';
-  const pages={clients:'pageClients',detail:'pageDetail',contract:'pageContract',team:'pageTeam',gantt:'pageGantt',dash:'pageDash',notice:'pageNotice',fun:'pageFun'};
-  const navs={gantt:'navGantt',team:'navTeam',dash:'navDash',notice:'navNotice',fun:'navFun'};
+  const pages={clients:'pageClients',detail:'pageDetail',contract:'pageContract',contracts:'pageContracts',team:'pageTeam',gantt:'pageGantt',dash:'pageDash',notice:'pageNotice',fun:'pageFun'};
+  const navs={contracts:'navContracts',gantt:'navGantt',team:'navTeam',dash:'navDash',notice:'navNotice',fun:'navFun'};
   const el=document.getElementById(pages[page]);if(el)el.style.display='block';
   if(navs[page])document.getElementById(navs[page])?.classList.add('active');
   if(page==='clients'){renderPinned();renderAlerts();renderClients();}
+  else if(page==='contracts')renderContractsPage();
   else if(page==='team'){renderMyWeek();renderWeeklyScheduleSummary();renderKudos();renderWeeklyReviews();}
   else if(page==='gantt')renderGantt();
   else if(page==='dash')renderDash();
@@ -2639,6 +2663,57 @@ async function deleteUpdate(id,clientId){
     await loadClientUpdates(clientId);
   }catch(e){alert('오류: '+e.message);}
 }
+
+// ── 계약 탭 ──────────────────────────────────────
+function renderContractsPage(){
+  const el=document.getElementById('contractsPageContent');if(!el)return;
+  const q=(document.getElementById('contractSearch')?.value||'').toLowerCase();
+  const grouped={};
+  clients.forEach(c=>{
+    const cc=contracts.filter(ct=>ct.client_id===c.id);
+    if(!cc.length)return;
+    if(q&&!c.name.toLowerCase().includes(q)&&!cc.some(ct=>(ct.contract_name||'').toLowerCase().includes(q)))return;
+    grouped[c.id]={client:c,contracts:cc};
+  });
+  const totalContracts=contracts.length;
+  const totalAmount=contracts.reduce((s,ct)=>s+(ct.contract_amount?Number(ct.contract_amount):0),0);
+  const clientsWithContracts=clients.filter(c=>contracts.some(ct=>ct.client_id===c.id)).length;
+
+  let html='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">'
+    +'<div class="card"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">전체 계약</div><div style="font-size:28px;font-weight:900;color:var(--navy)">'+totalContracts+'</div><div style="font-size:12px;color:var(--text3)">건</div></div>'
+    +'<div class="card"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">거래처</div><div style="font-size:28px;font-weight:900;color:var(--blue)">'+clientsWithContracts+'</div><div style="font-size:12px;color:var(--text3)">개사</div></div>'
+    +'<div class="card"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 총액</div><div style="font-size:20px;font-weight:900;color:var(--navy)">'+(totalAmount?totalAmount.toLocaleString()+'원':'—')+'</div></div>'
+    +'</div>';
+
+  if(!Object.keys(grouped).length){el.innerHTML=html+'<div style="text-align:center;padding:40px;color:var(--text3)">계약 정보가 없습니다.</div>';return;}
+
+  Object.values(grouped).sort((a,b)=>a.client.name.localeCompare(b.client.name)).forEach(({client:c,contracts:cc})=>{
+    const totalAmt=cc.reduce((s,ct)=>s+(ct.contract_amount?Number(ct.contract_amount):0),0);
+    const activeCount=cc.filter(ct=>ct.contract_status==='진행중').length;
+    html+='<div class="card" style="margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer;padding-bottom:12px;border-bottom:1px solid var(--border)" onclick="openClientDetail(\''+c.id+'\',\'contracts\')">'
+      +'<div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
+      +'<div style="flex:1"><div style="font-size:15px;font-weight:800;color:var(--navy)">'+esc(c.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+cc.length+'건'+(totalAmt?' · '+totalAmt.toLocaleString()+'원':'')+(activeCount?' · <span style="color:var(--blue)">진행중 '+activeCount+'건</span>':'')+'</div></div>'
+      +'<span style="font-size:11px;color:var(--text3)">↗</span>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px">'
+      +cc.map(ct=>{
+        const stCls=ct.contract_status==='진행중'?'badge-blue':ct.contract_status==='완료'?'badge-gray':'badge-orange';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm);cursor:pointer;transition:background .1s" onclick="openContractDetail(\''+ct.id+'\')" onmouseover="this.style.background=\'var(--blue-light)\'" onmouseout="this.style.background=\'var(--bg)\'">'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(ct.contract_name||'계약명 없음')+'</div>'
+          +(ct.contract_type?'<div style="font-size:11px;color:var(--text3)">'+esc(ct.contract_type)+'</div>':'')
+          +'</div>'
+          +(ct.contract_amount?'<div style="font-size:12px;font-weight:700;color:var(--text2);flex-shrink:0">'+Number(ct.contract_amount).toLocaleString()+'원</div>':'')
+          +'<span class="badge '+stCls+'">'+(ct.contract_status||'검토중')+'</span>'
+          +'</div>';
+      }).join('')
+      +'</div></div>';
+  });
+  el.innerHTML=html;
+}
+
 async function logActivity(action, targetType, targetId, targetName){
   try{
     await api('POST','activity_logs',{
