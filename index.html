@@ -123,7 +123,40 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .weekly-name{font-size:13px;font-weight:800;color:var(--navy)}
 .weekly-sub{font-size:11px;color:#5b6b7f;margin-top:4px;font-weight:600}
 .weekly-empty{font-size:12px;color:var(--text3);padding:8px 0}
-@media (max-width: 768px){.weekly-schedule-grid{grid-template-columns:1fr}}
+/* 햄버거 메뉴 */
+.hamburger{display:none;flex-direction:column;gap:5px;background:transparent;border:none;cursor:pointer;padding:8px;border-radius:8px}
+.hamburger span{display:block;width:22px;height:2px;background:var(--navy);border-radius:2px;transition:all .25s}
+.hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.hamburger.open span:nth-child(2){opacity:0}
+.hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+.mobile-menu{display:none;position:fixed;top:62px;left:0;right:0;background:var(--card);border-bottom:1px solid var(--border);z-index:99;padding:8px 16px 16px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+.mobile-menu.open{display:block}
+.mobile-menu .nav-btn{width:100%;text-align:left;padding:12px 16px;font-size:14px;border-radius:10px;margin-bottom:4px;display:block}
+
+@media(max-width:768px){
+  .header{padding:0 14px;gap:6px}
+  .header-nav{display:none}
+  .header-right .admin-chip,.header-right #logBtn,.header-right #portalMgrBtn{display:none!important}
+  .header-right .logout-btn{font-size:11px;padding:5px 10px}
+  .header-right .user-chip{font-size:11px}
+  .hamburger{display:flex}
+  .app{padding:12px}
+  .stat-grid{grid-template-columns:1fr 1fr!important}
+  .detail-grid{grid-template-columns:1fr!important}
+  .dash-row{grid-template-columns:1fr!important}
+  .form-half{grid-template-columns:1fr!important}
+  .modal{width:calc(100vw - 20px)!important;margin:0 10px;max-height:88vh;overflow-y:auto}
+  .overlay{align-items:flex-end;padding:0}
+  .section-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .filter-row{flex-wrap:wrap;gap:6px}
+  .detail-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:0;padding-bottom:2px}
+  .detail-tab{white-space:nowrap;font-size:12px;padding:9px 12px;flex-shrink:0}
+  .weekly-schedule-grid{grid-template-columns:1fr}
+  .gantt-wrap table{font-size:11px}
+  .th-label{min-width:120px!important}
+  .card{padding:14px}
+  .portal-hero h2{font-size:20px}
+}
 
 /* Board */
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
@@ -417,21 +450,39 @@ table{border-collapse:collapse;min-width:100%}
 <!-- 메인 -->
 <div id="mainApp" style="display:none">
   <div class="header">
-    <div class="header-logo" onclick="setPage('clients')" style="cursor:pointer">Bexley</div>
+    <div class="header-logo" onclick="setPage('team');closeMobileMenu()" style="cursor:pointer">Bexley</div>
     <nav class="header-nav">
-      <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
-      <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">스케줄</button>
       <button class="nav-btn" id="navTeam" onclick="setPage('team')">팀</button>
+      <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">스케줄</button>
+      <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
+      <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
       <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
       <button class="nav-btn" id="navNotice" onclick="setPage('notice')">공지<span id="noticeDot" class="notif-dot" style="display:none"></span></button>
       <button class="nav-btn" id="navFun" onclick="setPage('fun')" style="opacity:.5" title="이스터에그">🎲</button>
     </nav>
     <div class="header-right">
       <span id="adminChip" class="admin-chip" style="display:none">관리자</span>
-      <button id="portalMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager()">🔐 포털 계정</button>
+      <button id="portalMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager()">🔐 고객사 페이지</button>
       <button id="logBtn" class="btn sm" style="display:none;font-size:11px" onclick="openActivityLog()">활동 로그</button>
       <div class="user-chip"><span id="userDisplay">-</span></div>
       <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+    <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <!-- 모바일 메뉴 -->
+  <div class="mobile-menu" id="mobileMenu">
+    <button class="nav-btn" id="mNavTeam" onclick="setPage('team');closeMobileMenu()">👥 팀</button>
+    <button class="nav-btn" id="mNavGantt" onclick="setPage('gantt');closeMobileMenu()">📅 스케줄</button>
+    <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">🏢 거래처</button>
+    <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">📄 계약</button>
+    <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">📊 대시보드</button>
+    <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">📢 공지</button>
+    <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">🔐 고객사 페이지</button>
+      <button id="mLogBtn" class="btn sm" style="display:none;font-size:11px" onclick="openActivityLog();closeMobileMenu()">활동 로그</button>
+      <button class="btn ghost sm" onclick="doLogout()" style="font-size:11px">로그아웃</button>
     </div>
   </div>
 
@@ -480,7 +531,11 @@ table{border-collapse:collapse;min-width:100%}
     <div id="pageTeam" style="display:none">
       <div class="section-header" style="margin-bottom:20px">
         <h2 class="section-title">팀</h2>
+        <button class="btn primary sm" onclick="openIssueModal()">+ 이슈 등록</button>
       </div>
+      <!-- 이슈 피드 -->
+      <div id="issueFeedWrap" style="margin-bottom:20px"></div>
+      <!-- 이번주 내 일정 -->
       <div id="myWeekWrap"></div>
       <div id="memberScheduleWrap"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -676,7 +731,7 @@ function previewPortal(clientId){
   const c=clients.find(x=>x.id===clientId);
   if(!c){alert('고객사를 찾을 수 없습니다.');return;}
   if(!c.portal_email){
-    if(!confirm('포털 계정이 설정되지 않았습니다.\n포털 미리보기를 계속하시겠습니까?'))return;
+    if(!confirm('고객사 페이지 계정이 설정되지 않았습니다.\n미리보기를 계속하시겠습니까?'))return;
   }
   portalPreviewMode=true;
   portalClient=c;
@@ -697,7 +752,7 @@ function exitPortalPreview(){
   if(banner)banner.style.display='none';
   if(logoutBtn)logoutBtn.style.display='block';
   showPage('main');
-  setPage('clients');
+  setPage('team');
 }
 
 function doClientLogout(){
@@ -808,6 +863,11 @@ async function initApp(){
   document.getElementById('noticeWriteBtn').style.display=isAdmin?'inline-block':'none';
   document.getElementById('logBtn').style.display=isAdmin?'inline-block':'none';
   document.getElementById('portalMgrBtn').style.display=isAdmin?'inline-block':'none';
+  // 모바일 메뉴 관리자 버튼
+  const mPortal=document.getElementById('mPortalBtn');
+  const mLog=document.getElementById('mLogBtn');
+  if(mPortal)mPortal.style.display=isAdmin?'inline-block':'none';
+  if(mLog)mLog.style.display=isAdmin?'inline-block':'none';
   document.getElementById('userDisplay').textContent=currentMember?currentMember.name:currentUser.email;
   await loadAll();
   checkPopup();
@@ -1115,19 +1175,30 @@ function acknowledgeNotice(id){
 }
 
 // ── Pages ──
+function toggleMobileMenu(){
+  const btn=document.getElementById('hamburgerBtn');
+  const menu=document.getElementById('mobileMenu');
+  btn.classList.toggle('open');
+  menu.classList.toggle('open');
+}
+function closeMobileMenu(){
+  document.getElementById('hamburgerBtn')?.classList.remove('open');
+  document.getElementById('mobileMenu')?.classList.remove('open');
+}
+
 function setPage(page,extra){
   curPage=page;
   ['pageClients','pageDetail','pageContract','pageContracts','pageTeam','pageGantt','pageDash','pageNotice','pageFun'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  ['navContracts','navGantt','navTeam','navDash','navNotice','navFun'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
-  const isHome=['clients','detail','contract','contracts'].includes(page);
+  ['navClients','navContracts','navGantt','navTeam','navDash','navNotice','navFun'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  const isHome=['team','clients','detail','contract','contracts'].includes(page);
   document.querySelector('.header-logo').style.color=isHome?'var(--blue)':'var(--navy)';
-  const pages={clients:'pageClients',detail:'pageDetail',contract:'pageContract',contracts:'pageContracts',team:'pageTeam',gantt:'pageGantt',dash:'pageDash',notice:'pageNotice',fun:'pageFun'};
-  const navs={contracts:'navContracts',gantt:'navGantt',team:'navTeam',dash:'navDash',notice:'navNotice',fun:'navFun'};
+  const pages={team:'pageTeam',clients:'pageClients',detail:'pageDetail',contract:'pageContract',contracts:'pageContracts',gantt:'pageGantt',dash:'pageDash',notice:'pageNotice',fun:'pageFun'};
+  const navs={team:'navTeam',clients:'navClients',contracts:'navContracts',gantt:'navGantt',dash:'navDash',notice:'navNotice',fun:'navFun'};
   const el=document.getElementById(pages[page]);if(el)el.style.display='block';
   if(navs[page])document.getElementById(navs[page])?.classList.add('active');
   if(page==='clients'){renderPinned();renderAlerts();renderClients();}
   else if(page==='contracts')renderContractsPage();
-  else if(page==='team'){renderMyWeek();renderWeeklyScheduleSummary();renderKudos();renderWeeklyReviews();}
+  else if(page==='team'){loadIssueFeed();renderMyWeek();renderWeeklyScheduleSummary();renderKudos();renderWeeklyReviews();}
   else if(page==='gantt')renderGantt();
   else if(page==='dash')renderDash();
   else if(page==='notice')renderNotices();
@@ -1228,13 +1299,16 @@ function openClientDetail(id, tab='projects'){
     ?'<div class="card"><div class="section-label">계약서 ('+cc.length+'건) <button class="btn primary sm" onclick="openContractModal(null,\''+id+'\')">+ 추가</button></div>'
       +(contractItems||'<div style="color:var(--text3);font-size:13px;padding:12px 0">등록된 계약이 없습니다</div>')
       +'</div>'
-    :tab==='finance'
-    ?'<div id="financeTabWrap"><div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">불러오는 중...</div></div>'
     :tab==='updates'
-    ?'<div class="card"><div class="section-label">고객사 업데이트 '
+    ?'<div>'
+      +'<div class="card" style="margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+      +'<div class="section-label" style="margin:0">업무 업데이트</div>'
       +(isAssigned?'<button class="btn primary sm" onclick="openUpdateModal(null,\''+id+'\')">+ 작성</button>':'')
       +'</div>'
       +'<div id="updateFeed"><div style="color:var(--text3);font-size:13px;padding:12px 0">불러오는 중...</div></div>'
+      +'</div>'
+      +'<div id="financeTabWrap"><div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">재무제표 불러오는 중...</div></div>'
       +'</div>'
     :'<div class="card"><div class="section-label">고객사 정보</div>'
       +'<div class="info-row"><span class="info-label">담당자</span><span class="info-value">'+(c.contact_name||'—')+'</span></div>'
@@ -1268,13 +1342,12 @@ function openClientDetail(id, tab='projects'){
     +'<div class="detail-tabs">'
     +'<button class="detail-tab'+(tab==='projects'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'projects\')">프로젝트 ('+cp.length+')</button>'
     +'<button class="detail-tab'+(tab==='contracts'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'contracts\')">계약 ('+cc.length+')</button>'
-    +'<button class="detail-tab'+(tab==='updates'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'updates\')">업데이트</button>'
+    +'<button class="detail-tab'+(tab==='updates'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'updates\')">고객 레포트</button>'
     +'<button class="detail-tab'+(tab==='info'?' active':'')+'" onclick="openClientDetail(\''+id+'\',\'info\')">정보 / 메모</button>'
     +'</div>'
     +tabContent;
   setPage('detail');
-  if(tab==='updates') loadClientUpdates(id);
-  if(tab==='finance') loadFinanceTab(id);
+  if(tab==='updates'){loadClientUpdates(id);loadFinanceTab(id);}
 }
 
 // ── Contract Modal ──
@@ -1838,6 +1911,30 @@ function switchProjTab(tab){
   projModalTab=tab;
   document.querySelectorAll('.modal-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.modal-tab-content').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  if(tab==='issue'&&editingProjId) loadProjIssues(editingProjId);
+}
+
+async function loadProjIssues(projId){
+  const el=document.getElementById('projIssueList');if(!el)return;
+  try{
+    const issues=await api('GET','project_issues?project_id=eq.'+projId+'&order=created_at.desc')||[];
+    if(!issues.length){
+      el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">이 프로젝트의 이슈가 없습니다.</div>';
+      return;
+    }
+    el.innerHTML=issues.map(issue=>{
+      const isOpen=issue.status==='open';
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:600;color:'+(isOpen?'var(--navy)':'var(--text3)')+';">'+(issue.is_pinned?'📌 ':'')+esc(issue.title)+'</div>'
+        +(issue.content?'<div style="font-size:11px;color:var(--text2);margin-top:3px">'+esc(issue.content)+'</div>':'')
+        +'<div style="font-size:10px;color:var(--text3);margin-top:4px">'+esc(issue.author_name||'익명')+' · '+formatCommentDate(issue.created_at)
+        +(issue.status==='resolved'?'<span style="color:var(--green);font-weight:700;margin-left:6px">✓ 해결됨</span>':'')+'</div>'
+        +'</div>'
+        +(isOpen?'<button onclick="resolveIssue(\''+issue.id+'\');loadProjIssues(\''+projId+'\')" style="flex-shrink:0;padding:4px 8px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);font-size:11px;cursor:pointer">✓ 해결</button>':'')
+        +'</div>';
+    }).join('');
+  }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px">이슈 로드 실패</div>';}
 }
 
 function buildContractBillingSummary(contractId){
@@ -1872,11 +1969,65 @@ function renderProjModal(p,editable,preClientId,preContractId){
     +'<div class="modal-title">'+(p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가')+'</div>'
     +'<div class="modal-tabs">'
     +'<button class="modal-tab active" data-tab="basic" onclick="switchProjTab(\'basic\')">기본 정보</button>'
+    +'<button class="modal-tab" data-tab="issue" onclick="switchProjTab(\'issue\')">이슈</button>'
     +'<button class="modal-tab" data-tab="billing" onclick="switchProjTab(\'billing\')">빌링</button>'
-    +'<button class="modal-tab" data-tab="memo" onclick="switchProjTab(\'memo\')">'+(p?'메모 / 댓글':'메모')+'</button>'
     +'</div>'
+
     // 탭1: 기본정보
     +'<div class="modal-tab-content active" data-tab="basic">'
+    +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="'+esc(p?p.name:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-half">'
+    +'<div class="form-row"><label class="form-label">고객사</label><select id="fClient" '+(editable?'onchange="onClientChange()"':'disabled')+'><option value="">고객사 없음</option>'+cOpts+'</select></div>'
+    +'<div class="form-row"><label class="form-label">계약 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label>'
+    +'<select id="fContract" '+(editable?'onchange="onContractChange()"':'disabled')+'><option value="">계약 없음</option>'+ctOpts+'</select></div>'
+    +'</div>'
+    +'<div id="contractHint" style="'+(linkedContract?'':'display:none')+';background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--blue);margin-bottom:10px">'
+    +(linkedContract?'📄 '+esc(linkedContract.contract_name)+(linkedContract.contract_amount?' · '+Number(linkedContract.contract_amount).toLocaleString()+'원':''):'')
+    +'</div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="fType" '+(editable?'':'disabled')+'>'+Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')+'</select></div>'
+    +'<div class="form-row"><label class="form-label">상태</label><select id="fStatus" '+(editable?'':'disabled')+'><option '+(p&&p.status==='진행중'?'selected':'')+'>진행중</option><option '+(p&&p.status==='예정'?'selected':'')+'>예정</option><option '+(p&&p.status==='완료'?'selected':'')+'>완료</option></select></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="'+(p?p.start:curYear+'-'+pad(curMonth)+'-01')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">종료일</label><input type="date" id="fEnd" value="'+(p?p.end:curYear+'-'+pad(curMonth)+'-'+pad(d))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +(editable
+      ?'<div class="form-row"><label class="form-label">담당 인력</label><div style="display:flex;gap:8px"><select id="fMSel" style="flex:1">'+mOpts+'</select><button class="btn sm" onclick="addMember()">+ 추가</button></div><div class="member-tags" id="fMTags"></div></div>'
+      :'<div class="form-row"><label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+(p?p.members.join(', ')||'미배정':'')+'</div></div>')
+    +'<div id="conflictArea"></div>'
+    // 메모 (간단하게 1개만)
+    +'<div class="form-row"><label class="form-label">메모</label><textarea id="fMemo" rows="2" style="resize:vertical" placeholder="간단한 메모, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p&&p.memo?p.memo:'')+'</textarea></div>'
+    +(!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':'')
+    +'</div>'
+
+    // 탭2: 이슈
+    +'<div class="modal-tab-content" data-tab="issue">'
+    +(p
+      ?'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+       +'<div style="font-size:12px;color:var(--text3)">이 프로젝트의 이슈 및 댓글</div>'
+       +'<button class="btn primary sm" onclick="closeModal();openIssueModal(\''+p.id+'\')">+ 이슈 등록</button>'
+       +'</div>'
+       +'<div id="projIssueList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
+       // 댓글
+       +'<div class="divider">댓글</div>'
+       +'<div id="projectCommentSection"><div style="color:var(--text3);font-size:12px;padding:8px 0">불러오는 중...</div></div>'
+      :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 이슈를 등록할 수 있습니다.</div>')
+    +'</div>'
+
+    // 탭3: 빌링
+    +'<div class="modal-tab-content" data-tab="billing">'
+    +'<div class="checkbox-row"><input type="checkbox" id="fBillable" '+(isBillable?'checked':'')+' '+(editable?'':'disabled')+'/><label for="fBillable">빌링 대상 프로젝트</label></div>'
+    +'<div id="billingFields" style="'+(isBillable?'':'display:none')+'">'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" '+(editable?'':'disabled')+'>'+['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></div>'
+    +'<div class="form-row"><label class="form-label">청구 금액 (원)</label><input id="fAmt" type="number" value="'+(p&&p.billing_amount?p.billing_amount:'')+'" placeholder="'+(linkedContract?.contract_amount?'계약: '+Number(linkedContract.contract_amount).toLocaleString():'예) 5000000')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="'+esc(p&&p.billing_note?p.billing_note:'')+'" placeholder="인보이스 번호, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">세금계산서 발행 요청 메일 문안을 자동으로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="'+(p?p.id:'')+'" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div></div>'
+    +'</div>'
+    +(p&&linkedContract?'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 빌링 현황</div>'+buildContractBillingSummary(linkedContract.id)+'</div>':'')
+    +'</div>'
+
+    // 하단
+    +'<div class="modal-footer">'
+    +(p&&editable?'<div style="display:flex;gap:6px"><button class="btn danger" onclick="deleteProj()">삭제</button><button class="btn ghost sm" onclick="copyProj()">복사</button></div>':'<div></div>')
+    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" onclick="saveProj()">저장</button>':'')+'</div>'
+    +'</div></div></div>';
     +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="'+esc(p?p.name:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-half">'
     +'<div class="form-row"><label class="form-label">고객사</label><select id="fClient" '+(editable?'onchange="onClientChange()"':'disabled')+'><option value="">고객사 없음</option>'+cOpts+'</select></div>'
@@ -1907,20 +2058,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
     +'</div>'
     +(p&&linkedContract?'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 빌링 현황</div>'+buildContractBillingSummary(linkedContract.id)+'</div>':'')
     +'</div>'
-    // 탭3: 메모/댓글
-    +'<div class="modal-tab-content" data-tab="memo">'
-    +'<div class="form-row"><label class="form-label">프로젝트 메모</label><textarea id="fMemo" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p&&p.memo?p.memo:'')+'</textarea></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">프로젝트 코드</label><input id="fProjCode" value="'+esc(p&&p.project_code?p.project_code:'')+'" placeholder="예) BX-2026-001" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">실제 완료일</label><input type="date" id="fActualEnd" value="'+(p&&p.actual_end_date?p.actual_end_date:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +(p?'<div class="divider">업무 결과</div>'
-    +'<div class="form-row"><label class="form-label">결과 요약</label><textarea id="fResultSummary" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p.result_summary||'')+'</textarea></div>'
-    +'<div class="form-row"><label class="form-label">업무 내용</label><textarea id="fWorkSummary" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p.work_summary||'')+'</textarea></div>'
-    +'<div class="form-row"><label class="form-label">이슈 / 특이사항</label><textarea id="fIssueNote" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p.issue_note||'')+'</textarea></div>'
-    +'<div class="checkbox-row"><input type="checkbox" id="fFollowUp" '+(p.follow_up_needed?'checked':'')+' '+(editable?'':'disabled')+'/><label for="fFollowUp">후속 조치 필요</label></div>'
-    +'<div class="form-row" id="followUpNoteRow" style="'+(p.follow_up_needed?'':'display:none')+'"><label class="form-label">후속 조치 내용</label><textarea id="fFollowUpNote" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p.follow_up_note||'')+'</textarea></div>'
-    :'')
-    +(p?'<div id="projectCommentSection" style="margin-top:8px"><div style="color:var(--text3);font-size:12px;padding:8px 0">댓글을 불러오는 중...</div></div>':'')
-    +'</div>'
+
     // 하단
     +'<div class="modal-footer">'
     +(p&&editable?'<div style="display:flex;gap:6px"><button class="btn danger" onclick="deleteProj()">삭제</button><button class="btn ghost sm" onclick="copyProj()">복사</button></div>':'<div></div>')
@@ -1929,8 +2067,6 @@ function renderProjModal(p,editable,preClientId,preContractId){
 
   if(editable){
     document.getElementById('fBillable').onchange=function(){document.getElementById('billingFields').style.display=this.checked?'':'none';};
-    const fuEl=document.getElementById('fFollowUp');
-    if(fuEl)fuEl.onchange=function(){const row=document.getElementById('followUpNoteRow');if(row)row.style.display=this.checked?'':'none';};
     renderMemberTags();
     document.getElementById('fStart').oninput=refreshConflict;
     document.getElementById('fEnd').oninput=refreshConflict;
@@ -2850,7 +2986,7 @@ function openUpdateModal(editId,clientId){
   const feedEl=document.getElementById('updateFeed');
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:520px"><div class="modal-title">'+(editId?'업데이트 수정':'업데이트 작성')+'</div>'
+    +'<div class="modal" style="width:520px"><div class="modal-title">'+(editId?'레포트 수정':'레포트 작성')+'</div>'
     +'<div class="form-row"><label class="form-label">제목</label><input id="uTitle" placeholder="예) 1분기 감사 중간 보고" autofocus/></div>'
     +'<div class="form-row"><label class="form-label">내용</label><textarea id="uContent" rows="5" style="resize:vertical" placeholder="진행 상황, 주요 내용, 전달 사항 등을 작성하세요"></textarea></div>'
     +'<div class="divider">첨부 파일 링크 (OneDrive)</div>'
@@ -2900,10 +3036,152 @@ async function saveUpdate(editId,clientId){
 }
 
 async function deleteUpdate(id,clientId){
-  if(!confirm('업데이트를 삭제할까요?'))return;
+  if(!confirm('레포트를 삭제할까요?'))return;
   try{
     await api('DELETE','client_updates?id=eq.'+id);
     await loadClientUpdates(clientId);
+  }catch(e){alert('오류: '+e.message);}
+}
+
+// ── 이슈 시스템 ──────────────────────────────────────────────
+
+async function loadIssueFeed(){
+  const el=document.getElementById('issueFeedWrap');if(!el)return;
+  try{
+    const [pinned,recent]=await Promise.all([
+      api('GET','project_issues?is_pinned=eq.true&status=eq.open&select=*&order=created_at.desc'),
+      api('GET','project_issues?select=*&order=created_at.desc&limit=30')
+    ]);
+    renderIssueFeed(el,pinned||[],recent||[]);
+  }catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:12px 0">이슈를 불러올 수 없습니다.</div>';}
+}
+
+function renderIssueFeed(el,pinned,recent){
+  const pinnedIds=new Set((pinned||[]).map(i=>i.id));
+  const others=(recent||[]).filter(i=>!pinnedIds.has(i.id));
+  const issueCard=(issue,isPinned)=>{
+    const proj=projects.find(p=>p.id===issue.project_id);
+    const client=proj?clients.find(c=>c.id===proj.client_id):null;
+    const isOpen=issue.status==='open';
+    return '<div class="card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'">'
+      +'<div style="display:flex;align-items:flex-start;gap:10px">'
+      +'<div style="flex:1;min-width:0">'
+      +(proj?'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px">'+(client?esc(client.name)+' · ':'')+esc(proj.name)+'</div>':'')
+      +'<div style="font-size:13px;font-weight:700;color:'+(isOpen?'var(--navy)':'var(--text3)')+'">'+(isPinned?'📌 ':'')+esc(issue.title)+'</div>'
+      +(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
+      +'<div style="font-size:11px;color:var(--text3);margin-top:6px;display:flex;gap:10px">'
+      +'<span>'+esc(issue.author_name||'익명')+'</span><span>'+formatCommentDate(issue.created_at)+'</span>'
+      +(issue.status==='resolved'?'<span style="color:var(--green);font-weight:700">✓ '+esc(issue.resolved_by||'')+'</span>':'')
+      +'</div></div>'
+      +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
+      +(isOpen?'<button onclick="resolveIssue(\''+issue.id+'\')" title="해결 처리" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);font-size:13px;cursor:pointer">✓</button>':'')
+      +(isAdmin&&isOpen?'<button onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:'+(issue.is_pinned?'var(--red-bg)':'transparent')+';color:'+(issue.is_pinned?'var(--red)':'var(--text3)')+';font-size:12px;cursor:pointer" title="'+(issue.is_pinned?'고정 해제':'상단 고정')+'">📌</button>':'')
+      +'<button onclick="openIssueComments(\''+issue.id+'\')" title="댓글" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer">💬</button>'
+      +'</div></div>'
+      +'<div id="comments-'+issue.id+'" style="display:none"></div>'
+      +'</div>';
+  };
+  let html='';
+  if(pinned.length){
+    html+='<div style="font-size:11px;font-weight:700;color:var(--red);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">📌 고정 이슈 ('+pinned.length+'건)</div>';
+    html+=pinned.map(i=>issueCard(i,true)).join('');
+  }
+  if(others.length){
+    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:'+(pinned.length?'16':'0')+'px 0 8px">최근 이슈</div>';
+    html+=others.map(i=>issueCard(i,false)).join('');
+  }
+  if(!pinned.length&&!others.length){
+    html='<div class="card" style="text-align:center;padding:32px;color:var(--text3)">'
+      +'<div style="font-size:28px;margin-bottom:8px">✅</div>'
+      +'<div style="font-size:14px;font-weight:700">등록된 이슈가 없습니다</div>'
+      +'<div style="font-size:12px;margin-top:4px">+ 이슈 등록으로 새 이슈를 등록하세요</div></div>';
+  }
+  el.innerHTML=html;
+}
+
+function openIssueModal(projId){
+  const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);return '<option value="'+p.id+'"'+(p.id===projId?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:480px"><div class="modal-title">🚨 이슈 등록</div>'
+    +'<div class="form-row"><label class="form-label">관련 프로젝트</label>'
+    +'<select id="issueProj"><option value="">선택 (선택사항)</option>'+projOpts+'</select></div>'
+    +'<div class="form-row"><label class="form-label">이슈 제목 *</label>'
+    +'<input id="issueTitle" placeholder="예) DB 접근 오류 발생" autofocus/></div>'
+    +'<div class="form-row"><label class="form-label">상세 내용</label>'
+    +'<textarea id="issueContent" rows="4" placeholder="상세 내용, 원인, 영향 범위 등" style="resize:vertical"></textarea></div>'
+    +'<div class="modal-footer"><div></div>'
+    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button>'
+    +'<button class="btn primary" onclick="saveIssue()">등록</button>'
+    +'</div></div></div></div>';
+}
+
+async function saveIssue(){
+  const title=document.getElementById('issueTitle').value.trim();
+  if(!title){alert('이슈 제목을 입력해주세요.');return;}
+  try{
+    await api('POST','project_issues',{
+      project_id:document.getElementById('issueProj').value||null,
+      title,content:document.getElementById('issueContent').value.trim()||null,
+      author_name:currentMember?.name||currentUser?.email||'익명',
+      created_by:currentUser?.id||null,status:'open'
+    });
+    closeModal();
+    await loadIssueFeed();
+  }catch(e){alert('등록 오류: '+e.message);}
+}
+
+async function resolveIssue(id){
+  if(!confirm('이슈를 해결 처리할까요?'))return;
+  try{
+    await api('PATCH','project_issues?id=eq.'+id,{
+      status:'resolved',resolved_at:new Date().toISOString(),
+      resolved_by:currentMember?.name||currentUser?.email||'익명'
+    });
+    await loadIssueFeed();
+  }catch(e){alert('오류: '+e.message);}
+}
+
+async function toggleIssuePin(id,newVal){
+  try{await api('PATCH','project_issues?id=eq.'+id,{is_pinned:newVal});await loadIssueFeed();}
+  catch(e){alert('오류: '+e.message);}
+}
+
+async function openIssueComments(issueId){
+  const el=document.getElementById('comments-'+issueId);if(!el)return;
+  if(el.style.display!=='none'){el.style.display='none';return;}
+  el.style.display='block';
+  el.innerHTML='<div style="padding:8px 0;color:var(--text3);font-size:12px">불러오는 중...</div>';
+  try{
+    const comments=await api('GET','issue_comments?issue_id=eq.'+issueId+'&order=created_at.asc')||[];
+    el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">'
+      +comments.map(c=>'<div style="display:flex;gap:8px;margin-bottom:10px">'
+        +'<div style="width:26px;height:26px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(c.author_name||'?').charAt(0)+'</div>'
+        +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(c.author_name||'익명')
+        +'<span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:6px">'+formatCommentDate(c.created_at)+'</span></div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-top:2px;line-height:1.6">'+esc(c.content)+'</div>'
+        +'</div></div>').join('')
+      +(comments.length===0?'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">아직 댓글이 없습니다.</div>':'')
+      +'<div style="display:flex;gap:8px;margin-top:4px">'
+      +'<input id="ic-'+issueId+'" placeholder="댓글 입력... (Enter로 등록)" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();submitIssueComment(\''+issueId+'\')}"/>'
+      +'<button class="btn primary sm" onclick="submitIssueComment(\''+issueId+'\')">등록</button>'
+      +'</div></div>';
+  }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px;padding:8px 0">로드 실패</div>';}
+}
+
+async function submitIssueComment(issueId){
+  const input=document.getElementById('ic-'+issueId);
+  const content=input?.value?.trim();if(!content)return;
+  try{
+    await api('POST','issue_comments',{
+      issue_id:issueId,content,
+      author_name:currentMember?.name||currentUser?.email||'익명',
+      created_by:currentUser?.id||null
+    });
+    // 댓글 닫고 다시 열어서 리프레시
+    const el=document.getElementById('comments-'+issueId);
+    if(el)el.style.display='none';
+    await openIssueComments(issueId);
   }catch(e){alert('오류: '+e.message);}
 }
 
@@ -2989,60 +3267,6 @@ function renderContractsPage(){
 // ── 재무제표 ──────────────────────────────────────────────────
 
 // 위하고 엑셀 파싱 (브라우저에서 직접)
-async function parseFinancialExcel(file){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=async(e)=>{
-      try{
-        // SheetJS로 파싱
-        const XLSX=window.XLSX;
-        if(!XLSX){reject(new Error('SheetJS 로드 필요'));return;}
-        const wb=XLSX.read(e.target.result,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-
-        // 기간 추출 (row 0)
-        const headerStr=(rows[0]||[]).join(' ');
-        const pm=headerStr.match(/\[(\d{4})\/(\d{2})\/\d{2}\s*~\s*(\d{4})\/(\d{2})\/\d{2}\]/);
-        let period='', periodType='연간';
-        if(pm){
-          const sy=pm[1],sm=pm[2],ey=pm[3],em=pm[4];
-          if(sy===ey&&sm===em){period=sy+'-'+sm;periodType='월';}
-          else if(sy===ey){period=sy;periodType='연간';}
-          else{period=sy+'~'+ey;periodType='연간';}
-        }
-
-        // 항목 파싱
-        const items=[];
-        let sortOrder=0;
-        const romanPat=/^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]/;
-        const midPat=/^\([0-9]+\)/;
-        const rootWords=['자산','부채','자본'];
-
-        for(let i=2;i<rows.length;i++){
-          const row=rows[i];
-          const rawName=row[0];
-          if(!rawName||String(rawName).trim()==='')continue;
-          const name=String(rawName).trim();
-          const isRoot=rootWords.includes(name);
-          const isMajor=romanPat.test(name)||isRoot;
-          const isMid=midPat.test(name);
-          let amt=null;
-          const v=isMajor||isMid?row[2]:row[1]??row[2];
-          if(v!==null&&v!==undefined){
-            const n=parseFloat(String(v).replace(/,/g,''));
-            if(!isNaN(n))amt=Math.round(n);
-          }
-          const level=isMajor?'major':isMid?'mid':'sub';
-          items.push({level,account_name:name,amount:amt,sort_order:sortOrder++});
-        }
-        resolve({period,periodType,items});
-      }catch(err){reject(err);}
-    };
-    reader.onerror=()=>reject(new Error('파일 읽기 실패'));
-    reader.readAsArrayBuffer(file);
-  });
-}
 
 // SheetJS 동적 로드
 function loadSheetJS(){
@@ -3107,110 +3331,135 @@ async function selectFinancePeriod(clientId, period){
 
 async function renderFinancePeriod(clientId, reports, period){
   const el=document.getElementById('financeContent');if(!el)return;
+  el.innerHTML='<div style="color:var(--text3);text-align:center;padding:20px">불러오는 중...</div>';
   const periodReports=reports.filter(r=>r.period===period);
   const plRep=periodReports.find(r=>r.report_type==='손익계산서');
   const bsRep=periodReports.find(r=>r.report_type==='재무상태표');
+  let plItems=[],bsItems=[];
+  if(plRep) plItems=await api('GET','financial_items?report_id=eq.'+plRep.id+'&order=sort_order.asc')||[];
+  if(bsRep) bsItems=await api('GET','financial_items?report_id=eq.'+bsRep.id+'&order=sort_order.asc')||[];
 
-  // 항목 로드
-  let plItems=[], bsItems=[];
-  if(plRep){
-    plItems=await api('GET','financial_items?report_id=eq.'+plRep.id+'&order=sort_order.asc')||[];
-  }
-  if(bsRep){
-    bsItems=await api('GET','financial_items?report_id=eq.'+bsRep.id+'&order=sort_order.asc')||[];
-  }
-
-  const fmtAmt=n=>{
-    if(n===null||n===undefined)return '—';
-    const abs=Math.abs(n);
-    if(abs>=100000000)return (n/100000000).toFixed(1)+'억';
-    if(abs>=10000)return (n/10000).toFixed(0)+'만';
-    return n.toLocaleString();
-  };
+  const fmtBig=n=>{if(n==null)return '—';const a=Math.abs(n);if(a>=100000000)return (n<0?'-':'')+(a/100000000).toFixed(1)+'억';if(a>=10000)return (n<0?'-':'')+(a/10000).toFixed(0)+'만';return n.toLocaleString();};
   const fmtFull=n=>n!=null?n.toLocaleString()+'원':'—';
+  const chg=(cur,prev)=>{if(cur==null||prev==null||prev===0)return null;return Math.round((cur-prev)/Math.abs(prev)*100);};
+  const chgBadge=pct=>{if(pct==null)return '';const up=pct>=0;return '<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+(up?'#D1FAE5':'#FEE2E2')+';color:'+(up?'#065F46':'#991B1B')+'">'+(up?'▲':'▼')+Math.abs(pct)+'%</span>';};
+  const getMajor=(items,name)=>items.find(it=>it.level==='major'&&it.account_name.includes(name));
 
-  const renderItems=(items,type)=>{
-    if(!items.length)return '<div style="color:var(--text3);padding:20px;text-align:center;font-size:13px">데이터가 없습니다</div>';
-    // 핵심 지표 (대분류만)
-    const majors=items.filter(it=>it.level==='major'&&it.amount!=null);
-    const keyMetrics=majors.slice(0,type==='pl'?8:4);
+  // 손익 핵심 KPI
+  const kpis=plItems.length?[
+    {label:'매출액', item:getMajor(plItems,'매출액'), color:'var(--blue)'},
+    {label:'매출총이익', item:getMajor(plItems,'매출총이익'), color:'var(--cyan)'},
+    {label:'영업이익', item:getMajor(plItems,'영업이익'), color:'var(--green)'},
+    {label:'당기순이익', item:getMajor(plItems,'당기순이익')||getMajor(plItems,'당기순손익'), color:'var(--purple)'},
+  ].filter(k=>k.item):[];
 
-    let html='';
-    // 핵심 수치 그리드
-    if(keyMetrics.length){
-      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px">'
-        +keyMetrics.map(it=>{
-          const isNeg=it.account_name.includes('원가')||it.account_name.includes('비용')||it.account_name.includes('비');
-          const color=it.amount<0?'var(--red)':isNeg?'var(--text2)':'var(--blue)';
-          return '<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px">'
-            +'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(it.account_name.replace(/^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+\.\s*/,''))+'</div>'
-            +'<div style="font-size:18px;font-weight:900;color:'+color+'">'+fmtAmt(it.amount)+'</div>'
-            +'</div>';
-        }).join('')
-        +'</div>';
-    }
+  // 영업이익률 계산
+  const revItem=getMajor(plItems,'매출액');
+  const opItem=getMajor(plItems,'영업이익');
+  const opMargin=(revItem?.amount&&opItem?.amount)?Math.round(opItem.amount/revItem.amount*1000)/10:null;
+  const opMarginPrev=(revItem?.prev_amount&&opItem?.prev_amount)?Math.round(opItem.prev_amount/revItem.prev_amount*1000)/10:null;
 
-    // 전체 상세 테이블
-    html+='<div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-      +'<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">'
-      +'<span>계정과목</span><span>금액</span></div>';
-    items.forEach(it=>{
-      if(!it.account_name||it.account_name==='nan')return;
-      const isMajor=it.level==='major';
-      const isMid=it.level==='mid';
-      const bg=isMajor?'var(--blue-light)':isMid?'var(--bg)':'var(--card)';
-      const fw=isMajor?'800':isMid?'700':'400';
-      const fs=isMajor?'13':isMid?'12':'12';
-      const pl=isMajor?'12':isMid?'20':'28';
-      const color=isMajor?'var(--navy)':isMid?'var(--text2)':'var(--text2)';
-      html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px 6px '+pl+'px;background:'+bg+';border-top:1px solid var(--border)">'
-        +'<span style="font-size:'+fs+'px;font-weight:'+fw+';color:'+color+'">'+esc(it.account_name)+'</span>'
-        +(it.amount!=null?'<span style="font-size:12px;font-weight:'+(isMajor?'700':'400')+';color:'+(isMajor?'var(--navy)':'var(--text3)')+';white-space:nowrap">'+it.amount.toLocaleString()+'</span>':'')
-        +'</div>';
-    });
-    html+='</div>';
-    return html;
-  };
+  let html='';
 
-  let content='';
-
-  // 이슈 코멘트
-  const plMemo=plRep?.memo||bsRep?.memo||'';
-  content+='<div class="card" style="margin-bottom:14px">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
-    +'<div class="section-label" style="margin:0">이슈 / 코멘트</div>'
-    +(isAdmin?'<button class="btn sm" onclick="openFinanceMemoModal(\''+clientId+'\',\''+period+'\')">수정</button>':'')
+  // ── 이슈/코멘트 ──
+  const memo=plRep?.memo||bsRep?.memo||'';
+  html+='<div class="card" style="margin-bottom:16px;border-left:3px solid var(--blue)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--blue)">📌 담당자 코멘트</div>'
+    +(isAdmin?'<button class="btn sm" onclick="openFinanceMemoModal(this.dataset.cid,this.dataset.period)" data-cid="'+clientId+'" data-period="'+period+'">수정</button>':'')
     +'</div>'
-    +(plMemo
-      ?'<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap">'+esc(plMemo)+'</div>'
-      :'<div style="color:var(--text3);font-size:13px">등록된 코멘트가 없습니다.</div>')
+    +(memo?'<div style="font-size:13px;color:var(--text2);line-height:1.8;white-space:pre-wrap">'+esc(memo)+'</div>'
+      :'<div style="font-size:12px;color:var(--text3)">'+(isAdmin?'코멘트를 작성해주세요. 고객사에게 표시됩니다.':'등록된 코멘트가 없습니다.')+'</div>')
     +'</div>';
 
-  // 손익계산서
-  if(plRep){
-    content+='<div class="card" style="margin-bottom:14px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-      +'<div class="section-label" style="margin:0">손익계산서</div>'
-      +(isAdmin?'<button class="btn danger sm" onclick="deleteFinanceReport(\''+plRep.id+'\',\''+clientId+'\',\''+period+'\')">삭제</button>':'')
-      +'</div>'
-      +renderItems(plItems,'pl')
-      +'</div>';
+  // ── 핵심 KPI 카드 ──
+  if(kpis.length){
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px">';
+    kpis.forEach(k=>{
+      const pct=chg(k.item.amount, k.item.prev_amount);
+      html+='<div class="card" style="padding:14px">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:8px">'+k.label+'</div>'
+        +'<div style="font-size:20px;font-weight:900;color:'+k.color+';margin-bottom:6px">'+fmtBig(k.item.amount)+'</div>'
+        +(k.item.prev_amount!=null?'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">전기 '+fmtBig(k.item.prev_amount)+'</div>':'')
+        +chgBadge(pct)
+        +'</div>';
+    });
+    // 영업이익률 카드
+    if(opMargin!=null){
+      const mPct=opMarginPrev!=null?Math.round((opMargin-opMarginPrev)*10)/10:null;
+      html+='<div class="card" style="padding:14px">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:8px">영업이익률</div>'
+        +'<div style="font-size:20px;font-weight:900;color:var(--orange);margin-bottom:6px">'+opMargin+'%</div>'
+        +(opMarginPrev!=null?'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">전기 '+opMarginPrev+'%</div>':'')
+        +(mPct!=null?chgBadge(mPct>0?Math.abs(mPct):-Math.abs(mPct)):'')
+        +'</div>';
+    }
+    html+='</div>';
   }
 
-  // 재무상태표
-  if(bsRep){
-    content+='<div class="card" style="margin-bottom:14px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-      +'<div class="section-label" style="margin:0">재무상태표</div>'
-      +(isAdmin?'<button class="btn danger sm" onclick="deleteFinanceReport(\''+bsRep.id+'\',\''+clientId+'\',\''+period+'\')">삭제</button>':'')
-      +'</div>'
-      +renderItems(bsItems,'bs')
-      +'</div>';
+  // ── 손익계산서 상세 (접기/펼치기) ──
+  if(plItems.length){
+    html+='<div class="card" style="margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">'
+      +'<div class="section-label" style="margin:0">손익계산서 상세</div>'
+      +'<div style="display:flex;gap:8px">'
+      +(isAdmin?'<button class="btn danger sm" onclick="deleteFinanceReport(this.dataset.id,this.dataset.cid,this.dataset.p)" data-id="'+plRep.id+'" data-cid="'+clientId+'" data-p="'+period+'">삭제</button>':'')
+      +'<button class="btn ghost sm" onclick="toggleFinanceDetail(\'pl-detail\')">펼치기ᅵ</button>'
+      +'</div></div>'
+      +'<div id="pl-detail" style="display:none;margin-top:14px">'
+      +renderFinanceTable(plItems)
+      +'</div></div>';
   }
 
-  el.innerHTML=content||'<div style="color:var(--text3);padding:20px;text-align:center">이 기간의 데이터가 없습니다.</div>';
+  // ── 재무상태표 상세 (접기/펼치기) ──
+  if(bsItems.length){
+    html+='<div class="card" style="margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">'
+      +'<div class="section-label" style="margin:0">재무상태표 상세</div>'
+      +'<div style="display:flex;gap:8px">'
+      +(isAdmin?'<button class="btn danger sm" onclick="deleteFinanceReport(this.dataset.id,this.dataset.cid,this.dataset.p)" data-id="'+bsRep.id+'" data-cid="'+clientId+'" data-p="'+period+'">삭제</button>':'')
+      +'<button class="btn ghost sm" onclick="toggleFinanceDetail(\'bs-detail\')">펼치기 ▾</button>'
+      +'</div></div>'
+      +'<div id="bs-detail" style="display:none;margin-top:14px">'
+      +renderFinanceTable(bsItems)
+      +'</div></div>';
+  }
+
+  el.innerHTML=html||'<div style="color:var(--text3);padding:20px;text-align:center">이 기간의 데이터가 없습니다.</div>';
 }
 
+function toggleFinanceDetail(id){
+  const el=document.getElementById(id);if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  const toggleId=id==='pl-detail'?'pl-toggle':'bs-toggle';
+  const btn=document.getElementById(toggleId);
+  if(btn)btn.textContent=isOpen?'펼치기 ▾':'접기 ▴';
+}
+
+function renderFinanceTable(items){
+  if(!items.length)return '';
+  let html='<div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="display:grid;grid-template-columns:1fr auto auto;padding:7px 12px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;gap:16px">'
+    +'<span>계정과목</span><span style="text-align:right">전기</span><span style="text-align:right">당기</span></div>';
+  items.forEach(it=>{
+    if(!it.account_name)return;
+    const isMajor=it.level==='major',isMid=it.level==='mid';
+    const bg=isMajor?'var(--blue-light)':isMid?'var(--bg)':'var(--card)';
+    const fw=isMajor?'800':isMid?'600':'400';
+    const pl=isMajor?'12':isMid?'20':'28';
+    const pct=isMajor?chg(it.amount,it.prev_amount):null;
+    html+='<div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:16px;padding:5px 12px 5px '+pl+'px;background:'+bg+';border-top:1px solid var(--border)">'
+      +'<span style="font-size:12px;font-weight:'+fw+';color:'+(isMajor?'var(--navy)':'var(--text2)')+'">'+esc(it.account_name)+'</span>'
+      +'<span style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">'+(it.prev_amount!=null?it.prev_amount.toLocaleString():'—')+'</span>'
+      +'<span style="font-size:12px;font-weight:'+(isMajor?'700':'400')+';color:'+(isMajor?'var(--navy)':'var(--text3)')+';white-space:nowrap;text-align:right">'+(it.amount!=null?it.amount.toLocaleString():'—')+'</span>'
+      +'</div>';
+  });
+  html+='</div>';
+  return html;
+
+  function chg(cur,prev){if(cur==null||prev==null||prev===0)return null;return Math.round((cur-prev)/Math.abs(prev)*100);}
+}
 // 업로드 모달
 async function openFinanceUploadModal(clientId){
   await loadSheetJS();
@@ -3262,11 +3511,12 @@ async function uploadFinanceReport(clientId){
     // 새로 저장
     const rep=await api('POST','financial_reports',{
       client_id:clientId,period:result.period,period_type:result.periodType,
-      report_type:reportType,uploaded_by:currentUser?.id
+      report_type:reportType,uploaded_by:currentUser?.id,
+      memo:null
     });
     const repId=rep?.[0]?.id;if(!repId)throw new Error('저장 실패');
     // 항목 배치 저장 (50개씩)
-    const items=result.items.map(it=>({...it,report_id:repId}));
+    const items=result.items.map(it=>({report_id:repId,level:it.level,account_name:it.account_name,amount:it.amount??null,prev_amount:it.prev_amount??null,sort_order:it.sort_order}));
     for(let i=0;i<items.length;i+=50){
       await api('POST','financial_items',items.slice(i,i+50));
     }
@@ -3353,75 +3603,108 @@ async function selectPortalFinancePeriod(clientId, period){
   const reports=await api('GET','financial_reports?client_id=eq.'+clientId+'&period=eq.'+period+'&select=*');
   const plRep=(reports||[]).find(r=>r.report_type==='손익계산서');
   const bsRep=(reports||[]).find(r=>r.report_type==='재무상태표');
-
   let plItems=[],bsItems=[];
   if(plRep) plItems=await api('GET','financial_items?report_id=eq.'+plRep.id+'&order=sort_order.asc')||[];
   if(bsRep) bsItems=await api('GET','financial_items?report_id=eq.'+bsRep.id+'&order=sort_order.asc')||[];
 
+  const fmtBig=n=>{if(n==null)return '—';const a=Math.abs(n);if(a>=100000000)return (n<0?'-':'')+(a/100000000).toFixed(1)+'억';if(a>=10000)return (n<0?'-':'')+(a/10000).toFixed(0)+'만';return n.toLocaleString();};
+  const chg=(cur,prev)=>{if(cur==null||prev==null||prev===0)return null;return Math.round((cur-prev)/Math.abs(prev)*100);};
+  const chgBadge=pct=>{if(pct==null)return '';const up=pct>=0;return '<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:'+(up?'#D1FAE5':'#FEE2E2')+';color:'+(up?'#065F46':'#991B1B')+'">'+(up?'▲':'▼')+Math.abs(pct)+'%</span>';};
+  const getMajor=(items,name)=>items.find(it=>it.level==='major'&&it.account_name.includes(name));
   const memo=plRep?.memo||bsRep?.memo||'';
+
   let html='';
 
-  // 이슈 코멘트
+  // 담당자 코멘트
   if(memo){
-    html+='<div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:14px;border-left:3px solid var(--blue)">'
-      +'<div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px">📌 이슈 / 코멘트</div>'
-      +'<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap">'+esc(memo)+'</div>'
+    html+='<div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;border-left:3px solid var(--blue)">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:6px">📌 담당자 코멘트</div>'
+      +'<div style="font-size:13px;color:var(--text2);line-height:1.8;white-space:pre-wrap">'+esc(memo)+'</div>'
       +'</div>';
   }
 
-  const renderPortalItems=(items)=>{
-    const majors=items.filter(it=>it.level==='major'&&it.amount!=null);
-    let h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px">'
-      +majors.map(it=>'<div style="background:var(--bg);border-radius:8px;padding:10px 12px">'
-        +'<div style="font-size:9px;font-weight:700;color:var(--text3);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(it.account_name.replace(/^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+\.\s*/,''))+'</div>'
-        +'<div style="font-size:16px;font-weight:900;color:var(--navy)">'+(Math.abs(it.amount)>=100000000?(it.amount/100000000).toFixed(1)+'억':it.amount.toLocaleString())+'</div>'
-        +'</div>').join('')
-      +'</div>';
-    // 상세 테이블
-    h+='<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">';
-    items.forEach(it=>{
-      if(!it.account_name)return;
-      const isMajor=it.level==='major',isMid=it.level==='mid';
-      h+='<div style="display:flex;justify-content:space-between;padding:6px 12px 6px '+(isMajor?'12':isMid?'20':'28')+'px;background:'+(isMajor?'var(--blue-light)':isMid?'var(--bg)':'var(--card)')+';border-top:1px solid var(--border)">'
-        +'<span style="font-size:12px;font-weight:'+(isMajor?'800':isMid?'600':'400')+';color:'+(isMajor?'var(--navy)':'var(--text2)')+'">'+esc(it.account_name)+'</span>'
-        +(it.amount!=null?'<span style="font-size:12px;color:'+(isMajor?'var(--navy)':'var(--text3)')+'">'+it.amount.toLocaleString()+'</span>':'')
+  // 핵심 KPI
+  if(plItems.length){
+    const kpis=[
+      {label:'매출액', item:getMajor(plItems,'매출액'), color:'var(--blue)'},
+      {label:'매출총이익', item:getMajor(plItems,'매출총이익'), color:'var(--cyan)'},
+      {label:'영업이익', item:getMajor(plItems,'영업이익'), color:'var(--green)'},
+      {label:'당기순이익', item:getMajor(plItems,'당기순이익')||getMajor(plItems,'당기순손익'), color:'var(--purple)'},
+    ].filter(k=>k.item);
+    const revItem=getMajor(plItems,'매출액');
+    const opItem=getMajor(plItems,'영업이익');
+    const opMargin=(revItem?.amount&&opItem?.amount)?Math.round(opItem.amount/revItem.amount*1000)/10:null;
+    const opMarginPrev=(revItem?.prev_amount&&opItem?.prev_amount)?Math.round(opItem.prev_amount/revItem.prev_amount*1000)/10:null;
+
+    html+='<div style="margin-bottom:16px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px">손익 핵심 지표</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">';
+    kpis.forEach(k=>{
+      const pct=chg(k.item.amount,k.item.prev_amount);
+      html+='<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px">'+k.label+'</div>'
+        +'<div style="font-size:18px;font-weight:900;color:'+k.color+';margin-bottom:4px">'+fmtBig(k.item.amount)+'</div>'
+        +(k.item.prev_amount!=null?'<div style="font-size:10px;color:var(--text3);margin-bottom:4px">전기 '+fmtBig(k.item.prev_amount)+'</div>':'')
+        +chgBadge(pct)
         +'</div>';
     });
-    h+='</div>';
-    return h;
-  };
+    if(opMargin!=null){
+      html+='<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px">영업이익률</div>'
+        +'<div style="font-size:18px;font-weight:900;color:var(--orange);margin-bottom:4px">'+opMargin+'%</div>'
+        +(opMarginPrev!=null?'<div style="font-size:10px;color:var(--text3);margin-bottom:4px">전기 '+opMarginPrev+'%</div>':'')
+        +'</div>';
+    }
+    html+='</div></div>';
 
-  if(plItems.length) html+='<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">손익계산서</div>'+renderPortalItems(plItems)+'</div>';
-  if(bsItems.length) html+='<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">재무상태표</div>'+renderPortalItems(bsItems)+'</div>';
+    // 손익 상세 접기/펼치기
+    html+='<div style="margin-bottom:14px">'
+      +'<button onclick="togglePortalDetail(\'portal-pl\')" style="width:100%;text-align:left;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--text2);cursor:pointer">손익계산서 상세 ▾</button>'
+      +'<div id="portal-pl" style="display:none;margin-top:8px">'
+      +renderPortalFinanceTable(plItems)+'</div></div>';
+  }
 
-  el.innerHTML=html||'<div style="color:var(--text3);text-align:center;padding:20px">이 기간의 데이터가 없습니다.</div>';
-}
-async function toggleContractManaged(id, newVal){
-  try{
-    await api('PATCH','contracts?id=eq.'+id,{is_managed:newVal});
-    const ct=contracts.find(x=>x.id===id);
-    if(ct)ct.is_managed=newVal;
-    renderContractsPage();
-  }catch(e){alert('오류: '+e.message);}
-}
+  if(bsItems.length){
+    html+='<div style="margin-bottom:14px">'
+      +'<button onclick="togglePortalDetail(\'portal-bs\')" style="width:100%;text-align:left;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-weight:700;color:var(--text2);cursor:pointer">재무상태표 상세 ▾</button>'
+      +'<div id="portal-bs" style="display:none;margin-top:8px">'
+      +renderPortalFinanceTable(bsItems)+'</div></div>';
+  }
 
-async function toggleContractEnded(id, currentStatus){
-  const isEnded=currentStatus==='완료'||currentStatus==='해지';
-  const newStatus=isEnded?'진행중':'완료';
-  try{
-    await api('PATCH','contracts?id=eq.'+id,{contract_status:newStatus});
-    const ct=contracts.find(x=>x.id===id);
-    if(ct)ct.contract_status=newStatus;
-    renderContractsPage();
-  }catch(e){alert('오류: '+e.message);}
+  el.innerHTML=html||'<div style="color:var(--text3);padding:20px;text-align:center">데이터가 없습니다.</div>';
 }
 
-// ── 간트 가독성 개선: 거래처 기준 그룹화 ──
+function togglePortalDetail(id){
+  const el=document.getElementById(id);if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  const btn=el.previousElementSibling;
+  if(btn)btn.textContent=btn.textContent.replace(isOpen?'▴':'▾',isOpen?'▾':'▴');
+}
+
+function renderPortalFinanceTable(items){
+  let html='<div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
+    +'<div style="display:grid;grid-template-columns:1fr auto auto;padding:7px 12px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);gap:16px">'
+    +'<span>계정과목</span><span style="text-align:right">전기</span><span style="text-align:right">당기</span></div>';
+  items.forEach(it=>{
+    if(!it.account_name)return;
+    const isMajor=it.level==='major',isMid=it.level==='mid';
+    const bg=isMajor?'var(--blue-light)':isMid?'var(--bg)':'var(--card)';
+    const fw=isMajor?'800':isMid?'600':'400';
+    const pl=isMajor?'12':isMid?'20':'28';
+    html+='<div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:16px;padding:5px 12px 5px '+pl+'px;background:'+bg+';border-top:1px solid var(--border)">'
+      +'<span style="font-size:12px;font-weight:'+fw+';color:'+(isMajor?'var(--navy)':'var(--text2)')+'">'+esc(it.account_name)+'</span>'
+      +'<span style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">'+(it.prev_amount!=null?it.prev_amount.toLocaleString():'—')+'</span>'
+      +'<span style="font-size:12px;font-weight:'+(isMajor?'700':'400')+';color:'+(isMajor?'var(--navy)':'var(--text3)')+';white-space:nowrap;text-align:right">'+(it.amount!=null?it.amount.toLocaleString():'—')+'</span>'
+      +'</div>';
+  });
+  return html+'</div>';
+}
 async function openPortalManager(){
   if(!isAdmin)return;
   const el=document.getElementById('modalArea');
   el.innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:640px"><div class="modal-title">🔐 포털 계정 관리</div>'
+    +'<div class="modal" style="width:640px"><div class="modal-title">🔐 고객사 페이지 관리</div>'
     +'<div id="portalManagerBody"><div style="color:var(--text3);text-align:center;padding:20px">불러오는 중...</div></div>'
     +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
     +'</div></div>';
@@ -3435,12 +3718,12 @@ function renderPortalManagerBody(){
   const withoutPortal=sorted.filter(c=>!c.portal_email);
 
   let html='<div style="font-size:12px;color:var(--text3);margin-bottom:12px">'
-    +'포털 활성: <strong style="color:var(--green)">'+withPortal.length+'개사</strong> · 미설정: <strong>'+withoutPortal.length+'개사</strong>'
+    +'고객사 페이지 활성: <strong style="color:var(--green)">'+withPortal.length+'개사</strong> · 미설정: <strong>'+withoutPortal.length+'개사</strong>'
     +'</div>';
 
   // 포털 있는 거래처
   if(withPortal.length){
-    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">✓ 활성 포털 계정</div>';
+    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">✓ 활성 계정</div>';
     html+=withPortal.map(c=>'<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--green-bg);border-radius:var(--radius-sm);margin-bottom:6px">'
       +'<div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
       +'<div style="flex:1;min-width:0">'
@@ -3459,7 +3742,7 @@ function renderPortalManagerBody(){
     html+=withoutPortal.map(c=>'<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:4px">'
       +'<div style="width:32px;height:32px;border-radius:8px;background:var(--bg2);color:var(--text3);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
       +'<div style="flex:1;font-size:13px;color:var(--text2)">'+esc(c.name)+'</div>'
-      +'<button class="btn primary sm" style="flex-shrink:0;font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">계정 설정</button>'
+      +'<button class="btn primary sm" style="flex-shrink:0;font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">페이지 설정</button>'
       +'</div>').join('');
   }
   el.innerHTML='<div style="max-height:60vh;overflow-y:auto">'+html+'</div>';
@@ -3470,7 +3753,7 @@ function openPortalAccountEdit(clientId){
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
     +'<div class="modal" style="width:440px">'
-    +'<div class="modal-title">포털 계정 설정 — '+esc(c.name)+'</div>'
+    +'<div class="modal-title">고객사 페이지 설정 — '+esc(c.name)+'</div>'
     +'<div class="form-row"><label class="form-label">로그인 이메일</label><input id="peEmail" type="email" value="'+esc(c.portal_email||'')+'" placeholder="고객사 담당자 이메일"/></div>'
     +'<div class="form-row"><label class="form-label">비밀번호</label><input id="pePw" type="text" value="'+esc(c.portal_password||'')+'" placeholder="임시 비밀번호"/></div>'
     +'<div class="form-row"><label class="form-label">OneDrive 문서함 URL</label><input id="peOnedrive" value="'+esc(c.onedrive_url||'')+'" placeholder="https://onedrive.live.com/..."/></div>'
@@ -3500,7 +3783,7 @@ async function savePortalAccount(clientId){
 }
 
 async function resetPortalAccount(clientId,name){
-  if(!confirm(name+' 포털 계정을 초기화할까요?\n로그인이 불가능해집니다.'))return;
+  if(!confirm(name+' 고객사 페이지 계정을 초기화할까요?\n로그인이 불가능해집니다.'))return;
   try{
     await api('PATCH','clients?id=eq.'+clientId,{portal_email:null,portal_password:null});
     const c=clients.find(x=>x.id===clientId);
@@ -3631,6 +3914,7 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
   if(ok)await initApp();
   else showPage('login');
 })();
+
 </script>
 </body>
 </html>
