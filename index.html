@@ -455,12 +455,12 @@ table{border-collapse:collapse;min-width:100%}
   <div class="header">
     <div class="header-logo" onclick="setPage('team');closeMobileMenu()" style="cursor:pointer">Bexley</div>
     <nav class="header-nav">
-      <button class="nav-btn" id="navTeam" onclick="setPage('team')">팀</button>
+      <button class="nav-btn" id="navTeam" onclick="setPage('team')">팀<span id="teamNoticeDot" class="notif-dot" style="display:none"></span></button>
       <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">스케줄</button>
       <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
       <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
-      <button class="nav-btn" id="navNotice" onclick="setPage('notice')">공지<span id="noticeDot" class="notif-dot" style="display:none"></span></button>
+      <button class="nav-btn" id="navNotice" onclick="setPage('notice')">💡 지식공유</button>
       <button class="nav-btn" id="navFun" onclick="setPage('fun')" style="opacity:.5" title="이스터에그">🎲</button>
     </nav>
     <div class="header-right">
@@ -496,7 +496,7 @@ table{border-collapse:collapse;min-width:100%}
     <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">🏢 거래처</button>
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">📄 계약</button>
     <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">📊 대시보드</button>
-    <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">📢 공지</button>
+    <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">💡 지식공유</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">🔐 고객사 페이지</button>
       <button id="mLogBtn" class="btn sm" style="display:none;font-size:11px" onclick="openActivityLog();closeMobileMenu()">활동 로그</button>
@@ -551,6 +551,8 @@ table{border-collapse:collapse;min-width:100%}
         <h2 class="section-title">팀</h2>
         <button class="btn primary sm" onclick="openIssueModal()">+ 이슈 등록</button>
       </div>
+
+      <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
 
       <!-- 상단: 이슈 + 이번주 일정 (2열) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -609,13 +611,23 @@ table{border-collapse:collapse;min-width:100%}
     <!-- 대시보드 -->
     <div id="pageDash" style="display:none"></div>
 
-    <!-- 공지 -->
+    <!-- 지식공유 -->
     <div id="pageNotice" style="display:none">
       <div class="section-header">
-        <h2 class="section-title">공지사항</h2>
-        <button class="btn primary sm" id="noticeWriteBtn" style="display:none" onclick="openNoticeWrite()">+ 공지 작성</button>
+        <h2 class="section-title">지식공유</h2>
+        <div class="filter-row">
+          <select id="knowledgeCategoryFilter" onchange="renderKnowledgeBoard()">
+            <option value="">전체</option>
+            <option value="AI 활용 팁">AI 활용 팁</option>
+            <option value="업무 개선">업무 개선</option>
+            <option value="자료/템플릿">자료/템플릿</option>
+            <option value="운영 아이디어">운영 아이디어</option>
+            <option value="기타">기타</option>
+          </select>
+          <button class="btn primary sm" id="knowledgeWriteBtn" onclick="openKnowledgeWrite()">+ 글 작성</button>
+        </div>
       </div>
-      <div id="noticeList"></div>
+      <div id="knowledgeList"></div>
     </div>
 
     <!-- 이스터에그 🎲 -->
@@ -663,7 +675,7 @@ table{border-collapse:collapse;min-width:100%}
 const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null;
-let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
+let projects=[],members=[],clients=[],notices=[],knowledgePosts=[],schedules=[],contracts=[],billingLogs=[];
 let clientAssignments=[],openIssuesByProject={};
 let curPage='clients',curGView='project';
 const NOW=new Date();
@@ -971,7 +983,6 @@ async function initApp(){
   }catch(e){}
   document.getElementById('adminChip').style.display=isAdmin?'inline-block':'none';
   document.getElementById('memberMgrBtn').style.display=isAdmin?'inline-block':'none';
-  document.getElementById('noticeWriteBtn').style.display=isAdmin?'inline-block':'none';
   document.getElementById('logBtn').style.display=isAdmin?'inline-block':'none';
   document.getElementById('portalMgrBtn').style.display=isAdmin?'inline-block':'none';
   // 모바일 메뉴 관리자 버튼
@@ -1001,17 +1012,18 @@ async function loadAll(){
   setStatus('불러오는 중...');
   try{
     // 핵심 데이터 먼저 (메인화면 렌더에 필요)
-    const[projs,mems,pm,cls,nts,schs]=await Promise.all([
+    const[projs,mems,pm,cls,nts,schs,kps]=await Promise.all([
       api('GET','projects?select=*&order=start_date'),
       api('GET','members?select=*&order=name'),
       api('GET','project_members?select=project_id,member_id,members(name)'),
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
-      api('GET','schedules?select=*&order=start_date')
+      api('GET','schedules?select=*&order=start_date'),
+      api('GET','knowledge_posts?select=*&order=is_pinned.desc,created_at.desc').catch(()=>[])
     ]);
     members=mems||[];
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
-    clients=cls||[];notices=nts||[];
+    clients=cls||[];notices=nts||[];knowledgePosts=kps||[];
     schedules=(schs||[]).map(s=>({...s,start:s.start_date,end:s.end_date,member_name:s.member_name||members.find(m=>m.id===s.member_id)?.name||''}));
     populateMemberFilter();
     setStatus('✓ '+clients.length+'개 고객사 · '+projects.length+'개 프로젝트','ok');
@@ -1271,7 +1283,7 @@ function renderPinned(){
       +'</div>':'';
 }
 
-function updateNoticeDot(){document.getElementById('noticeDot').style.display=getUnreadRequiredNotices().length?'inline-block':'none';}
+function updateNoticeDot(){const el=document.getElementById('teamNoticeDot');if(el)el.style.display=getUnreadRequiredNotices().length?'inline-block':'none';}
 
 function checkPopup(){
   const unread=getUnreadRequiredNotices();
@@ -1313,12 +1325,12 @@ function setPage(page,extra){
   const navs={team:'navTeam',clients:'navClients',contracts:'navContracts',gantt:'navGantt',dash:'navDash',notice:'navNotice',fun:'navFun'};
   const el=document.getElementById(pages[page]);if(el)el.style.display='block';
   if(navs[page])document.getElementById(navs[page])?.classList.add('active');
-  if(page==='clients'){renderPinned();renderAlerts();renderClients();}
+  if(page==='clients'){renderAlerts();renderClients();}
   else if(page==='contracts')renderContractsPage();
-  else if(page==='team'){loadIssueFeed();renderMyWeek();renderWeeklyScheduleSummary();renderKudos();renderWeeklyReviews();}
+  else if(page==='team'){renderTeamNotices();loadIssueFeed();renderMyWeek();renderWeeklyScheduleSummary();renderKudos();renderWeeklyReviews();}
   else if(page==='gantt')renderGantt();
   else if(page==='dash')renderDash();
-  else if(page==='notice')renderNotices();
+  else if(page==='notice'){refreshKnowledgePosts().then(()=>renderKnowledgeBoard());}
 }
 
 let myFilterActive=true;
@@ -2701,18 +2713,28 @@ async function loadActivityFeed(){
   }
 }
 
-// ── Notices ──
+// ── Notices / Knowledge ──
 function formatDate(ts){const d=new Date(ts);return d.getFullYear()+'.'+(d.getMonth()+1).toString().padStart(2,'0')+'.'+d.getDate().toString().padStart(2,'0');}
 
-function renderNotices(){
-  const el=document.getElementById('noticeList');
-  if(!notices.length){el.innerHTML='<div class="notice-empty">공지사항이 없습니다.</div>';return;}
-  el.innerHTML=notices.map(n=>'<div class="notice-card'+(n.is_pinned?' pinned':'')+'" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
-    +'<div class="notice-chip-row">'+(n.is_pinned?'<span class="badge badge-blue">📌 고정</span>':'')+(n.require_confirm?'<span class="badge badge-red">필독</span>':'')+'</div>'
-    +'<div class="notice-title">'+esc(n.title)+'</div>'
-    +'<div class="notice-meta">'+formatDate(n.created_at)+'</div>'
-    +'<div class="notice-preview">'+esc(n.content.substring(0,120))+'</div>'
-    +'</div>').join('');
+function renderTeamNotices(){
+  const el=document.getElementById('teamNoticeWrap');if(!el)return;
+  const list=[...notices];
+  el.innerHTML='<div class="card" style="margin-bottom:0">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">'
+    +'<div><div class="section-label" style="margin:0">팀 공지</div><div style="font-size:12px;color:var(--text3);margin-top:4px">운영 공지와 필독 사항을 팀 탭에서 바로 확인하세요.</div></div>'
+    +(isAdmin?'<button class="btn primary sm" onclick="openNoticeWrite()">+ 공지 작성</button>':'')
+    +'</div>'
+    +(!list.length
+      ?'<div class="notice-empty" style="padding:26px 16px">등록된 공지가 없습니다.</div>'
+      :'<div style="display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding-right:2px">'
+        +list.map(n=>'<div class="notice-card'+(n.is_pinned?' pinned':'')+'" style="margin-bottom:0" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
+          +'<div class="notice-chip-row">'+(n.is_pinned?'<span class="badge badge-blue">📌 고정</span>':'')+(n.require_confirm?'<span class="badge badge-red">필독</span>':'')+'</div>'
+          +'<div class="notice-title">'+esc(n.title)+'</div>'
+          +'<div class="notice-meta">'+formatDate(n.created_at)+'</div>'
+          +'<div class="notice-preview">'+esc((n.content||'').substring(0,140))+'</div>'
+          +'</div>').join('')
+        +'</div>')
+    +'</div>';
 }
 
 function openNoticeDetail(id){
@@ -2746,7 +2768,7 @@ async function loadNoticeComments(noticeId){
       +'<div style="width:26px;height:26px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(c.author_name||'?').charAt(0)+'</div>'
       +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(c.author_name||'익명')+'<span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">'+formatCommentDate(c.created_at)+'</span></div>'
       +'<div style="font-size:13px;color:var(--text2);margin-top:2px">'+esc(c.content)+'</div></div>'
-      +(c.created_by===currentUser?.id?'<button class="btn ghost sm" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="deleteNoticeComment(\''+c.id+'\',\''+noticeId+'\')">삭제</button>':'')
+      +((c.created_by===currentUser?.id||isAdmin)?'<button class="btn ghost sm" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="deleteNoticeComment(\''+c.id+'\',\''+noticeId+'\')">삭제</button>':'')
       +'</div>').join('');
   }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px">댓글 로딩 실패</div>';}
 }
@@ -2767,7 +2789,186 @@ async function deleteNoticeComment(id,noticeId){
   catch(e){alert('오류: '+e.message);}
 }
 
+function openNoticeWrite(eid){
+  const n=eid?notices.find(x=>x.id===eid):null;
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:540px"><div class="modal-title">'+(n?'공지 수정':'공지 작성')+'</div>'
+    +'<div class="form-row"><label class="form-label">제목</label><input id="nTitle" value="'+(n?n.title:'')+'"/></div>'
+    +'<div class="form-row"><label class="form-label">내용</label><textarea id="nContent" rows="7" style="resize:vertical">'+(n?n.content:'')+'</textarea></div>'
+    +'<div style="display:flex;gap:20px;margin-bottom:4px">'
+    +'<div class="checkbox-row"><input type="checkbox" id="nPin" '+(n&&n.is_pinned?'checked':'')+'/><label for="nPin">상단 고정</label></div>'
+    +'<div class="checkbox-row"><input type="checkbox" id="nReq" '+(n&&n.require_confirm?'checked':'')+'/><label for="nReq">필독 (로그인 팝업)</label></div>'
+    +'</div>'
+    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" data-id="'+(n?n.id:'')+'" onclick="saveNotice(this.dataset.id)">저장</button></div></div>'
+    +'</div></div>';
+  document.getElementById('nTitle').focus();
+}
+function openNoticeEdit(id){closeModal();openNoticeWrite(id);}
+async function saveNotice(eid){
+  const title=document.getElementById('nTitle').value.trim(),content=document.getElementById('nContent').value.trim();
+  const is_pinned=document.getElementById('nPin').checked,require_confirm=document.getElementById('nReq').checked;
+  if(!title||!content){alert('제목과 내용을 입력해주세요.');return;}
+  try{
+    if(eid){await api('PATCH','notices?id=eq.'+eid,{title,content,is_pinned,require_confirm,updated_at:new Date().toISOString()});}
+    else{await api('POST','notices',{title,content,is_pinned,require_confirm,created_by:currentUser.id});}
+    closeModal();
+    await loadAll();
+    if(curPage==='team')renderTeamNotices();
+  }catch(e){alert('오류: '+e.message);}
+}
+async function deleteNotice(id){
+  if(!confirm('삭제할까요?'))return;
+  try{
+    await api('DELETE','notices?id=eq.'+id);
+    closeModal();
+    await loadAll();
+    if(curPage==='team')renderTeamNotices();
+  }catch(e){alert('오류: '+e.message);}
+}
+
+async function refreshKnowledgePosts(){
+  try{knowledgePosts=await api('GET','knowledge_posts?select=*&order=is_pinned.desc,created_at.desc')||[];}
+  catch(e){knowledgePosts=[];}
+}
+
+function knowledgeCategoryBadge(category){
+  if(category==='AI 활용 팁')return 'badge-blue';
+  if(category==='업무 개선')return 'badge-green';
+  if(category==='자료/템플릿')return 'badge-orange';
+  if(category==='운영 아이디어')return 'badge-gray';
+  return 'badge-gray';
+}
+
+function renderKnowledgeBoard(){
+  const el=document.getElementById('knowledgeList');if(!el)return;
+  const filter=document.getElementById('knowledgeCategoryFilter')?.value||'';
+  const list=(knowledgePosts||[]).filter(p=>!filter||p.category===filter);
+  if(!list.length){
+    el.innerHTML='<div class="notice-empty">아직 등록된 글이 없습니다.<br><br>AI 활용 팁, 업무 개선 아이디어, 자주 쓰는 템플릿을 자유롭게 공유해보세요.</div>';
+    return;
+  }
+  el.innerHTML=list.map(p=>'<div class="notice-card'+(p.is_pinned?' pinned':'')+'" onclick="openKnowledgeDetail(this.dataset.id)" data-id="'+p.id+'">'
+    +'<div class="notice-chip-row">'
+    +(p.is_pinned?'<span class="badge badge-blue">📌 추천</span>':'')
+    +(p.category?'<span class="badge '+knowledgeCategoryBadge(p.category)+'">'+esc(p.category)+'</span>':'')
+    +'</div>'
+    +'<div class="notice-title">'+esc(p.title)+'</div>'
+    +'<div class="notice-meta">'+esc(p.author_name||'작성자')+' · '+formatDate(p.created_at)+'</div>'
+    +'<div class="notice-preview">'+esc((p.content||'').substring(0,160))+'</div>'
+    +'</div>').join('');
+}
+
+function openKnowledgeDetail(id){
+  const post=knowledgePosts.find(x=>x.id===id);if(!post)return;
+  const editable=isAdmin||post.created_by===currentUser?.id;
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:620px">'
+    +'<div class="notice-chip-row" style="margin-bottom:10px">'
+    +(post.category?'<span class="badge '+knowledgeCategoryBadge(post.category)+'">'+esc(post.category)+'</span>':'')
+    +(post.is_pinned?'<span class="badge badge-blue">📌 추천</span>':'')
+    +'</div>'
+    +'<div class="notice-detail-title">'+esc(post.title)+'</div>'
+    +'<div class="notice-detail-meta">'+esc(post.author_name||'작성자')+' · '+formatDate(post.created_at)+'</div>'
+    +'<div class="notice-detail-body">'+esc(post.content)+'</div>'
+    +'<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px">댓글</div>'
+    +'<div id="knowledgeComments" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">불러오는 중...</div></div>'
+    +'<div style="display:flex;gap:8px"><input id="kcInput" placeholder="댓글을 입력하세요" style="flex:1;padding:9px 12px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit" onkeydown="if(event.key===\'Enter\')submitKnowledgeComment(\''+post.id+'\')"/>'
+    +'<button class="btn primary sm" onclick="submitKnowledgeComment(\''+post.id+'\')">등록</button></div>'
+    +'</div>'
+    +'<div class="modal-footer" style="margin-top:16px">'
+    +(editable?'<button class="btn danger" onclick="deleteKnowledge(\''+post.id+'\')">삭제</button>':'<div></div>')
+    +'<div class="modal-footer-right">'
+    +(editable?'<button class="btn ghost" onclick="openKnowledgeEdit(\''+post.id+'\')">수정</button>':'')
+    +'<button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
+    +'</div></div>';
+  loadKnowledgeComments(post.id);
+}
+
+async function loadKnowledgeComments(postId){
+  const el=document.getElementById('knowledgeComments');if(!el)return;
+  try{
+    const comments=await api('GET','knowledge_comments?knowledge_post_id=eq.'+postId+'&select=*&order=created_at.asc');
+    if(!comments||!comments.length){el.innerHTML='<div style="color:var(--text3);font-size:12px">아직 댓글이 없습니다.</div>';return;}
+    el.innerHTML=comments.map(c=>'<div style="display:flex;gap:10px;margin-bottom:10px">'
+      +'<div style="width:26px;height:26px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(c.author_name||'?').charAt(0)+'</div>'
+      +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(c.author_name||'익명')+'<span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">'+formatCommentDate(c.created_at)+'</span></div>'
+      +'<div style="font-size:13px;color:var(--text2);margin-top:2px">'+esc(c.content)+'</div></div>'
+      +((c.created_by===currentUser?.id||isAdmin)?'<button class="btn ghost sm" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="deleteKnowledgeComment(\''+c.id+'\',\''+postId+'\')">삭제</button>':'')
+      +'</div>').join('');
+  }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px">댓글 로딩 실패</div>';}
+}
+
+async function submitKnowledgeComment(postId){
+  const input=document.getElementById('kcInput');
+  const content=input?.value.trim();if(!content)return;
+  try{
+    await api('POST','knowledge_comments',{knowledge_post_id:postId,content,author_name:currentMember?.name||currentUser?.email,created_by:currentUser?.id});
+    input.value='';
+    await loadKnowledgeComments(postId);
+  }catch(e){alert('댓글 등록 오류: '+e.message);}
+}
+
+async function deleteKnowledgeComment(id,postId){
+  if(!confirm('댓글을 삭제할까요?'))return;
+  try{
+    await api('DELETE','knowledge_comments?id=eq.'+id);
+    await loadKnowledgeComments(postId);
+  }catch(e){alert('오류: '+e.message);}
+}
+
+function openKnowledgeWrite(editId){
+  const post=editId?knowledgePosts.find(x=>x.id===editId):null;
+  const editable=!post||isAdmin||post.created_by===currentUser?.id;
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:560px"><div class="modal-title">'+(post?'지식공유 글 수정':'지식공유 글 작성')+'</div>'
+    +'<div class="form-row"><label class="form-label">카테고리</label><select id="kCategory">'
+      +['AI 활용 팁','업무 개선','자료/템플릿','운영 아이디어','기타'].map(cat=>'<option '+(post&&post.category===cat?'selected':'')+'>'+cat+'</option>').join('')
+    +'</select></div>'
+    +'<div class="form-row"><label class="form-label">제목</label><input id="kTitle" value="'+esc(post?post.title:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">내용</label><textarea id="kContent" rows="8" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(post?post.content:'')+'</textarea></div>'
+    +(isAdmin?'<div class="checkbox-row"><input type="checkbox" id="kPin" '+(post&&post.is_pinned?'checked':'')+' '+(editable?'':'disabled')+'/><label for="kPin">추천 글로 고정</label></div>':'')
+    +'<div class="modal-footer">'+(post&&editable?'<button class="btn danger" onclick="deleteKnowledge(\''+post.id+'\')">삭제</button>':'<div></div>')
+    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" onclick="saveKnowledge(\''+(post?post.id:'')+'\')">저장</button>':'')+'</div></div>'
+    +'</div></div>';
+  document.getElementById('kTitle')?.focus();
+}
+function openKnowledgeEdit(id){closeModal();openKnowledgeWrite(id);}
+
+async function saveKnowledge(editId){
+  const title=document.getElementById('kTitle')?.value.trim();
+  const content=document.getElementById('kContent')?.value.trim();
+  const category=document.getElementById('kCategory')?.value||'기타';
+  const existing=editId?knowledgePosts.find(x=>x.id===editId):null;
+  const is_pinned=isAdmin?(document.getElementById('kPin')?.checked||false):(existing?.is_pinned||false);
+  if(!title||!content){alert('제목과 내용을 입력해주세요.');return;}
+  try{
+    if(editId){
+      await api('PATCH','knowledge_posts?id=eq.'+editId,{title,content,category,is_pinned,updated_at:new Date().toISOString()});
+    }else{
+      await api('POST','knowledge_posts',{title,content,category,is_pinned,author_name:currentMember?.name||currentUser?.email,created_by:currentUser?.id});
+    }
+    closeModal();
+    await refreshKnowledgePosts();
+    if(curPage==='notice')renderKnowledgeBoard();
+  }catch(e){alert('오류: '+e.message);}
+}
+
+async function deleteKnowledge(id){
+  if(!confirm('삭제할까요?'))return;
+  try{
+    await api('DELETE','knowledge_posts?id=eq.'+id);
+    closeModal();
+    await refreshKnowledgePosts();
+    if(curPage==='notice')renderKnowledgeBoard();
+  }catch(e){alert('오류: '+e.message);}
+}
+
 // ── 사다리타기 🪜 ──
+
 function openLadderGame(){
   const memberOpts=members.map(m=>'<div class="ladder-member" onclick="toggleLadderMember(this)" data-name="'+esc(m.name)+'" style="padding:8px 16px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s">'+esc(m.name)+'</div>').join('');
   document.getElementById('modalArea').innerHTML=
@@ -2914,38 +3115,6 @@ async function addRestaurant(){
 async function deleteRestaurant(id){
   if(!confirm('식당을 삭제할까요?'))return;
   try{await api('DELETE','restaurants?id=eq.'+id);await openRestaurantManager();}
-  catch(e){alert('오류: '+e.message);}
-}
-
-function openNoticeWrite(eid){
-  const n=eid?notices.find(x=>x.id===eid):null;
-  document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:540px"><div class="modal-title">'+(n?'공지 수정':'공지 작성')+'</div>'
-    +'<div class="form-row"><label class="form-label">제목</label><input id="nTitle" value="'+(n?n.title:'')+'"/></div>'
-    +'<div class="form-row"><label class="form-label">내용</label><textarea id="nContent" rows="7" style="resize:vertical">'+(n?n.content:'')+'</textarea></div>'
-    +'<div style="display:flex;gap:20px;margin-bottom:4px">'
-    +'<div class="checkbox-row"><input type="checkbox" id="nPin" '+(n&&n.is_pinned?'checked':'')+'/><label for="nPin">상단 고정</label></div>'
-    +'<div class="checkbox-row"><input type="checkbox" id="nReq" '+(n&&n.require_confirm?'checked':'')+'/><label for="nReq">필독 (로그인 팝업)</label></div>'
-    +'</div>'
-    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" data-id="'+(n?n.id:'')+'" onclick="saveNotice(this.dataset.id)">저장</button></div></div>'
-    +'</div></div>';
-  document.getElementById('nTitle').focus();
-}
-function openNoticeEdit(id){closeModal();openNoticeWrite(id);}
-async function saveNotice(eid){
-  const title=document.getElementById('nTitle').value.trim(),content=document.getElementById('nContent').value.trim();
-  const is_pinned=document.getElementById('nPin').checked,require_confirm=document.getElementById('nReq').checked;
-  if(!title||!content){alert('제목과 내용을 입력해주세요.');return;}
-  try{
-    if(eid){await api('PATCH','notices?id=eq.'+eid,{title,content,is_pinned,require_confirm,updated_at:new Date().toISOString()});}
-    else{await api('POST','notices',{title,content,is_pinned,require_confirm,created_by:currentUser.id});}
-    closeModal();await loadAll();if(curPage==='notice')renderNotices();else renderClients();
-  }catch(e){alert('오류: '+e.message);}
-}
-async function deleteNotice(id){
-  if(!confirm('삭제할까요?'))return;
-  try{await api('DELETE','notices?id=eq.'+id);closeModal();await loadAll();if(curPage==='notice')renderNotices();else renderClients();}
   catch(e){alert('오류: '+e.message);}
 }
 
