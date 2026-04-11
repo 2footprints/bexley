@@ -464,6 +464,21 @@ table{border-collapse:collapse;min-width:100%}
       <span id="adminChip" class="admin-chip" style="display:none">관리자</span>
       <button id="portalMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager()">🔐 고객사 페이지</button>
       <button id="logBtn" class="btn sm" style="display:none;font-size:11px" onclick="openActivityLog()">활동 로그</button>
+      <!-- 알림 벨 -->
+      <button id="notifBell" onclick="toggleNotifPanel()" style="position:relative;width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">
+        🔔
+        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;width:16px;height:16px;background:var(--red);color:#fff;font-size:9px;font-weight:800;border-radius:50%;display:none;align-items:center;justify-content:center;line-height:1"></span>
+      </button>
+      <!-- 알림 패널 -->
+      <div id="notifPanel" style="display:none;position:absolute;top:66px;right:80px;width:340px;max-height:480px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:200;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+          <span style="font-size:14px;font-weight:800;color:var(--navy)">알림</span>
+          <button onclick="markAllNotifsRead()" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;font-weight:600">모두 읽음</button>
+        </div>
+        <div id="notifList" style="overflow-y:auto;max-height:400px">
+          <div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">불러오는 중...</div>
+        </div>
+      </div>
       <div class="user-chip"><span id="userDisplay">-</span></div>
       <button class="logout-btn" onclick="doLogout()">로그아웃</button>
     </div>
@@ -533,14 +548,28 @@ table{border-collapse:collapse;min-width:100%}
         <h2 class="section-title">팀</h2>
         <button class="btn primary sm" onclick="openIssueModal()">+ 이슈 등록</button>
       </div>
-      <!-- 이슈 피드 -->
-      <div id="issueFeedWrap" style="margin-bottom:20px"></div>
-      <!-- 이번주 내 일정 -->
-      <div id="myWeekWrap"></div>
-      <div id="memberScheduleWrap"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div id="kudosWrap"></div>
-        <div id="weeklyReviewWrap"></div>
+
+      <!-- 상단: 이슈 + 이번주 일정 (2열) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div id="issueFeedWrap"></div>
+        <div>
+          <div id="myWeekWrap"></div>
+          <div id="memberScheduleWrap"></div>
+        </div>
+      </div>
+
+      <!-- 하단: 칭찬투표 + 업무후기 (접을 수 있는 섹션) -->
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <button onclick="toggleTeamExtra()" id="teamExtraToggle"
+          style="background:none;border:none;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:12px">
+          <span id="teamExtraIcon">▸</span> 칭찬투표 · 업무후기
+        </button>
+        <div id="teamExtraContent" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div id="kudosWrap"></div>
+            <div id="weeklyReviewWrap"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -632,6 +661,7 @@ const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null;
 let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
+let clientAssignments=[],openIssuesByProject={};
 let curPage='clients',curGView='project';
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
@@ -871,7 +901,10 @@ async function initApp(){
   document.getElementById('userDisplay').textContent=currentMember?currentMember.name:currentUser.email;
   await loadAll();
   checkPopup();
-  setPage('clients');
+  setPage('team');
+  // 알림 초기화
+  loadInitialNotifBadge();
+  initRealtime();
 }
 
 // ── API ──
@@ -905,8 +938,15 @@ async function loadAll(){
     // 부가 데이터는 백그라운드로
     Promise.all([
       api('GET','contracts?select=*&order=created_at.desc'),
-      api('GET','billing_logs?select=*&order=created_at.desc')
-    ]).then(([ctrs,blogs])=>{contracts=ctrs||[];billingLogs=blogs||[];}).catch(()=>{});
+      api('GET','billing_logs?select=*&order=created_at.desc'),
+      api('GET','client_assignments?select=*'),
+      api('GET','project_issues?status=eq.open&select=id,project_id')
+    ]).then(([ctrs,blogs,assigns,openIssues])=>{
+      contracts=ctrs||[];billingLogs=blogs||[];
+      clientAssignments=assigns||[];
+      openIssuesByProject={};
+      (openIssues||[]).forEach(i=>{if(!openIssuesByProject[i.project_id])openIssuesByProject[i.project_id]=0;openIssuesByProject[i.project_id]++;});
+    }).catch(()=>{});
   }catch(e){setStatus('오류: '+e.message,'err');}
 }
 
@@ -1248,18 +1288,19 @@ function openClientDetail(id, tab='projects'){
   const cc=contracts.filter(ct=>ct.client_id===id);
   const mems=[...new Set(cp.flatMap(p=>p.members))];
   // 이 고객사 담당 인력인지 확인
-  const isAssigned=isAdmin||(currentMember&&cp.some(p=>p.members.includes(currentMember.name)));
+  const isAssigned=isAdmin||(currentMember&&clientAssignments.some(a=>a.client_id===id&&a.member_id===currentMember.id));
   const today=new Date();
 
   const projItems=cp.map(p=>{
     const od=toDate(p.end)<today&&p.status!=='완료';
     const ub=p.status==='완료'&&p.is_billable&&p.billing_status==='미청구';
+    const ic=openIssuesByProject[p.id]||0;
     const stBadge=p.status==='진행중'?'badge-blue':p.status==='완료'?'badge-gray':'badge-orange';
     const blBadge=!p.is_billable?'badge-gray':p.billing_status==='수금완료'?'badge-green':p.billing_status==='청구완료'?'badge-blue':'badge-red';
-    return '<div class="proj-item" onclick="openProjModal(this.dataset.id)" data-id="'+p.id+'">'
+    return '<div class="proj-item" onclick="'+(ic?'openProjModal(this.dataset.id,\'issue\')':'openProjModal(this.dataset.id)')+'" data-id="'+p.id+'" style="'+(ic?'border-left:3px solid var(--red)':'')+'">'
       +'<div class="proj-dot" style="background:'+TYPES[p.type]+'"></div>'
       +'<div class="proj-info">'
-      +'<div class="proj-name">'+esc(p.name)+'</div>'
+      +'<div class="proj-name">'+esc(p.name)+(ic?'<span style="margin-left:6px;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px">🚨 '+ic+'</span>':'')+'</div>'
       +'<div class="proj-sub">'+p.start+' ~ '+p.end+(p.members.length?' · '+p.members.join(', '):'')+'</div>'
       +(od?'<div class="proj-warn">⏰ 기간 초과 — 완료 처리 필요</div>':'')
       +(ub?'<div class="proj-warn">💰 완료됐으나 빌링 미처리</div>':'')
@@ -1781,11 +1822,15 @@ function renderGantt(){
       const c=clients.find(x=>x.id===cid);
       const clientName=c?c.name:'거래처 미지정';
       const cProjs=clientGroups[cid];
-      html+='<tr class="sec-row"><td colspan="'+(days+1)+'" style="padding-left:10px">'
+      const isCollapsed=ganttCollapsed[cid]||false;
+      const safeId=cid.replace(/[^a-zA-Z0-9]/g,'_');
+      html+='<tr class="sec-row" style="cursor:pointer" onclick="toggleGanttGroup(\''+cid+'\')">'
+        +'<td colspan="'+(days+1)+'" style="padding-left:10px;user-select:none">'
+        +'<span style="font-size:13px;color:var(--text3);margin-right:6px">'+(isCollapsed?'▸':'▾')+'</span>'
         +'<span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(clientName)+'</span>'
         +' <span style="color:var(--text3);font-weight:400">'+cProjs.length+'건</span>'
         +'</td></tr>';
-      cProjs.forEach(p=>{html+=gRow(p,days);});
+      if(!isCollapsed) cProjs.forEach(p=>{html+=gRow(p,days);});
     });
     // 일정 섹션
     if(schs.length){
@@ -1833,8 +1878,11 @@ function gRow(p,days){
     }
   });
 
-  const badges=(od?'<span class="g-badge overdue">⏰초과</span>':'')+(mine?'<span class="g-badge mine">내 것</span>':'');
-  const rowCls='row-label'+(od?' row-warn':'');
+  const issueCount=openIssuesByProject[p.id]||0;
+  const badges=(od?'<span class="g-badge overdue">⏰초과</span>':'')
+    +(mine?'<span class="g-badge mine">내 것</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">🚨'+issueCount+'</span>':'');
+  const rowCls='row-label'+(od?' row-warn':'')+(issueCount?' row-issue':'');
   const lbl='<div class="rn">'+esc(p.name)+badges+'</div><div class="rs">'+(p.members.join(' · ')||'미배정')+'</div>';
   let cells='';
   for(let d=1;d<=days;d++){
@@ -1851,7 +1899,7 @@ function gRow(p,days){
     if(d===barS){
       const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
       cells+='<td class="'+cls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+'">'+barText+'</div>'
+        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+(issueCount?' | 🚨 열린 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">🚨</span>':'')+'</div>'
         +overlayHtml+'</td>';
     } else {
       cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
@@ -1897,14 +1945,17 @@ function renderLegend(){
 
 // ── Project Modal ──
 let projModalTab='basic';
-function openProjModal(eid,preClientId,preContractId){
+function openProjModal(eid,preClientId,preContractId,initialTab){
   editingProjId=eid||null;
-  projModalTab='basic';
+  projModalTab=initialTab||'basic';
   const p=eid?projects.find(x=>x.id===eid):null;
   formMembers=p?[...p.members]:(currentMember?[currentMember.name]:[]);
   const editable=!p||canEdit(p);
   renderProjModal(p,editable,preClientId,preContractId);
-  if(p) loadProjectComments(p.id);
+  if(p){
+    loadProjectComments(p.id);
+    if(projModalTab==='issue') setTimeout(()=>loadProjIssues(p.id),50);
+  }
 }
 
 function switchProjTab(tab){
@@ -1968,13 +2019,13 @@ function renderProjModal(p,editable,preClientId,preContractId){
     +'<div class="modal" style="width:500px">'
     +'<div class="modal-title">'+(p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가')+'</div>'
     +'<div class="modal-tabs">'
-    +'<button class="modal-tab active" data-tab="basic" onclick="switchProjTab(\'basic\')">기본 정보</button>'
-    +'<button class="modal-tab" data-tab="issue" onclick="switchProjTab(\'issue\')">이슈</button>'
-    +'<button class="modal-tab" data-tab="billing" onclick="switchProjTab(\'billing\')">빌링</button>'
+    +'<button class="modal-tab'+(projModalTab==='basic'?' active':'')+'" data-tab="basic" onclick="switchProjTab(\'basic\')">기본 정보</button>'
+    +'<button class="modal-tab'+(projModalTab==='issue'?' active':'')+'" data-tab="issue" onclick="switchProjTab(\'issue\')">이슈</button>'
+    +'<button class="modal-tab'+(projModalTab==='billing'?' active':'')+'" data-tab="billing" onclick="switchProjTab(\'billing\')">빌링</button>'
     +'</div>'
 
     // 탭1: 기본정보
-    +'<div class="modal-tab-content active" data-tab="basic">'
+    +'<div class="modal-tab-content'+(projModalTab==='basic'?' active':'')+'" data-tab="basic">'
     +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="'+esc(p?p.name:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-half">'
     +'<div class="form-row"><label class="form-label">고객사</label><select id="fClient" '+(editable?'onchange="onClientChange()"':'disabled')+'><option value="">고객사 없음</option>'+cOpts+'</select></div>'
@@ -1998,7 +2049,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
     +'</div>'
 
     // 탭2: 이슈
-    +'<div class="modal-tab-content" data-tab="issue">'
+    +'<div class="modal-tab-content'+(projModalTab==='issue'?' active':'')+'" data-tab="issue">'
     +(p
       ?'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
        +'<div style="font-size:12px;color:var(--text3)">이 프로젝트의 이슈 및 댓글</div>'
@@ -2012,7 +2063,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
     +'</div>'
 
     // 탭3: 빌링
-    +'<div class="modal-tab-content" data-tab="billing">'
+    +'<div class="modal-tab-content'+(projModalTab==='billing'?' active':'')+'" data-tab="billing">'
     +'<div class="checkbox-row"><input type="checkbox" id="fBillable" '+(isBillable?'checked':'')+' '+(editable?'':'disabled')+'/><label for="fBillable">빌링 대상 프로젝트</label></div>'
     +'<div id="billingFields" style="'+(isBillable?'':'display:none')+'">'
     +'<div class="form-half"><div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" '+(editable?'':'disabled')+'>'+['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></div>'
@@ -2956,7 +3007,7 @@ async function loadClientUpdates(clientId){
 function renderUpdateFeed(updates,clientId){
   const el=document.getElementById('updateFeed');if(!el)return;
   const cp=projects.filter(p=>p.client_id===clientId);
-  const isAssigned=isAdmin||(currentMember&&cp.some(p=>p.members.includes(currentMember.name)));
+  const isAssigned=isAdmin||(currentMember&&clientAssignments.some(a=>a.client_id===id&&a.member_id===currentMember.id));
   if(!updates.length){
     el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">아직 작성된 업데이트가 없습니다.'+(isAssigned?'<br><br><button class="btn primary sm" onclick="openUpdateModal(null,\''+clientId+'\')">첫 업데이트 작성</button>':'')+'</div>';
     return;
@@ -3043,7 +3094,209 @@ async function deleteUpdate(id,clientId){
   }catch(e){alert('오류: '+e.message);}
 }
 
-// ── 이슈 시스템 ──────────────────────────────────────────────
+// ── 알림 시스템 ──────────────────────────────────────────────
+
+let realtimeChannel=null;
+
+function toggleNotifPanel(){
+  const panel=document.getElementById('notifPanel');if(!panel)return;
+  const isOpen=panel.style.display!=='none';
+  panel.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    loadNotifications();
+    setTimeout(()=>{
+      const close=(e)=>{
+        if(!panel.contains(e.target)&&e.target.id!=='notifBell'&&!e.target.closest('#notifBell')){
+          panel.style.display='none';document.removeEventListener('click',close);
+        }
+      };
+      document.addEventListener('click',close);
+    },100);
+  }
+}
+
+async function loadNotifications(){
+  const el=document.getElementById('notifList');if(!el)return;
+  try{
+    const notifs=await api('GET','notifications?user_id=eq.'+currentUser.id+'&order=created_at.desc&limit=30')||[];
+    updateNotifBadge(notifs.filter(n=>!n.is_read).length);
+    if(!notifs.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">알림이 없습니다</div>';return;}
+    el.innerHTML=notifs.map(n=>{
+      const icon=n.type==='mention'?'@':n.type==='comment'?'💬':'🚨';
+      const bg=n.is_read?'transparent':'var(--blue-light)';
+      return '<div onclick="handleNotifClick(\''+n.id+'\',\''+( n.link_type||'')+'\',\''+( n.link_id||'')+'\')\" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:'+bg+'">'
+        +'<div style="width:32px;height:32px;border-radius:50%;background:'+(n.is_read?'var(--bg2)':'var(--blue-light)')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+icon+'</div>'
+        +'<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--navy);font-weight:'+(n.is_read?'400':'600')+';line-height:1.4">'+esc(n.message)+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:3px">'+formatCommentDate(n.created_at)+'</div></div>'
+        +(!n.is_read?'<div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:6px"></div>':'')
+        +'</div>';
+    }).join('');
+  }catch(e){el.innerHTML='<div style="padding:16px;color:var(--text3);font-size:12px">알림을 불러올 수 없습니다</div>';}
+}
+
+async function handleNotifClick(notifId,linkType,linkId){
+  try{await api('PATCH','notifications?id=eq.'+notifId,{is_read:true});}catch{}
+  document.getElementById('notifPanel').style.display='none';
+  if(linkType==='issue')setPage('team');
+  else if(linkType==='project'&&linkId)openProjModal(linkId);
+}
+
+async function markAllNotifsRead(){
+  try{
+    await api('PATCH','notifications?user_id=eq.'+currentUser.id+'&is_read=eq.false',{is_read:true});
+    updateNotifBadge(0);loadNotifications();
+  }catch{}
+}
+
+function updateNotifBadge(count){
+  const badge=document.getElementById('notifBadge');if(!badge)return;
+  if(count>0){badge.textContent=count>9?'9+':count;badge.style.display='flex';}
+  else{badge.style.display='none';}
+}
+
+async function createNotification(userId,type,message,linkType,linkId){
+  if(!userId)return;
+  try{await api('POST','notifications',{user_id:userId,type,message,link_type:linkType,link_id:linkId||null,is_read:false});}
+  catch(e){console.warn('알림 생성 실패:',e.message);}
+}
+
+function parseMentions(text){
+  const regex=/@([\w가-힣]+)/g;let match;const found=[];
+  while((match=regex.exec(text))!==null){
+    const name=match[1];
+    const member=members.find(m=>m.name===name||m.name.startsWith(name));
+    if(member&&!found.find(m=>m.id===member.id))found.push(member);
+  }
+  return found;
+}
+
+function setupMentionInput(inputId){
+  const input=document.getElementById(inputId);if(!input)return;
+  input.addEventListener('input',()=>{
+    const val=input.value;
+    const at=val.lastIndexOf('@');
+    if(at<0){hideMentionDropdown();return;}
+    const query=val.slice(at+1).split(/\s/)[0].toLowerCase();
+    if(!query){hideMentionDropdown();return;}
+    const matches=members.filter(m=>m.name.toLowerCase().includes(query));
+    if(!matches.length){hideMentionDropdown();return;}
+    showMentionDropdown(input,matches,at);
+  });
+  input.addEventListener('blur',()=>setTimeout(hideMentionDropdown,200));
+}
+
+function showMentionDropdown(input,matches,atPos){
+  let dd=document.getElementById('mentionDropdown');
+  if(!dd){dd=document.createElement('div');dd.id='mentionDropdown';dd.style.cssText='position:fixed;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:1000;min-width:160px;overflow:hidden';document.body.appendChild(dd);}
+  const rect=input.getBoundingClientRect();
+  dd.style.top=(rect.bottom+4)+'px';dd.style.left=rect.left+'px';
+  dd.innerHTML=matches.slice(0,6).map(m=>'<div onclick="insertMention(\''+inputId+'\',\''+m.name+'\','+atPos+')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy)" onmouseover="this.style.background=\'var(--blue-light)\'" onmouseout="this.style.background=\'\'"><span style="font-size:11px;color:var(--blue);margin-right:4px">@</span>'+esc(m.name)+'</div>').join('');
+
+  // inputId가 지역변수라 클로저 문제 방지
+  dd._inputId=inputId;
+  dd.style.display='block';
+}
+
+function hideMentionDropdown(){const dd=document.getElementById('mentionDropdown');if(dd)dd.style.display='none';}
+
+function insertMention(inputId,name,atPos){
+  const input=document.getElementById(inputId);if(!input)return;
+  const val=input.value;
+  const afterAt=val.slice(atPos+1);
+  const spaceIdx=afterAt.search(/\s/);
+  const end=spaceIdx>=0?atPos+1+spaceIdx:val.length;
+  input.value=val.slice(0,atPos)+'@'+name+' '+val.slice(end);
+  input.focus();hideMentionDropdown();
+}
+
+function initRealtime(){
+  // Supabase SDK 없이 폴링으로 실시간 알림 체크 (30초마다)
+  setInterval(async()=>{
+    if(!currentUser)return;
+    try{
+      const badge=document.getElementById('notifBadge');
+      const curCount=badge&&badge.style.display!=='none'?(parseInt(badge.textContent)||0):0;
+      const notifs=await api('GET','notifications?user_id=eq.'+currentUser.id+'&is_read=eq.false&select=id,message,type&order=created_at.desc&limit=5')||[];
+      const newCount=notifs.length;
+      if(newCount>curCount&&newCount>0){
+        // 새 알림 토스트
+        const newest=notifs[0];
+        showToast(newest.message,newest.type);
+      }
+      updateNotifBadge(newCount);
+    }catch{}
+  }, 30000);
+}
+
+function showToast(message,type){
+  const icon=type==='mention'?'@':type==='comment'?'💬':'🚨';
+  const t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:300px;cursor:pointer';
+  t.innerHTML='<span style="font-size:16px">'+icon+'</span><span>'+esc(message)+'</span>';
+  t.onclick=()=>{toggleNotifPanel();t.remove();};
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.transition='opacity .3s';t.style.opacity='0';setTimeout(()=>t.remove(),300);},3500);
+}
+
+async function loadInitialNotifBadge(){
+  try{
+    const notifs=await api('GET','notifications?user_id=eq.'+currentUser.id+'&is_read=eq.false&select=id')||[];
+    updateNotifBadge(notifs.length);
+  }catch{}
+}
+
+function toggleTeamExtra(){
+  const el=document.getElementById('teamExtraContent');
+  const icon=document.getElementById('teamExtraIcon');
+  if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  if(icon)icon.textContent=isOpen?'▸':'▾';
+  if(!isOpen){renderKudos();renderWeeklyReviews();}
+}
+
+// ── 이슈 읽음 추적 ──
+function getReadIssueIds(){
+  try{return new Set(JSON.parse(sessionStorage.getItem('readIssues')||'[]'));}catch{return new Set();}
+}
+function markIssueRead(id){
+  const ids=getReadIssueIds();ids.add(id);
+  try{sessionStorage.setItem('readIssues',JSON.stringify([...ids]));}catch{}
+}
+function markAllIssuesRead(ids){
+  const existing=getReadIssueIds();
+  ids.forEach(id=>existing.add(id));
+  try{sessionStorage.setItem('readIssues',JSON.stringify([...existing]));}catch{}
+}
+function getUnreadCount(issues){
+  const read=getReadIssueIds();
+  return issues.filter(i=>i.status==='open'&&!read.has(i.id)).length;
+}
+function updateIssueBadge(count){
+  // noticeDot 스타일로 팀 탭에 뱃지 추가
+  let badge=document.getElementById('teamIssueBadge');
+  const teamBtn=document.getElementById('navTeam');
+  const mTeamBtn=document.getElementById('mNavTeam');
+  if(!badge&&teamBtn){
+    badge=document.createElement('span');
+    badge.id='teamIssueBadge';
+    badge.style.cssText='display:inline-block;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;margin-left:4px;vertical-align:middle;min-width:16px;text-align:center';
+    teamBtn.appendChild(badge);
+  }
+  if(badge){badge.textContent=count;badge.style.display=count>0?'inline-block':'none';}
+  if(mTeamBtn){
+    let mbadge=document.getElementById('mTeamIssueBadge');
+    if(!mbadge){mbadge=document.createElement('span');mbadge.id='mTeamIssueBadge';mbadge.style.cssText='background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;margin-left:4px';mTeamBtn.appendChild(mbadge);}
+    mbadge.textContent=count;mbadge.style.display=count>0?'inline-block':'none';
+  }
+}
+
+// ── 간트 접기/펼치기 상태 ──
+const ganttCollapsed={};
+function toggleGanttGroup(clientId){
+  ganttCollapsed[clientId]=!ganttCollapsed[clientId];
+  renderGantt();
+}
 
 async function loadIssueFeed(){
   const el=document.getElementById('issueFeedWrap');if(!el)return;
@@ -3052,22 +3305,32 @@ async function loadIssueFeed(){
       api('GET','project_issues?is_pinned=eq.true&status=eq.open&select=*&order=created_at.desc'),
       api('GET','project_issues?select=*&order=created_at.desc&limit=30')
     ]);
+    const allIssues=[...(pinned||[]),...(recent||[])];
+    const unread=getUnreadCount(allIssues);
+    updateIssueBadge(unread);
     renderIssueFeed(el,pinned||[],recent||[]);
+    // 피드 열면 전체 읽음 처리
+    markAllIssuesRead(allIssues.map(i=>i.id));
+    updateIssueBadge(0);
   }catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:12px 0">이슈를 불러올 수 없습니다.</div>';}
 }
 
 function renderIssueFeed(el,pinned,recent){
   const pinnedIds=new Set((pinned||[]).map(i=>i.id));
   const others=(recent||[]).filter(i=>!pinnedIds.has(i.id));
+  const readIds=getReadIssueIds();
   const issueCard=(issue,isPinned)=>{
     const proj=projects.find(p=>p.id===issue.project_id);
     const client=proj?clients.find(c=>c.id===proj.client_id):null;
     const isOpen=issue.status==='open';
+    const isUnread=isOpen&&!readIds.has(issue.id);
     return '<div class="card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'">'
       +'<div style="display:flex;align-items:flex-start;gap:10px">'
       +'<div style="flex:1;min-width:0">'
       +(proj?'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px">'+(client?esc(client.name)+' · ':'')+esc(proj.name)+'</div>':'')
-      +'<div style="font-size:13px;font-weight:700;color:'+(isOpen?'var(--navy)':'var(--text3)')+'">'+(isPinned?'📌 ':'')+esc(issue.title)+'</div>'
+      +'<div style="font-size:13px;font-weight:700;color:'+(isOpen?'var(--navy)':'var(--text3)')+';display:flex;align-items:center;gap:6px">'
+      +(isUnread?'<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block"></span>':'')
+      +(isPinned?'📌 ':'')+esc(issue.title)+'</div>'
       +(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
       +'<div style="font-size:11px;color:var(--text3);margin-top:6px;display:flex;gap:10px">'
       +'<span>'+esc(issue.author_name||'익명')+'</span><span>'+formatCommentDate(issue.created_at)+'</span>'
@@ -3075,20 +3338,29 @@ function renderIssueFeed(el,pinned,recent){
       +'</div></div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
       +(isOpen?'<button onclick="resolveIssue(\''+issue.id+'\')" title="해결 처리" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);font-size:13px;cursor:pointer">✓</button>':'')
-      +(isAdmin&&isOpen?'<button onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:'+(issue.is_pinned?'var(--red-bg)':'transparent')+';color:'+(issue.is_pinned?'var(--red)':'var(--text3)')+';font-size:12px;cursor:pointer" title="'+(issue.is_pinned?'고정 해제':'상단 고정')+'">📌</button>':'')
-      +'<button onclick="openIssueComments(\''+issue.id+'\')" title="댓글" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer">💬</button>'
+      +(isAdmin&&isOpen?'<button onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:'+(issue.is_pinned?'var(--red-bg)':'transparent')+';color:'+(issue.is_pinned?'var(--red)':'var(--text3)')+';font-size:12px;cursor:pointer">📌</button>':'')
+      +'<button onclick="openIssueComments(\''+issue.id+'\')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer">💬</button>'
       +'</div></div>'
       +'<div id="comments-'+issue.id+'" style="display:none"></div>'
       +'</div>';
   };
   let html='';
   if(pinned.length){
-    html+='<div style="font-size:11px;font-weight:700;color:var(--red);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">📌 고정 이슈 ('+pinned.length+'건)</div>';
-    html+=pinned.map(i=>issueCard(i,true)).join('');
+    html+='<div class="card" style="margin-bottom:8px;padding:10px 14px;background:var(--red-bg);border-radius:var(--radius-sm)">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px">📌 고정 이슈 ('+pinned.length+'건)</div>'
+      +pinned.map(i=>issueCard(i,true)).join('')+'</div>';
   }
   if(others.length){
-    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:'+(pinned.length?'16':'0')+'px 0 8px">최근 이슈</div>';
-    html+=others.map(i=>issueCard(i,false)).join('');
+    const openOthers=others.filter(i=>i.status==='open');
+    const resolvedOthers=others.filter(i=>i.status!=='open');
+    if(openOthers.length){
+      html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:'+(pinned.length?'12':'0')+'px 0 8px">열린 이슈 ('+openOthers.length+'건)</div>';
+      html+=openOthers.map(i=>issueCard(i,false)).join('');
+    }
+    if(resolvedOthers.length){
+      html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:12px 0 8px">해결된 이슈 ('+resolvedOthers.length+'건)</div>';
+      html+=resolvedOthers.map(i=>issueCard(i,false)).join('');
+    }
   }
   if(!pinned.length&&!others.length){
     html='<div class="card" style="text-align:center;padding:32px;color:var(--text3)">'
@@ -3098,7 +3370,6 @@ function renderIssueFeed(el,pinned,recent){
   }
   el.innerHTML=html;
 }
-
 function openIssueModal(projId){
   const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);return '<option value="'+p.id+'"'+(p.id===projId?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
   document.getElementById('modalArea').innerHTML=
@@ -3119,13 +3390,23 @@ function openIssueModal(projId){
 async function saveIssue(){
   const title=document.getElementById('issueTitle').value.trim();
   if(!title){alert('이슈 제목을 입력해주세요.');return;}
+  const content=document.getElementById('issueContent').value.trim()||null;
   try{
     await api('POST','project_issues',{
       project_id:document.getElementById('issueProj').value||null,
-      title,content:document.getElementById('issueContent').value.trim()||null,
+      title,content,
       author_name:currentMember?.name||currentUser?.email||'익명',
       created_by:currentUser?.id||null,status:'open'
     });
+    // 본문에서 @멘션 알림
+    const mentioned=parseMentions((title+' '+(content||'')));
+    for(const m of mentioned){
+      if(m.auth_user_id&&m.auth_user_id!==currentUser.id){
+        await createNotification(m.auth_user_id,'mention',
+          (currentMember?.name||'누군가')+'님이 이슈에서 회원님을 멘션했습니다: '+title.slice(0,30),
+          'issue',null);
+      }
+    }
     closeModal();
     await loadIssueFeed();
   }catch(e){alert('등록 오류: '+e.message);}
@@ -3163,9 +3444,11 @@ async function openIssueComments(issueId){
         +'</div></div>').join('')
       +(comments.length===0?'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">아직 댓글이 없습니다.</div>':'')
       +'<div style="display:flex;gap:8px;margin-top:4px">'
-      +'<input id="ic-'+issueId+'" placeholder="댓글 입력... (Enter로 등록)" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();submitIssueComment(\''+issueId+'\')}"/>'
+      +'<input id="ic-'+issueId+'" placeholder="댓글 입력... @이름으로 멘션 (Enter로 등록)" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();submitIssueComment(\''+issueId+'\')}"/>'
       +'<button class="btn primary sm" onclick="submitIssueComment(\''+issueId+'\')">등록</button>'
       +'</div></div>';
+    // 멘션 자동완성 설정
+    setTimeout(()=>setupMentionInput('ic-'+issueId), 50);
   }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px;padding:8px 0">로드 실패</div>';}
 }
 
@@ -3173,12 +3456,29 @@ async function submitIssueComment(issueId){
   const input=document.getElementById('ic-'+issueId);
   const content=input?.value?.trim();if(!content)return;
   try{
+    // 멘션 파싱
+    const mentioned=parseMentions(content);
     await api('POST','issue_comments',{
       issue_id:issueId,content,
       author_name:currentMember?.name||currentUser?.email||'익명',
       created_by:currentUser?.id||null
     });
-    // 댓글 닫고 다시 열어서 리프레시
+    // 이슈 작성자에게 댓글 알림
+    const issue=await api('GET','project_issues?id=eq.'+issueId+'&select=created_by,title');
+    const issueData=(issue||[])[0];
+    if(issueData?.created_by&&issueData.created_by!==currentUser.id){
+      await createNotification(issueData.created_by,'comment',
+        (currentMember?.name||'누군가')+'님이 이슈에 댓글을 달았습니다: '+esc(issueData.title?.slice(0,30)),
+        'issue',issueId);
+    }
+    // @멘션 알림
+    for(const m of mentioned){
+      if(m.auth_user_id&&m.auth_user_id!==currentUser.id){
+        await createNotification(m.auth_user_id,'mention',
+          (currentMember?.name||'누군가')+'님이 댓글에서 회원님을 멘션했습니다',
+          'issue',issueId);
+      }
+    }
     const el=document.getElementById('comments-'+issueId);
     if(el)el.style.display='none';
     await openIssueComments(issueId);
@@ -3704,10 +4004,12 @@ async function openPortalManager(){
   if(!isAdmin)return;
   const el=document.getElementById('modalArea');
   el.innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:640px"><div class="modal-title">🔐 고객사 페이지 관리</div>'
+    +'<div class="modal" style="width:680px"><div class="modal-title">🔐 고객사 페이지 관리</div>'
     +'<div id="portalManagerBody"><div style="color:var(--text3);text-align:center;padding:20px">불러오는 중...</div></div>'
     +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
     +'</div></div>';
+  // assignments 최신 로드
+  try{clientAssignments=await api('GET','client_assignments?select=*')||[];}catch{}
   renderPortalManagerBody();
 }
 
@@ -3717,35 +4019,89 @@ function renderPortalManagerBody(){
   const withPortal=sorted.filter(c=>c.portal_email);
   const withoutPortal=sorted.filter(c=>!c.portal_email);
 
+  const assignedNames=(clientId)=>{
+    const assigned=clientAssignments.filter(a=>a.client_id===clientId);
+    return assigned.map(a=>members.find(m=>m.id===a.member_id)?.name||'?').filter(Boolean);
+  };
+
   let html='<div style="font-size:12px;color:var(--text3);margin-bottom:12px">'
     +'고객사 페이지 활성: <strong style="color:var(--green)">'+withPortal.length+'개사</strong> · 미설정: <strong>'+withoutPortal.length+'개사</strong>'
     +'</div>';
 
-  // 포털 있는 거래처
   if(withPortal.length){
     html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">✓ 활성 계정</div>';
-    html+=withPortal.map(c=>'<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--green-bg);border-radius:var(--radius-sm);margin-bottom:6px">'
-      +'<div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:13px;font-weight:700;color:var(--navy)">'+esc(c.name)+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+esc(c.portal_email)
-      +(c.onedrive_url?' · <a href="'+esc(c.onedrive_url)+'" target="_blank" style="color:var(--blue)">OneDrive ↗</a>':'')
-      +'</div></div>'
-      +'<button class="btn sm" style="flex-shrink:0;font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">수정</button>'
-      +'<button class="btn ghost sm" style="flex-shrink:0;font-size:11px" onclick="resetPortalAccount(\''+c.id+'\',\''+esc(c.name)+'\')">초기화</button>'
-      +'</div>').join('');
+    html+=withPortal.map(c=>{
+      const names=assignedNames(c.id);
+      return '<div style="padding:12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border)">'
+        +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+        +'<div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;font-weight:700;color:var(--navy)">'+esc(c.name)+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:1px">'+esc(c.portal_email)+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:6px;flex-shrink:0">'
+        +'<button class="btn primary sm" style="font-size:11px" onclick="openPortalAsClient(\''+c.id+'\')">👀 접속</button>'
+        +'<button class="btn sm" style="font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">수정</button>'
+        +'<button class="btn ghost sm" style="font-size:11px" onclick="resetPortalAccount(\''+c.id+'\',\''+esc(c.name)+'\')">초기화</button>'
+        +'</div></div>'
+        // 담당자 어사인
+        +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        +'<span style="font-size:11px;color:var(--text3);font-weight:600">담당자:</span>'
+        +(names.length?names.map(n=>'<span style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:600">'+esc(n)
+          +'<button onclick="removeAssignment(\''+c.id+'\',\''+n+'\')" style="margin-left:4px;background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;padding:0">×</button></span>').join('')
+          :'<span style="font-size:11px;color:var(--text3)">미배정</span>')
+        +'<select id="assignSel-'+c.id+'" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-family:inherit">'
+        +'<option value="">+ 담당자 추가</option>'
+        +members.filter(m=>!clientAssignments.find(a=>a.client_id===c.id&&a.member_id===m.id))
+          .map(m=>'<option value="'+m.id+'">'+esc(m.name)+'</option>').join('')
+        +'</select>'
+        +'<button class="btn sm" style="font-size:11px" onclick="addAssignment(\''+c.id+'\')">추가</button>'
+        +'</div>'
+        +'</div>';
+    }).join('');
   }
 
-  // 포털 없는 거래처
   if(withoutPortal.length){
     html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:16px 0 8px">미설정 거래처</div>';
-    html+=withoutPortal.map(c=>'<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:4px">'
-      +'<div style="width:32px;height:32px;border-radius:8px;background:var(--bg2);color:var(--text3);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
-      +'<div style="flex:1;font-size:13px;color:var(--text2)">'+esc(c.name)+'</div>'
-      +'<button class="btn primary sm" style="flex-shrink:0;font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">페이지 설정</button>'
-      +'</div>').join('');
+    html+=withoutPortal.map(c=>{
+      const names=assignedNames(c.id);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:4px">'
+        +'<div style="width:32px;height:32px;border-radius:8px;background:var(--bg2);color:var(--text3);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:13px;color:var(--text2)">'+esc(c.name)+'</div>'
+        +(names.length?'<div style="font-size:11px;color:var(--text3)">담당: '+names.join(', ')+'</div>':'')
+        +'</div>'
+        +'<button class="btn primary sm" style="flex-shrink:0;font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">페이지 설정</button>'
+        +'</div>';
+    }).join('');
   }
-  el.innerHTML='<div style="max-height:60vh;overflow-y:auto">'+html+'</div>';
+  el.innerHTML='<div style="max-height:65vh;overflow-y:auto;padding-right:4px">'+html+'</div>';
+}
+
+function openPortalAsClient(clientId){
+  const c=clients.find(x=>x.id===clientId);if(!c||!c.portal_email)return;
+  previewPortal(clientId);
+  closeModal();
+}
+
+async function addAssignment(clientId){
+  const sel=document.getElementById('assignSel-'+clientId);
+  const memberId=sel?.value;if(!memberId)return;
+  try{
+    await api('POST','client_assignments',{client_id:clientId,member_id:memberId,assigned_by:currentUser.id});
+    clientAssignments=await api('GET','client_assignments?select=*')||[];
+    renderPortalManagerBody();
+  }catch(e){alert('오류: '+e.message);}
+}
+
+async function removeAssignment(clientId,memberName){
+  const member=members.find(m=>m.name===memberName);if(!member)return;
+  const assign=clientAssignments.find(a=>a.client_id===clientId&&a.member_id===member.id);if(!assign)return;
+  try{
+    await api('DELETE','client_assignments?id=eq.'+assign.id);
+    clientAssignments=await api('GET','client_assignments?select=*')||[];
+    renderPortalManagerBody();
+  }catch(e){alert('오류: '+e.message);}
 }
 
 function openPortalAccountEdit(clientId){
