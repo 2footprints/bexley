@@ -342,6 +342,9 @@ table{border-collapse:collapse;min-width:100%}
 .comment-editor{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .comment-empty{font-size:12px;color:var(--text3);padding:10px 0}
 .comment-system{background:var(--bg);border:1px dashed var(--border2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text3);line-height:1.6}
+.notif-anchor{scroll-margin-top:88px}
+.notif-target-highlight{animation:notifFlash 2.2s ease;border-radius:12px;box-shadow:0 0 0 2px rgba(99,102,241,.18) inset}
+@keyframes notifFlash{0%{background:var(--blue-light)}65%{background:rgba(99,102,241,.12)}100%{background:transparent}}
 
 /* Popup */
 .popup-bg{position:fixed;inset:0;background:rgba(25,31,40,.75);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -666,7 +669,85 @@ let curPage='clients',curGView='project';
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
 let editingProjId=null,formMembers=[],editingClientId=null,editingContractId=null;
-let projectComments=[],activeReplyParentId=null;
+let projectComments=[],activeReplyParentId=null,activeProjectCommentEditId=null,activeIssueCommentEditId=null;
+
+function truncateText(text,max=42){const raw=String(text||'').replace(/\s+/g,' ').trim();return raw.length>max?raw.slice(0,max-1)+'…':raw;}
+function focusTargetElement(targetId,attempts=18){
+  if(!targetId)return;
+  const tryFocus=()=>{
+    const el=document.getElementById(targetId);
+    if(!el)return false;
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    el.classList.remove('notif-target-highlight');
+    void el.offsetWidth;
+    el.classList.add('notif-target-highlight');
+    setTimeout(()=>el.classList.remove('notif-target-highlight'),2200);
+    return true;
+  };
+  if(tryFocus())return;
+  let remain=attempts;
+  const timer=setInterval(()=>{
+    if(tryFocus()||--remain<=0)clearInterval(timer);
+  },160);
+}
+
+function getMemberById(memberId){return members.find(m=>m.id===memberId)||null;}
+function getNewMentionMembers(newText,oldText=''){
+  const oldKeys=new Set(parseMentions(oldText||'').map(m=>m.auth_user_id||m.name));
+  return parseMentions(newText||'').filter(m=>!oldKeys.has(m.auth_user_id||m.name));
+}
+function canEditIssue(issue){
+  if(!issue)return false;
+  return !!(isAdmin||issue.created_by===currentUser?.id||(currentMember&&(issue.owner_member_id===currentMember.id||issue.assignee_member_id===currentMember.id)));
+}
+function renderIssuePeopleBadges(issue){
+  const badges=[];
+  if(issue?.owner_name)badges.push('<span class="badge badge-gray" style="white-space:nowrap">오너 '+esc(issue.owner_name)+'</span>');
+  if(issue?.assignee_name)badges.push('<span class="badge badge-blue" style="white-space:nowrap">담당 '+esc(issue.assignee_name)+'</span>');
+  return badges.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+badges.join('')+'</div>':'';
+}
+async function navigateToProjectComment(projectId,commentId){
+  if(!projectId)return;
+  openProjModal(projectId,null,null,'issue');
+  if(commentId)focusTargetElement('project-comment-'+commentId);
+}
+async function navigateToIssue(issueId){
+  if(!issueId)return;
+  setPage('team');
+  await loadIssueFeed();
+  focusTargetElement('issue-card-'+issueId);
+}
+async function navigateToIssueComment(issueId,commentId){
+  if(!issueId)return;
+  setPage('team');
+  await loadIssueFeed();
+  await openIssueComments(issueId,true,commentId||'');
+  if(commentId)focusTargetElement('issue-comment-'+commentId);
+  else focusTargetElement('issue-card-'+issueId);
+}
+async function navigateToStoredIssueComment(commentId){
+  if(!commentId)return;
+  try{
+    const rows=await api('GET','issue_comments?id=eq.'+commentId+'&select=id,issue_id');
+    const row=rows?.[0];
+    if(row?.issue_id){
+      await navigateToIssueComment(row.issue_id,commentId);
+      return;
+    }
+  }catch(e){}
+  setPage('team');
+}
+async function navigateToStoredProjectComment(commentId){
+  if(!commentId)return;
+  try{
+    const rows=await api('GET','project_comments?id=eq.'+commentId+'&select=id,project_id');
+    const row=rows?.[0];
+    if(row?.project_id){
+      await navigateToProjectComment(row.project_id,commentId);
+      return;
+    }
+  }catch(e){}
+}
 
 const TYPES={'감사':'#6366F1','세무':'#06B6D4','밸류에이션':'#8B5CF6','자문':'#10B981','실사':'#EC4899','기타':'#94A3B8'};
 const ST_OP={'진행중':1,'예정':.5,'완료':.3};
@@ -1160,24 +1241,20 @@ function renderMyWeek(){
     +'</div>';
 }
 
+
 function renderAlerts(){
-  const{overdue,unbilled}=getAlerts();
+  const{overdue,unbilled,followups}=getAlerts();
   const el=document.getElementById('alertWrap');
   if(!el)return;
   let html='';
   if(overdue.length){
-    html+='<div class="alert-card red" style="margin-bottom:8px">'
-      +'<div class="alert-icon">⏰</div><div class="alert-body">'
-      +'<div class="alert-title red" style="font-size:13px;font-weight:800">기한 초과 미완료 프로젝트 '+overdue.length+'건</div>'
-      +'<div class="alert-items" style="margin-top:5px">'+overdue.map(x=>'<button class="alert-tag red" onclick="openProjModal(\''+x.id+'\')">'+esc(x.name)+'</button>').join('')+'</div>'
-      +'</div></div>';
+    html+=`<div class="alert-card red" style="margin-bottom:8px"><div class="alert-icon">⏰</div><div class="alert-body"><div class="alert-title red" style="font-size:13px;font-weight:800">기한 초과 미완료 프로젝트 ${overdue.length}건</div><div class="alert-items" style="margin-top:5px">${overdue.map(x=>`<button class="alert-tag red" onclick="openProjModal('${x.id}')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
   }
   if(unbilled.length){
-    html+='<div class="alert-card orange" style="margin-bottom:8px">'
-      +'<div class="alert-icon">💰</div><div class="alert-body">'
-      +'<div class="alert-title orange" style="font-size:13px;font-weight:800">완료됐으나 빌링 미처리 '+unbilled.length+'건</div>'
-      +'<div class="alert-items" style="margin-top:5px">'+unbilled.map(x=>'<button class="alert-tag orange" onclick="openProjModal(\''+x.id+'\')">'+esc(x.name)+'</button>').join('')+'</div>'
-      +'</div></div>';
+    html+=`<div class="alert-card orange" style="margin-bottom:8px"><div class="alert-icon">💰</div><div class="alert-body"><div class="alert-title orange" style="font-size:13px;font-weight:800">완료됐으나 빌링 미처리 ${unbilled.length}건</div><div class="alert-items" style="margin-top:5px">${unbilled.map(x=>`<button class="alert-tag orange" onclick="openProjModal('${x.id}',null,null,'completion')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
+  }
+  if(followups.length){
+    html+=`<div class="alert-card orange" style="margin-bottom:8px"><div class="alert-icon">📍</div><div class="alert-body"><div class="alert-title orange" style="font-size:13px;font-weight:800">완료 후 후속 조치 필요 ${followups.length}건</div><div class="alert-items" style="margin-top:5px">${followups.map(x=>`<button class="alert-tag orange" onclick="openProjModal('${x.id}',null,null,'completion')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
   }
   el.innerHTML=html?'<div style="margin-bottom:16px">'+html+'</div>':'';
 }
@@ -1231,7 +1308,7 @@ function setPage(page,extra){
   ['pageClients','pageDetail','pageContract','pageContracts','pageTeam','pageGantt','pageDash','pageNotice','pageFun'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   ['navClients','navContracts','navGantt','navTeam','navDash','navNotice','navFun'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
   const isHome=['team','clients','detail','contract','contracts'].includes(page);
-  document.querySelector('.header-logo').style.color=isHome?'var(--blue)':'var(--navy)';
+  document.querySelector('.header-logo').style.color='var(--navy)';
   const pages={team:'pageTeam',clients:'pageClients',detail:'pageDetail',contract:'pageContract',contracts:'pageContracts',gantt:'pageGantt',dash:'pageDash',notice:'pageNotice',fun:'pageFun'};
   const navs={team:'navTeam',clients:'navClients',contracts:'navContracts',gantt:'navGantt',dash:'navDash',notice:'navNotice',fun:'navFun'};
   const el=document.getElementById(pages[page]);if(el)el.style.display='block';
@@ -1304,6 +1381,7 @@ function openClientDetail(id, tab='projects'){
       +'<div class="proj-sub">'+p.start+' ~ '+p.end+(p.members.length?' · '+p.members.join(', '):'')+'</div>'
       +(od?'<div class="proj-warn">⏰ 기간 초과 — 완료 처리 필요</div>':'')
       +(ub?'<div class="proj-warn">💰 완료됐으나 빌링 미처리</div>':'')
+      +(p.status==='완료'&&p.follow_up_needed?'<div class="proj-warn">📌 후속 액션 필요'+(p.follow_up_note?' · '+esc(truncateText(p.follow_up_note,26)):'')+'</div>':'')
       +'</div>'
       +'<div class="proj-badges">'
       +'<span class="badge '+stBadge+'">'+p.status+'</span>'
@@ -1965,6 +2043,7 @@ function switchProjTab(tab){
   if(tab==='issue'&&editingProjId) loadProjIssues(editingProjId);
 }
 
+
 async function loadProjIssues(projId){
   const el=document.getElementById('projIssueList');if(!el)return;
   try{
@@ -1975,14 +2054,19 @@ async function loadProjIssues(projId){
     }
     el.innerHTML=issues.map(issue=>{
       const isOpen=issue.status==='open';
+      const editable=canEditIssue(issue);
       return '<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">'
         +'<div style="flex:1;min-width:0">'
         +'<div style="font-size:13px;font-weight:600;color:'+(isOpen?'var(--navy)':'var(--text3)')+';">'+(issue.is_pinned?'📌 ':'')+esc(issue.title)+'</div>'
-        +(issue.content?'<div style="font-size:11px;color:var(--text2);margin-top:3px">'+esc(issue.content)+'</div>':'')
-        +'<div style="font-size:10px;color:var(--text3);margin-top:4px">'+esc(issue.author_name||'익명')+' · '+formatCommentDate(issue.created_at)
+        +renderIssuePeopleBadges(issue)
+        +(issue.content?'<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
+        +'<div style="font-size:10px;color:var(--text3);margin-top:6px">'+esc(issue.author_name||'익명')+' · '+formatCommentDate(issue.created_at)
         +(issue.status==='resolved'?'<span style="color:var(--green);font-weight:700;margin-left:6px">✓ 해결됨</span>':'')+'</div>'
         +'</div>'
-        +(isOpen?'<button onclick="resolveIssue(\''+issue.id+'\');loadProjIssues(\''+projId+'\')" style="flex-shrink:0;padding:4px 8px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);font-size:11px;cursor:pointer">✓ 해결</button>':'')
+        +'<div style="display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">'
+        +(editable?'<button onclick="openIssueModal(\''+projId+'\',\''+issue.id+'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer">수정</button>':'')
+        +(isOpen?'<button onclick="resolveIssue(\''+issue.id+'\');loadProjIssues(\''+projId+'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);font-size:11px;cursor:pointer">✓ 해결</button>':'')
+        +'</div>'
         +'</div>';
     }).join('');
   }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px">이슈 로드 실패</div>';}
@@ -2003,6 +2087,7 @@ function buildContractBillingSummary(contractId){
     +'<div style="width:'+pct+'%;height:100%;border-radius:20px;background:'+(pct>=100?'var(--green)':pct>50?'var(--blue)':'var(--orange)')+'"></div></div>';
 }
 
+
 function renderProjModal(p,editable,preClientId,preContractId){
   const d=daysInMonth(curYear,curMonth);
   const selClientId=p?.client_id||preClientId||'';
@@ -2013,111 +2098,89 @@ function renderProjModal(p,editable,preClientId,preContractId){
   const mOpts=members.map(m=>'<option value="'+m.name+'">'+esc(m.name)+'</option>').join('');
   const isBillable=p?p.is_billable!==false:true;
   const linkedContract=selContractId?contracts.find(x=>x.id===selContractId):null;
+  const completionHelper=(p&&p.status==='완료')
+    ?'<div class="helper-box" style="margin-bottom:12px"><div class="helper-title">완료 후속 정리</div><div class="helper-text">실제 완료일, 결과 요약, 내부 메모, 후속 액션을 한 번에 정리해두면 청구/재제안/사후관리 흐름이 훨씬 매끈해집니다.</div></div>'
+    :'<div class="readonly-notice" style="margin-bottom:12px">프로젝트 상태가 완료가 아니어도 미리 작성할 수 있습니다. 완료 처리 시 실제 완료일과 후속 액션을 함께 점검해보세요.</div>';
 
-  document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:500px">'
-    +'<div class="modal-title">'+(p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가')+'</div>'
-    +'<div class="modal-tabs">'
-    +'<button class="modal-tab'+(projModalTab==='basic'?' active':'')+'" data-tab="basic" onclick="switchProjTab(\'basic\')">기본 정보</button>'
-    +'<button class="modal-tab'+(projModalTab==='issue'?' active':'')+'" data-tab="issue" onclick="switchProjTab(\'issue\')">이슈</button>'
-    +'<button class="modal-tab'+(projModalTab==='billing'?' active':'')+'" data-tab="billing" onclick="switchProjTab(\'billing\')">빌링</button>'
-    +'</div>'
+  document.getElementById('modalArea').innerHTML=`
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="width:560px">
+        <div class="modal-title">${p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가'}</div>
+        <div class="modal-tabs">
+          <button class="modal-tab${projModalTab==='basic'?' active':''}" data-tab="basic" onclick="switchProjTab('basic')">기본 정보</button>
+          <button class="modal-tab${projModalTab==='issue'?' active':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
+          <button class="modal-tab${projModalTab==='billing'?' active':''}" data-tab="billing" onclick="switchProjTab('billing')">빌링</button>
+          <button class="modal-tab${projModalTab==='completion'?' active':''}" data-tab="completion" onclick="switchProjTab('completion')">완료·후속</button>
+        </div>
 
-    // 탭1: 기본정보
-    +'<div class="modal-tab-content'+(projModalTab==='basic'?' active':'')+'" data-tab="basic">'
-    +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="'+esc(p?p.name:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-half">'
-    +'<div class="form-row"><label class="form-label">고객사</label><select id="fClient" '+(editable?'onchange="onClientChange()"':'disabled')+'><option value="">고객사 없음</option>'+cOpts+'</select></div>'
-    +'<div class="form-row"><label class="form-label">계약 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label>'
-    +'<select id="fContract" '+(editable?'onchange="onContractChange()"':'disabled')+'><option value="">계약 없음</option>'+ctOpts+'</select></div>'
-    +'</div>'
-    +'<div id="contractHint" style="'+(linkedContract?'':'display:none')+';background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--blue);margin-bottom:10px">'
-    +(linkedContract?'📄 '+esc(linkedContract.contract_name)+(linkedContract.contract_amount?' · '+Number(linkedContract.contract_amount).toLocaleString()+'원':''):'')
-    +'</div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="fType" '+(editable?'':'disabled')+'>'+Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')+'</select></div>'
-    +'<div class="form-row"><label class="form-label">상태</label><select id="fStatus" '+(editable?'':'disabled')+'><option '+(p&&p.status==='진행중'?'selected':'')+'>진행중</option><option '+(p&&p.status==='예정'?'selected':'')+'>예정</option><option '+(p&&p.status==='완료'?'selected':'')+'>완료</option></select></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="'+(p?p.start:curYear+'-'+pad(curMonth)+'-01')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">종료일</label><input type="date" id="fEnd" value="'+(p?p.end:curYear+'-'+pad(curMonth)+'-'+pad(d))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +(editable
-      ?'<div class="form-row"><label class="form-label">담당 인력</label><div style="display:flex;gap:8px"><select id="fMSel" style="flex:1">'+mOpts+'</select><button class="btn sm" onclick="addMember()">+ 추가</button></div><div class="member-tags" id="fMTags"></div></div>'
-      :'<div class="form-row"><label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+(p?p.members.join(', ')||'미배정':'')+'</div></div>')
-    +'<div id="conflictArea"></div>'
-    // 메모 (간단하게 1개만)
-    +'<div class="form-row"><label class="form-label">메모</label><textarea id="fMemo" rows="2" style="resize:vertical" placeholder="간단한 메모, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(p&&p.memo?p.memo:'')+'</textarea></div>'
-    +(!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':'')
-    +'</div>'
+        <div class="modal-tab-content${projModalTab==='basic'?' active':''}" data-tab="basic">
+          <div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="${esc(p?p.name:'')}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+          <div class="form-half">
+            <div class="form-row"><label class="form-label">고객사</label><select id="fClient" ${editable?'onchange="onClientChange()"':'disabled'}><option value="">고객사 없음</option>${cOpts}</select></div>
+            <div class="form-row"><label class="form-label">계약 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><select id="fContract" ${editable?'onchange="onContractChange()"':'disabled'}><option value="">계약 없음</option>${ctOpts}</select></div>
+          </div>
+          <div id="contractHint" style="${linkedContract?'':'display:none'};background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--blue);margin-bottom:10px">${linkedContract?'📄 '+esc(linkedContract.contract_name)+(linkedContract.contract_amount?' · '+Number(linkedContract.contract_amount).toLocaleString()+'원':''):''}</div>
+          <div class="form-half">
+            <div class="form-row"><label class="form-label">유형</label><select id="fType" ${editable?'':'disabled'}>${Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')}</select></div>
+            <div class="form-row"><label class="form-label">상태</label><select id="fStatus" ${editable?'':'disabled'}><option ${(p&&p.status==='진행중')?'selected':''}>진행중</option><option ${(p&&p.status==='예정')?'selected':''}>예정</option><option ${(p&&p.status==='완료')?'selected':''}>완료</option></select></div>
+          </div>
+          <div class="form-half">
+            <div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="${p?p.start:curYear+'-'+pad(curMonth)+'-01'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+            <div class="form-row"><label class="form-label">종료일</label><input type="date" id="fEnd" value="${p?p.end:curYear+'-'+pad(curMonth)+'-'+pad(d)}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+          </div>
+          ${editable
+            ?'<div class="form-row"><label class="form-label">담당 인력</label><div style="display:flex;gap:8px"><select id="fMSel" style="flex:1">'+mOpts+'</select><button class="btn sm" onclick="addMember()">+ 추가</button></div><div class="member-tags" id="fMTags"></div></div>'
+            :'<div class="form-row"><label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+(p?p.members.join(', ')||'미배정':'')+'</div></div>'}
+          <div id="conflictArea"></div>
+          <div class="form-row"><label class="form-label">메모</label><textarea id="fMemo" rows="2" style="resize:vertical" placeholder="간단한 메모, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p&&p.memo?p.memo:'')}</textarea></div>
+          ${!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':''}
+        </div>
 
-    // 탭2: 이슈
-    +'<div class="modal-tab-content'+(projModalTab==='issue'?' active':'')+'" data-tab="issue">'
-    +(p
-      ?'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-       +'<div style="font-size:12px;color:var(--text3)">이 프로젝트의 이슈 및 댓글</div>'
-       +'<button class="btn primary sm" onclick="closeModal();openIssueModal(\''+p.id+'\')">+ 이슈 등록</button>'
-       +'</div>'
-       +'<div id="projIssueList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
-       // 댓글
-       +'<div class="divider">댓글</div>'
-       +'<div id="projectCommentSection"><div style="color:var(--text3);font-size:12px;padding:8px 0">불러오는 중...</div></div>'
-      :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 이슈를 등록할 수 있습니다.</div>')
-    +'</div>'
+        <div class="modal-tab-content${projModalTab==='issue'?' active':''}" data-tab="issue">
+          ${p
+            ?'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:12px;color:var(--text3)">이 프로젝트의 이슈 및 댓글</div><button class="btn primary sm" onclick="closeModal();openIssueModal(\''+p.id+'\')">+ 이슈 등록</button></div><div id="projIssueList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div><div class="divider">댓글</div><div id="projectCommentSection"><div style="color:var(--text3);font-size:12px;padding:8px 0">불러오는 중...</div></div>'
+            :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 이슈를 등록할 수 있습니다.</div>'}
+        </div>
 
-    // 탭3: 빌링
-    +'<div class="modal-tab-content'+(projModalTab==='billing'?' active':'')+'" data-tab="billing">'
-    +'<div class="checkbox-row"><input type="checkbox" id="fBillable" '+(isBillable?'checked':'')+' '+(editable?'':'disabled')+'/><label for="fBillable">빌링 대상 프로젝트</label></div>'
-    +'<div id="billingFields" style="'+(isBillable?'':'display:none')+'">'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" '+(editable?'':'disabled')+'>'+['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></div>'
-    +'<div class="form-row"><label class="form-label">청구 금액 (원)</label><input id="fAmt" type="number" value="'+(p&&p.billing_amount?p.billing_amount:'')+'" placeholder="'+(linkedContract?.contract_amount?'계약: '+Number(linkedContract.contract_amount).toLocaleString():'예) 5000000')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="'+esc(p&&p.billing_note?p.billing_note:'')+'" placeholder="인보이스 번호, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">세금계산서 발행 요청 메일 문안을 자동으로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="'+(p?p.id:'')+'" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div></div>'
-    +'</div>'
-    +(p&&linkedContract?'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 빌링 현황</div>'+buildContractBillingSummary(linkedContract.id)+'</div>':'')
-    +'</div>'
+        <div class="modal-tab-content${projModalTab==='billing'?' active':''}" data-tab="billing">
+          <div class="checkbox-row"><input type="checkbox" id="fBillable" ${isBillable?'checked':''} ${editable?'':'disabled'}/><label for="fBillable">빌링 대상 프로젝트</label></div>
+          <div id="billingFields" style="${isBillable?'':'display:none'}">
+            <div class="form-half">
+              <div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" ${editable?'':'disabled'}>${['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')}</select></div>
+              <div class="form-row"><label class="form-label">청구 금액 (원)</label><input id="fAmt" type="number" value="${p&&p.billing_amount?p.billing_amount:''}" placeholder="${linkedContract?.contract_amount?'계약: '+Number(linkedContract.contract_amount).toLocaleString():'예) 5000000'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+            </div>
+            <div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="${esc(p&&p.billing_note?p.billing_note:'')}" placeholder="인보이스 번호, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+            <div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">세금계산서 발행 요청 메일 문안을 자동으로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="${p?p.id:''}" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div></div>
+          </div>
+          ${p&&linkedContract?'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 빌링 현황</div>'+buildContractBillingSummary(linkedContract.id)+'</div>':''}
+        </div>
 
-    // 하단
-    +'<div class="modal-footer">'
-    +(p&&editable?'<div style="display:flex;gap:6px"><button class="btn danger" onclick="deleteProj()">삭제</button><button class="btn ghost sm" onclick="copyProj()">복사</button></div>':'<div></div>')
-    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" onclick="saveProj()">저장</button>':'')+'</div>'
-    +'</div></div></div>';
-    +'<div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="'+esc(p?p.name:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-half">'
-    +'<div class="form-row"><label class="form-label">고객사</label><select id="fClient" '+(editable?'onchange="onClientChange()"':'disabled')+'><option value="">고객사 없음</option>'+cOpts+'</select></div>'
-    +'<div class="form-row"><label class="form-label">계약 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label>'
-    +'<select id="fContract" '+(editable?'onchange="onContractChange()"':'disabled')+'><option value="">계약 없음</option>'+ctOpts+'</select></div>'
-    +'</div>'
-    +'<div id="contractHint" style="'+(linkedContract?'':'display:none')+';background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--blue);margin-bottom:10px">'
-    +(linkedContract?'📄 '+esc(linkedContract.contract_name)+(linkedContract.contract_amount?' · '+Number(linkedContract.contract_amount).toLocaleString()+'원':''):'')
-    +'</div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="fType" '+(editable?'':'disabled')+'>'+Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')+'</select></div>'
-    +'<div class="form-row"><label class="form-label">상태</label><select id="fStatus" '+(editable?'':'disabled')+'><option '+(p&&p.status==='진행중'?'selected':'')+'>진행중</option><option '+(p&&p.status==='예정'?'selected':'')+'>예정</option><option '+(p&&p.status==='완료'?'selected':'')+'>완료</option></select></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="'+(p?p.start:curYear+'-'+pad(curMonth)+'-01')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">종료일</label><input type="date" id="fEnd" value="'+(p?p.end:curYear+'-'+pad(curMonth)+'-'+pad(d))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +(editable
-      ?'<div class="form-row"><label class="form-label">담당 인력</label><div style="display:flex;gap:8px"><select id="fMSel" style="flex:1">'+mOpts+'</select><button class="btn sm" onclick="addMember()">+ 추가</button></div><div class="member-tags" id="fMTags"></div></div>'
-      :'<div class="form-row"><label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+(p?p.members.join(', ')||'미배정':'')+'</div></div>')
-    +'<div id="conflictArea"></div>'
-    +(!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':'')
-    +'</div>'
-    // 탭2: 빌링
-    +'<div class="modal-tab-content" data-tab="billing">'
-    +'<div class="checkbox-row"><input type="checkbox" id="fBillable" '+(isBillable?'checked':'')+' '+(editable?'':'disabled')+'/><label for="fBillable">빌링 대상 프로젝트</label></div>'
-    +'<div id="billingFields" style="'+(isBillable?'':'display:none')+'">'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" '+(editable?'':'disabled')+'>'+['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></div>'
-    +'<div class="form-row"><label class="form-label">이번 청구 금액 (원)</label><input id="fAmt" type="number" value="'+(p&&p.billing_amount?p.billing_amount:'')+'" placeholder="'+(linkedContract?.contract_amount?'계약: '+Number(linkedContract.contract_amount).toLocaleString():'예) 5000000')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="'+esc(p&&p.billing_note?p.billing_note:'')+'" placeholder="인보이스 번호, 특이사항" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">세금계산서 발행 요청 메일 문안을 자동으로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="'+(p?p.id:'')+'" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div><div class="muted" style="margin-top:8px">추가 입력값은 브라우저에만 저장됩니다.</div></div>'
-    +'</div>'
-    +(p&&linkedContract?'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 빌링 현황</div>'+buildContractBillingSummary(linkedContract.id)+'</div>':'')
-    +'</div>'
+        <div class="modal-tab-content${projModalTab==='completion'?' active':''}" data-tab="completion">
+          ${completionHelper}
+          <div class="form-half">
+            <div class="form-row"><label class="form-label">프로젝트 코드</label><input id="fProjCode" value="${esc(p?.project_code||'')}" placeholder="내부 관리 코드" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+            <div class="form-row"><label class="form-label">실제 완료일</label><input type="date" id="fActualEnd" value="${p?.actual_end_date||''}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+          </div>
+          <div class="form-row"><label class="form-label">결과 요약</label><textarea id="fResultSummary" rows="3" style="resize:vertical" placeholder="고객사 전달 결과, 주요 산출물, 완료 기준 등을 요약" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.result_summary||'')}</textarea></div>
+          <div class="form-row"><label class="form-label">내부 작업 메모</label><textarea id="fWorkSummary" rows="3" style="resize:vertical" placeholder="실무상 배운 점, 다음 번 참고할 포인트" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.work_summary||'')}</textarea></div>
+          <div class="form-row"><label class="form-label">이슈 / 리스크 메모</label><textarea id="fIssueNote" rows="2" style="resize:vertical" placeholder="잔여 리스크, 고객사 커뮤니케이션 메모" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.issue_note||'')}</textarea></div>
+          <div class="checkbox-row"><input type="checkbox" id="fFollowUp" ${p?.follow_up_needed?'checked':''} ${editable?'':'disabled'}/><label for="fFollowUp">후속 액션 필요</label></div>
+          <div id="followUpFields" style="${p?.follow_up_needed?'':'display:none'}">
+            <div class="form-row"><label class="form-label">후속 액션 내용</label><textarea id="fFollowUpNote" rows="3" style="resize:vertical" placeholder="예) 재계약 제안, 후속 세무 검토, 고객사 피드백 회수" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.follow_up_note||'')}</textarea></div>
+          </div>
+        </div>
 
-    // 하단
-    +'<div class="modal-footer">'
-    +(p&&editable?'<div style="display:flex;gap:6px"><button class="btn danger" onclick="deleteProj()">삭제</button><button class="btn ghost sm" onclick="copyProj()">복사</button></div>':'<div></div>')
-    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" onclick="saveProj()">저장</button>':'')+'</div>'
-    +'</div></div></div>';
+        <div class="modal-footer">
+          ${p&&editable?'<div style="display:flex;gap:6px"><button class="btn danger" onclick="deleteProj()">삭제</button><button class="btn ghost sm" onclick="copyProj()">복사</button></div>':'<div></div>'}
+          <div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">${editable?'취소':'닫기'}</button>${editable?'<button class="btn primary" onclick="saveProj()">저장</button>':''}</div>
+        </div>
+      </div>
+    </div>`;
 
   if(editable){
     document.getElementById('fBillable').onchange=function(){document.getElementById('billingFields').style.display=this.checked?'':'none';};
+    const followUp=document.getElementById('fFollowUp');
+    if(followUp)followUp.onchange=function(){document.getElementById('followUpFields').style.display=this.checked?'':'none';};
     renderMemberTags();
     document.getElementById('fStart').oninput=refreshConflict;
     document.getElementById('fEnd').oninput=refreshConflict;
@@ -2197,7 +2260,8 @@ async function saveProj(){
   const billing_note=is_billable?document.getElementById('fBNote').value.trim()||null:null;
   const memo=document.getElementById('fMemo')?.value.trim()||null;
   const project_code=document.getElementById('fProjCode')?.value.trim()||null;
-  const actual_end_date=document.getElementById('fActualEnd')?.value||null;
+  let actual_end_date=document.getElementById('fActualEnd')?.value||null;
+  if(status==='완료'&&!actual_end_date)actual_end_date=new Date().toISOString().slice(0,10);
   const result_summary=document.getElementById('fResultSummary')?.value.trim()||null;
   const work_summary=document.getElementById('fWorkSummary')?.value.trim()||null;
   const issue_note=document.getElementById('fIssueNote')?.value.trim()||null;
@@ -2274,13 +2338,13 @@ function refreshBillingPreview(pid){
 }
 async function copyBillingMail(pid){refreshBillingPreview(pid);await copyText(document.getElementById('bmPreview').value);}
 
+
 async function loadProjectComments(projectId){
   const el=document.getElementById('projectCommentSection');
   if(!el)return;
   el.innerHTML='<div class="comment-system">댓글을 불러오는 중입니다.</div>';
   try{
     projectComments=await api('GET','project_comments?project_id=eq.'+projectId+'&select=*&order=created_at.asc');
-    activeReplyParentId=null;
     renderProjectComments(projectId);
   }catch(e){
     console.error(e);
@@ -2299,22 +2363,35 @@ function renderProjectComments(projectId){
     +'</div>';
   if(!roots.length){
     el.innerHTML='<div class="comment-empty">아직 등록된 메모가 없습니다.</div>'+editor;
-    return;
+  }else{
+    el.innerHTML='<div class="comment-list">'+roots.map(c=>renderCommentItem(c,projectId,false)).join('')+'</div>'+editor;
   }
-  el.innerHTML='<div class="comment-list">'+roots.map(c=>renderCommentItem(c,projectId,false)).join('')+'</div>'+editor;
+  setTimeout(()=>{
+    setupMentionInput('newCommentText');
+    if(activeReplyParentId)setupMentionInput('replyText_'+activeReplyParentId);
+    if(activeProjectCommentEditId)setupMentionInput('editCommentText_'+activeProjectCommentEditId);
+  },0);
+}
+function renderProjectCommentEditEditor(comment,projectId){
+  return '<div class="comment-editor">'
+    +'<div class="form-row" style="margin-bottom:8px"><textarea id="editCommentText_'+comment.id+'" rows="3" style="resize:vertical">'+esc(comment.content||'')+'</textarea></div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:6px"><button class="btn ghost sm" onclick="cancelEditProjectComment(\''+projectId+'\')">취소</button><button class="btn primary sm" onclick="saveProjectCommentEdit(\''+comment.id+'\',\''+projectId+'\')">저장</button></div>'
+    +'</div>';
 }
 function renderCommentItem(comment,projectId,isReply){
   const replies=projectComments.filter(c=>c.parent_id===comment.id);
   const mine=isAdmin||comment.created_by===currentUser?.id;
   const author=comment.author_name||comment.author||'작성자';
-  return '<div class="comment-item'+(isReply?' reply':'')+'">'
+  const isEditing=activeProjectCommentEditId===comment.id;
+  return '<div id="project-comment-'+comment.id+'" class="comment-item notif-anchor'+(isReply?' reply':'')+'">'
     +'<div class="comment-meta"><div><span class="comment-author">'+esc(author)+'</span> <span class="comment-date">'+formatCommentDate(comment.created_at)+'</span></div></div>'
-    +'<div class="comment-body">'+esc(comment.content||'')+'</div>'
+    +(isEditing?renderProjectCommentEditEditor(comment,projectId):'<div class="comment-body">'+esc(comment.content||'')+'</div>')
     +'<div class="comment-actions">'
-    +'<button class="btn ghost sm" onclick="toggleReplyForm(\''+comment.id+'\',\''+projectId+'\')">답글</button>'
-    +(mine?'<button class="btn ghost sm" onclick="deleteProjectComment(\''+comment.id+'\',\''+projectId+'\')">삭제</button>':'')
+    +(!isEditing?'<button class="btn ghost sm" onclick="toggleReplyForm(\''+comment.id+'\',\''+projectId+'\')">답글</button>':'')
+    +(mine&&!isEditing?'<button class="btn ghost sm" onclick="startEditProjectComment(\''+comment.id+'\',\''+projectId+'\')">수정</button>':'')
+    +(mine&&!isEditing?'<button class="btn ghost sm" onclick="deleteProjectComment(\''+comment.id+'\',\''+projectId+'\')">삭제</button>':'')
     +'</div>'
-    +(activeReplyParentId===comment.id?renderReplyEditor(comment.id,projectId):'')
+    +(activeReplyParentId===comment.id&&!isEditing?renderReplyEditor(comment.id,projectId):'')
     +replies.map(r=>renderCommentItem(r,projectId,true)).join('')
     +'</div>';
 }
@@ -2325,12 +2402,48 @@ function renderReplyEditor(parentId,projectId){
     +'</div>';
 }
 function toggleReplyForm(parentId,projectId){
+  activeProjectCommentEditId=null;
   activeReplyParentId=activeReplyParentId===parentId?null:parentId;
   renderProjectComments(projectId);
 }
 function cancelReplyForm(projectId){
   activeReplyParentId=null;
   renderProjectComments(projectId);
+}
+function startEditProjectComment(commentId,projectId){
+  activeReplyParentId=null;
+  activeProjectCommentEditId=commentId;
+  renderProjectComments(projectId);
+}
+function cancelEditProjectComment(projectId){
+  activeProjectCommentEditId=null;
+  renderProjectComments(projectId);
+}
+async function saveProjectCommentEdit(commentId,projectId){
+  const textarea=document.getElementById('editCommentText_'+commentId);
+  const content=textarea?.value?.trim();
+  if(!content){alert('내용을 입력해주세요.');return;}
+  const original=projectComments.find(c=>c.id===commentId);
+  try{
+    await api('PATCH','project_comments?id=eq.'+commentId,{content});
+    const project=projects.find(p=>p.id===projectId);
+    const actor=currentMember?.name||currentUser?.email||'누군가';
+    const projectLabel=truncateText(project?.name||'프로젝트',26);
+    const preview=truncateText(content,34);
+    const newMentions=getNewMentionMembers(content, original?.content||'');
+    for(const m of newMentions){
+      if(m.auth_user_id){
+        await createNotification(m.auth_user_id,'mention',
+          actor+'님이 '+projectLabel+' 프로젝트 댓글에서 회원님을 멘션했습니다 · “'+preview+'”',
+          'project_comment',commentId);
+      }
+    }
+    activeProjectCommentEditId=null;
+    await loadProjectComments(projectId);
+    focusTargetElement('project-comment-'+commentId);
+  }catch(e){
+    alert('댓글 수정 오류: '+e.message);
+  }
 }
 async function submitProjectComment(projectId,parentId=''){
   const textarea=document.getElementById(parentId?'replyText_'+parentId:'newCommentText');
@@ -2345,9 +2458,29 @@ async function submitProjectComment(projectId,parentId=''){
     member_id:currentMember?.id||null
   };
   try{
-    await api('POST','project_comments',body);
+    const inserted=await api('POST','project_comments',body);
+    const commentId=inserted?.[0]?.id||null;
+    const project=projects.find(p=>p.id===projectId);
+    const actor=currentMember?.name||currentUser?.email||'누군가';
+    const projectLabel=truncateText(project?.name||'프로젝트',26);
+    const preview=truncateText(content,34);
+    if(project?.created_by&&project.created_by!==currentUser?.id){
+      await createNotification(project.created_by,'comment',
+        actor+'님이 '+projectLabel+' 프로젝트에 댓글을 남겼습니다 · “'+preview+'”',
+        'project_comment',commentId);
+    }
+    const mentioned=parseMentions(content);
+    for(const m of mentioned){
+      if(m.auth_user_id){
+        await createNotification(m.auth_user_id,'mention',
+          actor+'님이 '+projectLabel+' 프로젝트 댓글에서 회원님을 멘션했습니다 · “'+preview+'”',
+          'project_comment',commentId);
+      }
+    }
     activeReplyParentId=null;
+    activeProjectCommentEditId=null;
     await loadProjectComments(projectId);
+    if(commentId)focusTargetElement('project-comment-'+commentId);
   }catch(e){
     alert('댓글 저장 오류: '+e.message);
   }
@@ -2356,6 +2489,7 @@ async function deleteProjectComment(commentId,projectId){
   if(!confirm('이 메모를 삭제할까요?'))return;
   try{
     await api('DELETE','project_comments?or=(id.eq.'+commentId+',parent_id.eq.'+commentId+')');
+    activeProjectCommentEditId=null;
     await loadProjectComments(projectId);
   }catch(e){
     alert('삭제 오류: '+e.message);
@@ -2425,11 +2559,13 @@ async function deleteSchedule(id){
 }
 
 // ── Dashboard ──
+
 function openDashDrilldown(type){
   if(type==='clients'){ setPage('clients'); return; }
   const active=projects.filter(p=>p.status==='진행중');
   const overdue=projects.filter(p=>isOverdue(p));
   const unbilled=projects.filter(p=>p.status==='완료'&&p.is_billable&&p.billing_status==='미청구');
+  const followups=projects.filter(p=>p.status==='완료'&&p.follow_up_needed);
   const leaves=schedules.filter(s=>s.schedule_type==='leave');
   const fieldworks=schedules.filter(s=>s.schedule_type==='fieldwork');
   let title='상세 보기', body='';
@@ -2441,7 +2577,10 @@ function openDashDrilldown(type){
     body=overdue.length?overdue.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 종료일 '+p.end)+'</div><div class="notice-preview">'+esc((p.members||[]).join(', ')||'담당자 미배정')+'</div></div>').join(''):'<div class="notice-empty">기간 초과 프로젝트가 없습니다.</div>';
   }else if(type==='unbilled'){
     title='빌링 미처리 프로젝트';
-    body=unbilled.length?unbilled.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc((p.billing_amount?Number(p.billing_amount).toLocaleString()+'원 · ':'')+(p.billing_note||'청구 필요'))+'</div></div>').join(''):'<div class="notice-empty">빌링 미처리 프로젝트가 없습니다.</div>';
+    body=unbilled.length?unbilled.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\',null,null,\'completion\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc((p.billing_amount?Number(p.billing_amount).toLocaleString()+'원 · ':'')+(p.billing_note||'청구 필요'))+'</div></div>').join(''):'<div class="notice-empty">빌링 미처리 프로젝트가 없습니다.</div>';
+  }else if(type==='followup'){
+    title='후속 액션 필요 프로젝트';
+    body=followups.length?followups.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\',null,null,\'completion\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc(p.follow_up_note||'후속 액션 내용 확인 필요')+'</div></div>').join(''):'<div class="notice-empty">후속 액션이 필요한 프로젝트가 없습니다.</div>';
   }else if(type==='leave'){
     title='휴가 일정';
     body=leaves.length?leaves.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(s.member_name||'미지정')+'</div><div class="notice-meta">'+esc((s.title||'휴가')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc(s.memo||'')+'</div></div>').join(''):'<div class="notice-empty">휴가 일정이 없습니다.</div>';
@@ -2461,6 +2600,7 @@ async function renderDash(){
   const active=projects.filter(p=>p.status==='진행중');
   const overdue=projects.filter(p=>isOverdue(p));
   const unbilled=projects.filter(p=>p.status==='완료'&&p.is_billable&&p.billing_status==='미청구');
+  const followups=projects.filter(p=>p.status==='완료'&&p.follow_up_needed);
   const leaveCnt=schedules.filter(s=>s.schedule_type==='leave').length;
   const fieldworkCnt=schedules.filter(s=>s.schedule_type==='fieldwork').length;
   const memberLoad=members.map(m=>({name:m.name,cnt:active.filter(p=>p.members.includes(m.name)).length})).sort((a,b)=>b.cnt-a.cnt);
@@ -2473,6 +2613,7 @@ async function renderDash(){
     +'<div class="stat-card clickable" onclick="openDashDrilldown(\'active\')"><div class="stat-label">진행중</div><div class="stat-num" style="color:var(--blue)">'+active.length+'</div><div class="stat-sub">현재 진행</div></div>'
     +'<div class="stat-card clickable '+(overdue.length?'warn':'ok')+'" onclick="openDashDrilldown(\'overdue\')"><div class="stat-label">기간 초과</div><div class="stat-num">'+overdue.length+'</div><div class="stat-sub">'+(overdue.length?'확인 필요':'이상 없음')+'</div></div>'
     +'<div class="stat-card clickable '+(unbilled.length?'warn':'ok')+'" onclick="openDashDrilldown(\'unbilled\')"><div class="stat-label">빌링 미처리</div><div class="stat-num">'+unbilled.length+'</div><div class="stat-sub">'+(unbilled.length?'청구 필요':'이상 없음')+'</div></div>'
+    +'<div class="stat-card clickable '+(followups.length?'warn':'ok')+'" onclick="openDashDrilldown(\'followup\')"><div class="stat-label">후속 액션</div><div class="stat-num">'+followups.length+'</div><div class="stat-sub">'+(followups.length?'완료 후 확인':'이상 없음')+'</div></div>'
     +'<div class="stat-card clickable" onclick="openDashDrilldown(\'leave\')"><div class="stat-label">휴가 일정</div><div class="stat-num" style="color:var(--green)">'+leaveCnt+'</div><div class="stat-sub">등록된 휴가</div></div>'
     +'<div class="stat-card clickable" onclick="openDashDrilldown(\'fieldwork\')"><div class="stat-label">필드웍 일정</div><div class="stat-num" style="color:var(--orange)">'+fieldworkCnt+'</div><div class="stat-sub">등록된 필드웍</div></div>'
     +'</div>'
@@ -2484,11 +2625,11 @@ async function renderDash(){
     +Object.entries(bt).sort((a,b)=>b[1]-a[1]).map(([t,c])=>'<div class="load-row"><div class="load-name">'+t+'</div><div class="load-bar-wrap"><div class="load-bar" style="width:'+Math.round(c/tot*100)+'%;background:'+TYPES[t]+'"></div></div><div class="load-count">'+c+'</div></div>').join('')
     +'</div></div>'
     +(overdue.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">기간 초과 목록</div>'+overdue.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="info-value" style="color:var(--red);font-weight:700">'+p.end+' 초과</span></div>').join('')+'</div>':'')
-    +(unbilled.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">빌링 미처리 목록</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')+'<span class="badge badge-red" style="margin-left:8px">청구 필요</span></div>').join('')+'</div>':'')
+    +(unbilled.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">빌링 미처리 목록</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')+'<span class="badge badge-red" style="margin-left:8px">청구 필요</span></div>').join('')+'</div>':'')
+    +(followups.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">후속 액션 목록</div>'+followups.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange" style="margin-left:8px">후속 필요</span><span class="info-value">'+esc(truncateText(p.follow_up_note||'내용 미작성',22))+'</span></div>').join('')+'</div>':'')
     +'<div class="card" id="activityFeedCard"><div class="section-label">활동 피드</div>'
     +'<div id="activityFeedList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
     +'</div>';
-  // 피드 비동기 로드
   loadActivityFeed();
 }
 
@@ -2522,6 +2663,10 @@ async function loadActivityFeed(){
     // 빌링 미처리
     projects.filter(p=>p.status==='완료'&&p.is_billable&&p.billing_status==='미청구').forEach(p=>{
       autoEvents.push({type:'auto',icon:'💰',text:esc(p.name)+' 빌링 미처리',sub:'완료 후 청구 필요',color:'var(--orange)',ts:new Date(),pid:p.id});
+    });
+
+    projects.filter(p=>p.status==='완료'&&p.follow_up_needed).forEach(p=>{
+      autoEvents.push({type:'auto',icon:'📌',text:esc(p.name)+' 후속 액션 필요',sub:truncateText(p.follow_up_note||'완료 후 후속 작업 확인',32),color:'var(--red)',ts:new Date(),pid:p.id});
     });
 
     // 로그 렌더
@@ -3124,11 +3269,15 @@ async function loadNotifications(){
     el.innerHTML=notifs.map(n=>{
       const icon=n.type==='mention'?'@':n.type==='comment'?'💬':'🚨';
       const bg=n.is_read?'transparent':'var(--blue-light)';
-      return '<div onclick="handleNotifClick(\''+n.id+'\',\''+( n.link_type||'')+'\',\''+( n.link_id||'')+'\')\" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:'+bg+'">'
+      const scope=n.link_type?.includes('issue')?'이슈':n.link_type?.includes('project')?'프로젝트':'알림';
+      const detail=n.link_type?.includes('_comment')?'댓글 위치로 이동':'관련 위치로 이동';
+      return '<div onclick="handleNotifClick(\''+n.id+'\',\''+(n.link_type||'')+'\',\''+(n.link_id||'')+'\')" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:'+bg+'">'
         +'<div style="width:32px;height:32px;border-radius:50%;background:'+(n.is_read?'var(--bg2)':'var(--blue-light)')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+icon+'</div>'
-        +'<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--navy);font-weight:'+(n.is_read?'400':'600')+';line-height:1.4">'+esc(n.message)+'</div>'
-        +'<div style="font-size:11px;color:var(--text3);margin-top:3px">'+formatCommentDate(n.created_at)+'</div></div>'
-        +(!n.is_read?'<div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:6px"></div>':'')
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span class="badge badge-gray" style="font-size:10px">'+scope+'</span><span style="font-size:10px;color:var(--text3)">'+detail+'</span></div>'
+        +'<div style="font-size:13px;color:var(--navy);font-weight:'+(n.is_read?'400':'600')+';line-height:1.45">'+esc(n.message)+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:4px">'+formatCommentDate(n.created_at)+'</div></div>'
+        +(!n.is_read?'<div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:18px"></div>':'')
         +'</div>';
     }).join('');
   }catch(e){el.innerHTML='<div style="padding:16px;color:var(--text3);font-size:12px">알림을 불러올 수 없습니다</div>';}
@@ -3137,8 +3286,25 @@ async function loadNotifications(){
 async function handleNotifClick(notifId,linkType,linkId){
   try{await api('PATCH','notifications?id=eq.'+notifId,{is_read:true});}catch{}
   document.getElementById('notifPanel').style.display='none';
-  if(linkType==='issue')setPage('team');
-  else if(linkType==='project'&&linkId)openProjModal(linkId);
+  loadInitialNotifBadge();
+  if(linkType==='issue_comment'&&linkId){
+    await navigateToStoredIssueComment(linkId);
+    return;
+  }
+  if(linkType==='issue'){
+    if(linkId)await navigateToIssue(linkId);
+    else setPage('team');
+    return;
+  }
+  if(linkType==='project_comment'&&linkId){
+    await navigateToStoredProjectComment(linkId);
+    return;
+  }
+  if(linkType==='project'&&linkId){
+    openProjModal(linkId,null,null,'issue');
+    return;
+  }
+  setPage('team');
 }
 
 async function markAllNotifsRead(){
@@ -3170,43 +3336,101 @@ function parseMentions(text){
   return found;
 }
 
+let mentionState={inputId:null,matches:[],selectedIndex:0,atPos:-1};
 function setupMentionInput(inputId){
   const input=document.getElementById(inputId);if(!input)return;
-  input.addEventListener('input',()=>{
-    const val=input.value;
-    const at=val.lastIndexOf('@');
-    if(at<0){hideMentionDropdown();return;}
-    const query=val.slice(at+1).split(/\s/)[0].toLowerCase();
-    if(!query){hideMentionDropdown();return;}
-    const matches=members.filter(m=>m.name.toLowerCase().includes(query));
-    if(!matches.length){hideMentionDropdown();return;}
-    showMentionDropdown(input,matches,at);
-  });
-  input.addEventListener('blur',()=>setTimeout(hideMentionDropdown,200));
+  if(input.dataset.mentionReady==='1')return;
+  input.dataset.mentionReady='1';
+  input.setAttribute('autocomplete','off');
+  input.addEventListener('input',()=>updateMentionSuggestions(inputId));
+  input.addEventListener('click',()=>updateMentionSuggestions(inputId));
+  input.addEventListener('keydown',(event)=>handleMentionKeydown(event,inputId));
+  input.addEventListener('blur',()=>setTimeout(()=>{
+    if(mentionState.inputId===inputId)hideMentionDropdown();
+  },200));
 }
-
-function showMentionDropdown(input,matches,atPos){
+function updateMentionSuggestions(inputId){
+  const input=document.getElementById(inputId);if(!input)return;
+  const caretPos=typeof input.selectionStart==='number'?input.selectionStart:input.value.length;
+  const before=input.value.slice(0,caretPos);
+  const at=before.lastIndexOf('@');
+  if(at<0){hideMentionDropdown();return;}
+  const queryRaw=before.slice(at+1);
+  if(queryRaw.length===0){
+    const matches=members.filter(m=>m.name).slice(0,6);
+    if(!matches.length){hideMentionDropdown();return;}
+    mentionState={inputId,matches,selectedIndex:0,atPos:at};
+    showMentionDropdown(inputId,input,matches,at,0);
+    return;
+  }
+  if(/\s/.test(queryRaw)){hideMentionDropdown();return;}
+  const query=queryRaw.toLowerCase();
+  const matches=members.filter(m=>m.name&&m.name.toLowerCase().includes(query)).slice(0,6);
+  if(!matches.length){hideMentionDropdown();return;}
+  mentionState={inputId,matches,selectedIndex:0,atPos:at};
+  showMentionDropdown(inputId,input,matches,at,0);
+}
+function handleMentionKeydown(event,inputId){
+  if(mentionState.inputId!==inputId||!mentionState.matches.length)return false;
+  if(event.key==='ArrowDown'){
+    event.preventDefault();
+    event.stopPropagation();
+    mentionState.selectedIndex=(mentionState.selectedIndex+1)%mentionState.matches.length;
+    const input=document.getElementById(inputId);
+    if(input)showMentionDropdown(inputId,input,mentionState.matches,mentionState.atPos,mentionState.selectedIndex);
+    return true;
+  }else if(event.key==='ArrowUp'){
+    event.preventDefault();
+    event.stopPropagation();
+    mentionState.selectedIndex=(mentionState.selectedIndex-1+mentionState.matches.length)%mentionState.matches.length;
+    const input=document.getElementById(inputId);
+    if(input)showMentionDropdown(inputId,input,mentionState.matches,mentionState.atPos,mentionState.selectedIndex);
+    return true;
+  }else if(event.key==='Enter' || event.key==='Tab'){
+    event.preventDefault();
+    event.stopPropagation();
+    const picked=mentionState.matches[mentionState.selectedIndex];
+    if(picked)insertMention(inputId,picked.name,mentionState.atPos);
+    return true;
+  }else if(event.key==='Escape'){
+    event.preventDefault();
+    event.stopPropagation();
+    hideMentionDropdown();
+    return true;
+  }
+  return false;
+}
+function showMentionDropdown(inputId,input,matches,atPos,selectedIndex=0){
   let dd=document.getElementById('mentionDropdown');
   if(!dd){dd=document.createElement('div');dd.id='mentionDropdown';dd.style.cssText='position:fixed;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:1000;min-width:160px;overflow:hidden';document.body.appendChild(dd);}
   const rect=input.getBoundingClientRect();
   dd.style.top=(rect.bottom+4)+'px';dd.style.left=rect.left+'px';
-  dd.innerHTML=matches.slice(0,6).map(m=>'<div onclick="insertMention(\''+inputId+'\',\''+m.name+'\','+atPos+')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy)" onmouseover="this.style.background=\'var(--blue-light)\'" onmouseout="this.style.background=\'\'"><span style="font-size:11px;color:var(--blue);margin-right:4px">@</span>'+esc(m.name)+'</div>').join('');
-
-  // inputId가 지역변수라 클로저 문제 방지
-  dd._inputId=inputId;
+  dd.innerHTML=matches.map((m,idx)=>'<div onclick="insertMention(\''+inputId+'\',\''+m.name+'\','+atPos+')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);background:'+(idx===selectedIndex?'var(--blue-light)':'transparent')+'" onmouseover="highlightMentionOption('+idx+')"><span style="font-size:11px;color:var(--blue);margin-right:4px">@</span>'+esc(m.name)+'</div>').join('');
   dd.style.display='block';
 }
-
-function hideMentionDropdown(){const dd=document.getElementById('mentionDropdown');if(dd)dd.style.display='none';}
-
+function highlightMentionOption(index){
+  if(!mentionState.matches.length)return;
+  mentionState.selectedIndex=index;
+  const input=document.getElementById(mentionState.inputId);
+  if(input)showMentionDropdown(mentionState.inputId,input,mentionState.matches,mentionState.atPos,mentionState.selectedIndex);
+}
+function hideMentionDropdown(){
+  const dd=document.getElementById('mentionDropdown');
+  if(dd)dd.style.display='none';
+  mentionState={inputId:null,matches:[],selectedIndex:0,atPos:-1};
+}
 function insertMention(inputId,name,atPos){
   const input=document.getElementById(inputId);if(!input)return;
   const val=input.value;
-  const afterAt=val.slice(atPos+1);
-  const spaceIdx=afterAt.search(/\s/);
-  const end=spaceIdx>=0?atPos+1+spaceIdx:val.length;
-  input.value=val.slice(0,atPos)+'@'+name+' '+val.slice(end);
-  input.focus();hideMentionDropdown();
+  const caretPos=typeof input.selectionStart==='number'?input.selectionStart:val.length;
+  const before=val.slice(0,atPos);
+  const after=val.slice(caretPos);
+  input.value=before+'@'+name+' '+after.replace(/^\S*/, '');
+  const nextPos=(before+'@'+name+' ').length;
+  input.focus();
+  input.setSelectionRange(nextPos,nextPos);
+  hideMentionDropdown();
+  input.dispatchEvent(new Event('input',{bubbles:true}));
 }
 
 function initRealtime(){
@@ -3315,6 +3539,7 @@ async function loadIssueFeed(){
   }catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:12px 0">이슈를 불러올 수 없습니다.</div>';}
 }
 
+
 function renderIssueFeed(el,pinned,recent){
   const pinnedIds=new Set((pinned||[]).map(i=>i.id));
   const others=(recent||[]).filter(i=>!pinnedIds.has(i.id));
@@ -3324,20 +3549,23 @@ function renderIssueFeed(el,pinned,recent){
     const client=proj?clients.find(c=>c.id===proj.client_id):null;
     const isOpen=issue.status==='open';
     const isUnread=isOpen&&!readIds.has(issue.id);
-    return '<div class="card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'">'
+    const editable=canEditIssue(issue);
+    return '<div id="issue-card-'+issue.id+'" class="card notif-anchor" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'">'
       +'<div style="display:flex;align-items:flex-start;gap:10px">'
       +'<div style="flex:1;min-width:0">'
       +(proj?'<div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px">'+(client?esc(client.name)+' · ':'')+esc(proj.name)+'</div>':'')
       +'<div style="font-size:13px;font-weight:700;color:'+(isOpen?'var(--navy)':'var(--text3)')+';display:flex;align-items:center;gap:6px">'
       +(isUnread?'<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block"></span>':'')
       +(isPinned?'📌 ':'')+esc(issue.title)+'</div>'
-      +(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
-      +'<div style="font-size:11px;color:var(--text3);margin-top:6px;display:flex;gap:10px">'
+      +renderIssuePeopleBadges(issue)
+      +(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
+      +'<div style="font-size:11px;color:var(--text3);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap">'
       +'<span>'+esc(issue.author_name||'익명')+'</span><span>'+formatCommentDate(issue.created_at)+'</span>'
       +(issue.status==='resolved'?'<span style="color:var(--green);font-weight:700">✓ '+esc(issue.resolved_by||'')+'</span>':'')
       +'</div></div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
       +(isOpen?'<button onclick="resolveIssue(\''+issue.id+'\')" title="해결 처리" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--green);background:transparent;color:var(--green);font-size:13px;cursor:pointer">✓</button>':'')
+      +(editable?'<button onclick="openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="수정" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:12px;cursor:pointer">✏️</button>':'')
       +(isAdmin&&isOpen?'<button onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:'+(issue.is_pinned?'var(--red-bg)':'transparent')+';color:'+(issue.is_pinned?'var(--red)':'var(--text3)')+';font-size:12px;cursor:pointer">📌</button>':'')
       +'<button onclick="openIssueComments(\''+issue.id+'\')" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer">💬</button>'
       +'</div></div>'
@@ -3354,7 +3582,7 @@ function renderIssueFeed(el,pinned,recent){
     const openOthers=others.filter(i=>i.status==='open');
     const resolvedOthers=others.filter(i=>i.status!=='open');
     if(openOthers.length){
-      html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:'+(pinned.length?'12':'0')+'px 0 8px">열린 이슈 ('+openOthers.length+'건)</div>';
+      html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:12px 0 8px">열린 이슈 ('+openOthers.length+'건)</div>';
       html+=openOthers.map(i=>issueCard(i,false)).join('');
     }
     if(resolvedOthers.length){
@@ -3370,46 +3598,116 @@ function renderIssueFeed(el,pinned,recent){
   }
   el.innerHTML=html;
 }
-function openIssueModal(projId){
-  const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);return '<option value="'+p.id+'"'+(p.id===projId?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
-  document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:480px"><div class="modal-title">🚨 이슈 등록</div>'
-    +'<div class="form-row"><label class="form-label">관련 프로젝트</label>'
-    +'<select id="issueProj"><option value="">선택 (선택사항)</option>'+projOpts+'</select></div>'
-    +'<div class="form-row"><label class="form-label">이슈 제목 *</label>'
-    +'<input id="issueTitle" placeholder="예) DB 접근 오류 발생" autofocus/></div>'
-    +'<div class="form-row"><label class="form-label">상세 내용</label>'
-    +'<textarea id="issueContent" rows="4" placeholder="상세 내용, 원인, 영향 범위 등" style="resize:vertical"></textarea></div>'
-    +'<div class="modal-footer"><div></div>'
-    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button>'
-    +'<button class="btn primary" onclick="saveIssue()">등록</button>'
-    +'</div></div></div></div>';
+
+
+async function openIssueModal(projId='',issueId=''){
+  let issue=null;
+  if(issueId){
+    try{issue=(await api('GET','project_issues?id=eq.'+issueId+'&select=*'))?.[0]||null;}catch(e){issue=null;}
+  }
+  const editable=!issue||canEditIssue(issue);
+  const canDelete=!!(issue&&(isAdmin||issue.created_by===currentUser?.id));
+  const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);const selected=(issue?issue.project_id===p.id:p.id===projId);return '<option value="'+p.id+'"'+(selected?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
+  const ownerSelected=issue?.owner_member_id||(currentMember?.id||'');
+  const assigneeSelected=issue?.assignee_member_id||'';
+  const memberOptions=(selectedId)=>members.map(m=>'<option value="'+m.id+'"'+(selectedId===m.id?' selected':'')+'>'+esc(m.name)+'</option>').join('');
+  document.getElementById('modalArea').innerHTML=`
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="width:540px">
+        <div class="modal-title">${issue?(editable?'🚨 이슈 수정':'🚨 이슈 상세'):'🚨 이슈 등록'}</div>
+        <div class="form-row"><label class="form-label">관련 프로젝트</label><select id="issueProj" ${editable?'':'disabled'}><option value="">선택 (선택사항)</option>${projOpts}</select></div>
+        <div class="form-row"><label class="form-label">이슈 제목 *</label><input id="issueTitle" value="${esc(issue?.title||'')}" placeholder="예) DB 접근 오류 발생" ${editable?'':'readonly style="background:var(--bg)"'} autofocus/></div>
+        <div class="form-row"><label class="form-label">상세 내용</label><textarea id="issueContent" rows="4" placeholder="상세 내용, 원인, 영향 범위 등" style="resize:vertical" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(issue?.content||'')}</textarea></div>
+        <div class="form-half">
+          <div class="form-row"><label class="form-label">오너</label><select id="issueOwner" ${editable?'':'disabled'}><option value="">선택 안 함</option>${memberOptions(ownerSelected)}</select></div>
+          <div class="form-row"><label class="form-label">담당자</label><select id="issueAssignee" ${editable?'':'disabled'}><option value="">선택 안 함</option>${memberOptions(assigneeSelected)}</select></div>
+        </div>
+        <div class="form-half">
+          <div class="form-row"><label class="form-label">상태</label><select id="issueStatus" ${editable?'':'disabled'}><option value="open" ${issue?.status==='open'?'selected':''}>open</option><option value="resolved" ${issue?.status==='resolved'?'selected':''}>resolved</option></select></div>
+          <div class="form-row"><label class="form-label">고정</label><div class="checkbox-row" style="padding-top:10px"><input type="checkbox" id="issuePinned" ${(issue?.is_pinned)?'checked':''} ${(editable&&isAdmin)?'':'disabled'}/><label for="issuePinned">상단 고정</label></div></div>
+        </div>
+        ${renderIssuePeopleBadges(issue||{})}
+        ${!editable&&issue?'<div class="readonly-notice">작성자, 오너, 담당자 또는 관리자만 수정할 수 있습니다.</div>':''}
+        <div class="modal-footer">
+          ${canDelete?`<button class="btn danger" onclick="deleteIssue('${issue.id}')">삭제</button>`:'<div></div>'}
+          <div class="modal-footer-right">
+            <button class="btn ghost" onclick="closeModal()">${editable?'취소':'닫기'}</button>
+            ${editable?`<button class="btn primary" onclick="saveIssue('${issue?.id||''}')">저장</button>`:''}
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
-async function saveIssue(){
+async function saveIssue(issueId=''){
   const title=document.getElementById('issueTitle').value.trim();
   if(!title){alert('이슈 제목을 입력해주세요.');return;}
   const content=document.getElementById('issueContent').value.trim()||null;
+  const project_id=document.getElementById('issueProj').value||null;
+  const owner_member_id=document.getElementById('issueOwner').value||null;
+  const assignee_member_id=document.getElementById('issueAssignee').value||null;
+  const ownerMember=getMemberById(owner_member_id);
+  const assigneeMember=getMemberById(assignee_member_id);
+  const status=document.getElementById('issueStatus').value||'open';
+  const is_pinned=document.getElementById('issuePinned')?.checked||false;
+  let existing=null;
+  if(issueId){
+    try{existing=(await api('GET','project_issues?id=eq.'+issueId+'&select=*'))?.[0]||null;}catch(e){existing=null;}
+  }
+  const body={
+    project_id,title,content,
+    owner_member_id,owner_name:ownerMember?.name||null,
+    assignee_member_id,assignee_name:assigneeMember?.name||null,
+    status,is_pinned
+  };
+  if(status==='resolved'){
+    body.resolved_at=existing?.resolved_at||new Date().toISOString();
+    body.resolved_by=currentMember?.name||currentUser?.email||'익명';
+  }else{
+    body.resolved_at=null;
+    body.resolved_by=null;
+  }
   try{
-    await api('POST','project_issues',{
-      project_id:document.getElementById('issueProj').value||null,
-      title,content,
-      author_name:currentMember?.name||currentUser?.email||'익명',
-      created_by:currentUser?.id||null,status:'open'
-    });
-    // 본문에서 @멘션 알림
-    const mentioned=parseMentions((title+' '+(content||'')));
-    for(const m of mentioned){
-      if(m.auth_user_id&&m.auth_user_id!==currentUser.id){
+    let createdId=issueId||'';
+    if(issueId){
+      await api('PATCH','project_issues?id=eq.'+issueId,body);
+    }else{
+      const created=await api('POST','project_issues',{
+        ...body,
+        author_name:currentMember?.name||currentUser?.email||'익명',
+        created_by:currentUser?.id||null
+      });
+      createdId=created?.[0]?.id||null;
+    }
+    const actor=currentMember?.name||currentUser?.email||'누군가';
+    const issueLabel=truncateText(title,28);
+    const newMentions=issueId?getNewMentionMembers(title+' '+(content||''),(existing?.title||'')+' '+(existing?.content||'')):parseMentions(title+' '+(content||''));
+    for(const m of newMentions){
+      if(m.auth_user_id){
         await createNotification(m.auth_user_id,'mention',
-          (currentMember?.name||'누군가')+'님이 이슈에서 회원님을 멘션했습니다: '+title.slice(0,30),
-          'issue',null);
+          actor+'님이 이슈에서 회원님을 멘션했습니다 · “'+issueLabel+'”',
+          'issue',createdId);
       }
+    }
+    if(assigneeMember?.auth_user_id && assigneeMember.auth_user_id!==currentUser?.id && (!issueId || assignee_member_id!==existing?.assignee_member_id)){
+      await createNotification(assigneeMember.auth_user_id,'assign',
+        actor+'님이 이슈 “'+issueLabel+'” 담당으로 지정했습니다',
+        'issue',createdId);
     }
     closeModal();
     await loadIssueFeed();
-  }catch(e){alert('등록 오류: '+e.message);}
+    if(createdId)focusTargetElement('issue-card-'+createdId);
+  }catch(e){alert('저장 오류: '+e.message);}
+}
+
+async function deleteIssue(issueId){
+  if(!confirm('이슈와 연결된 댓글을 삭제할까요?'))return;
+  try{
+    await api('DELETE','issue_comments?issue_id=eq.'+issueId);
+    await api('DELETE','project_issues?id=eq.'+issueId);
+    closeModal();
+    await loadIssueFeed();
+  }catch(e){alert('삭제 오류: '+e.message);}
 }
 
 async function resolveIssue(id){
@@ -3423,67 +3721,148 @@ async function resolveIssue(id){
   }catch(e){alert('오류: '+e.message);}
 }
 
+async function reopenIssue(id){
+  if(!confirm('이슈를 다시 열까요?'))return;
+  try{
+    await api('PATCH','project_issues?id=eq.'+id,{status:'open',resolved_at:null,resolved_by:null});
+    await loadIssueFeed();
+  }catch(e){alert('오류: '+e.message);}
+}
+
 async function toggleIssuePin(id,newVal){
   try{await api('PATCH','project_issues?id=eq.'+id,{is_pinned:newVal});await loadIssueFeed();}
   catch(e){alert('오류: '+e.message);}
 }
 
-async function openIssueComments(issueId){
+async function openIssueComments(issueId,forceOpen=false,focusCommentId=''){
   const el=document.getElementById('comments-'+issueId);if(!el)return;
-  if(el.style.display!=='none'){el.style.display='none';return;}
+  if(!forceOpen&&el.style.display!=='none'){el.style.display='none';return;}
   el.style.display='block';
   el.innerHTML='<div style="padding:8px 0;color:var(--text3);font-size:12px">불러오는 중...</div>';
   try{
+    const issueRows=await api('GET','project_issues?id=eq.'+issueId+'&select=id,title,owner_name,assignee_name,status');
+    const issueData=(issueRows||[])[0]||{};
     const comments=await api('GET','issue_comments?issue_id=eq.'+issueId+'&order=created_at.asc')||[];
     el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">'
-      +comments.map(c=>'<div style="display:flex;gap:8px;margin-bottom:10px">'
+      +'<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(issueData.title||'이슈 댓글')+'</div>'+renderIssuePeopleBadges(issueData)+'</div>'
+      +comments.map(c=>{
+        const canEdit=isAdmin||c.created_by===currentUser?.id;
+        const isEditing=activeIssueCommentEditId===c.id;
+        return '<div id="issue-comment-'+c.id+'" class="notif-anchor" style="display:flex;gap:8px;margin-bottom:10px;padding:4px 2px">'
         +'<div style="width:26px;height:26px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(c.author_name||'?').charAt(0)+'</div>'
         +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(c.author_name||'익명')
         +'<span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:6px">'+formatCommentDate(c.created_at)+'</span></div>'
-        +'<div style="font-size:12px;color:var(--text2);margin-top:2px;line-height:1.6">'+esc(c.content)+'</div>'
-        +'</div></div>').join('')
+        +(isEditing
+          ?'<div style="margin-top:6px"><textarea id="issue-edit-'+c.id+'" rows="3" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;resize:vertical">'+esc(c.content||'')+'</textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px"><button class="btn ghost sm" onclick="cancelEditIssueComment(\''+issueId+'\')">취소</button><button class="btn primary sm" onclick="saveIssueCommentEdit(\''+c.id+'\',\''+issueId+'\')">저장</button></div></div>'
+          :'<div style="font-size:12px;color:var(--text2);margin-top:2px;line-height:1.6;white-space:pre-wrap">'+esc(c.content)+'</div>')
+        +'</div>'
+        +(canEdit&&!isEditing?'<div style="display:flex;gap:6px;flex-shrink:0"><button class="btn ghost sm" style="padding:2px 8px;font-size:11px" onclick="startEditIssueComment(\''+c.id+'\',\''+issueId+'\')">수정</button><button class="btn ghost sm" style="padding:2px 8px;font-size:11px" onclick="deleteIssueComment(\''+c.id+'\',\''+issueId+'\')">삭제</button></div>':'')
+        +'</div>';
+      }).join('')
       +(comments.length===0?'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">아직 댓글이 없습니다.</div>':'')
       +'<div style="display:flex;gap:8px;margin-top:4px">'
-      +'<input id="ic-'+issueId+'" placeholder="댓글 입력... @이름으로 멘션 (Enter로 등록)" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();submitIssueComment(\''+issueId+'\')}"/>'
+      +'<input id="ic-'+issueId+'" placeholder="댓글 입력... @이름으로 멘션 (Enter로 등록)" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit"/>'
       +'<button class="btn primary sm" onclick="submitIssueComment(\''+issueId+'\')">등록</button>'
       +'</div></div>';
-    // 멘션 자동완성 설정
-    setTimeout(()=>setupMentionInput('ic-'+issueId), 50);
+    setTimeout(()=>{
+      const inputId='ic-'+issueId;
+      setupMentionInput(inputId);
+      if(activeIssueCommentEditId)setupMentionInput('issue-edit-'+activeIssueCommentEditId);
+      const input=document.getElementById(inputId);
+      if(input&&!input.dataset.issueSubmitReady){
+        input.dataset.issueSubmitReady='1';
+        input.addEventListener('keydown',function(event){
+          if(event.key==='Enter'&&!event.shiftKey){
+            if(mentionState.inputId===inputId&&mentionState.matches.length)return;
+            event.preventDefault();
+            submitIssueComment(issueId);
+          }
+        });
+      }
+      if(focusCommentId)focusTargetElement('issue-comment-'+focusCommentId);
+    }, 50);
   }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px;padding:8px 0">로드 실패</div>';}
+}
+
+function startEditIssueComment(commentId,issueId){
+  activeIssueCommentEditId=commentId;
+  openIssueComments(issueId,true,commentId);
+}
+function cancelEditIssueComment(issueId){
+  activeIssueCommentEditId=null;
+  openIssueComments(issueId,true);
+}
+async function saveIssueCommentEdit(commentId,issueId){
+  const input=document.getElementById('issue-edit-'+commentId);
+  const content=input?.value?.trim();
+  if(!content){alert('내용을 입력해주세요.');return;}
+  try{
+    const original=(await api('GET','issue_comments?id=eq.'+commentId+'&select=content'))?.[0]||null;
+    await api('PATCH','issue_comments?id=eq.'+commentId,{content});
+    const issue=await api('GET','project_issues?id=eq.'+issueId+'&select=title');
+    const issueData=(issue||[])[0];
+    const actor=currentMember?.name||currentUser?.email||'누군가';
+    const issueLabel=truncateText(issueData?.title||'이슈',28);
+    const preview=truncateText(content,34);
+    const newMentions=getNewMentionMembers(content, original?.content||'');
+    for(const m of newMentions){
+      if(m.auth_user_id){
+        await createNotification(m.auth_user_id,'mention',
+          actor+'님이 이슈 “'+issueLabel+'” 댓글에서 회원님을 멘션했습니다 · “'+preview+'”',
+          'issue_comment',commentId);
+      }
+    }
+    activeIssueCommentEditId=null;
+    await openIssueComments(issueId,true,commentId);
+  }catch(e){alert('댓글 수정 오류: '+e.message);}
 }
 
 async function submitIssueComment(issueId){
   const input=document.getElementById('ic-'+issueId);
   const content=input?.value?.trim();if(!content)return;
   try{
-    // 멘션 파싱
     const mentioned=parseMentions(content);
-    await api('POST','issue_comments',{
+    const inserted=await api('POST','issue_comments',{
       issue_id:issueId,content,
       author_name:currentMember?.name||currentUser?.email||'익명',
       created_by:currentUser?.id||null
     });
-    // 이슈 작성자에게 댓글 알림
+    const commentId=inserted?.[0]?.id||null;
     const issue=await api('GET','project_issues?id=eq.'+issueId+'&select=created_by,title');
     const issueData=(issue||[])[0];
+    const actor=currentMember?.name||currentUser?.email||'누군가';
+    const issueLabel=truncateText(issueData?.title||'이슈',28);
+    const preview=truncateText(content,34);
     if(issueData?.created_by&&issueData.created_by!==currentUser.id){
       await createNotification(issueData.created_by,'comment',
-        (currentMember?.name||'누군가')+'님이 이슈에 댓글을 달았습니다: '+esc(issueData.title?.slice(0,30)),
-        'issue',issueId);
+        actor+'님이 이슈 “'+issueLabel+'”에 댓글을 남겼습니다 · “'+preview+'”',
+        'issue_comment',commentId);
     }
-    // @멘션 알림
     for(const m of mentioned){
-      if(m.auth_user_id&&m.auth_user_id!==currentUser.id){
+      if(m.auth_user_id){
         await createNotification(m.auth_user_id,'mention',
-          (currentMember?.name||'누군가')+'님이 댓글에서 회원님을 멘션했습니다',
-          'issue',issueId);
+          actor+'님이 이슈 “'+issueLabel+'” 댓글에서 회원님을 멘션했습니다 · “'+preview+'”',
+          'issue_comment',commentId);
       }
     }
     const el=document.getElementById('comments-'+issueId);
     if(el)el.style.display='none';
-    await openIssueComments(issueId);
-  }catch(e){alert('오류: '+e.message);}
+    activeIssueCommentEditId=null;
+    await openIssueComments(issueId,true,commentId||'');
+  }catch(e){alert('오류: '+e.message);} 
 }
+
+async function deleteIssueComment(commentId,issueId){
+  if(!confirm('댓글을 삭제할까요?'))return;
+  try{
+    await api('DELETE','issue_comments?id=eq.'+commentId);
+    const el=document.getElementById('comments-'+issueId);
+    if(el)el.style.display='none';
+    activeIssueCommentEditId=null;
+    await openIssueComments(issueId);
+  }catch(e){alert('삭제 오류: '+e.message);}
+}
+
 
 // ── 계약 탭 ──────────────────────────────────────
 let managedFilterActive=true;
