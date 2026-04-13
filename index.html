@@ -1140,6 +1140,209 @@ select{
   color:var(--text3)!important;
   margin-bottom:12px!important;
 }
+.gantt-shell{
+  display:grid!important;
+  gap:18px!important;
+}
+.gantt-overview{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:12px!important;
+}
+.gantt-kpi{
+  border:1px solid var(--border)!important;
+  border-radius:18px!important;
+  background:#fff!important;
+  padding:16px 18px!important;
+}
+.gantt-kpi-label{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+  text-transform:uppercase!important;
+  letter-spacing:.3px!important;
+}
+.gantt-kpi-value{
+  font-size:28px!important;
+  line-height:1.1!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+  margin-top:10px!important;
+}
+.gantt-kpi-sub{
+  font-size:12px!important;
+  color:var(--text3)!important;
+  margin-top:6px!important;
+}
+.gantt-stage{
+  display:grid!important;
+  grid-template-columns:minmax(280px,320px) minmax(0,1fr)!important;
+  gap:18px!important;
+  align-items:start!important;
+}
+.gantt-sidebar,
+.gantt-main,
+.gantt-detail{
+  border:1px solid var(--border)!important;
+  border-radius:20px!important;
+  background:#fff!important;
+}
+.gantt-sidebar{
+  padding:18px!important;
+}
+.gantt-panel-head{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  margin-bottom:14px!important;
+}
+.gantt-panel-title{
+  font-size:16px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+}
+.gantt-panel-sub{
+  font-size:12px!important;
+  color:var(--text3)!important;
+  margin-top:4px!important;
+}
+.gantt-list{
+  display:grid!important;
+  gap:10px!important;
+}
+.gantt-project-card{
+  border:1px solid var(--border)!important;
+  border-radius:16px!important;
+  padding:14px!important;
+  background:linear-gradient(180deg,#fff 0%, #fbfcfe 100%)!important;
+  cursor:pointer!important;
+  transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease!important;
+}
+.gantt-project-card:hover{
+  border-color:rgba(31,78,121,.28)!important;
+  box-shadow:0 10px 24px rgba(15,23,42,.06)!important;
+  transform:translateY(-1px)!important;
+}
+.gantt-project-card.active{
+  border-color:var(--navy)!important;
+  box-shadow:0 0 0 1px rgba(19,52,89,.08),0 14px 30px rgba(19,52,89,.10)!important;
+  background:linear-gradient(180deg,#ffffff 0%, #f4f8fc 100%)!important;
+}
+.gantt-project-top{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+}
+.gantt-project-name{
+  font-size:14px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+}
+.gantt-project-client,
+.gantt-project-meta,
+.gantt-empty-copy{
+  font-size:12px!important;
+  color:var(--text3)!important;
+}
+.gantt-project-meta{
+  margin-top:8px!important;
+}
+.gantt-project-warn{
+  margin-top:8px!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--red)!important;
+}
+.gantt-main{
+  padding:18px!important;
+  display:grid!important;
+  gap:16px!important;
+}
+.gantt-main-top{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-main-copy{
+  font-size:13px!important;
+  color:var(--text2)!important;
+  max-width:720px!important;
+}
+.gantt-detail{
+  padding:18px!important;
+}
+.gantt-detail-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px 16px!important;
+  margin-bottom:16px!important;
+}
+.gantt-detail-label{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+  text-transform:uppercase!important;
+  letter-spacing:.3px!important;
+}
+.gantt-detail-value{
+  font-size:13px!important;
+  color:var(--navy)!important;
+  font-weight:700!important;
+  margin-top:4px!important;
+}
+.gantt-detail-actions{
+  display:flex!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+  margin:14px 0 18px!important;
+}
+.gantt-detail-section{
+  border-top:1px solid var(--border)!important;
+  padding-top:14px!important;
+  margin-top:14px!important;
+}
+.gantt-detail-list{
+  display:grid!important;
+  gap:8px!important;
+}
+.gantt-detail-item{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  padding:10px 12px!important;
+  border:1px solid var(--border)!important;
+  border-radius:14px!important;
+  background:var(--bg)!important;
+}
+.gantt-detail-item-title{
+  font-size:12px!important;
+  font-weight:700!important;
+  color:var(--navy)!important;
+}
+.gantt-detail-item-sub{
+  font-size:11px!important;
+  color:var(--text3)!important;
+  margin-top:3px!important;
+}
+@media (max-width: 1100px){
+  .gantt-overview{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .gantt-stage{
+    grid-template-columns:1fr!important;
+  }
+}
+@media (max-width: 720px){
+  .gantt-overview,
+  .gantt-detail-grid{
+    grid-template-columns:1fr!important;
+  }
+}
 .ui-table-shell{
   border:1px solid var(--border)!important;
   border-radius:var(--radius-sm)!important;
@@ -1439,6 +1642,7 @@ input,textarea{border-radius:12px!important}
 
     <!-- 스케줄 -->
     <div id="pageGantt" style="display:none">
+      <div id="ganttOverview" class="gantt-overview"></div>
       <div class="gantt-toolbar">
         <div class="month-nav">
           <button class="month-nav-btn" id="prevM">‹</button>
@@ -1452,8 +1656,30 @@ input,textarea{border-radius:12px!important}
         <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
       </div>
       <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">프로젝트를 클릭하면 상세 관리와 Outlook 일정 추가를 바로 진행할 수 있습니다.</div>
-      <div class="gantt-wrap" id="ganttWrap"></div>
-      <div class="legend" id="legend"></div>
+      <div class="gantt-shell">
+        <div class="gantt-stage">
+          <aside class="gantt-sidebar">
+            <div class="gantt-panel-head">
+              <div>
+                <div class="gantt-panel-title">프로젝트 리스트</div>
+                <div class="gantt-panel-sub">우선순위를 보고 바로 선택해 상세 패널에서 처리합니다.</div>
+              </div>
+            </div>
+            <div id="ganttProjectList" class="gantt-list"></div>
+          </aside>
+          <div class="gantt-main">
+            <div class="gantt-main-top">
+              <div>
+                <div class="gantt-panel-title">프로젝트 타임라인</div>
+                <div class="gantt-main-copy">프로젝트는 메인 바, 필드웍과 휴가는 보조 레이어로 보여서 일정 충돌과 가용성을 함께 파악할 수 있습니다.</div>
+              </div>
+            </div>
+            <div class="gantt-wrap" id="ganttWrap"></div>
+            <div class="legend" id="legend"></div>
+          </div>
+        </div>
+        <section class="gantt-detail" id="ganttDetail"></section>
+      </div>
     </div>
 
     <!-- 대시보드 -->
@@ -3223,6 +3449,110 @@ function renderLegend(){
 }
 
 // ── Project Modal ──
+let ganttFocusProjectId=null;
+function getGanttFilteredData(){
+  const days=daysInMonth(curYear,curMonth);
+  const mf=document.getElementById('memberFilter')?.value||'';
+  const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
+  const projs=projects.filter(p=>{
+    if(mf==='me'&&currentMember&&!p.members.includes(currentMember.name))return false;
+    if(mf&&mf!=='me'&&!p.members.includes(mf))return false;
+    return toDate(p.start)<=mLast&&toDate(p.end)>=mFirst;
+  });
+  const schs=schedules.filter(s=>{
+    const owner=s.member_name||'';
+    if(mf==='me'&&currentMember&&owner!==currentMember.name)return false;
+    if(mf&&mf!=='me'&&owner!==mf)return false;
+    return toDate(s.start)<=mLast&&toDate(s.end)>=mFirst;
+  });
+  return {projs,schs};
+}
+function setGanttFocusProject(projectId){
+  ganttFocusProjectId=projectId||null;
+  renderGantt();
+}
+function renderGanttOverviewCards(projs,schs){
+  const el=document.getElementById('ganttOverview'); if(!el) return;
+  const today=new Date();
+  const stats=[
+    ['Projects', projs.length, 'Filtered this month'],
+    ['Active', projs.filter(p=>p.status==='吏꾪뻾以?').length, 'Running now'],
+    ['At Risk', projs.filter(p=>toDate(p.end)<today&&p.status!=='?꾨즺').length, 'Needs attention'],
+    ['Billing', projs.filter(p=>p.status==='?꾨즺'&&p.is_billable&&p.billing_status==='誘몄껌援?').length, 'Waiting to bill'],
+    ['Events', schs.length, 'Leave and fieldwork']
+  ];
+  el.innerHTML=stats.map(([label,value,sub])=>'<div class="gantt-kpi"><div class="gantt-kpi-label">'+label+'</div><div class="gantt-kpi-value">'+value+'</div><div class="gantt-kpi-sub">'+sub+'</div></div>').join('');
+}
+function renderGanttSidebarList(projs){
+  const el=document.getElementById('ganttProjectList'); if(!el) return;
+  if(!projs.length){
+    el.innerHTML='<div class="gantt-empty-copy">No projects in this filter.</div>';
+    return;
+  }
+  if(!ganttFocusProjectId || !projs.some(p=>p.id===ganttFocusProjectId)) ganttFocusProjectId=projs[0].id;
+  const today=new Date();
+  const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
+  el.innerHTML=sorted.map(p=>{
+    const client=clients.find(c=>c.id===p.client_id);
+    const issueCount=openIssuesByProject[p.id]||0;
+    const warning=toDate(p.end)<today&&p.status!=='?꾨즺'
+      ?'Overdue'
+      :p.status==='?꾨즺'&&p.is_billable&&p.billing_status==='誘몄껌援?'
+      ?'Billing needed'
+      :issueCount
+      ?'Open issues '+issueCount
+      :'On track';
+    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="setGanttFocusProject(\''+p.id+'\')">'
+      +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+(p.status==='吏꾪뻾以?'?'badge-blue':p.status==='?꾨즺'?'badge-green':'badge-orange')+'">'+esc(p.status||'No status')+'</span></div>'
+      +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
+      +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
+      +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
+      +'</div>';
+  }).join('');
+}
+function renderGanttDetailPanel(projs,schs){
+  const el=document.getElementById('ganttDetail'); if(!el) return;
+  const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  if(!project){
+    el.innerHTML='<div class="gantt-panel-title">No project selected</div><div class="gantt-panel-sub">Pick a project from the left list to see timeline context and quick actions.</div>';
+    return;
+  }
+  const client=clients.find(c=>c.id===project.client_id)||null;
+  const relatedSchedules=schs.filter(s=>(project.members||[]).includes(s.member_name)&&toDate(s.start)<=toDate(project.end)&&toDate(s.end)>=toDate(project.start)).slice(0,4);
+  const issueCount=openIssuesByProject[project.id]||0;
+  el.innerHTML=
+    '<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' · '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='吏꾪뻾以?'?'badge-blue':project.status==='?꾨즺'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div>'
+    +'<div class="gantt-detail-grid">'
+    +'<div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div>'
+    +'<div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc((project.members||[]).join(', ')||'Unassigned')+'</div></div>'
+    +'<div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div>'
+    +'<div><div class="gantt-detail-label">Open Issues</div><div class="gantt-detail-value">'+issueCount+'</div></div>'
+    +'</div>'
+    +'<div class="gantt-main-copy">'+esc(project.memo||'Use this panel to review timing, owners, overlapping events, and quick project actions.')+'</div>'
+    +'<div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openScheduleModal()">Add Schedule</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-panel-title">Overlapping Events</div><div class="gantt-detail-list">'
+    +(relatedSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' · '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No overlapping events in this project window.</div>')
+    +'</div></div>';
+}
+const renderGanttTimelineBase = renderGantt;
+renderGantt = function(){
+  const {projs,schs}=getGanttFilteredData();
+  const sidebarHead=document.querySelector('.gantt-sidebar .gantt-panel-head > div');
+  if(sidebarHead){
+    sidebarHead.innerHTML='<div class="gantt-panel-title">Project List</div><div class="gantt-panel-sub">Select a project from the list and use the detail panel for quick actions.</div>';
+  }
+  const mainHead=document.querySelector('.gantt-main-top > div');
+  if(mainHead){
+    mainHead.innerHTML='<div class="gantt-panel-title">Project Timeline</div><div class="gantt-main-copy">Projects remain the main bars while leave and fieldwork stay as secondary layers for quick conflict checks.</div>';
+  }
+  renderGanttOverviewCards(projs,schs);
+  renderGanttSidebarList(projs);
+  renderGanttDetailPanel(projs,schs);
+  renderGanttTimelineBase();
+  const monthLabel=document.getElementById('monthLabel');
+  if(monthLabel) monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
+};
+
 let projModalTab='basic';
 function openProjModal(eid,preClientId,preContractId,initialTab){
   if(!eid&&!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
