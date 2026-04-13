@@ -638,20 +638,7 @@ input,textarea{border-radius:12px!important}
 }
 </style>
 
-
-<script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"></script>
-
-
-  
 </head>
-
-
-
-
-
-
-  
-  
 <body>
 
 <!-- 로그인 -->
@@ -726,7 +713,7 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
       <button class="nav-btn" id="navNotice" onclick="setPage('notice')">💡 지식공유</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">⚙️ 관리</button>
-      <button class="nav-btn" id="navFun" onclick="setPage('fun')">🧩 팀편의</button>
+      <button class="nav-btn" id="navFun" onclick="setPage('fun')" style="opacity:.5" title="이스터에그">🎲</button>
     </nav>
 
     <div class="header-search-wrap" id="workspaceSearchWrap">
@@ -772,7 +759,6 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">📄 계약</button>
     <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">📊 대시보드</button>
     <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">💡 지식공유</button>
-    <button class="nav-btn" id="mNavFun" onclick="setPage('fun');closeMobileMenu()">🧩 팀편의</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">⚙️ 관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">🔐 고객사 페이지</button>
@@ -928,7 +914,7 @@ input,textarea{border-radius:12px!important}
     <!-- 이스터에그 🎲 -->
     <div id="pageFun" style="display:none">
       <div class="section-header" style="margin-bottom:24px">
-        <h2 class="section-title">🧩 팀편의</h2>
+        <h2 class="section-title">🎲 Fun Zone</h2>
         <span style="font-size:12px;color:var(--text3)">업무 중간 소소한 즐거움</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
@@ -1866,76 +1852,22 @@ function closeMobileMenu(){
   document.getElementById('mobileMenu')?.classList.remove('open');
 }
 
-function setPage(page, extra) {
-  curPage = page;
-
-  [
-    'pageClients','pageDetail','pageContract','pageContracts',
-    'pageTeam','pageGantt','pageDash','pageNotice','pageAdmin','pageFun'
-  ].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-
-  [
-    'navClients','navContracts','navGantt','navTeam','navDash','navNotice','navAdmin','navFun',
-    'mNavClients','mNavContracts','mNavGantt','mNavTeam','mNavDash','mNavNotice','mNavAdmin','mNavFun'
-  ].forEach(id => document.getElementById(id)?.classList.remove('active'));
-
-  document.querySelector('.header-logo').style.color = 'var(--navy)';
-
-  const pages = {
-    team:'pageTeam',
-    clients:'pageClients',
-    detail:'pageDetail',
-    contract:'pageContract',
-    contracts:'pageContracts',
-    gantt:'pageGantt',
-    dash:'pageDash',
-    notice:'pageNotice',
-    admin:'pageAdmin',
-    fun:'pageFun'
-  };
-
-  const navs = {
-    team:['navTeam','mNavTeam'],
-    clients:['navClients','mNavClients'],
-    contracts:['navContracts','mNavContracts'],
-    gantt:['navGantt','mNavGantt'],
-    dash:['navDash','mNavDash'],
-    notice:['navNotice','mNavNotice'],
-    admin:['navAdmin','mNavAdmin'],
-    fun:['navFun','mNavFun']
-  };
-
-  const el = document.getElementById(pages[page]);
-  if (el) el.style.display = 'block';
-
-  (navs[page] || []).forEach(id => {
-    document.getElementById(id)?.classList.add('active');
-  });
-
-  if (page === 'clients') {
-    renderAlerts();
-    renderClients();
-  } else if (page === 'contracts') {
-    renderContractsPage();
-  } else if (page === 'team') {
-    renderTeamNotices();
-    setTimeout(() => loadIssueFeed(true), 0);
-    renderMyWeek();
-    renderWeeklyScheduleSummary();
-    renderKudos();
-    renderWeeklyReviews();
-  } else if (page === 'gantt') {
-    renderGantt();
-  } else if (page === 'dash') {
-    renderDash();
-  } else if (page === 'notice') {
-    refreshKnowledgePosts().then(() => renderKnowledgeBoard());
-  } else if (page === 'admin') {
-    renderAdminPage();
-  }
+function setPage(page,extra){
+  curPage=page;
+  ['pageClients','pageDetail','pageContract','pageContracts','pageTeam','pageGantt','pageDash','pageNotice','pageAdmin','pageFun'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  ['navClients','navContracts','navGantt','navTeam','navDash','navNotice','navAdmin','navFun'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  document.querySelector('.header-logo').style.color='var(--navy)';
+  const pages={team:'pageTeam',clients:'pageClients',detail:'pageDetail',contract:'pageContract',contracts:'pageContracts',gantt:'pageGantt',dash:'pageDash',notice:'pageNotice',admin:'pageAdmin',fun:'pageFun'};
+  const navs={team:'navTeam',clients:'navClients',contracts:'navContracts',gantt:'navGantt',dash:'navDash',notice:'navNotice',admin:'navAdmin',fun:'navFun'};
+  const el=document.getElementById(pages[page]);if(el)el.style.display='block';
+  if(navs[page])document.getElementById(navs[page])?.classList.add('active');
+  if(page==='clients'){renderAlerts();renderClients();}
+  else if(page==='contracts')renderContractsPage();
+  else if(page==='team'){renderTeamNotices();setTimeout(()=>loadIssueFeed(true),0);renderMyWeek();renderWeeklyScheduleSummary();renderKudos();renderWeeklyReviews();}
+  else if(page==='gantt')renderGantt();
+  else if(page==='dash')renderDash();
+  else if(page==='notice'){refreshKnowledgePosts().then(()=>renderKnowledgeBoard());}
+  else if(page==='admin')renderAdminPage();
 }
 
 let myFilterActive=true;
@@ -2067,16 +1999,7 @@ function openClientDetail(id, tab='projects'){
   document.getElementById('detailContent').innerHTML=
     '<div class="detail-hero">'
     +'<div class="detail-avatar">'+esc(c.name.charAt(0))+'</div>'
-    +'<div class="detail-hero-text" style="flex:1">'
-    +'<h2>'+esc(c.name)+'</h2>'
-    +'<p>'+(c.industry||'업종 미입력')+'</p>'
-
-    +'<div style="margin-top:12px;display:flex;gap:8px;">'
-    +'<button class="btn primary" onclick="handleOutlookEventAdd()">📅 Outlook 일정 추가</button>'
-    +'<button class="btn" onclick="msLogin()">🔐 Microsoft 로그인</button>'
-    +'</div>'
-
-    +'</div>'
+    +'<div class="detail-hero-text" style="flex:1"><h2>'+esc(c.name)+'</h2><p>'+(c.industry||'업종 미입력')+'</p></div>'
     +(isAdmin||c.created_by===currentUser?.id?'<button class="btn sm" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff" onclick="openClientModal(\''+c.id+'\')">수정</button>':'')
     +'</div>'
     +'<div class="detail-tabs">'
@@ -5810,258 +5733,5 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
 })();
 </script>
 
-
-<!-- 📧 / 📅 테스트 버튼 -->
-<div style="position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; gap:8px; flex-direction:column;">
-  <button onclick="sendTestMail()" 
-    style="padding:12px 16px; background:#635BFF; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
-    📧 메일 테스트
-  </button>
-
-  <button onclick="createProjectCalendarEvent()" 
-    style="padding:12px 16px; background:#0A2540; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
-    📅 Outlook 일정 테스트
-  </button>
-</div>
-
-<script>
-async function sendTestMail() {
-  try {
-    const res = await fetch('/.netlify/functions/send-personal-briefing', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: '2footprints@naver.com'
-      })
-    });
-
-    const data = await res.json();
-    console.log('메일 응답:', data);
-
-    if (data.ok) {
-      alert('✅ 메일 발송 성공');
-    } else {
-      alert('❌ 실패: ' + (data.message || '알 수 없는 오류'));
-    }
-  } catch (e) {
-    console.error(e);
-    alert('❌ 에러 발생: ' + e.message);
-  }
-}
-
-async function createProjectCalendarEvent() {
-  try {
-    const res = await fetch('/.netlify/functions/graph-create-project-event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subject: '프로젝트 일정 테스트',
-        startDateTime: '2026-04-14T15:00:00',
-        endDateTime: '2026-04-14T16:00:00',
-        timezone: 'Asia/Seoul',
-        description: '<p>사이트에서 생성한 Outlook 테스트 일정입니다.</p>',
-        location: 'Bexley'
-      })
-    });
-
-    const data = await res.json();
-    console.log('Graph 응답:', data);
-
-    if (data.ok) {
-      alert('✅ Outlook 일정 생성 성공');
-    } else {
-      alert('❌ 실패: ' + (data.message || '알 수 없는 오류'));
-      console.error(data);
-    }
-  } catch (e) {
-    console.error(e);
-    alert('❌ 에러 발생: ' + e.message);
-  }
-}
-
-
-// =====================
-// MS LOGIN CONFIG
-// =====================
-const msalConfig = {
-  auth: {
-    clientId: "8f3967e6-9985-4e04-9be5-4ffadad381bc",
-    authority: "https://login.microsoftonline.com/86d6a33f-3b89-419c-b633-37a379c9888a",
-    redirectUri: window.location.origin
-  }
-};
-
-const loginRequest = {
-  scopes: ["User.Read", "Calendars.ReadWrite"]
-};
-
-const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-// =====================
-// LOGIN
-// =====================
-async function msLogin() {
-  const res = await msalInstance.loginPopup(loginRequest);
-  msalInstance.setActiveAccount(res.account);
-  alert("Microsoft 로그인 완료: " + res.account.username);
-}
-
-// =====================
-// TOKEN
-// =====================
-async function getMsToken() {
-  const account = msalInstance.getActiveAccount();
-
-  const token = await msalInstance.acquireTokenSilent({
-    ...loginRequest,
-    account
-  });
-
-  return token.accessToken;
-}
-
-// =====================
-// 📌 핵심: 프로젝트 일정 생성
-// =====================
-async function createProjectSchedule({
-  clientId,
-  clientName,
-  projectId,
-  projectName,
-  title,
-  startAt,
-  endAt,
-  memo
-}) {
-
-  try {
-
-    // 1️⃣ DB 저장 (Supabase)
-    const res = await fetch('/.netlify/functions/create-schedule', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: clientId,
-        project_id: projectId,
-        title,
-        memo,
-        start_at: startAt,
-        end_at: endAt
-      })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error(data);
-      alert("DB 저장 실패");
-      return;
-    }
-
-    // 2️⃣ 내 캘린더 반영
-    const token = await getMsToken();
-
-    const event = {
-      subject: `[${clientName}] ${projectName} - ${title}`,
-      start: {
-        dateTime: new Date(startAt).toISOString(),
-        timeZone: "Asia/Seoul"
-      },
-      end: {
-        dateTime: new Date(endAt).toISOString(),
-        timeZone: "Asia/Seoul"
-      },
-      body: {
-        contentType: "HTML",
-        content: memo || ""
-      }
-    };
-
-    const graphRes = await fetch("https://graph.microsoft.com/v1.0/me/events", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(event)
-    });
-
-    const graphData = await graphRes.json();
-
-    if (!graphRes.ok) {
-      console.error(graphData);
-      alert("Outlook 반영 실패 (DB는 저장됨)");
-      return;
-    }
-
-    alert("✅ 일정 생성 + 내 캘린더 반영 완료");
-
-  } catch (err) {
-    console.error(err);
-    alert("오류 발생");
-  }
-}
-
-
-function handleAddSchedule() {
-  const project = window.currentProject;
-
-  if (!project) {
-    alert("프로젝트를 먼저 선택해주세요.");
-    return;
-  }
-
-  const now = new Date();
-  const end = new Date(now.getTime() + 60 * 60 * 1000);
-
-  createProjectSchedule({
-    clientId: project.client_id,
-    clientName: project.client_name || '',
-    projectId: project.id,
-    projectName: project.name || '프로젝트',
-    title: '내부 검토',
-    startAt: now.toISOString(),
-    endAt: end.toISOString(),
-    memo: '자동 생성 테스트'
-  });
-}
-  
-
-
-async function handleOutlookEventAdd() {
-  const clientName = document.querySelector('.detail-hero-text h2')?.innerText || '고객사';
-  const now = new Date();
-  const end = new Date(now.getTime() + 60 * 60 * 1000);
-
-  try {
-    await createProjectSchedule({
-      clientId: '',
-      clientName,
-      projectId: '',
-      projectName: '기본 프로젝트',
-      title: '고객사 관련 일정',
-      startAt: now.toISOString(),
-      endAt: end.toISOString(),
-      memo: ''
-    });
-  } catch (e) {
-    console.error(e);
-    alert('Outlook 일정 추가 중 오류가 발생했습니다.');
-  }
-}
-
-
-
-  
-  
-</script>
-
-
-  
-</script>
-
-  
 </body>
 </html>
-
-  
