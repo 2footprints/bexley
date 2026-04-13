@@ -489,36 +489,34 @@ table{border-collapse:collapse;min-width:100%}
 
 <style id="stripeThemeOverride">
 :root{
-  --bg:#F6F9FC;
-  --bg2:#EEF3F7;
+  --bg:#F5F7FA;
+  --bg2:#EEF2F6;
   --card:#FFFFFF;
-  --blue:#635BFF;
-  --blue-light:#F4F3FF;
-  --blue-dark:#4B45D1;
+  --blue:#1F4FD1;
+  --blue-light:#EDF3FF;
+  --blue-dark:#173EA6;
   --navy:#0A2540;
-  --navy2:#102D4B;
-  --text:#0A2540;
-  --text2:#425466;
-  --text3:#6B7C93;
-  --border:#E3E8EE;
-  --border2:#D8E2EC;
+  --navy2:#17324D;
+  --text:#162033;
+  --text2:#5C6B7E;
+  --text3:#8B98A9;
+  --border:#DCE4EC;
+  --border2:#C7D2DE;
   --red:#E25950;
   --red-bg:#FFF1F0;
   --green:#0A8F58;
   --green-bg:#ECFDF3;
   --orange:#C15E00;
   --orange-bg:#FFF7ED;
-  --shadow:0 1px 2px rgba(10,37,64,.05),0 12px 28px rgba(10,37,64,.06);
+  --shadow:0 1px 2px rgba(10,37,64,.04),0 10px 24px rgba(10,37,64,.05);
   --shadow-lg:0 24px 48px rgba(10,37,64,.10);
   --radius:18px;
   --radius-sm:12px;
 }
-html{background:#F6F9FC}
+html{background:#F5F7FA}
 body{
   background:
-    radial-gradient(900px 320px at -5% -10%, rgba(99,91,255,.16), transparent 58%),
-    radial-gradient(860px 260px at 105% -5%, rgba(10,37,64,.08), transparent 56%),
-    linear-gradient(180deg,#f9fbff 0%, #f6f9fc 180px, #f6f9fc 100%);
+    linear-gradient(180deg,#f8fafc 0%, #f5f7fa 180px, #f5f7fa 100%);
   color:var(--text);
 }
 .header,.portal-header{
@@ -531,7 +529,7 @@ body{
 }
 .header-logo,.portal-logo{display:flex;align-items:center;gap:12px}
 .header-logo-img,.portal-logo-img{height:30px!important;width:auto!important}
-.portal-logo-badge{background:rgba(99,91,255,.08)!important;color:var(--blue)!important;border:1px solid rgba(99,91,255,.12)!important}
+.portal-logo-badge{background:rgba(31,79,209,.08)!important;color:var(--blue)!important;border:1px solid rgba(31,79,209,.14)!important}
 .header-nav{gap:8px!important;margin-left:18px!important}
 .nav-btn{
   padding:9px 14px!important;
@@ -540,7 +538,7 @@ body{
   font-weight:650!important;
   letter-spacing:-.1px!important;
 }
-.nav-btn:hover{background:#EEF2FF!important;color:var(--navy)!important}
+.nav-btn:hover{background:#F2F5F9!important;color:var(--navy)!important}
 .nav-btn.active{
   background:#FFFFFF!important;
   color:var(--navy)!important;
@@ -550,7 +548,7 @@ body{
 }
 .header-search-wrap{flex:1;max-width:440px;margin:0 18px 0 18px;position:relative;min-width:220px}
 .header-search-shell{display:flex;align-items:center;gap:10px;height:42px;padding:0 14px;background:rgba(246,249,252,.95);border:1px solid var(--border);border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
-.header-search-shell:focus-within{background:#fff;border-color:rgba(99,91,255,.34);box-shadow:0 0 0 4px rgba(99,91,255,.08)}
+.header-search-shell:focus-within{background:#fff;border-color:rgba(31,79,209,.26);box-shadow:0 0 0 4px rgba(31,79,209,.08)}
 .header-search-icon{width:20px;height:20px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text3);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0}
 #workspaceSearch{flex:1;border:none;outline:none;background:transparent;font-size:13px;font-weight:650;color:var(--navy);min-width:0}
 #workspaceSearch::placeholder{color:var(--text3);font-weight:600}
@@ -558,13 +556,13 @@ body{
 .workspace-search-results{position:absolute;top:50px;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden;display:none;z-index:230}
 .workspace-search-result{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;border-top:1px solid var(--border);transition:background .16s ease}
 .workspace-search-result:first-child{border-top:none}
-.workspace-search-result:hover{background:#F8FAFF}
-.workspace-search-result.active{background:#F1F5FF}
+.workspace-search-result:hover{background:#F7F9FC}
+.workspace-search-result.active{background:#EEF4FB}
 .workspace-search-result-title{font-size:13px;font-weight:700;color:var(--navy)}
 .workspace-search-result-sub{font-size:11px;color:var(--text3);margin-top:3px}
 .workspace-search-result-badge{font-size:10px;font-weight:800;color:var(--blue);background:var(--blue-light);padding:5px 8px;border-radius:999px;line-height:1;white-space:nowrap}
 .user-chip{padding:7px 14px!important;background:rgba(255,255,255,.92)!important;border:1px solid var(--border)!important;border-radius:999px!important;color:var(--text2)!important;font-weight:650!important;box-shadow:0 1px 2px rgba(10,37,64,.03)!important}
-.admin-chip{background:rgba(99,91,255,.08)!important;color:var(--blue)!important;border:1px solid rgba(99,91,255,.14)!important;border-radius:999px!important}
+.admin-chip{background:rgba(31,79,209,.08)!important;color:var(--blue)!important;border:1px solid rgba(31,79,209,.14)!important;border-radius:999px!important}
 #notifBell{background:rgba(255,255,255,.9)!important;border:1px solid var(--border)!important;box-shadow:0 1px 2px rgba(10,37,64,.03)!important}
 #notifPanel,.mobile-menu{background:rgba(255,255,255,.95)!important;backdrop-filter:blur(14px)!important;border-color:var(--border)!important}
 .app{max-width:1360px!important;padding:28px 24px 42px!important;position:relative}
@@ -578,14 +576,26 @@ body{
   color:var(--text)!important;
   box-shadow:0 1px 2px rgba(10,37,64,.03)!important;
 }
-.btn:hover,.logout-btn:hover,select:hover{border-color:rgba(99,91,255,.25)!important;color:var(--navy)!important;transform:translateY(-1px)}
-.btn.primary,.login-submit{background:linear-gradient(135deg,#635BFF 0%,#4B45D1 100%)!important;border-color:#635BFF!important;color:#fff!important;box-shadow:0 12px 24px rgba(99,91,255,.18)!important}
-.btn.primary:hover,.login-submit:hover{transform:translateY(-1px)!important;box-shadow:0 16px 28px rgba(99,91,255,.22)!important}
+.btn:hover,.logout-btn:hover,select:hover{border-color:rgba(31,79,209,.18)!important;color:var(--navy)!important;transform:translateY(-1px)}
+.btn.primary,.login-submit{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important;box-shadow:0 8px 18px rgba(10,37,64,.12)!important}
+.btn.primary:hover,.login-submit:hover{background:#16324f!important;transform:translateY(-1px)!important;box-shadow:0 12px 22px rgba(10,37,64,.14)!important}
 .toggle-wrap,.detail-tabs,.modal-tabs,.login-tabs{background:#EEF3F7!important;border:1px solid var(--border)!important;border-radius:999px!important;padding:4px!important}
 .toggle-btn,.detail-tab,.modal-tab,.login-tab{border-radius:999px!important;padding:8px 14px!important;font-weight:650!important}
 .toggle-btn.active,.detail-tab.active,.modal-tab.active,.login-tab.active{background:#fff!important;color:var(--navy)!important;box-shadow:0 1px 3px rgba(10,37,64,.07)!important}
 .section-header{align-items:flex-end!important;margin-bottom:18px!important}
 .section-title{font-size:26px!important;font-weight:760!important;letter-spacing:-.04em!important;color:var(--navy)!important}
+.header-nav + .header-search-wrap{}
+#navFun,#mNavFun{order:7}
+#navAdmin,#mNavAdmin{order:8}
+#pageClients .section-title,
+#pageContracts .section-title,
+#pageNotice .section-title,
+#pageFun .section-title,
+#pageAdmin .section-title{display:none!important}
+#pageTeam .team-page-header{display:none!important}
+#pageNotice .section-header,
+#pageFun .section-header,
+#pageAdmin .section-header{align-items:center!important}
 .filter-row{gap:10px!important}
 .card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.pending-box,.access-request-card,.knowledge-card,.knowledge-featured-card{
   background:rgba(255,255,255,.94)!important;
@@ -593,36 +603,596 @@ body{
   border-radius:20px!important;
   box-shadow:var(--shadow)!important;
 }
-.client-card:hover,.notice-card:hover,.stat-card.clickable:hover,.portal-proj-card:hover{transform:translateY(-2px)!important;box-shadow:0 20px 38px rgba(10,37,64,.08)!important;border-color:rgba(99,91,255,.16)!important}
+.client-card:hover,.notice-card:hover,.stat-card.clickable:hover,.portal-proj-card:hover{transform:translateY(-2px)!important;box-shadow:0 18px 34px rgba(10,37,64,.07)!important;border-color:rgba(10,37,64,.10)!important}
 .detail-hero,.portal-hero,.pinned-card{
-  background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%)!important;
+  background:#ffffff!important;
   border:1px solid var(--border)!important;
   box-shadow:var(--shadow)!important;
 }
 .pinned-card{margin-bottom:18px!important}
-.pinned-card:hover{background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)!important}
+.pinned-card:hover{background:#FBFCFE!important}
 .pinned-card-title,.detail-hero-text h2,.portal-hero-text h2{color:var(--navy)!important}
 .pinned-card-preview,.detail-hero-text p,.portal-hero-text p{color:var(--text3)!important}
-.detail-avatar,.portal-hero-avatar,.client-avatar,.login-logo-mark{background:linear-gradient(135deg,#635BFF 0%,#7A73FF 100%)!important;box-shadow:0 12px 24px rgba(99,91,255,.18)!important}
+.detail-avatar,.portal-hero-avatar,.client-avatar,.login-logo-mark{background:var(--navy)!important;box-shadow:0 10px 20px rgba(10,37,64,.12)!important}
 .gantt-wrap,.myweek-day,.comment-item,.comment-item.reply,.helper-box,.issue-card,.weekly-item,.contract-item,.proj-item{background:rgba(255,255,255,.94)!important;border:1px solid var(--border)!important;box-shadow:none!important}
 .issue-card{border-radius:18px!important;padding:16px!important}
-.issue-card:hover{box-shadow:var(--shadow)!important;border-color:rgba(99,91,255,.22)!important}
+.issue-card:hover{box-shadow:var(--shadow)!important;border-color:rgba(10,37,64,.12)!important}
 .issue-card-context{font-size:11px!important;text-transform:uppercase!important;letter-spacing:.08em!important;color:var(--text3)!important}
 .issue-card-title{font-size:14px!important;color:var(--navy)!important}
 .issue-action-btn{border-radius:10px!important;background:#fff!important;border-color:var(--border)!important;box-shadow:none!important}
-.issue-action-btn:hover{border-color:rgba(99,91,255,.22)!important;background:#F8FAFF!important}
+.issue-action-btn:hover{border-color:rgba(10,37,64,.14)!important;background:#F7F9FC!important}
+.issue-action-icon{display:none!important}
+.issue-action-btn .issue-action-label{display:inline!important}
+.client-warn,
+.proj-warn{
+  border-radius:999px!important;
+  padding:3px 8px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  background:#FFF6EA!important;
+  color:#B45309!important;
+  border:1px solid rgba(180,83,9,.10)!important;
+}
+.contract-icon{
+  background:#F3F6F8!important;
+  color:var(--navy)!important;
+  font-size:0!important;
+  position:relative!important;
+}
+.contract-icon::before{
+  content:'CT'!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  letter-spacing:.04em!important;
+}
+.proj-dot{
+  width:10px!important;
+  height:10px!important;
+  border-radius:999px!important;
+  box-shadow:0 0 0 2px rgba(255,255,255,.92)!important;
+}
+.detail-avatar,
+.portal-hero-avatar,
+.client-avatar{
+  font-size:15px!important;
+  letter-spacing:.02em!important;
+}
 .notice-card.pinned{border-left:4px solid var(--blue)!important}
 .stat-label,.section-label,.myweek-title,.portal-section-label,.client-industry,.notice-meta,.notice-preview,.weekly-sub,.proj-sub,.contract-sub,.info-label{color:var(--text3)!important}
 .stat-num{font-size:36px!important;color:var(--navy)!important}
-.login-page{background:radial-gradient(840px 340px at 0% 0%,rgba(99,91,255,.18),transparent 58%),radial-gradient(760px 280px at 100% 0%,rgba(10,37,64,.08),transparent 58%),linear-gradient(180deg,#f9fbff 0%,#f6f9fc 100%)!important}
+.section-label,.portal-section-label,.stat-label{
+  font-size:11px!important;
+  font-weight:800!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+}
+.badge,.g-badge,.workspace-search-result-badge{
+  border-radius:999px!important;
+  font-weight:700!important;
+  letter-spacing:0!important;
+}
+.badge{
+  padding:4px 9px!important;
+  border:1px solid transparent!important;
+}
+.badge-blue{
+  background:#EDF3FF!important;
+  color:#1F4FD1!important;
+  border-color:rgba(31,79,209,.12)!important;
+}
+.badge-green{
+  background:#EEF8F3!important;
+  color:#18794E!important;
+  border-color:rgba(24,121,78,.10)!important;
+}
+.badge-red{
+  background:#FFF3F2!important;
+  color:#C2413A!important;
+  border-color:rgba(194,65,58,.10)!important;
+}
+.badge-orange{
+  background:#FFF6EA!important;
+  color:#B45309!important;
+  border-color:rgba(180,83,9,.10)!important;
+}
+.badge-gray{
+  background:#F3F6F8!important;
+  color:#5C6B7E!important;
+  border-color:rgba(92,107,126,.10)!important;
+}
+.badge-blue,.badge-green,.badge-red,.badge-orange,.badge-gray{
+  text-transform:none!important;
+  white-space:nowrap!important;
+}
+.stat-card{
+  padding:22px 22px 20px!important;
+  border-radius:18px!important;
+}
+.stat-card.clickable:hover{
+  border-color:rgba(10,37,64,.12)!important;
+}
+.stat-sub{
+  color:var(--text2)!important;
+  font-size:12px!important;
+}
+.load-bar-wrap{
+  background:#EDF2F7!important;
+  height:7px!important;
+}
+.load-bar{
+  background:linear-gradient(90deg,#1F4FD1 0%,#356AE6 100%)!important;
+}
+.load-bar.overload{
+  background:linear-gradient(90deg,#C2410C 0%,#E26D2F 100%)!important;
+}
+.g-badge.overdue{
+  background:#FFF6EA!important;
+  color:#B45309!important;
+}
+.g-badge.mine{
+  background:#EDF3FF!important;
+  color:#1F4FD1!important;
+}
+.gantt-wrap{
+  border-radius:18px!important;
+  overflow:hidden!important;
+}
+table{
+  background:#fff!important;
+}
+th{
+  background:#F7F9FC!important;
+  color:var(--text2)!important;
+  font-weight:700!important;
+}
+td{
+  border-color:#EDF2F7!important;
+}
+.cell.today-c{
+  background:rgba(31,79,209,.05)!important;
+}
+.contract-item:hover,.proj-item:hover{
+  background:#F8FAFC!important;
+  margin:0 -6px!important;
+  padding-left:6px!important;
+  padding-right:6px!important;
+}
+.notice-card,.client-card,.portal-proj-card,.stat-card{
+  position:relative!important;
+}
+.notice-card::after,.client-card::after,.portal-proj-card::after,.stat-card::after{
+  content:''!important;
+  position:absolute!important;
+  inset:0!important;
+  border-radius:inherit!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7)!important;
+  pointer-events:none!important;
+}
+.portal-drive-btn{
+  background:var(--navy)!important;
+  border:1px solid var(--navy)!important;
+  box-shadow:none!important;
+}
+.portal-drive-btn:hover{
+  background:#16324f!important;
+}
+.modal{
+  border:1px solid rgba(10,37,64,.08)!important;
+}
+.login-box{
+  border:1px solid rgba(10,37,64,.08)!important;
+}
+body{
+  font-size:14px!important;
+  line-height:1.5!important;
+}
+.section-title,
+.detail-hero-text h2,
+.portal-hero-text h2,
+.notice-detail-title,
+.popup-title,
+.modal-title{
+  letter-spacing:-.035em!important;
+}
+.section-title{
+  font-size:24px!important;
+  font-weight:760!important;
+  line-height:1.15!important;
+}
+.detail-hero-text h2,
+.portal-hero-text h2{
+  font-size:24px!important;
+  font-weight:760!important;
+  line-height:1.15!important;
+}
+.modal-title{
+  font-size:20px!important;
+  font-weight:760!important;
+  line-height:1.2!important;
+}
+.notice-title,
+.weekly-name,
+.issue-card-title,
+.client-name,
+.portal-proj-name{
+  font-size:15px!important;
+  font-weight:720!important;
+  line-height:1.35!important;
+  letter-spacing:-.02em!important;
+}
+.contract-name,
+.proj-name,
+.workspace-search-result-title{
+  font-size:14px!important;
+  font-weight:700!important;
+  line-height:1.35!important;
+  letter-spacing:-.015em!important;
+}
+.notice-preview,
+.detail-hero-text p,
+.portal-hero-text p,
+.workspace-search-result-sub,
+.helper-text,
+.comment-body,
+.memo-area{
+  font-size:13px!important;
+  line-height:1.7!important;
+}
+.notice-meta,
+.proj-sub,
+.contract-sub,
+.weekly-sub,
+.issue-meta,
+.info-label,
+.info-value,
+.portal-proj-meta,
+.comment-date,
+.muted{
+  font-size:12px!important;
+  line-height:1.55!important;
+}
+.form-label,
+.login-input-wrap label,
+.checkbox-row label{
+  font-size:12px!important;
+  font-weight:700!important;
+  letter-spacing:-.01em!important;
+}
+.form-row input,
+.form-row select,
+.form-row textarea,
+.login-input-wrap input,
+select{
+  font-size:14px!important;
+  line-height:1.45!important;
+}
+.btn,
+.logout-btn,
+.login-type-btn,
+.login-tab,
+.modal-tab,
+.toggle-btn,
+.detail-tab,
+.portal-drive-btn{
+  min-height:40px!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  letter-spacing:-.01em!important;
+}
+.btn.sm{
+  min-height:32px!important;
+  font-size:12px!important;
+  padding:5px 12px!important;
+}
+.nav-btn,
+.user-chip{
+  font-size:13px!important;
+}
+.stat-num{
+  font-size:34px!important;
+  font-weight:760!important;
+  line-height:1!important;
+  letter-spacing:-.04em!important;
+}
+.th-label,
+.th-day,
+.row-label,
+.row-label .rn,
+.row-label .rs,
+.bar{
+  letter-spacing:0!important;
+}
+.th-label{
+  font-size:10px!important;
+}
+.th-day,
+.row-label .rs,
+.g-badge{
+  font-size:10px!important;
+}
+.row-label,
+.contract-sub,
+.proj-sub{
+  line-height:1.45!important;
+}
+.app::before{
+  font-size:10px!important;
+  letter-spacing:.18em!important;
+}
+.section-header{
+  margin-bottom:20px!important;
+  gap:12px!important;
+}
+.filter-row,
+.gantt-toolbar{
+  gap:10px!important;
+}
+.card,
+.notice-card,
+.client-card,
+.portal-proj-card,
+.myweek-card,
+.pending-box,
+.access-request-card,
+.knowledge-card,
+.knowledge-featured-card{
+  padding:22px!important;
+}
+.card-sm,
+.helper-box,
+.comment-item,
+.comment-item.reply,
+.weekly-item,
+.contract-item,
+.proj-item{
+  padding:16px!important;
+}
+.notice-card,
+.client-card,
+.portal-proj-card,
+.stat-card,
+.issue-card,
+.modal,
+.login-box{
+  border-radius:18px!important;
+}
+.badge,
+.g-badge,
+.workspace-search-result-badge,
+.portal-logo-badge,
+.admin-chip,
+.member-tag,
+.portal-member-chip{
+  min-height:24px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.workspace-search-result-badge,
+.portal-logo-badge,
+.admin-chip,
+.member-tag,
+.portal-member-chip{
+  padding-left:10px!important;
+  padding-right:10px!important;
+}
+.modal{
+  padding:24px!important;
+}
+.modal-footer{
+  margin-top:22px!important;
+  padding-top:16px!important;
+  gap:12px!important;
+}
+.modal-footer-right{
+  gap:10px!important;
+}
+.form-row{
+  margin-bottom:16px!important;
+}
+.form-half{
+  gap:12px!important;
+}
+.helper-box,
+.readonly-notice,
+.conflict-warn,
+.memo-area,
+.copy-area{
+  border-radius:14px!important;
+}
+.ui-kicker{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+  letter-spacing:.3px!important;
+  text-transform:uppercase!important;
+  margin:12px 0 8px!important;
+}
+.ui-soft-danger{
+  margin-bottom:8px!important;
+  padding:10px 14px!important;
+  background:var(--red-bg)!important;
+  border-radius:var(--radius-sm)!important;
+}
+.ui-soft-danger-title{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--red)!important;
+  margin-bottom:8px!important;
+}
+.ui-empty-card{
+  text-align:center!important;
+  padding:32px!important;
+  color:var(--text3)!important;
+}
+.ui-empty-icon{
+  font-size:28px!important;
+  margin-bottom:8px!important;
+}
+.ui-empty-title{
+  font-size:14px!important;
+  font-weight:700!important;
+  color:var(--navy)!important;
+}
+.ui-empty-sub{
+  font-size:12px!important;
+  margin-top:4px!important;
+}
+.ui-empty-action{
+  margin-top:12px!important;
+}
+.ui-modal-480{width:480px!important}
+.ui-modal-540{width:540px!important}
+.ui-modal-600{width:600px!important}
+.ui-modal-640{width:640px!important}
+.ui-modal-680{width:680px!important}
+.ui-checkbox-top{padding-top:10px!important}
+.ui-info-banner{
+  background:var(--blue-light)!important;
+  border-radius:var(--radius-sm)!important;
+  padding:12px 14px!important;
+  font-size:12px!important;
+  color:var(--blue)!important;
+  margin-bottom:16px!important;
+}
+.ui-preview-shell{
+  background:var(--bg)!important;
+  border-radius:var(--radius-sm)!important;
+  padding:12px 14px!important;
+}
+.ui-preview-ok{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--green)!important;
+  margin-bottom:8px!important;
+}
+.ui-preview-row{
+  font-size:12px!important;
+  color:var(--text2)!important;
+  padding:3px 0!important;
+}
+.ui-page-desc{
+  font-size:12px!important;
+  color:var(--text3)!important;
+}
+.ui-section-stack{
+  margin-bottom:20px!important;
+}
+.ui-admin-gate-title{
+  font-size:14px!important;
+  font-weight:700!important;
+  color:var(--navy)!important;
+  margin-bottom:6px!important;
+}
+.ui-admin-preview-card{
+  padding:10px 12px!important;
+  border:1px solid var(--border)!important;
+  border-radius:var(--radius-sm)!important;
+  margin-bottom:8px!important;
+  background:var(--bg)!important;
+}
+.ui-admin-preview-head{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+}
+.ui-admin-preview-title{
+  font-size:13px!important;
+  font-weight:700!important;
+  color:var(--navy)!important;
+}
+.ui-admin-preview-meta{
+  font-size:11px!important;
+  color:var(--text3)!important;
+  margin-top:3px!important;
+}
+.ui-admin-preview-actions{
+  display:flex!important;
+  gap:6px!important;
+  flex-wrap:wrap!important;
+  justify-content:flex-end!important;
+}
+.ui-loading-card{
+  color:var(--text3)!important;
+  text-align:center!important;
+  padding:20px!important;
+}
+.ui-empty-copy{
+  font-size:12px!important;
+  color:var(--text3)!important;
+  padding:8px 0!important;
+}
+.ui-card-actions{
+  margin-top:12px!important;
+}
+.ui-card-actions-row{
+  margin-top:12px!important;
+  display:flex!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+.ui-detail-grid-stack{
+  margin-bottom:14px!important;
+}
+.ui-admin-note{
+  font-size:12px!important;
+  color:var(--text3)!important;
+  margin-bottom:12px!important;
+}
+.ui-table-shell{
+  border:1px solid var(--border)!important;
+  border-radius:var(--radius-sm)!important;
+  overflow:hidden!important;
+}
+.ui-table-head{
+  display:grid!important;
+  grid-template-columns:1fr auto auto!important;
+  padding:7px 12px!important;
+  background:var(--bg)!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+  text-transform:uppercase!important;
+  letter-spacing:.3px!important;
+  gap:16px!important;
+}
+.ui-table-row{
+  display:grid!important;
+  grid-template-columns:1fr auto auto!important;
+  align-items:center!important;
+  gap:16px!important;
+  padding-top:5px!important;
+  padding-right:12px!important;
+  padding-bottom:5px!important;
+  border-top:1px solid var(--border)!important;
+}
+#pageAdmin .stat-grid{
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr))!important;
+  gap:14px!important;
+}
+#pageAdmin .card,
+#pageAdmin .card-sm{
+  padding:20px!important;
+}
+#pageAdmin .section-header{
+  margin-bottom:22px!important;
+}
+#pageAdmin .info-row{
+  padding:10px 0!important;
+}
+#pageAdmin .btn.sm{
+  min-height:34px!important;
+}
+.login-page{background:linear-gradient(180deg,#f8fafc 0%,#f3f6f9 100%)!important}
 .login-box{backdrop-filter:blur(14px)!important}
 .login-type-btn.active{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important}
-.portal-page,.login-page{background-color:#F6F9FC!important}
+.portal-page,.login-page{background-color:#F5F7FA!important}
 .table-toolbar,.gantt-toolbar{margin-bottom:18px!important}
 .month-nav,.toggle-wrap,.helper-box,.readonly-notice,.conflict-warn{border-radius:16px!important}
 input,textarea{border-radius:12px!important}
 .form-row input,.form-row select,.form-row textarea,.login-input-wrap input{border-color:var(--border)!important;background:#fff!important;color:var(--text)!important}
-.form-row input:focus,.form-row select:focus,.form-row textarea:focus,.login-input-wrap input:focus{box-shadow:0 0 0 4px rgba(99,91,255,.08)!important;border-color:rgba(99,91,255,.34)!important}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus,.login-input-wrap input:focus{box-shadow:0 0 0 4px rgba(31,79,209,.08)!important;border-color:rgba(31,79,209,.26)!important}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:#D8E2EC;border-radius:999px;border:2px solid transparent;background-clip:padding-box}
 ::-webkit-scrollbar-track{background:transparent}
@@ -636,6 +1206,9 @@ input,textarea{border-radius:12px!important}
   .app::before{margin-left:4px;margin-bottom:8px}
   .card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.issue-card{border-radius:18px!important}
   .section-title{font-size:22px!important}
+  .card,.notice-card,.client-card,.portal-proj-card,.myweek-card,.stat-card,.modal,.login-box{padding:18px!important}
+  .card-sm,.helper-box,.weekly-item,.contract-item,.proj-item,.comment-item,.comment-item.reply{padding:14px!important}
+  .modal-footer{gap:10px!important}
 }
 </style>
 
@@ -702,7 +1275,7 @@ input,textarea{border-radius:12px!important}
 <div class="portal-page" id="portalPage">
   <!-- 관리자 미리보기 배너 -->
   <div id="portalAdminBanner" style="display:none;background:var(--navy);color:rgba(255,255,255,.8);font-size:12px;padding:8px 24px;display:flex;align-items:center;justify-content:space-between">
-    <span id="portalAdminBannerText">👀 내부 미리보기 — 고객사가 보는 화면입니다</span>
+    <span id="portalAdminBannerText">내부 미리보기 — 고객사가 보는 화면입니다</span>
     <button id="portalAdminBannerBtn" onclick="exitPortalPreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">← 내부 화면으로</button>
   </div>
   <div class="portal-header">
@@ -722,9 +1295,9 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
       <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
-      <button class="nav-btn" id="navNotice" onclick="setPage('notice')">💡 지식공유</button>
-      <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">⚙️ 관리</button>
-      <button class="nav-btn" id="navFun" onclick="setPage('fun')">🧩 팀편의</button>
+      <button class="nav-btn" id="navNotice" onclick="setPage('notice')">지식공유</button>
+      <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
+      <button class="nav-btn" id="navFun" onclick="setPage('fun')">팀편의</button>
     </nav>
 
     <div class="header-search-wrap" id="workspaceSearchWrap">
@@ -738,7 +1311,7 @@ input,textarea{border-radius:12px!important}
     <div class="header-right">
       <span id="adminChip" class="admin-chip" style="display:none">관리자</span>
       <button id="accessMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openAccessRequestManager()">권한 요청</button>
-      <button id="portalMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager()">🔐 고객사 페이지</button>
+      <button id="portalMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager()">고객사 페이지</button>
       <button id="logBtn" class="btn sm" style="display:none;font-size:11px" onclick="openActivityLog()">활동 로그</button>
       <!-- 알림 벨 -->
       <button id="notifBell" onclick="toggleNotifPanel()" style="position:relative;width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">
@@ -764,16 +1337,16 @@ input,textarea{border-radius:12px!important}
   </div>
   <!-- 모바일 메뉴 -->
   <div class="mobile-menu" id="mobileMenu">
-    <button class="nav-btn" id="mNavTeam" onclick="setPage('team');closeMobileMenu()">👥 팀</button>
-    <button class="nav-btn" id="mNavGantt" onclick="setPage('gantt');closeMobileMenu()">📅 스케줄</button>
-    <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">🏢 거래처</button>
-    <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">📄 계약</button>
-    <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">📊 대시보드</button>
-    <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">💡 지식공유</button>
-    <button class="nav-btn" id="mNavFun" onclick="setPage('fun');closeMobileMenu()">🧩 팀편의</button>
-    <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">⚙️ 관리</button>
+    <button class="nav-btn" id="mNavTeam" onclick="setPage('team');closeMobileMenu()">팀</button>
+    <button class="nav-btn" id="mNavGantt" onclick="setPage('gantt');closeMobileMenu()">스케줄</button>
+    <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">거래처</button>
+    <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">계약</button>
+    <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">대시보드</button>
+    <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">지식공유</button>
+    <button class="nav-btn" id="mNavFun" onclick="setPage('fun');closeMobileMenu()">팀편의</button>
+    <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-      <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">🔐 고객사 페이지</button>
+      <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">고객사 페이지</button>
       <button id="mAccessBtn" class="btn sm" style="display:none;font-size:11px" onclick="openAccessRequestManager();closeMobileMenu()">권한 요청</button>
       <button id="mLogBtn" class="btn sm" style="display:none;font-size:11px" onclick="openActivityLog();closeMobileMenu()">활동 로그</button>
       <button class="btn ghost sm" onclick="doLogout()" style="font-size:11px">로그아웃</button>
@@ -878,7 +1451,7 @@ input,textarea{border-radius:12px!important}
         <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()" style="margin-left:auto">+ 일정</button>
         <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
       </div>
-      <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">프로젝트를 클릭하면 상세 관리와 내 캘린더 추가를 바로 진행할 수 있습니다.</div>
+      <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">프로젝트를 클릭하면 상세 관리와 Outlook 일정 추가를 바로 진행할 수 있습니다.</div>
       <div class="gantt-wrap" id="ganttWrap"></div>
       <div class="legend" id="legend"></div>
     </div>
@@ -1413,7 +1986,7 @@ function previewPortal(clientId){
   const bannerBtn=document.getElementById('portalAdminBannerBtn');
   const logoutBtn=document.getElementById('portalLogoutBtn');
   if(banner)banner.style.display='flex';
-  if(bannerText)bannerText.textContent=(roleIsAdmin()?'👀 관리자 미리보기':'👀 내부 미리보기')+' — 고객사가 보는 화면입니다';
+  if(bannerText)bannerText.textContent=(roleIsAdmin()?'관리자 미리보기':'내부 미리보기')+' — 고객사가 보는 화면입니다';
   if(bannerBtn)bannerBtn.textContent='← 내부 화면으로';
   if(logoutBtn)logoutBtn.style.display='none';
   showPage('portal');
@@ -1965,7 +2538,7 @@ function renderClients(){
     const activeContracts=cc.filter(ct=>ct.contract_status==='진행중').length;
     return '<div class="client-card" onclick="openClientDetail(this.dataset.id)" data-id="'+c.id+'">'
       +'<div class="client-card-head"><div class="client-avatar">'+esc(c.name.charAt(0))+'</div>'
-      +(warns?'<span class="client-warn">⚠ '+warns+'</span>':'')+'</div>'
+      +(warns?'<span class="client-warn">'+warns+'</span>':'')+'</div>'
       +'<div class="client-name">'+esc(c.name)+'</div>'
       +'<div class="client-industry">'+(c.industry||'업종 미입력')+'</div>'
       +'<div class="chip-row">'+chips+(cp.length>3?'<span style="font-size:11px;color:var(--text3);padding:3px 0">외 '+(cp.length-3)+'건</span>':'')+'</div>'
@@ -1993,11 +2566,11 @@ function openClientDetail(id, tab='projects'){
     return '<div class="proj-item" onclick="'+(ic?'openProjModal(this.dataset.id,\'issue\')':'openProjModal(this.dataset.id)')+'" data-id="'+p.id+'" style="'+(ic?'border-left:3px solid var(--red)':'')+'">'
       +'<div class="proj-dot" style="background:'+TYPES[p.type]+'"></div>'
       +'<div class="proj-info">'
-      +'<div class="proj-name">'+esc(p.name)+(ic?'<span style="margin-left:6px;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px">🚨 '+ic+'</span>':'')+'</div>'
+      +'<div class="proj-name">'+esc(p.name)+(ic?'<span style="margin-left:6px;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px">이슈 '+ic+'</span>':'')+'</div>'
       +'<div class="proj-sub">'+p.start+' ~ '+p.end+(p.members.length?' · '+p.members.join(', '):'')+'</div>'
       +(od?'<div class="proj-warn">⏰ 기간 초과 — 완료 처리 필요</div>':'')
       +(ub?'<div class="proj-warn">💰 완료됐으나 빌링 미처리</div>':'')
-      +(p.status==='완료'&&p.follow_up_needed?'<div class="proj-warn">📌 후속 액션 필요'+(p.follow_up_note?' · '+esc(truncateText(p.follow_up_note,26)):'')+'</div>':'')
+      +(p.status==='완료'&&p.follow_up_needed?'<div class="proj-warn">후속 액션 필요'+(p.follow_up_note?' · '+esc(truncateText(p.follow_up_note,26)):'')+'</div>':'')
       +'</div>'
       +'<div class="proj-badges">'
       +'<span class="badge '+stBadge+'">'+p.status+'</span>'
@@ -2735,7 +3308,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
     <div class="overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal" style="width:560px">
         <div class="modal-title">${p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가'}</div>
-        ${p?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn primary sm" type="button" onclick="handleProjectCalendarSync(\''+p.id+'\')">내 캘린더 추가</button></div>':''}
+        ${p?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn primary sm" type="button" onclick="handleProjectOutlookEvent(\''+p.id+'\')">Outlook에 바로 추가</button></div>':''}
         <div class="modal-tabs">
           <button class="modal-tab${projModalTab==='basic'?' active':''}" data-tab="basic" onclick="switchProjTab('basic')">기본 정보</button>
           <button class="modal-tab${projModalTab==='issue'?' active':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
@@ -3182,8 +3755,15 @@ async function saveSchedule(eid){
   if(start_date>end_date){alert('종료일이 시작일보다 빠릅니다.');return;}
   const body={title,schedule_type,member_id:member?.id||null,member_name,start_date,end_date,location,memo};
   try{
-    if(eid) await api('PATCH','schedules?id=eq.'+eid,body);
-    else {body.created_by=currentUser?.id||null; await api('POST','schedules',body);} 
+    if(eid){
+      await api('PATCH','schedules?id=eq.'+eid,body);
+      await logActivity('일정 수정','schedule',eid,title);
+    }else{
+      body.created_by=currentUser?.id||null;
+      const created=await api('POST','schedules',body);
+      const createdId=Array.isArray(created)?created[0]?.id:created?.id;
+      await logActivity('일정 추가','schedule',createdId||null,title);
+    }
     closeModal();await loadAll(); if(curPage==='gantt')renderGantt(); else renderClients();
   }catch(e){alert('일정 저장 오류: '+e.message);} 
 }
@@ -3272,6 +3852,13 @@ const FEED_ICONS={
   '고객사 추가':'🏢','고객사 수정':'✏️','고객사 삭제':'🗑️',
   '계약 추가':'📄','계약 수정':'✏️','계약 삭제':'🗑️',
 };
+
+Object.assign(FEED_ICONS,{
+  '일정 추가':'🗓️',
+  '일정 수정':'✏️',
+  '일정 삭제':'🗑️',
+  'Outlook 일정 추가':'📅'
+});
 
 async function loadActivityFeed(){
   const el=document.getElementById('activityFeedList');if(!el)return;
@@ -3783,7 +4370,7 @@ function openLadderGame(){
   const memberOpts=members.map(m=>'<div class="ladder-member" onclick="toggleLadderMember(this)" data-name="'+esc(m.name)+'" style="padding:8px 16px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s">'+esc(m.name)+'</div>').join('');
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:480px">'
+    +'<div class="modal ui-modal-480">'
     +'<div class="modal-title">🪜 사다리타기 — 오늘 커피는 누가?</div>'
     +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">참여할 멤버를 선택하세요</div>'
     +'<div id="ladderMembers" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">'+memberOpts+'</div>'
@@ -4583,7 +5170,7 @@ function renderIssueFeed(el,pinned,recent){
   };
   let html=sectionHead;
   if(pinned.length){
-    html+='<div class="card" style="margin-bottom:8px;padding:10px 14px;background:var(--red-bg);border-radius:var(--radius-sm)">'
+    html+='<div class="card ui-soft-danger">'
       +'<div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px">📌 고정 이슈 ('+pinned.length+'건)</div>'
       +pinned.map(i=>issueCard(i,true)).join('')+'</div>';
   }
@@ -4626,7 +5213,7 @@ async function openIssueModal(projId='',issueId=''){
   const memberOptions=(selectedId)=>members.map(m=>'<option value="'+m.id+'"'+(selectedId===m.id?' selected':'')+'>'+esc(m.name)+'</option>').join('');
   document.getElementById('modalArea').innerHTML=`
     <div class="overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal" style="width:540px">
+      <div class="modal ui-modal-540">
         <div class="modal-title">${issue?(editable?'🚨 이슈 수정':'🚨 이슈 상세'):'🚨 이슈 등록'}</div>
         <div class="form-row"><label class="form-label">관련 프로젝트</label><select id="issueProj" ${editable?'':'disabled'}><option value="">선택 (선택사항)</option>${projOpts}</select></div>
         <div class="form-row"><label class="form-label">이슈 제목 *</label><input id="issueTitle" value="${esc(issue?.title||'')}" placeholder="예) DB 접근 오류 발생" ${editable?'':'readonly style="background:var(--bg)"'} autofocus/></div>
@@ -4637,7 +5224,7 @@ async function openIssueModal(projId='',issueId=''){
         </div>
         <div class="form-half">
           <div class="form-row"><label class="form-label">상태</label><select id="issueStatus" ${editable?'':'disabled'}><option value="open" ${issue?.status==='open'?'selected':''}>open</option><option value="resolved" ${issue?.status==='resolved'?'selected':''}>resolved</option></select></div>
-          <div class="form-row"><label class="form-label">고정</label><div class="checkbox-row" style="padding-top:10px"><input type="checkbox" id="issuePinned" ${(issue?.is_pinned)?'checked':''} ${(editable&&isAdmin)?'':'disabled'}/><label for="issuePinned">상단 고정</label></div></div>
+          <div class="form-row"><label class="form-label">고정</label><div class="checkbox-row ui-checkbox-top"><input type="checkbox" id="issuePinned" ${(issue?.is_pinned)?'checked':''} ${(editable&&isAdmin)?'':'disabled'}/><label for="issuePinned">상단 고정</label></div></div>
         </div>
         ${renderIssuePeopleBadges(issue||{})}
         ${!editable&&issue?'<div class="readonly-notice">작성자, 오너, 담당자 또는 관리자만 수정할 수 있습니다.</div>':''}
@@ -4987,13 +5574,13 @@ function renderFinanceTab(clientId, reports){
   const plReports=reports.filter(r=>r.report_type==='손익계산서').sort((a,b)=>b.period.localeCompare(a.period));
   const bsReports=reports.filter(r=>r.report_type==='재무상태표').sort((a,b)=>b.period.localeCompare(a.period));
 
-  let html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
+  let html='<div class="section-header" style="margin-bottom:16px">'
     +'<div style="font-size:15px;font-weight:800;color:var(--navy)">재무제표</div>'
     +(isAdmin?'<button class="btn primary sm" onclick="openFinanceUploadModal(\''+clientId+'\')">+ 재무제표 업로드</button>':'')
     +'</div>';
 
   if(!reports.length){
-    html+='<div class="card" style="text-align:center;padding:40px;color:var(--text3)">'
+    html+='<div class="card ui-empty-card">'
       +'<div style="font-size:32px;margin-bottom:12px">📊</div>'
       +'<div style="font-size:14px;font-weight:700;margin-bottom:6px">등록된 재무제표가 없습니다</div>'
       +(isAdmin?'<div style="font-size:12px">위하고에서 내려받은 엑셀 파일을 업로드하세요</div>':'')
@@ -5132,8 +5719,8 @@ function toggleFinanceDetail(id){
 
 function renderFinanceTable(items){
   if(!items.length)return '';
-  let html='<div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">'
-    +'<div style="display:grid;grid-template-columns:1fr auto auto;padding:7px 12px;background:var(--bg);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;gap:16px">'
+  let html='<div class="ui-table-shell">'
+    +'<div class="ui-table-head">'
     +'<span>계정과목</span><span style="text-align:right">전기</span><span style="text-align:right">당기</span></div>';
   items.forEach(it=>{
     if(!it.account_name)return;
@@ -5142,7 +5729,7 @@ function renderFinanceTable(items){
     const fw=isMajor?'800':isMid?'600':'400';
     const pl=isMajor?'12':isMid?'20':'28';
     const pct=isMajor?chg(it.amount,it.prev_amount):null;
-    html+='<div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:16px;padding:5px 12px 5px '+pl+'px;background:'+bg+';border-top:1px solid var(--border)">'
+    html+='<div class="ui-table-row" style="padding-left:'+pl+'px;background:'+bg+'">'
       +'<span style="font-size:12px;font-weight:'+fw+';color:'+(isMajor?'var(--navy)':'var(--text2)')+'">'+esc(it.account_name)+'</span>'
       +'<span style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">'+(it.prev_amount!=null?it.prev_amount.toLocaleString():'—')+'</span>'
       +'<span style="font-size:12px;font-weight:'+(isMajor?'700':'400')+';color:'+(isMajor?'var(--navy)':'var(--text3)')+';white-space:nowrap;text-align:right">'+(it.amount!=null?it.amount.toLocaleString():'—')+'</span>'
@@ -5158,9 +5745,9 @@ async function openFinanceUploadModal(clientId){
   await loadSheetJS();
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:480px">'
+    +'<div class="modal ui-modal-480">'
     +'<div class="modal-title">📊 재무제표 업로드</div>'
-    +'<div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:var(--blue);margin-bottom:16px">'
+    +'<div class="ui-info-banner">'
     +'💡 위하고에서 내려받은 <strong>손익계산서(과목별)</strong> 또는 <strong>재무상태표(과목별)</strong> 엑셀 파일을 그대로 올려주세요.</div>'
     +'<div class="form-row"><label class="form-label">보고서 종류</label>'
     +'<select id="finReportType"><option value="손익계산서">손익계산서</option><option value="재무상태표">재무상태표</option></select></div>'
@@ -5180,7 +5767,7 @@ async function openFinanceUploadModal(clientId){
       const result=await parseFinancialExcel(file);
       window._finParseResult=result;
       const majors=result.items.filter(it=>it.level==='major'&&it.amount!=null).slice(0,5);
-      prev.innerHTML='<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px">'
+      prev.innerHTML='<div class="ui-preview-shell">'
         +'<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:8px">✓ 파싱 완료 — '+result.items.length+'개 항목 인식, 기간: '+result.period+'</div>'
         +majors.map(it=>'<div style="font-size:12px;color:var(--text2);padding:3px 0">'+esc(it.account_name)+': <strong>'+it.amount.toLocaleString()+'</strong></div>').join('')
         +'</div>';
@@ -5522,6 +6109,52 @@ async function renderAdminPage(){
     +'<div class="card"><div class="section-label">고객사 페이지 관리</div><div style="font-size:12px;color:var(--text3);margin-bottom:12px">설정과 수정은 관리자만 가능하고, 각 고객사의 접속 상태와 내부 담당 현황을 확인할 수 있습니다.</div>'+portalPreview+'<div style="margin-top:12px"><button class="btn primary sm" onclick="openPortalManager()">전체 관리 열기</button></div></div>';
 }
 
+// Canonical admin page renderer: keeps the live UI on shared utility classes.
+renderAdminPage = async function(){
+  const el=document.getElementById('pageAdmin');if(!el)return;
+  if(!roleIsAdmin()){
+    el.innerHTML='<div class="card"><div class="ui-admin-gate-title">관리자 전용</div><div class="ui-page-desc">이 페이지는 관리자만 볼 수 있습니다.</div></div>';
+    return;
+  }
+  el.innerHTML='<div class="section-header ui-section-stack"><h2 class="section-title">관리자 페이지</h2><span class="ui-page-desc">권한, 인력, 고객사 포털을 한곳에서 관리합니다.</span></div><div class="card"><div class="ui-loading-card">불러오는 중...</div></div>';
+  try{
+    const [reqs,assigns]=await Promise.all([
+      api('GET','access_requests?select=*&order=status.asc,created_at.desc').catch(()=>accessRequests||[]),
+      api('GET','client_assignments?select=*').catch(()=>clientAssignments||[])
+    ]);
+    accessRequests=reqs||[];
+    clientAssignments=assigns||[];
+  }catch(e){}
+  const pending=(accessRequests||[]).filter(r=>r.status==='pending');
+  const portalActive=clients.filter(c=>c.portal_email).length;
+  const assignedClients=clients.filter(c=>getAssignedMemberNames(c.id).length).length;
+  const recentPending=pending.slice(0,5).map(req=>'<div class="info-row"><span class="info-label">'+esc(req.name||inferNameFromEmail(req.email)||req.email||'요청자')+'</span><span class="info-value">'+getRequestedRoleLabel(req.requested_role||'observer')+'</span></div>').join('')||'<div class="ui-empty-copy">대기 중인 요청이 없습니다.</div>';
+  const memberPreview=(members||[]).slice(0,8).map(m=>'<div class="info-row"><span class="info-label">'+esc(m.name)+'</span><span class="info-value">'+esc(m.email||'이메일 미설정')+'</span></div>').join('')||'<div class="ui-empty-copy">등록된 인력이 없습니다.</div>';
+  const portalPreview=[...clients].filter(c=>c.portal_email).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,8).map(c=>{
+    const assigned=getAssignedMemberNames(c.id);
+    return '<div class="ui-admin-preview-card">'
+      +'<div class="ui-admin-preview-head">'
+      +'<div><div class="ui-admin-preview-title">'+esc(c.name)+'</div><div class="ui-admin-preview-meta">내부 담당: '+esc(assigned.join(', ')||'미배정')+'</div></div>'
+      +'<div class="ui-admin-preview-actions">'
+      +'<button class="btn primary sm" onclick="previewPortal(\''+c.id+'\')">포털 접속</button>'
+      +'<button class="btn sm" onclick="openPortalAccountEdit(\''+c.id+'\')">설정</button>'
+      +'</div></div></div>';
+  }).join('')||'<div class="ui-empty-copy">활성화된 고객사 페이지가 없습니다.</div>';
+  el.innerHTML=
+    '<div class="section-header ui-section-stack"><h2 class="section-title">관리자 페이지</h2><span class="ui-page-desc">권한, 인력, 고객사 포털을 한곳에서 관리합니다.</span></div>'
+    +'<div class="stat-grid">'
+    +'<div class="stat-card"><div class="stat-label">권한 요청</div><div class="stat-num" style="color:'+(pending.length?'var(--orange)':'var(--navy)')+'">'+pending.length+'</div><div class="stat-sub">확인 대기</div></div>'
+    +'<div class="stat-card"><div class="stat-label">인력</div><div class="stat-num">'+members.length+'</div><div class="stat-sub">등록 인원</div></div>'
+    +'<div class="stat-card"><div class="stat-label">고객사 포털</div><div class="stat-num" style="color:var(--blue)">'+portalActive+'</div><div class="stat-sub">활성 계정</div></div>'
+    +'<div class="stat-card"><div class="stat-label">담당 지정</div><div class="stat-num">'+assignedClients+'</div><div class="stat-sub">담당 배정 고객사</div></div>'
+    +'</div>'
+    +'<div class="detail-grid ui-detail-grid-stack">'
+    +'<div class="card"><div class="section-label">권한 요청</div>'+recentPending+'<div class="ui-card-actions"><button class="btn primary sm" onclick="openAccessRequestManager()">권한 요청 관리</button></div></div>'
+    +'<div class="card"><div class="section-label">인력 관리</div>'+memberPreview+'<div class="ui-card-actions-row"><button class="btn primary sm" onclick="openMemberManager()">인력 관리 열기</button><button class="btn sm" onclick="openActivityLog()">활동 로그</button></div></div>'
+    +'</div>'
+    +'<div class="card"><div class="section-label">고객사 페이지 관리</div><div class="ui-admin-note">설정과 수정은 관리자만 가능하고, 각 고객사의 접속 상태와 내부 담당 현황을 확인할 수 있습니다.</div>'+portalPreview+'<div class="ui-card-actions"><button class="btn primary sm" onclick="openPortalManager()">전체 관리 열기</button></div></div>';
+}
+
 async function addAssignment(clientId){
   if(!canManagePortalSettings())return;
   const sel=document.getElementById('assignSel-'+clientId);
@@ -5714,6 +6347,8 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
   else showPage('login');
 })();
 
+/* Legacy calendar download fallback retained only for reference.
+Legacy project calendar sync variants are also disabled below.
 function safeCalendarFileName(value){
   return (value||'project')
     .replace(/[\\/:*?"<>|]+/g,'-')
@@ -5785,11 +6420,11 @@ async function handleProjectCalendarSync(projectId){
   }
 }
 
-async function handleProjectOutlookEvent(projectId){
+async function legacyHandleProjectOutlookEvent(projectId){
   await handleProjectCalendarSync(projectId);
 }
 
-async function handleClientOutlookShortcut(clientId){
+async function legacyHandleClientOutlookShortcut(clientId){
   const clientProjects = projects.filter(p=>p.client_id===clientId);
   if(!clientProjects.length){
     alert('이 고객사에는 프로젝트가 없습니다.');
@@ -5803,10 +6438,11 @@ async function handleClientOutlookShortcut(clientId){
   alert('이제 캘린더 추가는 프로젝트 관리 탭에서 진행합니다. 프로젝트를 클릭한 뒤 내 캘린더 추가를 눌러주세요.');
 }
 
-async function msLogin(){
+async function legacyMsLoginFinal(){
   setPage('gantt');
   alert('Microsoft 로그인 없이 프로젝트 관리 탭에서 바로 캘린더 파일을 추가할 수 있도록 변경했습니다.');
 }
+*/
 </script>
 
 <script id="stripeThemeSearch">
@@ -6306,9 +6942,85 @@ async function handleClientOutlookShortcut(clientId){
   alert('Calendar add now happens in Project Management. Click a project, then choose Add to My Calendar.');
 }
 
-async function msLogin(){
+*/
+async function handleProjectCalendarSync(projectId){
+  await handleProjectOutlookEvent(projectId);
+}
+
+async function legacyHandleProjectOutlookEventCurrent(projectId){
+  const project = projects.find(p=>p.id===projectId);
+  if(!project){
+    alert('프로젝트를 찾을 수 없습니다.');
+    return;
+  }
+  try{
+    await createOutlookEventForProject(project);
+    await logActivity('Outlook 일정 추가','project',project.id,project.name||'');
+    alert('Outlook 일정이 내 캘린더에 추가되었습니다.');
+  }catch(e){
+    console.error(e);
+    alert('Outlook 일정 추가 실패: ' + (e.message||'알 수 없는 오류'));
+  }
+}
+
+async function legacyHandleClientOutlookShortcutCurrent(clientId){
+  const clientProjects = projects.filter(p=>p.client_id===clientId);
+  if(!clientProjects.length){
+    alert('이 고객사에는 프로젝트가 없습니다.');
+    return;
+  }
   setPage('gantt');
-  alert('Microsoft login is no longer required. Use Project Management to add the calendar file directly.');
+  if(clientProjects.length===1){
+    setTimeout(() => openProjModal(clientProjects[0].id), 0);
+    return;
+  }
+  alert('프로젝트 관리 탭에서 프로젝트를 클릭한 뒤 Outlook에 바로 추가를 눌러주세요.');
+}
+
+async function legacyMsLoginDuplicate(){
+  try{
+    const client = await getMsalClient();
+    const res = await client.loginPopup(loginRequest);
+    if(res?.account){
+      client.setActiveAccount(res.account);
+      alert('Microsoft 로그인 완료: ' + res.account.username);
+      return res.account;
+    }
+    throw new Error('Microsoft 계정 정보를 가져오지 못했습니다.');
+  }catch(e){
+    const client = await getMsalClient();
+    if(isMsalPopupIssue(e) && typeof client.loginRedirect === 'function'){
+      sessionStorage.setItem('msal_login_fallback', '1');
+      await client.loginRedirect(loginRequest);
+      return null;
+    }
+    console.error(e);
+    alert('Microsoft 로그인 실패: ' + (e.message||'알 수 없는 오류'));
+    throw e;
+  }
+}
+
+async function handleProjectOutlookEvent(projectId){
+  return legacyHandleProjectOutlookEventCurrent(projectId);
+}
+
+async function handleClientOutlookShortcut(clientId){
+  return legacyHandleClientOutlookShortcutCurrent(clientId);
+}
+
+async function deleteSchedule(id){
+  if(!confirm('일정을 삭제할까요?'))return;
+  const schedule=schedules.find(s=>s.id===id);
+  try{
+    await api('DELETE','schedules?id=eq.'+id);
+    await logActivity('일정 삭제','schedule',id,schedule?.title||'');
+    closeModal();
+    await loadAll();
+    if(curPage==='gantt') renderGantt();
+    else renderClients();
+  }catch(e){
+    alert('오류: '+e.message);
+  }
 }
 </script>
 
