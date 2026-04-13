@@ -4247,6 +4247,184 @@ renderKudos = async function(offset){
   }catch(e){el.innerHTML='';}
 };
 
+let issueCommentCountMap={};
+
+loadIssueFeed = async function(force=false){
+  const el=document.getElementById('issueFeedWrap');if(!el)return;
+  const seq=++issueFeedRequestSeq;
+  const fetchIssueList=async(path,retry=1)=>{
+    try{return await api('GET',path);}
+    catch(err){
+      if(retry>0){
+        await new Promise(resolve=>setTimeout(resolve,180));
+        return fetchIssueList(path,retry-1);
+      }
+      throw err;
+    }
+  };
+  try{
+    const [pinnedRaw,recentRaw]=await Promise.all([
+      fetchIssueList('project_issues?is_pinned=eq.true&status=eq.open&select=*&order=created_at.desc'),
+      fetchIssueList('project_issues?select=*&order=created_at.desc&limit=30')
+    ]);
+    if(seq!==issueFeedRequestSeq)return;
+    const pinned=Array.isArray(pinnedRaw)?pinnedRaw.filter(Boolean):[];
+    const recent=Array.isArray(recentRaw)?recentRaw.filter(Boolean):[];
+    issueFeedCache={pinned,recent};
+    const uniqueIssues=[...new Map([...(pinned||[]),...(recent||[])].filter(i=>i&&i.id).map(i=>[i.id,i])).values()];
+    const unread=getUnreadCount(uniqueIssues);
+    updateIssueBadge(unread);
+    issueCommentCountMap={};
+    const ids=uniqueIssues.map(i=>i.id).filter(Boolean);
+    if(ids.length){
+      const comments=await api('GET','issue_comments?select=issue_id&issue_id=in.('+ids.join(',')+')').catch(()=>[]);
+      (comments||[]).forEach(row=>{
+        if(!row?.issue_id)return;
+        issueCommentCountMap[row.issue_id]=(issueCommentCountMap[row.issue_id]||0)+1;
+      });
+    }
+    renderIssueFeedSafe(el,pinned,recent);
+    markAllIssuesRead(uniqueIssues.map(i=>i.id));
+    updateIssueBadge(0);
+  }catch(e){
+    console.error('loadIssueFeed failed',e);
+    if((issueFeedCache.pinned||[]).length||(issueFeedCache.recent||[]).length){
+      renderIssueFeedSafe(el,issueFeedCache.pinned,issueFeedCache.recent);
+      return;
+    }
+    el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:12px 0">Issues could not be loaded.</div>';
+  }
+};
+
+renderIssueFeed = function(el,pinned,recent){
+  const pinnedIds=new Set((pinned||[]).map(i=>i.id));
+  const others=(recent||[]).filter(i=>!pinnedIds.has(i.id));
+  const readIds=getReadIssueIds();
+  const createBtn=canCreateIssueRole()?'<button class="btn primary sm" onclick="openIssueModal()">+ Issue</button>':'';
+  const sectionHead='<div class="card-sm" style="margin-bottom:10px;padding:12px 14px;background:var(--bg2)"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:4px">TEAM ISSUES</div><div style="font-size:13px;font-weight:700;color:var(--navy)">Current issues and follow-up</div></div>'+createBtn+'</div></div>';
+  const issueCard=(issue,isPinned)=>{
+    const proj=projects.find(p=>p.id===issue.project_id);
+    const client=proj?clients.find(c=>c.id===proj.client_id):null;
+    const isOpen=issue.status==='open';
+    const isUnread=isOpen&&!readIds.has(issue.id);
+    const editable=canEditIssue(issue);
+    const commentCount=issueCommentCountMap[issue.id]||0;
+    return '<div id="issue-card-'+issue.id+'" class="card notif-anchor issue-card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'">'
+      +'<div class="issue-card-layout">'
+      +'<div class="issue-card-main">'
+      +(proj?'<div class="issue-card-context">'+(client?esc(client.name)+' | ':'')+esc(proj.name)+'</div>':'')
+      +'<div class="issue-card-title '+(isOpen?'':'is-resolved')+'">'
+      +(isUnread?'<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block"></span>':'')
+      +(isPinned?'PIN ':'')+esc(issue.title)+'</div>'
+      +renderIssuePeopleBadges(issue)
+      +(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
+      +'<div class="issue-meta">'
+      +'<span>'+esc(issue.author_name||'Unknown')+'</span><span>'+formatCommentDate(issue.created_at)+'</span><span>Comments '+commentCount+'</span>'
+      +(issue.status==='resolved'?'<span style="color:var(--green);font-weight:700">Resolved '+esc(issue.resolved_by||'')+'</span>':'')
+      +'</div></div>'
+      +'<div class="issue-actions">'
+      +(isOpen?'<button class="issue-action-btn resolve-btn" onclick="resolveIssue(\''+issue.id+'\')" title="Resolve"><span class="issue-action-icon">OK</span><span class="issue-action-label">해결</span></button>':'')
+      +(editable?'<button class="issue-action-btn" onclick="openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="Edit"><span class="issue-action-icon">ED</span><span class="issue-action-label">수정</span></button>':'')
+      +(isAdmin&&isOpen?'<button class="issue-action-btn pin-btn '+(issue.is_pinned?'active':'')+'" onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" title="Pin"><span class="issue-action-icon">PIN</span><span class="issue-action-label">고정</span></button>':'')
+      +'<button class="issue-action-btn" onclick="openIssueComments(\''+issue.id+'\')" title="Comments"><span class="issue-action-icon">CM</span><span class="issue-action-label">댓글 '+commentCount+'</span></button>'
+      +'</div></div>'
+      +'<div id="comments-'+issue.id+'" style="display:none"></div>'
+      +'</div>';
+  };
+  let html=sectionHead;
+  if(pinned.length){
+    html+='<div class="card-sm" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--red);letter-spacing:.3px;text-transform:uppercase;margin-bottom:10px">Pinned</div>'
+      +pinned.map(i=>issueCard(i,true)).join('')+'</div>';
+  }
+  if(others.length){
+    const openOthers=others.filter(i=>i.status==='open');
+    const resolvedOthers=others.filter(i=>i.status!=='open');
+    if(openOthers.length){
+      html+='<div class="card-sm" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:10px">Open</div>'
+        +openOthers.map(i=>issueCard(i,false)).join('')+'</div>';
+    }
+    if(resolvedOthers.length){
+      html+='<div class="card-sm"><div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:10px">Resolved</div>'
+        +resolvedOthers.map(i=>issueCard(i,false)).join('')+'</div>';
+    }
+  }
+  if(!pinned.length&&!others.length){
+    html+='<div class="card-sm"><div style="font-size:12px;color:var(--text3)">No issues yet.</div></div>';
+  }
+  el.innerHTML=html;
+};
+
+renderGanttDetailPanel = function(projs,schs){
+  const el=document.getElementById('ganttDetail'); if(!el) return;
+  const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  if(!project){
+    el.innerHTML='<div class="gantt-panel-title">Select a project</div><div class="gantt-panel-sub">Pick a project from the left list. The right panel shows the team schedule and quick actions.</div>';
+    return;
+  }
+  const client=clients.find(c=>c.id===project.client_id)||null;
+  const projectMembers=project.members||[];
+  const memberSchedules=schs.filter(s=>projectMembers.includes(s.member_name)).sort((a,b)=>toDate(a.start)-toDate(b.start)).slice(0,8);
+  const issueCount=openIssuesByProject[project.id]||0;
+  const projectIssueIds=[...(issueFeedCache.pinned||[]),...(issueFeedCache.recent||[])].filter(i=>i.project_id===project.id).map(i=>i.id);
+  const commentCount=projectIssueIds.reduce((sum,id)=>sum+(issueCommentCountMap[id]||0),0);
+  el.innerHTML=
+    '<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' | '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='\uC9C4\uD589\uC911'?'badge-blue':project.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div>'
+    +'<div class="gantt-detail-grid">'
+    +'<div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div>'
+    +'<div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'Unassigned')+'</div></div>'
+    +'<div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div>'
+    +'<div><div class="gantt-detail-label">Issue / Comment</div><div class="gantt-detail-value">'+issueCount+' issues · '+commentCount+' comments</div></div>'
+    +'</div>'
+    +'<div class="gantt-main-copy">The left side is not an automatic priority board. It is simply this month\\'s visible project list. Select a project to see team schedules and quick actions here.</div>'
+    +'<div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-panel-title">Team Schedule</div><div class="gantt-detail-list">'
+    +(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')
+    +'</div></div>';
+};
+
+renderKudos = async function(offset){
+  if(offset!==undefined)kudosWeekOffset=offset;
+  const el=document.getElementById('kudosWrap');if(!el)return;
+  const ws=getWeekStart(kudosWeekOffset);
+  const {start}=getWeekBounds(kudosWeekOffset);
+  const weekLabel=kudosWeekOffset===0?'\uC774\uBC88 \uC8FC':kudosWeekOffset===-1?'\uC9C0\uB09C \uC8FC':`${start.getMonth()+1}/${start.getDate()} \uC8FC`;
+  try{
+    const [votes,myVoteArr]=await Promise.all([
+      api('GET','kudos_votes?week_start=eq.'+ws+'&select=*'),
+      api('GET','kudos_votes?week_start=eq.'+ws+'&voter_id=eq.'+(currentUser?.id||'null')+'&select=*').catch(()=>[])
+    ]);
+    const tally={};
+    (votes||[]).forEach(v=>{tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;});
+    const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+    const myVote=myVoteArr&&myVoteArr[0];
+    const hasVotes=sorted.length>0;
+    const isCurrentWeek=kudosWeekOffset===0;
+    el.innerHTML=
+      '<div class="card" style="margin-bottom:16px;background:linear-gradient(180deg,#6B7280 0%,#111827 100%);border:1px solid rgba(17,24,39,.82);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">'
+      +'<div style="display:flex;align-items:center;gap:10px;min-width:0">'
+      +'<div style="font-size:15px;font-weight:900;color:#FFFFFF;letter-spacing:.4px;text-transform:uppercase">\uCE6D\uCC2C\uC0AC\uC6D0</div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'
+      +'<button onclick="renderKudos('+(kudosWeekOffset-1)+')" style="background:#374151;border:1px solid rgba(255,255,255,.14);color:#FFFFFF;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center">‹</button>'
+      +'<span style="font-size:12px;color:#FFFFFF;min-width:70px;text-align:center;font-weight:800">'+weekLabel+'</span>'
+      +(kudosWeekOffset<0?'<button onclick="renderKudos('+(kudosWeekOffset+1)+')" style="background:#374151;border:1px solid rgba(255,255,255,.14);color:#FFFFFF;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center">›</button>':'<div style="width:30px"></div>')
+      +'</div></div>'
+      +(isCurrentWeek?'<button class="btn sm" style="background:#0F172A;border:1px solid rgba(255,255,255,.18);color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">'+(myVote?'\uD22C\uD45C \uC644\uB8CC · \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30')+'</button>':'')
+      +'</div>'
+      +(hasVotes
+        ?'<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+          +'<div style="width:56px;height:56px;border-radius:14px;background:#111827;border:1px solid rgba(255,255,255,.12);color:#FFFFFF;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(sorted[0][0].charAt(0))+'</div>'
+          +'<div><div style="font-size:22px;font-weight:900;color:#FFFFFF;letter-spacing:-.5px">'+esc(sorted[0][0])+'</div>'
+          +'<div style="font-size:13px;color:#FFFFFF;margin-top:2px;font-weight:800">'+sorted[0][1]+'\uD45C'+(myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):'')+'</div></div>'
+          +'<div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">'
+          +sorted.map(([name,cnt])=>'<div style="text-align:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);padding:6px 8px;border-radius:10px"><div style="font-size:11px;color:#F3F4F6;margin-bottom:3px;font-weight:700">'+esc(name)+'</div><div style="font-size:18px;font-weight:900;color:#FFFFFF">'+cnt+'</div></div>').join('')
+          +'</div></div>'
+        :'<div style="color:#FFFFFF;font-size:14px;font-weight:800;text-align:center;padding:14px 0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:12px">'+(isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.')+'</div>'
+      )
+      +'</div>';
+  }catch(e){el.innerHTML='';}
+};
+
 async function deleteSchedule(id){
   if(!confirm('일정을 삭제할까요?'))return;
   try{await api('DELETE','schedules?id=eq.'+id);closeModal();await loadAll();if(curPage==='gantt')renderGantt();else renderClients();}catch(e){alert('오류: '+e.message);} 
@@ -7596,6 +7774,118 @@ async function deleteSchedule(id){
     alert('오류: '+e.message);
   }
 }
+issueCommentCountMap={};
+
+loadIssueFeed = async function(force=false){
+  const el=document.getElementById('issueFeedWrap');if(!el)return;
+  const seq=++issueFeedRequestSeq;
+  const fetchIssueList=async(path,retry=1)=>{
+    try{return await api('GET',path);}
+    catch(err){
+      if(retry>0){
+        await new Promise(resolve=>setTimeout(resolve,180));
+        return fetchIssueList(path,retry-1);
+      }
+      throw err;
+    }
+  };
+  try{
+    const [pinnedRaw,recentRaw]=await Promise.all([
+      fetchIssueList('project_issues?is_pinned=eq.true&status=eq.open&select=*&order=created_at.desc'),
+      fetchIssueList('project_issues?select=*&order=created_at.desc&limit=30')
+    ]);
+    if(seq!==issueFeedRequestSeq)return;
+    const pinned=Array.isArray(pinnedRaw)?pinnedRaw.filter(Boolean):[];
+    const recent=Array.isArray(recentRaw)?recentRaw.filter(Boolean):[];
+    issueFeedCache={pinned,recent};
+    const uniqueIssues=[...new Map([...(pinned||[]),...(recent||[])].filter(i=>i&&i.id).map(i=>[i.id,i])).values()];
+    issueCommentCountMap={};
+    const ids=uniqueIssues.map(i=>i.id).filter(Boolean);
+    if(ids.length){
+      const comments=await api('GET','issue_comments?select=issue_id&issue_id=in.('+ids.join(',')+')').catch(()=>[]);
+      (comments||[]).forEach(row=>{
+        if(!row?.issue_id)return;
+        issueCommentCountMap[row.issue_id]=(issueCommentCountMap[row.issue_id]||0)+1;
+      });
+    }
+    const unread=getUnreadCount(uniqueIssues);
+    updateIssueBadge(unread);
+    renderIssueFeedSafe(el,pinned,recent);
+    markAllIssuesRead(uniqueIssues.map(i=>i.id));
+    updateIssueBadge(0);
+  }catch(e){
+    console.error('loadIssueFeed failed',e);
+    if((issueFeedCache.pinned||[]).length||(issueFeedCache.recent||[]).length){
+      renderIssueFeedSafe(el,issueFeedCache.pinned,issueFeedCache.recent);
+      return;
+    }
+    el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:12px 0">Issues could not be loaded.</div>';
+  }
+};
+
+renderIssueFeed = function(el,pinned,recent){
+  const pinnedIds=new Set((pinned||[]).map(i=>i.id));
+  const others=(recent||[]).filter(i=>!pinnedIds.has(i.id));
+  const readIds=getReadIssueIds();
+  const createBtn=canCreateIssueRole()?'<button class="btn primary sm" onclick="openIssueModal()">+ Issue</button>':'';
+  const sectionHead='<div class="card-sm" style="margin-bottom:10px;padding:12px 14px;background:var(--bg2)"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:4px">TEAM ISSUES</div><div style="font-size:13px;font-weight:700;color:var(--navy)">Current issues and follow-up</div></div>'+createBtn+'</div></div>';
+  const issueCard=(issue,isPinned)=>{
+    const proj=projects.find(p=>p.id===issue.project_id);
+    const client=proj?clients.find(c=>c.id===proj.client_id):null;
+    const isOpen=issue.status==='open';
+    const isUnread=isOpen&&!readIds.has(issue.id);
+    const editable=canEditIssue(issue);
+    const commentCount=issueCommentCountMap[issue.id]||0;
+    return '<div id="issue-card-'+issue.id+'" class="card notif-anchor issue-card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'"><div class="issue-card-layout"><div class="issue-card-main">'+(proj?'<div class="issue-card-context">'+(client?esc(client.name)+' | ':'')+esc(proj.name)+'</div>':'')+'<div class="issue-card-title '+(isOpen?'':'is-resolved')+'">'+(isUnread?'<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block"></span>':'')+(isPinned?'PIN ':'')+esc(issue.title)+'</div>'+renderIssuePeopleBadges(issue)+(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')+'<div class="issue-meta"><span>'+esc(issue.author_name||'Unknown')+'</span><span>'+formatCommentDate(issue.created_at)+'</span><span>Comments '+commentCount+'</span>'+(issue.status==='resolved'?'<span style="color:var(--green);font-weight:700">Resolved '+esc(issue.resolved_by||'')+'</span>':'')+'</div></div><div class="issue-actions">'+(isOpen?'<button class="issue-action-btn resolve-btn" onclick="resolveIssue(\''+issue.id+'\')" title="Resolve"><span class="issue-action-icon">OK</span><span class="issue-action-label">해결</span></button>':'')+(editable?'<button class="issue-action-btn" onclick="openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="Edit"><span class="issue-action-icon">ED</span><span class="issue-action-label">수정</span></button>':'')+(isAdmin&&isOpen?'<button class="issue-action-btn pin-btn '+(issue.is_pinned?'active':'')+'" onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" title="Pin"><span class="issue-action-icon">PIN</span><span class="issue-action-label">고정</span></button>':'')+'<button class="issue-action-btn" onclick="openIssueComments(\''+issue.id+'\')" title="Comments"><span class="issue-action-icon">CM</span><span class="issue-action-label">댓글 '+commentCount+'</span></button></div></div><div id="comments-'+issue.id+'" style="display:none"></div></div>';
+  };
+  let html=sectionHead;
+  if(pinned.length) html+='<div class="card-sm" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--red);letter-spacing:.3px;text-transform:uppercase;margin-bottom:10px">Pinned</div>'+pinned.map(i=>issueCard(i,true)).join('')+'</div>';
+  if(others.length){
+    const openOthers=others.filter(i=>i.status==='open');
+    const resolvedOthers=others.filter(i=>i.status!=='open');
+    if(openOthers.length) html+='<div class="card-sm" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:10px">Open</div>'+openOthers.map(i=>issueCard(i,false)).join('')+'</div>';
+    if(resolvedOthers.length) html+='<div class="card-sm"><div style="font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:10px">Resolved</div>'+resolvedOthers.map(i=>issueCard(i,false)).join('')+'</div>';
+  }
+  if(!pinned.length&&!others.length) html+='<div class="card-sm"><div style="font-size:12px;color:var(--text3)">No issues yet.</div></div>';
+  el.innerHTML=html;
+};
+
+renderGanttDetailPanel = function(projs,schs){
+  const el=document.getElementById('ganttDetail'); if(!el) return;
+  const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  if(!project){
+    el.innerHTML='<div class="gantt-panel-title">Select a project</div><div class="gantt-panel-sub">Pick a project from the left list. The right panel shows the team schedule and quick actions.</div>';
+    return;
+  }
+  const client=clients.find(c=>c.id===project.client_id)||null;
+  const projectMembers=project.members||[];
+  const memberSchedules=schs.filter(s=>projectMembers.includes(s.member_name)).sort((a,b)=>toDate(a.start)-toDate(b.start)).slice(0,8);
+  const issueCount=openIssuesByProject[project.id]||0;
+  const projectIssueIds=[...(issueFeedCache.pinned||[]),...(issueFeedCache.recent||[])].filter(i=>i.project_id===project.id).map(i=>i.id);
+  const commentCount=projectIssueIds.reduce((sum,id)=>sum+(issueCommentCountMap[id]||0),0);
+  el.innerHTML='<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' | '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='\uC9C4\uD589\uC911'?'badge-blue':project.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div><div class="gantt-detail-grid"><div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div><div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'Unassigned')+'</div></div><div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div><div><div class="gantt-detail-label">Issue / Comment</div><div class="gantt-detail-value">'+issueCount+' issues | '+commentCount+' comments</div></div></div><div class="gantt-main-copy">The left side is not a priority engine. It is simply this month\\'s visible project list. Select a project to see team schedules and quick actions here.</div><div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div><div class="gantt-detail-section"><div class="gantt-panel-title">Team Schedule</div><div class="gantt-detail-list">'+(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')+'</div></div>';
+};
+
+renderKudos = async function(offset){
+  if(offset!==undefined)kudosWeekOffset=offset;
+  const el=document.getElementById('kudosWrap');if(!el)return;
+  const ws=getWeekStart(kudosWeekOffset);
+  const {start}=getWeekBounds(kudosWeekOffset);
+  const weekLabel=kudosWeekOffset===0?'\uC774\uBC88 \uC8FC':kudosWeekOffset===-1?'\uC9C0\uB09C \uC8FC':`${start.getMonth()+1}/${start.getDate()} \uC8FC`;
+  try{
+    const [votes,myVoteArr]=await Promise.all([
+      api('GET','kudos_votes?week_start=eq.'+ws+'&select=*'),
+      api('GET','kudos_votes?week_start=eq.'+ws+'&voter_id=eq.'+(currentUser?.id||'null')+'&select=*').catch(()=>[])
+    ]);
+    const tally={};
+    (votes||[]).forEach(v=>{tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;});
+    const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+    const myVote=myVoteArr&&myVoteArr[0];
+    const hasVotes=sorted.length>0;
+    const isCurrentWeek=kudosWeekOffset===0;
+    el.innerHTML='<div class="card" style="margin-bottom:16px;background:linear-gradient(180deg,#6B7280 0%,#111827 100%);border:1px solid rgba(17,24,39,.82);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:10px;min-width:0"><div style="font-size:16px;font-weight:900;color:#FFFFFF;letter-spacing:.4px;text-transform:uppercase">\uCE6D\uCC2C\uC0AC\uC6D0</div><div style="display:flex;align-items:center;gap:6px"><button onclick="renderKudos('+(kudosWeekOffset-1)+')" style="background:#374151;border:1px solid rgba(255,255,255,.14);color:#FFFFFF;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center">‹</button><span style="font-size:12px;color:#FFFFFF;min-width:70px;text-align:center;font-weight:800">'+weekLabel+'</span>'+(kudosWeekOffset<0?'<button onclick="renderKudos('+(kudosWeekOffset+1)+')" style="background:#374151;border:1px solid rgba(255,255,255,.14);color:#FFFFFF;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center">›</button>':'<div style="width:30px"></div>')+'</div></div>'+(isCurrentWeek?'<button class="btn sm" style="background:#0F172A;border:1px solid rgba(255,255,255,.18);color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">'+(myVote?'\uD22C\uD45C \uC644\uB8CC · \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30')+'</button>':'')+'</div>'+(hasVotes?'<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div style="width:56px;height:56px;border-radius:14px;background:#111827;border:1px solid rgba(255,255,255,.12);color:#FFFFFF;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(sorted[0][0].charAt(0))+'</div><div><div style="font-size:22px;font-weight:900;color:#FFFFFF;letter-spacing:-.5px">'+esc(sorted[0][0])+'</div><div style="font-size:13px;color:#FFFFFF;margin-top:2px;font-weight:800">'+sorted[0][1]+'\uD45C'+(myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):'')+'</div></div><div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">'+sorted.map(([name,cnt])=>'<div style="text-align:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);padding:6px 8px;border-radius:10px"><div style="font-size:11px;color:#F3F4F6;margin-bottom:3px;font-weight:700">'+esc(name)+'</div><div style="font-size:18px;font-weight:900;color:#FFFFFF">'+cnt+'</div></div>').join('')+'</div></div>':'<div style="color:#FFFFFF;font-size:14px;font-weight:800;text-align:center;padding:14px 0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:12px">'+(isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.')+'</div>')+'</div>';
+  }catch(e){el.innerHTML='';}
+};
 </script>
 
 </body>
