@@ -638,9 +638,29 @@ input,textarea{border-radius:12px!important}
 }
 </style>
 
+<script>
+window.__loadMsalPromise = new Promise((resolve, reject) => {
+  function loadScript(src, fallback) {
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false;
+    s.onload = () => resolve();
+    s.onerror = () => {
+      if (fallback) {
+        fallback();
+      } else {
+        reject(new Error('MSAL 라이브러리 로드 실패'));
+      }
+    };
+    document.head.appendChild(s);
+  }
 
-<script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"></script>
-
+  loadScript(
+    'https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js',
+    () => loadScript('https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js')
+  );
+});
+</script>
 
   
 </head>
@@ -5827,19 +5847,27 @@ const loginRequest = {
   scopes: ["User.Read", "Calendars.ReadWrite"]
 };
 
-async function getMsalClient(){
-  if(window.location.protocol === 'file:'){
-    throw new Error('로컬 파일(file://)에서는 Microsoft 로그인을 테스트할 수 없습니다. Netlify 배포 주소에서 실행해주세요.');
+async function getMsalClient()async function getMsalClient() {
+  if (window.location.protocol === 'file:') {
+    throw new Error('로컬 파일(file:///)에서는 Microsoft 로그인을 테스트할 수 없습니다. Netlify 배포 주소에서 실행해주세요.');
   }
-  if(!window.msal){
+
+  if (window.__loadMsalPromise) {
+    await window.__loadMsalPromise;
+  }
+
+  if (!window.msal) {
     throw new Error('MSAL 라이브러리를 불러오지 못했습니다.');
   }
-  if(!window.__msalInstance){
+
+  if (!window.__msalInstance) {
     window.__msalInstance = new window.msal.PublicClientApplication(msalConfig);
-    if(typeof window.__msalInstance.initialize === 'function'){
+
+    if (typeof window.__msalInstance.initialize === 'function') {
       await window.__msalInstance.initialize();
     }
   }
+
   return window.__msalInstance;
 }
 
