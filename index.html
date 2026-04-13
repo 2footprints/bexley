@@ -2072,7 +2072,7 @@ function openClientDetail(id, tab='projects'){
     +'<p>'+(c.industry||'업종 미입력')+'</p>'
 
     +'<div style="margin-top:12px;display:flex;gap:8px;">'
-    +'<button class="btn primary" onclick="openScheduleModal()">📅 일정 추가</button>'
+    +'<button class="btn primary" onclick="handleOutlookEventAdd()">📅 Outlook 일정 추가</button>'
     +'<button class="btn" onclick="msLogin()">🔐 Microsoft 로그인</button>'
     +'</div>'
 
@@ -6027,6 +6027,32 @@ function handleAddSchedule() {
 }
   
 
+
+async function handleOutlookEventAdd() {
+  const clientName = document.querySelector('.detail-hero-text h2')?.innerText || '고객사';
+  const now = new Date();
+  const end = new Date(now.getTime() + 60 * 60 * 1000);
+
+  try {
+    await createProjectSchedule({
+      clientId: '',
+      clientName,
+      projectId: '',
+      projectName: '기본 프로젝트',
+      title: '고객사 관련 일정',
+      startAt: now.toISOString(),
+      endAt: end.toISOString(),
+      memo: ''
+    });
+  } catch (e) {
+    console.error(e);
+    alert('Outlook 일정 추가 중 오류가 발생했습니다.');
+  }
+}
+
+
+
+  
   
 </script>
 
