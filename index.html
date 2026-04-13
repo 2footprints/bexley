@@ -149,7 +149,7 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .issue-action-btn.resolve-btn{border-color:var(--green);color:var(--green);font-size:13px}
 .issue-action-btn.pin-btn.active{background:var(--red-bg);color:var(--red)}
 .team-notice-panel{margin-bottom:0}
-.team-extra-toggle{min-height:36px}
+.team-extra-toggle{min-height:36px;display:none!important}
 .comment-actions .btn.sm{display:inline-flex;align-items:center;justify-content:center}
 #notifPanel{max-width:calc(100vw - 24px)}
 /* 햄버거 메뉴 */
@@ -342,8 +342,8 @@ table{border-collapse:collapse;min-width:100%}
 .cell.today-c{background:rgba(99,102,241,.06)}
 .bar{position:absolute;top:7px;bottom:7px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1;letter-spacing:-.2px}
 .bar:hover{filter:brightness(.9)}
-.leave-marker{position:absolute;top:2px;bottom:2px;border-radius:4px;z-index:2;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;pointer-events:auto;opacity:.85}
-.leave-marker:hover{opacity:1;z-index:3}
+.leave-marker{position:absolute;top:4px;bottom:4px;border-radius:6px;z-index:2;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;pointer-events:auto;opacity:.56}
+.leave-marker:hover{opacity:.8;z-index:3}
 .leave-marker:hover::after{content:attr(title);position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;white-space:nowrap;z-index:100;pointer-events:none;font-weight:600}
 .g-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:3px}
 .g-badge.overdue{background:rgba(245,158,11,.15);color:var(--orange)}
@@ -566,7 +566,7 @@ body{
 #notifBell{background:rgba(255,255,255,.9)!important;border:1px solid var(--border)!important;box-shadow:0 1px 2px rgba(10,37,64,.03)!important}
 #notifPanel,.mobile-menu{background:rgba(255,255,255,.95)!important;backdrop-filter:blur(14px)!important;border-color:var(--border)!important}
 .app{max-width:1360px!important;padding:28px 24px 42px!important;position:relative}
-.app::before{content:'OPERATIONS WORKSPACE';display:block;font-size:11px;font-weight:800;letter-spacing:.16em;color:rgba(10,37,64,.42);margin-bottom:10px}
+.app::before{content:none;display:none!important}
 .status-bar{padding-bottom:18px!important}
 .btn,.logout-btn,select,.login-type-btn,.login-tab,.modal-tab,.toggle-btn,.detail-tab{transition:all .18s ease!important}
 .btn,.logout-btn,select{
@@ -1519,14 +1519,6 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navFun" onclick="setPage('fun')">팀편의</button>
     </nav>
 
-    <div class="header-search-wrap" id="workspaceSearchWrap">
-      <div class="header-search-shell">
-        <span class="header-search-icon">⌘</span>
-        <input id="workspaceSearch" type="text" placeholder="페이지 이동 또는 기능 찾기" autocomplete="off" />
-        <span class="header-search-hint">빠른 이동</span>
-      </div>
-      <div class="workspace-search-results" id="workspaceSearchResults" role="listbox"></div>
-    </div>
     <div class="header-right">
       <span id="adminChip" class="admin-chip" style="display:none">관리자</span>
       <button id="accessMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openAccessRequestManager()">권한 요청</button>
@@ -1629,13 +1621,9 @@ input,textarea{border-radius:12px!important}
         </div>
       </div>
 
-      <!-- 하단: 칭찬투표 + 업무후기 (접을 수 있는 섹션) -->
+      <!-- 하단: 칭찬투표 + 업무후기 -->
       <div style="border-top:1px solid var(--border);padding-top:16px">
-        <button onclick="toggleTeamExtra()" id="teamExtraToggle" class="team-extra-toggle"
-          style="background:none;border:none;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:12px">
-          <span id="teamExtraIcon">▸</span> 칭찬투표 · 업무후기
-        </button>
-        <div id="teamExtraContent" style="display:none">
+        <div id="teamExtraContent" style="display:block">
           <div class="team-extra-grid">
             <div id="kudosWrap"></div>
             <div id="weeklyReviewWrap"></div>
@@ -1907,9 +1895,9 @@ async function navigateToStoredProjectComment(commentId){
 const TYPES={'감사':'#6366F1','세무':'#06B6D4','밸류에이션':'#8B5CF6','자문':'#10B981','실사':'#EC4899','기타':'#94A3B8'};
 const ST_OP={'진행중':1,'예정':.5,'완료':.3};
 const SCHEDULE_META={
-  leave:{label:'휴가',color:'#F59E0B'},
-  fieldwork:{label:'필드웍',color:'#EF4444'},
-  internal:{label:'내부업무',color:'#8B5CF6'},
+  leave:{label:'휴가',color:'#C8B28A'},
+  fieldwork:{label:'필드웍',color:'#9AA7B6'},
+  internal:{label:'내부업무',color:'#A8B0BA'},
   project:{label:'프로젝트 일정',color:'#6366F1'}
 };
 
@@ -2533,13 +2521,13 @@ function renderWeeklyScheduleSummary(){
   const fmtWR=(s,e)=>(s.getMonth()+1)+'.'+s.getDate()+' ~ '+(e.getMonth()+1)+'.'+e.getDate();
   const hasNext=nextWeek.leave.length||nextWeek.fieldwork.length;
   const sRow=s=>'<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">'
-    +'<div style="width:7px;height:7px;border-radius:50%;background:'+(s.schedule_type==='leave'?'var(--orange)':'#EF4444')+';flex-shrink:0"></div>'
+      +'<div style="width:7px;height:7px;border-radius:50%;background:'+(s.schedule_type==='leave'?'#C8B28A':'#9AA7B6')+';flex-shrink:0"></div>'
     +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--navy)">'+esc(s.member_name||'미지정')+'</div>'
     +'<div style="font-size:11px;color:var(--text3)">'+formatRangeShort(s.start,s.end)+(s.location?' · '+esc(s.location):'')+'</div></div>'
-    +'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+(s.schedule_type==='leave'?'#FFF7ED':'#FEF2F2')+';color:'+(s.schedule_type==='leave'?'var(--orange)':'#EF4444')+'">'+scheduleLabel(s.schedule_type)+'</span>'
+      +'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+(s.schedule_type==='leave'?'#F6F1E8':'#EDF1F5')+';color:'+(s.schedule_type==='leave'?'#8C7351':'#5F6E7E')+'">'+scheduleLabel(s.schedule_type)+'</span>'
     +'</div>';
   const col=(label,items)=>'<div>'
-    +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">'+(label==='휴가'?'🌿 휴가':'🚗 필드웍')+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">'+(label==='휴가'?'휴가':'필드웍')+'</div>'
     +(items.length?items.map(sRow).join(''):'<div style="font-size:12px;color:var(--text3);padding:8px 0">없음</div>')
     +'</div>';
   el.innerHTML='<div class="card" style="margin-bottom:16px">'
@@ -3412,9 +3400,9 @@ function gRow(p,days){
     const overlays=leaveOverlays[d]||[];
     let overlayHtml='';
     if(overlays.length&&d>=barS&&d<=barE){
-      const icons=overlays.map(ov=>ov.type==='leave'?'🌿':'🚗').join('');
+      const icons=overlays.map(ov=>ov.type==='leave'?'L':'F').join(' ');
       const tip=overlays.map(ov=>ov.member+' '+ov.title).join(', ');
-      const oc=overlays.some(ov=>ov.type==='leave')?'rgba(245,158,11,.8)':'rgba(239,68,68,.8)';
+      const oc=overlays.some(ov=>ov.type==='leave')?'rgba(200,178,138,.48)':'rgba(154,167,182,.42)';
       overlayHtml='<div class="leave-marker" style="left:1px;right:1px;background:'+oc+'" title="'+esc(tip)+'">'+icons+'</div>';
     }
     if(d===barS){
@@ -3443,7 +3431,7 @@ function scheduleRow(s,days){
     const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
     const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
     if(d===barS){
-      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:.9;border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 -2px 0 rgba(0,0,0,.12)" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc(s.title||scheduleLabel(s.schedule_type)):'')+'</div></td>';
+      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);box-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc(s.title||scheduleLabel(s.schedule_type)):'')+'</div></td>';
     } else cells+='<td class="'+cls+'"></td>';
   }
   return '<tr><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
@@ -5362,12 +5350,10 @@ async function loadInitialNotifBadge(){
 
 function toggleTeamExtra(){
   const el=document.getElementById('teamExtraContent');
-  const icon=document.getElementById('teamExtraIcon');
   if(!el)return;
-  const isOpen=el.style.display!=='none';
-  el.style.display=isOpen?'none':'block';
-  if(icon)icon.textContent=isOpen?'▸':'▾';
-  if(!isOpen){renderKudos();renderWeeklyReviews();}
+  el.style.display='block';
+  renderKudos();
+  renderWeeklyReviews();
 }
 
 // ── 이슈 읽음 추적 ──
