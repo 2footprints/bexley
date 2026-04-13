@@ -638,6 +638,11 @@ input,textarea{border-radius:12px!important}
 }
 </style>
 
+
+<script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"></script>
+
+
+  
 </head>
 
 
@@ -2062,7 +2067,16 @@ function openClientDetail(id, tab='projects'){
   document.getElementById('detailContent').innerHTML=
     '<div class="detail-hero">'
     +'<div class="detail-avatar">'+esc(c.name.charAt(0))+'</div>'
-    +'<div class="detail-hero-text" style="flex:1"><h2>'+esc(c.name)+'</h2><p>'+(c.industry||'업종 미입력')+'</p></div>'
+    +'<div class="detail-hero-text" style="flex:1">'
+    +'<h2>'+esc(c.name)+'</h2>'
+    +'<p>'+(c.industry||'업종 미입력')+'</p>'
+
+    +'<div style="margin-top:12px;display:flex;gap:8px;">'
+    +'<button class="btn primary" onclick="handleAddSchedule()">📅 일정 추가</button>'
+    +'<button class="btn" onclick="msLogin()">🔐 Microsoft 로그인</button>'
+    +'</div>'
+
+    +'</div>'
     +(isAdmin||c.created_by===currentUser?.id?'<button class="btn sm" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff" onclick="openClientModal(\''+c.id+'\')">수정</button>':'')
     +'</div>'
     +'<div class="detail-tabs">'
@@ -5864,6 +5878,160 @@ async function createProjectCalendarEvent() {
     alert('❌ 에러 발생: ' + e.message);
   }
 }
+
+
+// =====================
+// MS LOGIN CONFIG
+// =====================
+const msalConfig = {
+  auth: {
+    clientId: "8f3967e6-9985-4e04-9be5-4ffadad381bc",
+    authority: "https://login.microsoftonline.com/86d6a33f-3b89-419c-b633-37a379c9888a",
+    redirectUri: window.location.origin
+  }
+};
+
+const loginRequest = {
+  scopes: ["User.Read", "Calendars.ReadWrite"]
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+// =====================
+// LOGIN
+// =====================
+async function msLogin() {
+  const res = await msalInstance.loginPopup(loginRequest);
+  msalInstance.setActiveAccount(res.account);
+  alert("Microsoft 로그인 완료: " + res.account.username);
+}
+
+// =====================
+// TOKEN
+// =====================
+async function getMsToken() {
+  const account = msalInstance.getActiveAccount();
+
+  const token = await msalInstance.acquireTokenSilent({
+    ...loginRequest,
+    account
+  });
+
+  return token.accessToken;
+}
+
+// =====================
+// 📌 핵심: 프로젝트 일정 생성
+// =====================
+async function createProjectSchedule({
+  clientId,
+  clientName,
+  projectId,
+  projectName,
+  title,
+  startAt,
+  endAt,
+  memo
+}) {
+
+  try {
+
+    // 1️⃣ DB 저장 (Supabase)
+    const res = await fetch('/.netlify/functions/create-schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: clientId,
+        project_id: projectId,
+        title,
+        memo,
+        start_at: startAt,
+        end_at: endAt
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error(data);
+      alert("DB 저장 실패");
+      return;
+    }
+
+    // 2️⃣ 내 캘린더 반영
+    const token = await getMsToken();
+
+    const event = {
+      subject: `[${clientName}] ${projectName} - ${title}`,
+      start: {
+        dateTime: new Date(startAt).toISOString(),
+        timeZone: "Asia/Seoul"
+      },
+      end: {
+        dateTime: new Date(endAt).toISOString(),
+        timeZone: "Asia/Seoul"
+      },
+      body: {
+        contentType: "HTML",
+        content: memo || ""
+      }
+    };
+
+    const graphRes = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(event)
+    });
+
+    const graphData = await graphRes.json();
+
+    if (!graphRes.ok) {
+      console.error(graphData);
+      alert("Outlook 반영 실패 (DB는 저장됨)");
+      return;
+    }
+
+    alert("✅ 일정 생성 + 내 캘린더 반영 완료");
+
+  } catch (err) {
+    console.error(err);
+    alert("오류 발생");
+  }
+}
+
+
+function handleAddSchedule() {
+  const project = window.currentProject;
+
+  if (!project) {
+    alert("프로젝트를 먼저 선택해주세요.");
+    return;
+  }
+
+  const now = new Date();
+  const end = new Date(now.getTime() + 60 * 60 * 1000);
+
+  createProjectSchedule({
+    clientId: project.client_id,
+    clientName: project.client_name || '',
+    projectId: project.id,
+    projectName: project.name || '프로젝트',
+    title: '내부 검토',
+    startAt: now.toISOString(),
+    endAt: end.toISOString(),
+    memo: '자동 생성 테스트'
+  });
+}
+  
+
+  
+</script>
+
+
+  
 </script>
 
   
