@@ -5797,19 +5797,20 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
 </script>
 
 
-
-  <!-- 📧 테스트 메일 버튼 -->
-<div style="position:fixed; bottom:20px; right:20px; z-index:9999;">
+<!-- 📧 / 📅 테스트 버튼 -->
+<div style="position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; gap:8px; flex-direction:column;">
   <button onclick="sendTestMail()" 
     style="padding:12px 16px; background:#635BFF; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
     📧 메일 테스트
   </button>
+
+  <button onclick="createProjectCalendarEvent()" 
+    style="padding:12px 16px; background:#0A2540; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
+    📅 Outlook 일정 테스트
+  </button>
 </div>
 
 <script>
-
-window.addEventListener('load', boot);
-
 async function sendTestMail() {
   try {
     const res = await fetch('/.netlify/functions/send-personal-briefing', {
@@ -5821,23 +5822,53 @@ async function sendTestMail() {
     });
 
     const data = await res.json();
-
-    console.log('응답:', data);
+    console.log('메일 응답:', data);
 
     if (data.ok) {
       alert('✅ 메일 발송 성공');
     } else {
-      alert('❌ 실패: ' + data.message);
+      alert('❌ 실패: ' + (data.message || '알 수 없는 오류'));
     }
-
   } catch (e) {
     console.error(e);
     alert('❌ 에러 발생: ' + e.message);
   }
 }
 
+async function createProjectCalendarEvent() {
+  try {
+    const res = await fetch('/.netlify/functions/graph-create-project-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: '프로젝트 일정 테스트',
+        startDateTime: '2026-04-14T15:00:00',
+        endDateTime: '2026-04-14T16:00:00',
+        timezone: 'Asia/Seoul',
+        description: '<p>사이트에서 생성한 Outlook 테스트 일정입니다.</p>',
+        location: 'Bexley'
+      })
+    });
+
+    const data = await res.json();
+    console.log('Graph 응답:', data);
+
+    if (data.ok) {
+      alert('✅ Outlook 일정 생성 성공');
+    } else {
+      alert('❌ 실패: ' + (data.message || '알 수 없는 오류'));
+      console.error(data);
+    }
+  } catch (e) {
+    console.error(e);
+    alert('❌ 에러 발생: ' + e.message);
+  }
+}
 </script>
 
+
+
+  
 </body>
 </html>
 
