@@ -486,6 +486,158 @@ table{border-collapse:collapse;min-width:100%}
 .login-msg.err{color:var(--red)}
 .login-msg.ok{color:var(--green)}
 </style>
+
+<style id="stripeThemeOverride">
+:root{
+  --bg:#F6F9FC;
+  --bg2:#EEF3F7;
+  --card:#FFFFFF;
+  --blue:#635BFF;
+  --blue-light:#F4F3FF;
+  --blue-dark:#4B45D1;
+  --navy:#0A2540;
+  --navy2:#102D4B;
+  --text:#0A2540;
+  --text2:#425466;
+  --text3:#6B7C93;
+  --border:#E3E8EE;
+  --border2:#D8E2EC;
+  --red:#E25950;
+  --red-bg:#FFF1F0;
+  --green:#0A8F58;
+  --green-bg:#ECFDF3;
+  --orange:#C15E00;
+  --orange-bg:#FFF7ED;
+  --shadow:0 1px 2px rgba(10,37,64,.05),0 12px 28px rgba(10,37,64,.06);
+  --shadow-lg:0 24px 48px rgba(10,37,64,.10);
+  --radius:18px;
+  --radius-sm:12px;
+}
+html{background:#F6F9FC}
+body{
+  background:
+    radial-gradient(900px 320px at -5% -10%, rgba(99,91,255,.16), transparent 58%),
+    radial-gradient(860px 260px at 105% -5%, rgba(10,37,64,.08), transparent 56%),
+    linear-gradient(180deg,#f9fbff 0%, #f6f9fc 180px, #f6f9fc 100%);
+  color:var(--text);
+}
+.header,.portal-header{
+  height:72px!important;
+  padding:0 28px!important;
+  background:rgba(255,255,255,.86)!important;
+  backdrop-filter:blur(14px)!important;
+  border-bottom:1px solid rgba(227,232,238,.9)!important;
+  box-shadow:0 1px 0 rgba(10,37,64,.03)!important;
+}
+.header-logo,.portal-logo{display:flex;align-items:center;gap:12px}
+.header-logo-img,.portal-logo-img{height:30px!important;width:auto!important}
+.portal-logo-badge{background:rgba(99,91,255,.08)!important;color:var(--blue)!important;border:1px solid rgba(99,91,255,.12)!important}
+.header-nav{gap:8px!important;margin-left:18px!important}
+.nav-btn{
+  padding:9px 14px!important;
+  border-radius:999px!important;
+  color:var(--text2)!important;
+  font-weight:650!important;
+  letter-spacing:-.1px!important;
+}
+.nav-btn:hover{background:#EEF2FF!important;color:var(--navy)!important}
+.nav-btn.active{
+  background:#FFFFFF!important;
+  color:var(--navy)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:0 1px 2px rgba(10,37,64,.04)!important;
+  font-weight:700!important;
+}
+.header-search-wrap{flex:1;max-width:440px;margin:0 18px 0 18px;position:relative;min-width:220px}
+.header-search-shell{display:flex;align-items:center;gap:10px;height:42px;padding:0 14px;background:rgba(246,249,252,.95);border:1px solid var(--border);border-radius:999px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.header-search-shell:focus-within{background:#fff;border-color:rgba(99,91,255,.34);box-shadow:0 0 0 4px rgba(99,91,255,.08)}
+.header-search-icon{width:20px;height:20px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text3);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0}
+#workspaceSearch{flex:1;border:none;outline:none;background:transparent;font-size:13px;font-weight:650;color:var(--navy);min-width:0}
+#workspaceSearch::placeholder{color:var(--text3);font-weight:600}
+.header-search-hint{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0}
+.workspace-search-results{position:absolute;top:50px;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden;display:none;z-index:230}
+.workspace-search-result{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;border-top:1px solid var(--border);transition:background .16s ease}
+.workspace-search-result:first-child{border-top:none}
+.workspace-search-result:hover{background:#F8FAFF}
+.workspace-search-result-title{font-size:13px;font-weight:700;color:var(--navy)}
+.workspace-search-result-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.workspace-search-result-badge{font-size:10px;font-weight:800;color:var(--blue);background:var(--blue-light);padding:5px 8px;border-radius:999px;line-height:1;white-space:nowrap}
+.user-chip{padding:7px 14px!important;background:rgba(255,255,255,.92)!important;border:1px solid var(--border)!important;border-radius:999px!important;color:var(--text2)!important;font-weight:650!important;box-shadow:0 1px 2px rgba(10,37,64,.03)!important}
+.admin-chip{background:rgba(99,91,255,.08)!important;color:var(--blue)!important;border:1px solid rgba(99,91,255,.14)!important;border-radius:999px!important}
+#notifBell{background:rgba(255,255,255,.9)!important;border:1px solid var(--border)!important;box-shadow:0 1px 2px rgba(10,37,64,.03)!important}
+#notifPanel,.mobile-menu{background:rgba(255,255,255,.95)!important;backdrop-filter:blur(14px)!important;border-color:var(--border)!important}
+.app{max-width:1360px!important;padding:28px 24px 42px!important;position:relative}
+.app::before{content:'OPERATIONS WORKSPACE';display:block;font-size:11px;font-weight:800;letter-spacing:.16em;color:rgba(10,37,64,.42);margin-bottom:10px}
+.status-bar{padding-bottom:18px!important}
+.btn,.logout-btn,select,.login-type-btn,.login-tab,.modal-tab,.toggle-btn,.detail-tab{transition:all .18s ease!important}
+.btn,.logout-btn,select{
+  border-radius:12px!important;
+  border-color:var(--border)!important;
+  background:#fff!important;
+  color:var(--text)!important;
+  box-shadow:0 1px 2px rgba(10,37,64,.03)!important;
+}
+.btn:hover,.logout-btn:hover,select:hover{border-color:rgba(99,91,255,.25)!important;color:var(--navy)!important;transform:translateY(-1px)}
+.btn.primary,.login-submit{background:linear-gradient(135deg,#635BFF 0%,#4B45D1 100%)!important;border-color:#635BFF!important;color:#fff!important;box-shadow:0 12px 24px rgba(99,91,255,.18)!important}
+.btn.primary:hover,.login-submit:hover{transform:translateY(-1px)!important;box-shadow:0 16px 28px rgba(99,91,255,.22)!important}
+.toggle-wrap,.detail-tabs,.modal-tabs,.login-tabs{background:#EEF3F7!important;border:1px solid var(--border)!important;border-radius:999px!important;padding:4px!important}
+.toggle-btn,.detail-tab,.modal-tab,.login-tab{border-radius:999px!important;padding:8px 14px!important;font-weight:650!important}
+.toggle-btn.active,.detail-tab.active,.modal-tab.active,.login-tab.active{background:#fff!important;color:var(--navy)!important;box-shadow:0 1px 3px rgba(10,37,64,.07)!important}
+.section-header{align-items:flex-end!important;margin-bottom:18px!important}
+.section-title{font-size:26px!important;font-weight:760!important;letter-spacing:-.04em!important;color:var(--navy)!important}
+.filter-row{gap:10px!important}
+.card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.pending-box,.access-request-card,.knowledge-card,.knowledge-featured-card{
+  background:rgba(255,255,255,.94)!important;
+  border:1px solid rgba(227,232,238,.92)!important;
+  border-radius:20px!important;
+  box-shadow:var(--shadow)!important;
+}
+.client-card:hover,.notice-card:hover,.stat-card.clickable:hover,.portal-proj-card:hover{transform:translateY(-2px)!important;box-shadow:0 20px 38px rgba(10,37,64,.08)!important;border-color:rgba(99,91,255,.16)!important}
+.detail-hero,.portal-hero,.pinned-card{
+  background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--shadow)!important;
+}
+.pinned-card{margin-bottom:18px!important}
+.pinned-card:hover{background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)!important}
+.pinned-card-title,.detail-hero-text h2,.portal-hero-text h2{color:var(--navy)!important}
+.pinned-card-preview,.detail-hero-text p,.portal-hero-text p{color:var(--text3)!important}
+.detail-avatar,.portal-hero-avatar,.client-avatar,.login-logo-mark{background:linear-gradient(135deg,#635BFF 0%,#7A73FF 100%)!important;box-shadow:0 12px 24px rgba(99,91,255,.18)!important}
+.gantt-wrap,.myweek-day,.comment-item,.comment-item.reply,.helper-box,.issue-card,.weekly-item,.contract-item,.proj-item{background:rgba(255,255,255,.94)!important;border:1px solid var(--border)!important;box-shadow:none!important}
+.issue-card{border-radius:18px!important;padding:16px!important}
+.issue-card:hover{box-shadow:var(--shadow)!important;border-color:rgba(99,91,255,.22)!important}
+.issue-card-context{font-size:11px!important;text-transform:uppercase!important;letter-spacing:.08em!important;color:var(--text3)!important}
+.issue-card-title{font-size:14px!important;color:var(--navy)!important}
+.issue-action-btn{border-radius:10px!important;background:#fff!important;border-color:var(--border)!important;box-shadow:none!important}
+.issue-action-btn:hover{border-color:rgba(99,91,255,.22)!important;background:#F8FAFF!important}
+.notice-card.pinned{border-left:4px solid var(--blue)!important}
+.stat-label,.section-label,.myweek-title,.portal-section-label,.client-industry,.notice-meta,.notice-preview,.weekly-sub,.proj-sub,.contract-sub,.info-label{color:var(--text3)!important}
+.stat-num{font-size:36px!important;color:var(--navy)!important}
+.login-page{background:radial-gradient(840px 340px at 0% 0%,rgba(99,91,255,.18),transparent 58%),radial-gradient(760px 280px at 100% 0%,rgba(10,37,64,.08),transparent 58%),linear-gradient(180deg,#f9fbff 0%,#f6f9fc 100%)!important}
+.login-box{backdrop-filter:blur(14px)!important}
+.login-type-btn.active{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important}
+.portal-page,.login-page{background-color:#F6F9FC!important}
+.table-toolbar,.gantt-toolbar{margin-bottom:18px!important}
+.month-nav,.toggle-wrap,.helper-box,.readonly-notice,.conflict-warn{border-radius:16px!important}
+input,textarea{border-radius:12px!important}
+.form-row input,.form-row select,.form-row textarea,.login-input-wrap input{border-color:var(--border)!important;background:#fff!important;color:var(--text)!important}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus,.login-input-wrap input:focus{box-shadow:0 0 0 4px rgba(99,91,255,.08)!important;border-color:rgba(99,91,255,.34)!important}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#D8E2EC;border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-track{background:transparent}
+@media(max-width:1080px){
+  .header-search-wrap{display:none!important}
+}
+@media(max-width:768px){
+  body{background:#F6F9FC!important}
+  .header,.portal-header{height:60px!important;padding:0 14px!important}
+  .app{padding:18px 12px calc(32px + env(safe-area-inset-bottom))!important}
+  .app::before{margin-left:4px;margin-bottom:8px}
+  .card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.issue-card{border-radius:18px!important}
+  .section-title{font-size:22px!important}
+}
+</style>
+
 </head>
 <body>
 
@@ -563,6 +715,15 @@ table{border-collapse:collapse;min-width:100%}
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">⚙️ 관리</button>
       <button class="nav-btn" id="navFun" onclick="setPage('fun')" style="opacity:.5" title="이스터에그">🎲</button>
     </nav>
+
+    <div class="header-search-wrap" id="workspaceSearchWrap">
+      <div class="header-search-shell">
+        <span class="header-search-icon">⌘</span>
+        <input id="workspaceSearch" type="text" placeholder="페이지 이동 또는 기능 찾기" autocomplete="off" />
+        <span class="header-search-hint">빠른 이동</span>
+      </div>
+      <div class="workspace-search-results" id="workspaceSearchResults"></div>
+    </div>
     <div class="header-right">
       <span id="adminChip" class="admin-chip" style="display:none">관리자</span>
       <button id="accessMgrBtn" class="btn sm" style="display:none;font-size:11px" onclick="openAccessRequestManager()">권한 요청</button>
@@ -5482,5 +5643,95 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
 })();
 
 </script>
+
+<script id="stripeThemeSearch">
+(function(){
+  const pageItems = [
+    { label:'팀', page:'team', hint:'공지 · 내 일정 · 팀 이슈', keywords:'팀 공지 일정 이슈 알림' },
+    { label:'거래처', page:'clients', hint:'고객사 · 포털 현황 · 담당자', keywords:'거래처 고객사 포털 담당자' },
+    { label:'계약', page:'contracts', hint:'계약서 · 청구 · 수금', keywords:'계약 청구 수금 빌링' },
+    { label:'스케줄', page:'gantt', hint:'간트 · 휴가 · 필드웍', keywords:'스케줄 일정 간트 휴가 필드웍' },
+    { label:'대시보드', page:'dash', hint:'지표 · 위험 · 후속 액션', keywords:'대시보드 지표 위험 후속 액션' },
+    { label:'지식공유', page:'notice', hint:'AI 활용 팁 · 업무 개선', keywords:'지식공유 ai 활용 팁 업무 개선 프롬프트' },
+    { label:'관리', page:'admin', hint:'권한 요청 · 인력 · 포털 관리', keywords:'관리 권한 요청 인력 포털 관리자 admin', adminOnly:true }
+  ];
+
+  function isVisible(item){
+    if(item.adminOnly && !(window.isAdmin === true)) return false;
+    return true;
+  }
+
+  function mountSearch(){
+    const wrap = document.getElementById('workspaceSearchWrap');
+    if(!wrap || wrap.dataset.bound === '1') return;
+    wrap.dataset.bound = '1';
+    const input = document.getElementById('workspaceSearch');
+    const results = document.getElementById('workspaceSearchResults');
+    if(!input || !results) return;
+
+    const getItems = (query) => {
+      const q = (query || '').trim().toLowerCase();
+      const base = pageItems.filter(isVisible);
+      if(!q) return base.slice(0, 6);
+      return base.filter(item => {
+        const hay = [item.label, item.hint, item.keywords].join(' ').toLowerCase();
+        return hay.includes(q);
+      }).slice(0, 8);
+    };
+
+    const render = (query) => {
+      const items = getItems(query);
+      if(!items.length){
+        results.innerHTML = '<div class="workspace-search-result"><div><div class="workspace-search-result-title">검색 결과가 없습니다</div><div class="workspace-search-result-sub">팀, 거래처, 계약, 지식공유 같은 키워드로 찾아보세요.</div></div><span class="workspace-search-result-badge">검색</span></div>';
+        results.style.display = 'block';
+        return;
+      }
+      results.innerHTML = items.map(item => (
+        '<div class="workspace-search-result" data-page="'+ item.page +'">' +
+          '<div><div class="workspace-search-result-title">'+ item.label +'</div><div class="workspace-search-result-sub">'+ item.hint +'</div></div>' +
+          '<span class="workspace-search-result-badge">바로가기</span>' +
+        '</div>'
+      )).join('');
+      results.style.display = 'block';
+    };
+
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('input', () => render(input.value));
+    input.addEventListener('keydown', (event) => {
+      if(event.key === 'Escape'){
+        results.style.display = 'none';
+        input.blur();
+      }
+      if(event.key === 'Enter'){
+        const first = results.querySelector('.workspace-search-result[data-page]');
+        if(first){
+          event.preventDefault();
+          first.click();
+        }
+      }
+    });
+
+    results.addEventListener('click', (event) => {
+      const row = event.target.closest('.workspace-search-result[data-page]');
+      if(!row) return;
+      const page = row.dataset.page;
+      if(typeof window.setPage === 'function') window.setPage(page);
+      results.style.display = 'none';
+      input.value = '';
+      input.blur();
+    });
+
+    document.addEventListener('click', (event) => {
+      if(!wrap.contains(event.target)) results.style.display = 'none';
+    });
+  }
+
+  const boot = () => setTimeout(mountSearch, 0);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  window.addEventListener('load', boot);
+})();
+</script>
+
 </body>
 </html>
