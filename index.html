@@ -1656,10 +1656,10 @@ input,textarea{border-radius:12px!important}
         <button class="btn sm" id="gvp" onclick="setGView('project')">프로젝트별</button>
         <button class="btn sm" id="gvm" onclick="setGView('member')">인력별</button>
         <select id="memberFilter" style="font-size:12px"><option value="me">내 일정</option><option value="">전체</option></select>
-        <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()" style="margin-left:auto">+ 일정</button>
+        <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()" style="margin-left:auto">+ 개인 일정</button>
         <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
       </div>
-      <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">프로젝트를 클릭하면 상세 관리와 Outlook 일정 추가를 바로 진행할 수 있습니다.</div>
+      <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">이번 달 우선순위 프로젝트를 왼쪽에서 고르고, 오른쪽에서 바로 이슈 확인과 후속 작업을 이어서 처리할 수 있습니다.</div>
       <div class="gantt-shell">
         <div class="gantt-stage">
           <aside class="gantt-sidebar">
@@ -4093,6 +4093,160 @@ async function saveSchedule(eid){
     closeModal();await loadAll(); if(curPage==='gantt')renderGantt(); else renderClients();
   }catch(e){alert('일정 저장 오류: '+e.message);} 
 }
+function renderGanttOverviewCards(projs,schs){
+  const el=document.getElementById('ganttOverview'); if(!el) return;
+  const today=new Date();
+  const activeCount=projs.filter(p=>p.status==='\uC9C4\uD589\uC911').length;
+  const doneStatus='\uC644\uB8CC';
+  const billingPending='\uBBF8\uCCAD\uAD6C';
+  const overdueCount=projs.filter(p=>toDate(p.end)<today&&p.status!==doneStatus).length;
+  const unbilledCount=projs.filter(p=>p.status===doneStatus&&p.is_billable&&p.billing_status===billingPending).length;
+  const issueCount=projs.reduce((sum,p)=>sum+(openIssuesByProject[p.id]||0),0);
+  const stats=[
+    ['Projects This Month', projs.length, 'Current filter'],
+    ['Active', activeCount, 'Running now'],
+    ['Needs Attention', overdueCount, overdueCount?'Overdue projects found':'No overdue projects'],
+    ['Billing Needed', unbilledCount, unbilledCount?'Completed but not billed':'No billing queue'],
+    ['Open Issues', issueCount, schs.length+' leave / fieldwork events']
+  ];
+  el.innerHTML=stats.map(([label,value,sub])=>'<div class="gantt-kpi"><div class="gantt-kpi-label">'+label+'</div><div class="gantt-kpi-value">'+value+'</div><div class="gantt-kpi-sub">'+sub+'</div></div>').join('');
+}
+
+function renderGanttSidebarList(projs){
+  const el=document.getElementById('ganttProjectList'); if(!el) return;
+  if(!projs.length){
+    el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
+    return;
+  }
+  if(!ganttFocusProjectId || !projs.some(p=>p.id===ganttFocusProjectId)) ganttFocusProjectId=projs[0].id;
+  const today=new Date();
+  const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
+  el.innerHTML=sorted.map(p=>{
+    const client=clients.find(c=>c.id===p.client_id);
+    const issueCount=openIssuesByProject[p.id]||0;
+    const warning=toDate(p.end)<today&&p.status!=='\uC644\uB8CC'
+      ?'Overdue'
+      :p.status==='\uC644\uB8CC'&&p.is_billable&&p.billing_status==='\uBBF8\uCCAD\uAD6C'
+      ?'Billing needed'
+      :issueCount
+      ?'Open issues '+issueCount
+      :'On track';
+    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="setGanttFocusProject(\''+p.id+'\')">'
+      +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+(p.status==='\uC9C4\uD589\uC911'?'badge-blue':p.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(p.status||'No status')+'</span></div>'
+      +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
+      +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
+      +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function renderGanttDetailPanel(projs,schs){
+  const el=document.getElementById('ganttDetail'); if(!el) return;
+  const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  if(!project){
+    el.innerHTML='<div class="gantt-panel-title">Select a project</div><div class="gantt-panel-sub">Pick a project from the left list to see the timeline, issues, and billing context.</div>';
+    return;
+  }
+  const client=clients.find(c=>c.id===project.client_id)||null;
+  const relatedSchedules=schs.filter(s=>(project.members||[]).includes(s.member_name)&&toDate(s.start)<=toDate(project.end)&&toDate(s.end)>=toDate(project.start)).slice(0,4);
+  const issueCount=openIssuesByProject[project.id]||0;
+  el.innerHTML=
+    '<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' · '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='\uC9C4\uD589\uC911'?'badge-blue':project.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div>'
+    +'<div class="gantt-detail-grid">'
+    +'<div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div>'
+    +'<div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc((project.members||[]).join(', ')||'Unassigned')+'</div></div>'
+    +'<div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div>'
+    +'<div><div class="gantt-detail-label">Open Issues</div><div class="gantt-detail-value">'+issueCount+'</div></div>'
+    +'</div>'
+    +'<div class="gantt-main-copy">'+esc(project.memo||'Use this panel to review project timing, ownership, issue pressure, and next actions.')+'</div>'
+    +'<div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-panel-title">Overlapping Events</div><div class="gantt-detail-list">'
+    +(relatedSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' · '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No overlapping leave or fieldwork events in this project window.</div>')
+    +'</div></div>';
+}
+
+const renderGanttExecutionBase = renderGantt;
+renderGantt = function(){
+  renderGanttExecutionBase();
+  const monthLabel=document.getElementById('monthLabel');
+  if(monthLabel) monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
+  const shell=document.querySelector('.gantt-shell');
+  if(shell) shell.classList.remove('is-reverted');
+  const {projs,schs}=getGanttFilteredData();
+  renderGanttOverviewCards(projs,schs);
+  renderGanttSidebarList(projs);
+  renderGanttDetailPanel(projs,schs);
+};
+
+renderDash = async function(){
+  const doneStatus='\uC644\uB8CC';
+  const billingPending='\uBBF8\uCCAD\uAD6C';
+  const overdue=projects.filter(p=>isOverdue(p));
+  const unbilled=projects.filter(p=>p.status===doneStatus&&p.is_billable&&p.billing_status===billingPending);
+  const followups=projects.filter(p=>p.status===doneStatus&&p.follow_up_needed);
+  const el=document.getElementById('pageDash');
+  el.innerHTML=
+    '<div class="card" style="margin-bottom:14px">'
+    +'<div class="section-label">Today Exceptions</div>'
+    +'<div style="font-size:13px;color:var(--text2);line-height:1.6">This dashboard now focuses on items that need follow-up right away. Open a project from below to continue the actual work there.</div>'
+    +'</div>'
+    +'<div class="stat-grid">'
+    +'<div class="stat-card clickable '+(overdue.length?'warn':'ok')+'" onclick="openDashDrilldown(\'overdue\')"><div class="stat-label">Overdue</div><div class="stat-num">'+overdue.length+'</div><div class="stat-sub">'+(overdue.length?'Needs schedule adjustment':'No issue right now')+'</div></div>'
+    +'<div class="stat-card clickable '+(unbilled.length?'warn':'ok')+'" onclick="openDashDrilldown(\'unbilled\')"><div class="stat-label">Billing Needed</div><div class="stat-num">'+unbilled.length+'</div><div class="stat-sub">'+(unbilled.length?'Completed but not billed':'No issue right now')+'</div></div>'
+    +'<div class="stat-card clickable '+(followups.length?'warn':'ok')+'" onclick="openDashDrilldown(\'followup\')"><div class="stat-label">Follow-up</div><div class="stat-num">'+followups.length+'</div><div class="stat-sub">'+(followups.length?'Additional action needed':'No issue right now')+'</div></div>'
+    +'</div>'
+    +(overdue.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Overdue Projects</div>'+overdue.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="info-value" style="color:var(--red);font-weight:700">'+p.end+' overdue</span></div>').join('')+'</div>':'')
+    +(unbilled.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Billing Queue</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+' KRW</span>':'')+'<span class="badge badge-red" style="margin-left:8px">Need billing</span></div>').join('')+'</div>':'')
+    +(followups.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Follow-up Queue</div>'+followups.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange" style="margin-left:8px">Need follow-up</span><span class="info-value">'+esc(truncateText(p.follow_up_note||'No detail',22))+'</span></div>').join('')+'</div>':'')
+    +'<div class="card" id="activityFeedCard"><div class="section-label">Activity Feed</div>'
+    +'<div id="activityFeedList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">Loading...</div></div>'
+    +'</div>';
+  loadActivityFeed();
+};
+
+renderKudos = async function(offset){
+  if(offset!==undefined)kudosWeekOffset=offset;
+  const el=document.getElementById('kudosWrap');if(!el)return;
+  const ws=getWeekStart(kudosWeekOffset);
+  const {start}=getWeekBounds(kudosWeekOffset);
+  const weekLabel=kudosWeekOffset===0?'\uC774\uBC88 \uC8FC':kudosWeekOffset===-1?'\uC9C0\uB09C \uC8FC':`${start.getMonth()+1}/${start.getDate()} \uC8FC`;
+  try{
+    const [votes,myVoteArr]=await Promise.all([
+      api('GET','kudos_votes?week_start=eq.'+ws+'&select=*'),
+      api('GET','kudos_votes?week_start=eq.'+ws+'&voter_id=eq.'+(currentUser?.id||'null')+'&select=*').catch(()=>[])
+    ]);
+    const tally={};
+    (votes||[]).forEach(v=>{tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;});
+    const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+    const myVote=myVoteArr&&myVoteArr[0];
+    const hasVotes=sorted.length>0;
+    const isCurrentWeek=kudosWeekOffset===0;
+    el.innerHTML=
+      '<div class="card" style="margin-bottom:16px;background:linear-gradient(180deg,#4B5563 0%,#111827 100%);border:1px solid rgba(17,24,39,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">'
+      +'<div style="display:flex;align-items:center;gap:10px;min-width:0">'
+      +'<div style="font-size:13px;font-weight:800;color:#F9FAFB;letter-spacing:.3px;text-transform:uppercase">\uCE6D\uCC2C\uC0AC\uC6D0</div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'
+      +'<button onclick="renderKudos('+(kudosWeekOffset-1)+')" style="background:#374151;border:1px solid rgba(255,255,255,.08);color:#F9FAFB;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">‹</button>'
+      +'<span style="font-size:11px;color:#D1D5DB;min-width:64px;text-align:center;font-weight:700">'+weekLabel+'</span>'
+      +(kudosWeekOffset<0?'<button onclick="renderKudos('+(kudosWeekOffset+1)+')" style="background:#374151;border:1px solid rgba(255,255,255,.08);color:#F9FAFB;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">›</button>':'<div style="width:28px"></div>')
+      +'</div></div>'
+      +(isCurrentWeek?'<button class="btn sm" style="background:#111827;border:1px solid rgba(255,255,255,.12);color:#F9FAFB;font-size:11px;font-weight:700" onclick="openKudosModal()">'+(myVote?'\uD22C\uD45C \uC644\uB8CC · \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30')+'</button>':'')
+      +'</div>'
+      +(hasVotes
+        ?'<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+          +'<div style="width:52px;height:52px;border-radius:14px;background:#1F2937;border:1px solid rgba(255,255,255,.08);color:#F9FAFB;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(sorted[0][0].charAt(0))+'</div>'
+          +'<div><div style="font-size:20px;font-weight:800;color:#F9FAFB;letter-spacing:-.5px">'+esc(sorted[0][0])+'</div>'
+          +'<div style="font-size:12px;color:#D1D5DB;margin-top:2px">'+sorted[0][1]+'\uD45C'+(myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):'')+'</div></div>'
+          +'<div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">'
+          +sorted.map(([name,cnt],i)=>'<div style="text-align:center;background:'+(i===0?'rgba(255,255,255,.08)':'transparent')+';border:'+(i===0?'1px solid rgba(255,255,255,.08)':'none')+';padding:6px 8px;border-radius:10px"><div style="font-size:11px;color:#D1D5DB;margin-bottom:3px">'+esc(name)+'</div><div style="font-size:18px;font-weight:800;color:'+(i===0?'#F9FAFB':'#E5E7EB')+'">'+cnt+'</div></div>').join('')
+          +'</div></div>'
+        :'<div style="color:#E5E7EB;font-size:13px;text-align:center;padding:12px 0;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px">'+(isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.')+'</div>'
+      )
+      +'</div>';
+  }catch(e){el.innerHTML='';}
+};
+
 async function deleteSchedule(id){
   if(!confirm('일정을 삭제할까요?'))return;
   try{await api('DELETE','schedules?id=eq.'+id);closeModal();await loadAll();if(curPage==='gantt')renderGantt();else renderClients();}catch(e){alert('오류: '+e.message);} 
