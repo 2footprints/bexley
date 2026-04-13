@@ -559,6 +559,7 @@ body{
 .workspace-search-result{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;border-top:1px solid var(--border);transition:background .16s ease}
 .workspace-search-result:first-child{border-top:none}
 .workspace-search-result:hover{background:#F8FAFF}
+.workspace-search-result.active{background:#F1F5FF}
 .workspace-search-result-title{font-size:13px;font-weight:700;color:var(--navy)}
 .workspace-search-result-sub{font-size:11px;color:var(--text3);margin-top:3px}
 .workspace-search-result-badge{font-size:10px;font-weight:800;color:var(--blue);background:var(--blue-light);padding:5px 8px;border-radius:999px;line-height:1;white-space:nowrap}
@@ -638,29 +639,6 @@ input,textarea{border-radius:12px!important}
 }
 </style>
 
-<script>
-window.__loadMsalPromise = new Promise((resolve, reject) => {
-  function loadScript(src, fallback) {
-    const s = document.createElement('script');
-    s.src = src;
-    s.async = false;
-    s.onload = () => resolve();
-    s.onerror = () => {
-      if (fallback) {
-        fallback();
-      } else {
-        reject(new Error('MSAL 라이브러리 로드 실패'));
-      }
-    };
-    document.head.appendChild(s);
-  }
-
-  loadScript(
-    'https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js',
-    () => loadScript('https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js')
-  );
-});
-</script>
 
   
 </head>
@@ -755,7 +733,7 @@ window.__loadMsalPromise = new Promise((resolve, reject) => {
         <input id="workspaceSearch" type="text" placeholder="페이지 이동 또는 기능 찾기" autocomplete="off" />
         <span class="header-search-hint">빠른 이동</span>
       </div>
-      <div class="workspace-search-results" id="workspaceSearchResults"></div>
+      <div class="workspace-search-results" id="workspaceSearchResults" role="listbox"></div>
     </div>
     <div class="header-right">
       <span id="adminChip" class="admin-chip" style="display:none">관리자</span>
@@ -900,6 +878,7 @@ window.__loadMsalPromise = new Promise((resolve, reject) => {
         <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()" style="margin-left:auto">+ 일정</button>
         <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
       </div>
+      <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">프로젝트를 클릭하면 상세 관리와 내 캘린더 추가를 바로 진행할 수 있습니다.</div>
       <div class="gantt-wrap" id="ganttWrap"></div>
       <div class="legend" id="legend"></div>
     </div>
@@ -2024,7 +2003,6 @@ function openClientDetail(id, tab='projects'){
       +'<span class="badge '+stBadge+'">'+p.status+'</span>'
       +(p.is_billable?'<span class="badge '+blBadge+'">'+p.billing_status+'</span>':'<span class="badge badge-gray">비청구</span>')
       +(p.billing_amount?'<span style="font-size:11px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')
-      +'<button class="btn sm" style="margin-top:6px" onclick="event.stopPropagation();handleProjectOutlookEvent(\''+p.id+'\')">Outlook</button>'
       +'</div></div>';
   }).join('');
 
@@ -2091,11 +2069,6 @@ function openClientDetail(id, tab='projects'){
     +'<div class="detail-hero-text" style="flex:1">'
     +'<h2>'+esc(c.name)+'</h2>'
     +'<p>'+(c.industry||'업종 미입력')+'</p>'
-
-    +'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">'
-    +'<button class="btn primary" onclick="handleClientOutlookShortcut(\''+id+'\')">📅 Outlook 일정 추가</button>'
-    +'<button class="btn" onclick="msLogin()">🔐 Microsoft 로그인</button>'
-    +'</div>'
 
     +'</div>'
     +(isAdmin||c.created_by===currentUser?.id?'<button class="btn sm" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff" onclick="openClientModal(\''+c.id+'\')">수정</button>':'')
@@ -2762,6 +2735,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
     <div class="overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal" style="width:560px">
         <div class="modal-title">${p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가'}</div>
+        ${p?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn primary sm" type="button" onclick="handleProjectCalendarSync(\''+p.id+'\')">내 캘린더 추가</button></div>':''}
         <div class="modal-tabs">
           <button class="modal-tab${projModalTab==='basic'?' active':''}" data-tab="basic" onclick="switchProjTab('basic')">기본 정보</button>
           <button class="modal-tab${projModalTab==='issue'?' active':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
@@ -5740,6 +5714,99 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
   else showPage('login');
 })();
 
+function safeCalendarFileName(value){
+  return (value||'project')
+    .replace(/[\\/:*?"<>|]+/g,'-')
+    .replace(/\s+/g,' ')
+    .trim() || 'project';
+}
+
+function buildProjectCalendarPayload(project){
+  const client = clients.find(c=>c.id===project.client_id) || null;
+  const startDate = project.start || new Date().toISOString().slice(0,10);
+  const endDateExclusive = addDaysLocal(project.end || startDate, 1);
+  const members = Array.isArray(project.members) ? project.members.join(', ') : '';
+  const descriptionLines = [];
+  if(client?.name) descriptionLines.push(`고객사: ${client.name}`);
+  descriptionLines.push(`프로젝트: ${project.name||'프로젝트'}`);
+  if(project.type) descriptionLines.push(`유형: ${project.type}`);
+  if(members) descriptionLines.push(`담당자: ${members}`);
+  if(project.memo) descriptionLines.push('', project.memo);
+
+  return {
+    title: `[${client?.name||'고객사'}] ${project.name||'프로젝트'}`,
+    startDate,
+    endDateExclusive,
+    description: descriptionLines.join('\n'),
+    fileName: `${safeCalendarFileName(client?.name||'고객사')}-${safeCalendarFileName(project.name||'프로젝트')}.ics`
+  };
+}
+
+async function downloadProjectCalendarFile(project){
+  const payload = buildProjectCalendarPayload(project);
+  const response = await fetch('/.netlify/functions/project-calendar-ics', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+
+  if(!response.ok){
+    let message = '캘린더 파일 생성 실패';
+    try{
+      const data = await response.json();
+      message = data?.message || message;
+    }catch{}
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = payload.fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function handleProjectCalendarSync(projectId){
+  const project = projects.find(p=>p.id===projectId);
+  if(!project){
+    alert('프로젝트를 찾을 수 없습니다.');
+    return;
+  }
+  try{
+    await downloadProjectCalendarFile(project);
+    alert('캘린더 파일을 내려받았습니다. 열어서 내 캘린더에 추가해주세요.');
+  }catch(e){
+    console.error(e);
+    alert('캘린더 추가 실패: ' + (e.message||'알 수 없는 오류'));
+  }
+}
+
+async function handleProjectOutlookEvent(projectId){
+  await handleProjectCalendarSync(projectId);
+}
+
+async function handleClientOutlookShortcut(clientId){
+  const clientProjects = projects.filter(p=>p.client_id===clientId);
+  if(!clientProjects.length){
+    alert('이 고객사에는 프로젝트가 없습니다.');
+    return;
+  }
+  setPage('gantt');
+  if(clientProjects.length===1){
+    setTimeout(() => openProjModal(clientProjects[0].id), 0);
+    return;
+  }
+  alert('이제 캘린더 추가는 프로젝트 관리 탭에서 진행합니다. 프로젝트를 클릭한 뒤 내 캘린더 추가를 눌러주세요.');
+}
+
+async function msLogin(){
+  setPage('gantt');
+  alert('Microsoft 로그인 없이 프로젝트 관리 탭에서 바로 캘린더 파일을 추가할 수 있도록 변경했습니다.');
+}
 </script>
 
 <script id="stripeThemeSearch">
@@ -5748,7 +5815,7 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
     { label:'팀', page:'team', hint:'공지 · 내 일정 · 팀 이슈', keywords:'팀 공지 일정 이슈 알림' },
     { label:'거래처', page:'clients', hint:'고객사 · 포털 현황 · 담당자', keywords:'거래처 고객사 포털 담당자' },
     { label:'계약', page:'contracts', hint:'계약서 · 청구 · 수금', keywords:'계약 청구 수금 빌링' },
-    { label:'스케줄', page:'gantt', hint:'간트 · 휴가 · 필드웍', keywords:'스케줄 일정 간트 휴가 필드웍' },
+    { label:'프로젝트 관리', page:'gantt', hint:'간트 · 프로젝트 · 휴가 · 필드웍', keywords:'프로젝트 관리 일정 간트 휴가 필드웍 캘린더' },
     { label:'대시보드', page:'dash', hint:'지표 · 위험 · 후속 액션', keywords:'대시보드 지표 위험 후속 액션' },
     { label:'지식공유', page:'notice', hint:'AI 활용 팁 · 업무 개선', keywords:'지식공유 ai 활용 팁 업무 개선 프롬프트' },
     { label:'관리', page:'admin', hint:'권한 요청 · 인력 · 포털 관리', keywords:'관리 권한 요청 인력 포털 관리자 admin', adminOnly:true }
@@ -5766,6 +5833,37 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
     const input = document.getElementById('workspaceSearch');
     const results = document.getElementById('workspaceSearchResults');
     if(!input || !results) return;
+    let activeIndex = -1;
+
+    input.setAttribute('role','combobox');
+    input.setAttribute('aria-autocomplete','list');
+    input.setAttribute('aria-controls','workspaceSearchResults');
+    input.setAttribute('aria-expanded','false');
+
+    const closeResults = () => {
+      results.style.display = 'none';
+      activeIndex = -1;
+      input.setAttribute('aria-expanded','false');
+      input.removeAttribute('aria-activedescendant');
+    };
+
+    const getRows = () => Array.from(results.querySelectorAll('.workspace-search-result[data-page]'));
+
+    const syncActiveRow = () => {
+      const rows = getRows();
+      rows.forEach((row, index) => {
+        row.classList.toggle('active', index === activeIndex);
+        row.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
+      });
+      if(activeIndex >= 0 && rows[activeIndex]){
+        const activeId = rows[activeIndex].id || `workspace-search-result-${activeIndex}`;
+        rows[activeIndex].id = activeId;
+        input.setAttribute('aria-activedescendant', activeId);
+        rows[activeIndex].scrollIntoView({block:'nearest'});
+      }else{
+        input.removeAttribute('aria-activedescendant');
+      }
+    };
 
     const getItems = (query) => {
       const q = (query || '').trim().toLowerCase();
@@ -5781,32 +5879,66 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
       const items = getItems(query);
       if(!items.length){
         results.innerHTML = '<div class="workspace-search-result"><div><div class="workspace-search-result-title">검색 결과가 없습니다</div><div class="workspace-search-result-sub">팀, 거래처, 계약, 지식공유 같은 키워드로 찾아보세요.</div></div><span class="workspace-search-result-badge">검색</span></div>';
+        activeIndex = -1;
         results.style.display = 'block';
+        input.setAttribute('aria-expanded','true');
         return;
       }
       results.innerHTML = items.map(item => (
-        '<div class="workspace-search-result" data-page="'+ item.page +'">' +
+        '<div class="workspace-search-result" data-page="'+ item.page +'" role="option" aria-selected="false">' +
           '<div><div class="workspace-search-result-title">'+ item.label +'</div><div class="workspace-search-result-sub">'+ item.hint +'</div></div>' +
           '<span class="workspace-search-result-badge">바로가기</span>' +
         '</div>'
       )).join('');
+      activeIndex = 0;
+      syncActiveRow();
       results.style.display = 'block';
+      input.setAttribute('aria-expanded','true');
     };
 
     input.addEventListener('focus', () => render(input.value));
     input.addEventListener('input', () => render(input.value));
     input.addEventListener('keydown', (event) => {
       if(event.key === 'Escape'){
-        results.style.display = 'none';
+        closeResults();
         input.blur();
+        return;
       }
+
+      const rows = getRows();
+      if(!rows.length) return;
+
+      if(event.key === 'ArrowDown'){
+        event.preventDefault();
+        activeIndex = activeIndex < rows.length - 1 ? activeIndex + 1 : 0;
+        syncActiveRow();
+        return;
+      }
+
+      if(event.key === 'ArrowUp'){
+        event.preventDefault();
+        activeIndex = activeIndex > 0 ? activeIndex - 1 : rows.length - 1;
+        syncActiveRow();
+        return;
+      }
+
       if(event.key === 'Enter'){
-        const first = results.querySelector('.workspace-search-result[data-page]');
-        if(first){
+        const target = rows[activeIndex] || rows[0];
+        if(target){
           event.preventDefault();
-          first.click();
+          target.click();
         }
       }
+    });
+
+    results.addEventListener('mousemove', (event) => {
+      const row = event.target.closest('.workspace-search-result[data-page]');
+      if(!row) return;
+      const rows = getRows();
+      const hoveredIndex = rows.indexOf(row);
+      if(hoveredIndex === -1 || hoveredIndex === activeIndex) return;
+      activeIndex = hoveredIndex;
+      syncActiveRow();
     });
 
     results.addEventListener('click', (event) => {
@@ -5814,13 +5946,13 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
       if(!row) return;
       const page = row.dataset.page;
       if(typeof window.setPage === 'function') window.setPage(page);
-      results.style.display = 'none';
+      closeResults();
       input.value = '';
       input.blur();
     });
 
     document.addEventListener('click', (event) => {
-      if(!wrap.contains(event.target)) results.style.display = 'none';
+      if(!wrap.contains(event.target)) closeResults();
     });
   }
 
@@ -5833,11 +5965,13 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
 
 // ── Outlook Calendar Integration ──
 const OUTLOOK_TIMEZONE = "Asia/Seoul";
+const MSAL_REDIRECT_URI = `${window.location.origin}${window.location.pathname}`;
 const msalConfig = {
   auth: {
     clientId: "8f3967e6-9985-4e04-9be5-4ffadad381bc",
     authority: "https://login.microsoftonline.com/86d6a33f-3b89-419c-b633-37a379c9888a",
-    redirectUri: window.location.origin
+    redirectUri: MSAL_REDIRECT_URI,
+    navigateToLoginRequestUrl: false
   },
   cache: {
     cacheLocation: 'localStorage'
@@ -5847,7 +5981,7 @@ const loginRequest = {
   scopes: ["User.Read", "Calendars.ReadWrite"]
 };
 
-async function getMsalClient()async function getMsalClient() {
+async function getMsalClient() {
   if (window.location.protocol === 'file:') {
     throw new Error('로컬 파일(file:///)에서는 Microsoft 로그인을 테스트할 수 없습니다. Netlify 배포 주소에서 실행해주세요.');
   }
@@ -5866,19 +6000,45 @@ async function getMsalClient()async function getMsalClient() {
     if (typeof window.__msalInstance.initialize === 'function') {
       await window.__msalInstance.initialize();
     }
+
+    if (typeof window.__msalInstance.handleRedirectPromise === 'function') {
+      const redirectResult = await window.__msalInstance.handleRedirectPromise();
+      if (redirectResult?.account) {
+        window.__msalInstance.setActiveAccount(redirectResult.account);
+      }
+    }
   }
 
   return window.__msalInstance;
+}
+
+function isMsalPopupIssue(error){
+  const code = error?.errorCode || error?.code || '';
+  const message = (error?.message || '').toLowerCase();
+  return code === 'popup_window_error'
+    || code === 'user_cancelled'
+    || code === 'monitor_window_timeout'
+    || message.includes('popup')
+    || message.includes('user cancelled');
 }
 
 async function msLogin(){
   try{
     const client = await getMsalClient();
     const res = await client.loginPopup(loginRequest);
-    client.setActiveAccount(res.account);
-    alert('Microsoft 로그인 완료: ' + res.account.username);
-    return res.account;
+    if(res?.account){
+      client.setActiveAccount(res.account);
+      alert('Microsoft 로그인 완료: ' + res.account.username);
+      return res.account;
+    }
+    throw new Error('Microsoft 계정 정보를 가져오지 못했습니다.');
   }catch(e){
+    const client = await getMsalClient();
+    if(isMsalPopupIssue(e) && typeof client.loginRedirect === 'function'){
+      sessionStorage.setItem('msal_login_fallback', '1');
+      await client.loginRedirect(loginRequest);
+      return null;
+    }
     console.error(e);
     alert('Microsoft 로그인 실패: ' + (e.message||'알 수 없는 오류'));
     throw e;
@@ -5898,9 +6058,18 @@ async function getMsToken(){
     });
     return tokenResult.accessToken;
   }catch(e){
-    const tokenResult = await client.acquireTokenPopup(loginRequest);
-    client.setActiveAccount(tokenResult.account);
-    return tokenResult.accessToken;
+    try{
+      const tokenResult = await client.acquireTokenPopup(loginRequest);
+      if(tokenResult?.account) client.setActiveAccount(tokenResult.account);
+      return tokenResult.accessToken;
+    }catch(popupError){
+      if(isMsalPopupIssue(popupError) && typeof client.acquireTokenRedirect === 'function'){
+        sessionStorage.setItem('msal_login_fallback', '1');
+        await client.acquireTokenRedirect({...loginRequest, account});
+        return null;
+      }
+      throw popupError;
+    }
   }
 }
 
@@ -5989,6 +6158,157 @@ async function handleClientOutlookShortcut(clientId){
     return;
   }
   alert('아래 프로젝트 목록의 Outlook 버튼을 눌러 프로젝트별 일정을 추가해주세요.');
+}
+function safeCalendarFileName(value){
+  return (value||'project')
+    .replace(/[\\/:*?"<>|]+/g,'-')
+    .replace(/\s+/g,' ')
+    .trim() || 'project';
+}
+
+function buildProjectCalendarPayload(project){
+  const client = clients.find(c=>c.id===project.client_id) || null;
+  const startDate = project.start || new Date().toISOString().slice(0,10);
+  const endDateExclusive = addDaysLocal(project.end || startDate, 1);
+  const members = Array.isArray(project.members) ? project.members.join(', ') : '';
+  const descriptionLines = [];
+  if(client?.name) descriptionLines.push(`고객사: ${client.name}`);
+  descriptionLines.push(`프로젝트: ${project.name||'프로젝트'}`);
+  if(project.type) descriptionLines.push(`유형: ${project.type}`);
+  if(members) descriptionLines.push(`담당자: ${members}`);
+  if(project.memo) descriptionLines.push('', project.memo);
+
+  return {
+    title: `[${client?.name||'고객사'}] ${project.name||'프로젝트'}`,
+    startDate,
+    endDateExclusive,
+    description: descriptionLines.join('\n'),
+    fileName: `${safeCalendarFileName(client?.name||'고객사')}-${safeCalendarFileName(project.name||'프로젝트')}.ics`
+  };
+}
+
+async function downloadProjectCalendarFile(project){
+  const payload = buildProjectCalendarPayload(project);
+  const response = await fetch('/.netlify/functions/project-calendar-ics', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+
+  if(!response.ok){
+    let message = '캘린더 파일 생성 실패';
+    try{
+      const data = await response.json();
+      message = data?.message || message;
+    }catch{}
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = payload.fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function handleProjectCalendarSync(projectId){
+  const project = projects.find(p=>p.id===projectId);
+  if(!project){
+    alert('프로젝트를 찾을 수 없습니다.');
+    return;
+  }
+  try{
+    await downloadProjectCalendarFile(project);
+    alert('캘린더 파일을 내려받았습니다. 열어서 내 캘린더에 추가해주세요.');
+  }catch(e){
+    console.error(e);
+    alert('캘린더 추가 실패: ' + (e.message||'알 수 없는 오류'));
+  }
+}
+
+async function handleProjectOutlookEvent(projectId){
+  await handleProjectCalendarSync(projectId);
+}
+
+async function handleClientOutlookShortcut(clientId){
+  const clientProjects = projects.filter(p=>p.client_id===clientId);
+  if(!clientProjects.length){
+    alert('이 고객사에는 프로젝트가 없습니다.');
+    return;
+  }
+  setPage('gantt');
+  if(clientProjects.length===1){
+    setTimeout(() => openProjModal(clientProjects[0].id), 0);
+    return;
+  }
+  alert('이제 캘린더 추가는 프로젝트 관리 탭에서 진행합니다. 프로젝트를 클릭한 뒤 내 캘린더 추가를 눌러주세요.');
+}
+
+async function msLogin(){
+  setPage('gantt');
+  alert('Microsoft 로그인 없이 프로젝트 관리 탭에서 바로 캘린더 파일을 추가할 수 있도록 변경했습니다.');
+}
+function buildProjectCalendarPayload(project){
+  const client = clients.find(c=>c.id===project.client_id) || null;
+  const startDate = project.start || new Date().toISOString().slice(0,10);
+  const endDateExclusive = addDaysLocal(project.end || startDate, 1);
+  const members = Array.isArray(project.members) ? project.members.join(', ') : '';
+  const descriptionLines = [];
+  if(client?.name) descriptionLines.push(`Client: ${client.name}`);
+  descriptionLines.push(`Project: ${project.name||'Project'}`);
+  if(project.type) descriptionLines.push(`Type: ${project.type}`);
+  if(members) descriptionLines.push(`Members: ${members}`);
+  if(project.memo) descriptionLines.push('', project.memo);
+
+  return {
+    title: `[${client?.name||'Client'}] ${project.name||'Project'}`,
+    startDate,
+    endDateExclusive,
+    description: descriptionLines.join('\n'),
+    fileName: `${safeCalendarFileName(client?.name||'client')}-${safeCalendarFileName(project.name||'project')}.ics`
+  };
+}
+
+async function handleProjectCalendarSync(projectId){
+  const project = projects.find(p=>p.id===projectId);
+  if(!project){
+    alert('Project not found.');
+    return;
+  }
+  try{
+    await downloadProjectCalendarFile(project);
+    alert('Calendar file downloaded. Open it to add the event to your calendar.');
+  }catch(e){
+    console.error(e);
+    alert('Calendar add failed: ' + (e.message||'Unknown error'));
+  }
+}
+
+async function handleProjectOutlookEvent(projectId){
+  await handleProjectCalendarSync(projectId);
+}
+
+async function handleClientOutlookShortcut(clientId){
+  const clientProjects = projects.filter(p=>p.client_id===clientId);
+  if(!clientProjects.length){
+    alert('There are no projects for this client.');
+    return;
+  }
+  setPage('gantt');
+  if(clientProjects.length===1){
+    setTimeout(() => openProjModal(clientProjects[0].id), 0);
+    return;
+  }
+  alert('Calendar add now happens in Project Management. Click a project, then choose Add to My Calendar.');
+}
+
+async function msLogin(){
+  setPage('gantt');
+  alert('Microsoft login is no longer required. Use Project Management to add the calendar file directly.');
 }
 </script>
 
