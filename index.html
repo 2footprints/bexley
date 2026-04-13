@@ -721,7 +721,7 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
       <button class="nav-btn" id="navNotice" onclick="setPage('notice')">💡 지식공유</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">⚙️ 관리</button>
-      <button class="nav-btn" id="navFun" onclick="setPage('fun')" style="opacity:.5" title="이스터에그">🎲</button>
+      <button class="nav-btn" id="navFun" onclick="setPage('fun')">🧩 팀편의</button>
     </nav>
 
     <div class="header-search-wrap" id="workspaceSearchWrap">
@@ -767,6 +767,7 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">📄 계약</button>
     <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">📊 대시보드</button>
     <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">💡 지식공유</button>
+    <button class="nav-btn" id="mNavFun" onclick="setPage('fun');closeMobileMenu()">🧩 팀편의</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">⚙️ 관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">🔐 고객사 페이지</button>
@@ -922,7 +923,7 @@ input,textarea{border-radius:12px!important}
     <!-- 이스터에그 🎲 -->
     <div id="pageFun" style="display:none">
       <div class="section-header" style="margin-bottom:24px">
-        <h2 class="section-title">🎲 Fun Zone</h2>
+        <h2 class="section-title">🧩 팀편의</h2>
         <span style="font-size:12px;color:var(--text3)">업무 중간 소소한 즐거움</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
@@ -1860,22 +1861,76 @@ function closeMobileMenu(){
   document.getElementById('mobileMenu')?.classList.remove('open');
 }
 
-function setPage(page,extra){
-  curPage=page;
-  ['pageClients','pageDetail','pageContract','pageContracts','pageTeam','pageGantt','pageDash','pageNotice','pageAdmin','pageFun'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  ['navClients','navContracts','navGantt','navTeam','navDash','navNotice','navAdmin','navFun'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
-  document.querySelector('.header-logo').style.color='var(--navy)';
-  const pages={team:'pageTeam',clients:'pageClients',detail:'pageDetail',contract:'pageContract',contracts:'pageContracts',gantt:'pageGantt',dash:'pageDash',notice:'pageNotice',admin:'pageAdmin',fun:'pageFun'};
-  const navs={team:'navTeam',clients:'navClients',contracts:'navContracts',gantt:'navGantt',dash:'navDash',notice:'navNotice',admin:'navAdmin',fun:'navFun'};
-  const el=document.getElementById(pages[page]);if(el)el.style.display='block';
-  if(navs[page])document.getElementById(navs[page])?.classList.add('active');
-  if(page==='clients'){renderAlerts();renderClients();}
-  else if(page==='contracts')renderContractsPage();
-  else if(page==='team'){renderTeamNotices();setTimeout(()=>loadIssueFeed(true),0);renderMyWeek();renderWeeklyScheduleSummary();renderKudos();renderWeeklyReviews();}
-  else if(page==='gantt')renderGantt();
-  else if(page==='dash')renderDash();
-  else if(page==='notice'){refreshKnowledgePosts().then(()=>renderKnowledgeBoard());}
-  else if(page==='admin')renderAdminPage();
+function setPage(page, extra) {
+  curPage = page;
+
+  [
+    'pageClients','pageDetail','pageContract','pageContracts',
+    'pageTeam','pageGantt','pageDash','pageNotice','pageAdmin','pageFun'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  [
+    'navClients','navContracts','navGantt','navTeam','navDash','navNotice','navAdmin','navFun',
+    'mNavClients','mNavContracts','mNavGantt','mNavTeam','mNavDash','mNavNotice','mNavAdmin','mNavFun'
+  ].forEach(id => document.getElementById(id)?.classList.remove('active'));
+
+  document.querySelector('.header-logo').style.color = 'var(--navy)';
+
+  const pages = {
+    team:'pageTeam',
+    clients:'pageClients',
+    detail:'pageDetail',
+    contract:'pageContract',
+    contracts:'pageContracts',
+    gantt:'pageGantt',
+    dash:'pageDash',
+    notice:'pageNotice',
+    admin:'pageAdmin',
+    fun:'pageFun'
+  };
+
+  const navs = {
+    team:['navTeam','mNavTeam'],
+    clients:['navClients','mNavClients'],
+    contracts:['navContracts','mNavContracts'],
+    gantt:['navGantt','mNavGantt'],
+    dash:['navDash','mNavDash'],
+    notice:['navNotice','mNavNotice'],
+    admin:['navAdmin','mNavAdmin'],
+    fun:['navFun','mNavFun']
+  };
+
+  const el = document.getElementById(pages[page]);
+  if (el) el.style.display = 'block';
+
+  (navs[page] || []).forEach(id => {
+    document.getElementById(id)?.classList.add('active');
+  });
+
+  if (page === 'clients') {
+    renderAlerts();
+    renderClients();
+  } else if (page === 'contracts') {
+    renderContractsPage();
+  } else if (page === 'team') {
+    renderTeamNotices();
+    setTimeout(() => loadIssueFeed(true), 0);
+    renderMyWeek();
+    renderWeeklyScheduleSummary();
+    renderKudos();
+    renderWeeklyReviews();
+  } else if (page === 'gantt') {
+    renderGantt();
+  } else if (page === 'dash') {
+    renderDash();
+  } else if (page === 'notice') {
+    refreshKnowledgePosts().then(() => renderKnowledgeBoard());
+  } else if (page === 'admin') {
+    renderAdminPage();
+  }
 }
 
 let myFilterActive=true;
