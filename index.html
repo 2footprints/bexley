@@ -5742,7 +5742,8 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
 </script>
 
 
-<!-- 📧 테스트 메일 버튼 -->
+
+  <!-- 📧 테스트 메일 버튼 -->
 <div style="position:fixed; bottom:20px; right:20px; z-index:9999;">
   <button onclick="sendTestMail()" 
     style="padding:12px 16px; background:#635BFF; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">
@@ -5751,39 +5752,39 @@ document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;
 </div>
 
 <script>
+
+window.addEventListener('load', boot);
+
 async function sendTestMail() {
   try {
     const res = await fetch('/.netlify/functions/send-personal-briefing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        to: 'janghankim@bexleyintl.com'
+      body: JSON.stringify({
+        to: '2footprints@naver.com'
       })
     });
 
     const data = await res.json();
 
+    console.log('응답:', data);
+
     if (data.ok) {
-      alert('✅ 메일 발송 성공!');
+      alert('✅ 메일 발송 성공');
     } else {
-      alert('❌ 실패: ' + (data.message || '알 수 없는 오류'));
-      console.error(data);
+      alert('❌ 실패: ' + data.message);
     }
 
   } catch (e) {
-    alert('❌ 에러 발생: ' + e.message);
     console.error(e);
+    alert('❌ 에러 발생: ' + e.message);
   }
 }
+
 </script>
 
-
-
-
-
-
-
-
+</body>
+</html>
 
   
 </body>
