@@ -7512,9 +7512,9 @@ saveProj = async function(){
   const client_id=document.getElementById('fClient')?.value||null;
   const contract_id=document.getElementById('fContract')?.value||null;
   const is_billable=!!document.getElementById('fBillable')?.checked;
-  /*
+  legacy billing status placeholder removed for reference only
   const billing_status=is_billable?(document.getElementById('fBilling')?.value||'미청구'):'미청구';
-  */
+  legacy billing status placeholder end
   const billingPendingStatus='\uBBF8\uCCAD\uAD6C';
   const doneStatus='\uC644\uB8CC';
   const billing_status=is_billable?(document.getElementById('fBilling')?.value||billingPendingStatus):billingPendingStatus;
@@ -7995,6 +7995,8 @@ renderGanttSidebarList = function(projs){
 
 
 // ── Outlook Calendar Integration ──
+/* Legacy Outlook calendar integration block disabled.
+   The active Outlook helpers are defined later in the file.
 const OUTLOOK_TIMEZONE = "Asia/Seoul";
 const MSAL_REDIRECT_URI = `${window.location.origin}${window.location.pathname}`;
 const msalConfig = {
