@@ -7757,12 +7757,9 @@ saveProj = async function(){
   try{
     const body={name,type,start_date:start,end_date:end,status,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
     const wasEditing=!!editingProjId;
-    const canSyncMembers=!wasEditing || canManageProjectMembers(existing);
+    const canSyncMembers=!wasEditing || (!!existing && canManageProjectMembers(existing));
     if(wasEditing){
       await api('PATCH','projects?id=eq.'+editingProjId,body);
-      if(canSyncMembers){
-        await api('DELETE','project_members?project_id=eq.'+editingProjId);
-      }
     }else{
       const res=await api('POST','projects',{...body,created_by:currentUser.id});
       editingProjId=res[0].id;
@@ -7771,8 +7768,21 @@ saveProj = async function(){
       const uniqueMemberIds=[...new Set((formMembers||[])
         .map(mn=>members.find(m=>m.name===mn)?.id)
         .filter(Boolean))];
+      const currentRows=wasEditing
+        ?(await api('GET','project_members?project_id=eq.'+editingProjId+'&select=member_id').catch(()=>[]))
+        :[];
+      const currentMemberIds=[...new Set((currentRows||[]).map(row=>row?.member_id).filter(Boolean))];
+      const targetSet=new Set(uniqueMemberIds);
+      const currentSet=new Set(currentMemberIds);
+      for(const memberId of currentMemberIds){
+        if(!targetSet.has(memberId)){
+          await api('DELETE','project_members?project_id=eq.'+editingProjId+'&member_id=eq.'+memberId);
+        }
+      }
       for(const memberId of uniqueMemberIds){
-        await api('POST','project_members',{project_id:editingProjId,member_id:memberId});
+        if(!currentSet.has(memberId)){
+          await api('POST','project_members',{project_id:editingProjId,member_id:memberId});
+        }
       }
     }
     await logActivity(wasEditing?'프로젝트 수정':'프로젝트 추가','project',editingProjId,name);
@@ -9664,6 +9674,158 @@ if(document.readyState === 'loading'){
 }else{
   renderLocalVerifyEntry();
 }
+</script>
+
+<script>
+function getTeamDashboardAvailabilityItemsFinal(){
+  const today=getHomeBaseDate();
+  const todayLeave=(schedules||[]).filter(s=>s.schedule_type==='leave'&&toDate(s.start)<=today&&toDate(s.end)>=today).length;
+  const todayFieldwork=(schedules||[]).filter(s=>s.schedule_type==='fieldwork'&&toDate(s.start)<=today&&toDate(s.end)>=today).length;
+  return [
+    {
+      title:'오늘 휴가',
+      meta:todayLeave?`${todayLeave}건의 휴가 일정이 있습니다.`:'오늘 등록된 휴가 일정이 없습니다.',
+      badges:[`<span class="badge ${todayLeave?'badge-orange':'badge-gray'}">${todayLeave}건</span>`],
+      action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
+    },
+    {
+      title:'오늘 필드웍',
+      meta:todayFieldwork?`${todayFieldwork}건의 현장 일정이 있습니다.`:'오늘 등록된 필드웍 일정이 없습니다.',
+      badges:[`<span class="badge ${todayFieldwork?'badge-blue':'badge-gray'}">${todayFieldwork}건</span>`],
+      action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
+    },
+    {
+      title:'이번 주 일정',
+      meta:currentMember?.name?`${currentMember.name}님의 일정과 팀 스케줄을 아래에서 확인하세요.`:'아래 일정 섹션에서 팀 스케줄을 확인하세요.',
+      badges:['<span class="badge badge-gray">바로가기</span>'],
+      action:"document.getElementById('myWeekWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
+    }
+  ];
+}
+
+renderTeamMainDashboard = function(){
+  const el=document.getElementById('teamMainDashboardWrap');
+  if(!el) return;
+  const todayItems=getHomeTodayItems(4);
+  const todayDue=getHomeTodayDueProjects();
+  const issueItems=getHomeIssueItems(4);
+  const unreadRequired=getUnreadRequiredNotices().length;
+  const myIssueTotal=(currentMember?.name
+    ?(projects||[])
+      .filter(p=>Array.isArray(p.members)&&p.members.includes(currentMember.name))
+      .reduce((sum,p)=>sum+(openIssuesByProject[p.id]||0),0)
+    :0);
+  const availabilityItems=getTeamDashboardAvailabilityItemsFinal();
+  const cards=[
+    {label:'오늘 일정',value:todayItems.length,sub:todayItems.length?'오늘 처리할 일정과 프로젝트가 있습니다.':'오늘 바로 처리할 일정이 없습니다.',className:'info',action:"document.getElementById('myWeekWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+    {label:'오늘 마감',value:todayDue.length,sub:todayDue.length?truncateText(todayDue.map(p=>p.name).join(', '),28):'오늘 마감 프로젝트 없음',className:'today',action:"setPage('gantt')"},
+    {label:'내 담당 이슈',value:myIssueTotal,sub:myIssueTotal?'내가 확인할 열린 이슈가 있습니다.':'열린 담당 이슈 없음',className:'info',action:"document.getElementById('issueFeedWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+    {label:'필독 공지',value:unreadRequired,sub:unreadRequired?'확인하지 않은 필독 공지가 있습니다.':'미확인 필독 공지 없음',className:unreadRequired?'warn':'info',action:"document.getElementById('teamNoticeWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"}
+  ];
+  el.innerHTML=
+    '<div class="main-focus-grid">'+cards.map(card=>
+      '<div class="main-focus-card clickable '+(card.className||'')+'" onclick="'+card.action+'">'
+        +'<div class="main-focus-label">'+esc(card.label)+'</div>'
+        +'<div class="main-focus-value">'+card.value+'</div>'
+        +'<div class="main-focus-sub">'+esc(card.sub)+'</div>'
+      +'</div>'
+    ).join('')+'</div>'
+    +'<div class="main-home-grid">'
+      +'<div class="main-home-card">'
+        +'<div class="main-home-head">'
+          +'<div><div class="main-home-title">오늘 해야 할 일</div><div class="main-home-sub">'+(currentMember?.name?esc(currentMember.name)+'님 기준으로 오늘 바로 확인해야 할 항목입니다.':'오늘 체크해야 할 항목입니다.')+'</div></div>'
+          +'<button class="btn ghost sm" onclick="setPage(\'gantt\')">프로젝트 관리</button>'
+        +'</div>'
+        +renderHomeInfoList(todayItems,currentMember?.name?'오늘 바로 처리할 일정이 없습니다.':'로그인 정보가 없어 개인 일정 요약을 표시하지 못했습니다.')
+      +'</div>'
+      +'<div class="main-home-stack">'
+        +'<div class="main-home-card">'
+          +'<div class="main-home-head">'
+            +'<div><div class="main-home-title">내 담당 이슈</div><div class="main-home-sub">열린 이슈가 있는 프로젝트를 우선순위대로 보여줍니다.</div></div>'
+            +'<button class="btn ghost sm" onclick="document.getElementById(\'issueFeedWrap\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">아래 이슈 보기</button>'
+          +'</div>'
+          +renderHomeInfoList(issueItems,'현재 열려 있는 담당 이슈가 없습니다.')
+        +'</div>'
+        +'<div class="main-home-card">'
+          +'<div class="main-home-head">'
+            +'<div><div class="main-home-title">팀 일정 요약</div><div class="main-home-sub">휴가, 필드웍, 개인 일정을 빠르게 확인하고 아래 상세 섹션으로 이동합니다.</div></div>'
+            +'<button class="btn ghost sm" onclick="document.getElementById(\'memberScheduleWrap\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">일정 보기</button>'
+          +'</div>'
+          +renderHomeInfoList(availabilityItems,'팀 일정 요약이 없습니다.')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+};
+
+renderDash = function(){
+  const today=getHomeBaseDate();
+  const todayDue=getHomeTodayDueProjects();
+  const overdue=projects.filter(p=>isOverdue(p));
+  const doneStatus='완료';
+  const billingPending='미청구';
+  const unbilled=projects.filter(p=>p.status===doneStatus&&p.is_billable&&p.billing_status===billingPending);
+  const followups=projects.filter(p=>p.status===doneStatus&&p.follow_up_needed);
+  const todayLeave=(schedules||[]).filter(s=>s.schedule_type==='leave'&&toDate(s.start)<=today&&toDate(s.end)>=today);
+  const todayFieldwork=(schedules||[]).filter(s=>s.schedule_type==='fieldwork'&&toDate(s.start)<=today&&toDate(s.end)>=today);
+  const activeProjects=projects.filter(p=>p.status==='진행중');
+  const memberLoad=members
+    .map(m=>({
+      name:m.name,
+      activeCount:activeProjects.filter(p=>(p.members||[]).includes(m.name)).length,
+      onLeave:todayLeave.some(s=>s.member_name===m.name),
+      onFieldwork:todayFieldwork.some(s=>s.member_name===m.name)
+    }))
+    .filter(item=>item.activeCount||item.onLeave||item.onFieldwork)
+    .sort((a,b)=>{
+      const activeDiff=b.activeCount-a.activeCount;
+      if(activeDiff) return activeDiff;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0,8);
+  const el=document.getElementById('pageDash');
+  if(!el) return;
+  el.innerHTML=
+    '<div class="card" style="margin-bottom:14px">'
+      +'<div class="section-label">관리 대시보드</div>'
+      +'<div style="font-size:13px;color:var(--text2);line-height:1.6">이 화면은 오늘 해야 할 일보다, 바로 확인이 필요한 예외와 운영 지표를 모아 보여줍니다.</div>'
+    +'</div>'
+    +'<div class="stat-grid">'
+      +'<div class="stat-card clickable '+(overdue.length?'warn':'ok')+'" onclick="openDashDrilldown(\'overdue\')"><div class="stat-label">기간 초과</div><div class="stat-num">'+overdue.length+'</div><div class="stat-sub">'+(overdue.length?'즉시 확인 필요':'이상 없음')+'</div></div>'
+      +'<div class="stat-card clickable '+(todayDue.length?'warn':'ok')+'" onclick="setPage(\'gantt\')"><div class="stat-label">오늘 마감</div><div class="stat-num">'+todayDue.length+'</div><div class="stat-sub">'+(todayDue.length?'오늘 종료 예정':'오늘 마감 없음')+'</div></div>'
+      +'<div class="stat-card clickable '+(unbilled.length?'warn':'ok')+'" onclick="openDashDrilldown(\'unbilled\')"><div class="stat-label">빌링 필요</div><div class="stat-num">'+unbilled.length+'</div><div class="stat-sub">'+(unbilled.length?'완료 후 미청구':'이상 없음')+'</div></div>'
+      +'<div class="stat-card clickable '+(followups.length?'warn':'ok')+'" onclick="openDashDrilldown(\'followup\')"><div class="stat-label">후속 조치</div><div class="stat-num">'+followups.length+'</div><div class="stat-sub">'+(followups.length?'추가 액션 필요':'이상 없음')+'</div></div>'
+      +'<div class="stat-card clickable '+(todayLeave.length?'warn':'ok')+'" onclick="openDashDrilldown(\'leave\')"><div class="stat-label">오늘 휴가</div><div class="stat-num">'+todayLeave.length+'</div><div class="stat-sub">'+(todayLeave.length?'가용성 확인':'휴가 없음')+'</div></div>'
+      +'<div class="stat-card clickable '+(todayFieldwork.length?'warn':'ok')+'" onclick="openDashDrilldown(\'fieldwork\')"><div class="stat-label">오늘 필드웍</div><div class="stat-num">'+todayFieldwork.length+'</div><div class="stat-sub">'+(todayFieldwork.length?'현장 일정 존재':'현장 일정 없음')+'</div></div>'
+    +'</div>'
+    +'<div class="dash-row">'
+      +'<div class="card">'
+        +'<div class="section-label">관리 큐</div>'
+        +(overdue.length
+          ?overdue.slice(0,5).map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-red">기간 초과</span></div>').join('')
+          :'<div style="font-size:12px;color:var(--text3);padding:8px 0">지금 바로 대응할 기간 초과 프로젝트가 없습니다.</div>')
+        +(unbilled.length
+          ?'<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">'
+            +unbilled.slice(0,5).map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange">빌링 필요</span></div>').join('')
+          +'</div>'
+          :'')
+        +(followups.length
+          ?'<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">'
+            +followups.slice(0,5).map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange">후속 조치</span></div>').join('')
+          +'</div>'
+          :'')
+      +'</div>'
+      +'<div class="card">'
+        +'<div class="section-label">팀 가용성</div>'
+        +(memberLoad.length
+          ?memberLoad.map(item=>'<div class="info-row"><span class="info-label" style="width:auto;flex:1">'+esc(item.name)+'</span><span class="info-value">'+item.activeCount+'개 진행중</span>'+(item.onLeave?'<span class="badge badge-orange" style="margin-left:8px">휴가</span>':'')+(item.onFieldwork?'<span class="badge badge-blue" style="margin-left:8px">필드웍</span>':'')+'</div>').join('')
+          :'<div style="font-size:12px;color:var(--text3);padding:8px 0">오늘 표시할 팀 가용성 정보가 없습니다.</div>')
+      +'</div>'
+    +'</div>'
+    +'<div class="card" id="activityFeedCard"><div class="section-label">활동 피드</div>'
+      +'<div id="activityFeedList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
+    +'</div>';
+  loadActivityFeed();
+};
 </script>
 
 </body>
