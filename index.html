@@ -7675,10 +7675,35 @@ isOverdue = function(p){
   return toDate(p.end)<today;
 };
 
+function canManageProjectMembers(p){
+  if(!p) return canManageCore();
+  return !!(roleIsAdmin() || (currentUser && p && p.created_by===currentUser.id));
+}
+
 const renderProjModalBaseForRoles = renderProjModal;
 renderProjModal = function(p,editable,preClientId,preContractId){
   const resolvedEditable=!p || canEdit(p);
   renderProjModalBaseForRoles(p,resolvedEditable,preClientId,preContractId);
+  if(p && resolvedEditable && !canManageProjectMembers(p)){
+    const memberSelect=document.getElementById('fMSel');
+    if(memberSelect){
+      memberSelect.disabled=true;
+      memberSelect.style.background='var(--bg)';
+    }
+    const memberAddBtn=memberSelect?.parentElement?.querySelector('button');
+    if(memberAddBtn) memberAddBtn.style.display='none';
+    document.querySelectorAll('#fMTags .member-tag button').forEach(btn=>btn.remove());
+    if(!document.getElementById('projectMemberEditNotice')){
+      const tags=document.getElementById('fMTags');
+      if(tags){
+        const notice=document.createElement('div');
+        notice.id='projectMemberEditNotice';
+        notice.className='readonly-notice';
+        notice.textContent='프로젝트 담당 인력 변경은 작성자 또는 관리자만 가능합니다.';
+        tags.insertAdjacentElement('afterend',notice);
+      }
+    }
+  }
   if(p && !canDeleteProject(p)){
     const footer=document.querySelector('#modalArea .modal-footer');
     if(footer && footer.firstElementChild) footer.firstElementChild.innerHTML='';
@@ -7732,16 +7757,23 @@ saveProj = async function(){
   try{
     const body={name,type,start_date:start,end_date:end,status,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
     const wasEditing=!!editingProjId;
+    const canSyncMembers=!wasEditing || canManageProjectMembers(existing);
     if(wasEditing){
       await api('PATCH','projects?id=eq.'+editingProjId,body);
-      await api('DELETE','project_members?project_id=eq.'+editingProjId);
+      if(canSyncMembers){
+        await api('DELETE','project_members?project_id=eq.'+editingProjId);
+      }
     }else{
       const res=await api('POST','projects',{...body,created_by:currentUser.id});
       editingProjId=res[0].id;
     }
-    for(const mn of formMembers){
-      const mem=members.find(m=>m.name===mn);
-      if(mem) await api('POST','project_members',{project_id:editingProjId,member_id:mem.id});
+    if(canSyncMembers){
+      const uniqueMemberIds=[...new Set((formMembers||[])
+        .map(mn=>members.find(m=>m.name===mn)?.id)
+        .filter(Boolean))];
+      for(const memberId of uniqueMemberIds){
+        await api('POST','project_members',{project_id:editingProjId,member_id:memberId});
+      }
     }
     await logActivity(wasEditing?'프로젝트 수정':'프로젝트 추가','project',editingProjId,name);
     closeModal();
