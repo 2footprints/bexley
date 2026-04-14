@@ -424,6 +424,13 @@ table{border-collapse:collapse;min-width:100%}
 .helper-title{font-size:12px;font-weight:800;color:var(--navy);margin-bottom:8px}
 .helper-text{font-size:12px;color:var(--text2);line-height:1.7}
 .copy-area{width:100%;min-height:220px;padding:12px 14px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text2);font-family:inherit;line-height:1.7;resize:vertical}
+.work-links-section{margin-bottom:18px}
+.work-links-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.work-link-card{display:block;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;text-decoration:none;transition:all .18s ease;box-shadow:none}
+.work-link-card:hover{transform:translateY(-2px);border-color:var(--blue);box-shadow:var(--shadow)}
+.work-link-label{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:6px;letter-spacing:-.2px}
+.work-link-desc{font-size:12px;color:var(--text3);line-height:1.65}
+.work-link-meta{margin-top:12px;font-size:11px;font-weight:700;color:var(--blue)}
 .muted{font-size:11px;color:var(--text3)}
 
 .comment-list{display:flex;flex-direction:column;gap:10px;margin-top:8px}
@@ -1365,6 +1372,123 @@ select{
   border:none!important;
   background:transparent!important;
 }
+.gantt-layout-toggle{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:4px!important;
+}
+.gantt-calendar-wrap{
+  overflow-x:auto;
+  padding-bottom:8px;
+}
+.gantt-calendar-board{
+  min-width:860px;
+}
+.gantt-calendar-weekdays,
+.gantt-calendar-grid{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(120px,1fr));
+  gap:10px;
+}
+.gantt-calendar-weekdays{
+  margin-bottom:10px;
+}
+.gantt-calendar-weekday{
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--bg);
+  font-size:11px;
+  font-weight:800;
+  color:var(--text3);
+  text-align:center;
+}
+.gantt-calendar-day{
+  min-height:156px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#fff;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.gantt-calendar-day.is-empty{
+  background:linear-gradient(180deg,#fbfcfe 0%, #f8fafc 100%);
+}
+.gantt-calendar-day.is-today{
+  border-color:rgba(19,52,89,.42);
+  box-shadow:0 0 0 1px rgba(19,52,89,.06), 0 12px 24px rgba(15,23,42,.05);
+}
+.gantt-calendar-day.is-weekend .gantt-calendar-date{
+  color:#B45309;
+}
+.gantt-calendar-date-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.gantt-calendar-date{
+  font-size:14px;
+  font-weight:900;
+  color:var(--navy);
+}
+.gantt-calendar-count{
+  font-size:10px;
+  font-weight:700;
+  color:var(--text3);
+  background:var(--bg);
+  padding:4px 7px;
+  border-radius:999px;
+}
+.gantt-calendar-items{
+  display:grid;
+  gap:6px;
+}
+.gantt-calendar-item{
+  width:100%;
+  border:none;
+  border-radius:10px;
+  padding:7px 9px;
+  font-size:11px;
+  font-weight:700;
+  line-height:1.35;
+  text-align:left;
+  cursor:pointer;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.gantt-calendar-item:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 16px rgba(15,23,42,.08);
+}
+.gantt-calendar-item.project{
+  color:#fff;
+}
+.gantt-calendar-item.schedule{
+  color:#243241;
+  border:1px solid rgba(255,255,255,.36);
+}
+.gantt-calendar-item.more{
+  background:var(--bg);
+  color:var(--text2);
+  cursor:default;
+  box-shadow:none;
+}
+.gantt-calendar-item.more:hover{
+  transform:none;
+}
+.ladder-stage{
+  padding:14px;
+  border-radius:16px;
+  border:1px solid var(--border);
+  background:linear-gradient(180deg,#ffffff 0%, #f8fafc 100%);
+}
+.ladder-status-note{
+  font-size:12px;
+  color:var(--text3);
+  text-align:center;
+}
 .ui-table-shell{
   border:1px solid var(--border)!important;
   border-radius:var(--radius-sm)!important;
@@ -1738,6 +1862,54 @@ input,textarea{border-radius:12px!important}
       <div class="section-header" style="margin-bottom:24px">
         <h2 class="section-title">🧩 팀편의</h2>
         <span style="font-size:12px;color:var(--text3)">업무 중간 소소한 즐거움</span>
+      </div>
+      <div class="work-links-section">
+        <div class="card" style="margin-bottom:16px">
+          <div class="section-label">업무 바로가기</div>
+          <div style="font-size:13px;color:var(--text3);margin-bottom:14px">자주 찾는 기관 사이트와 조회 업무 링크를 한곳에서 바로 열 수 있게 모았습니다.</div>
+          <div class="work-links-grid">
+            <a class="work-link-card" href="https://www.smbs.biz/" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">서울외국환중개</div>
+              <div class="work-link-desc">환율과 외환시장 관련 정보를 확인할 때 바로 들어가는 공식 사이트입니다.</div>
+              <div class="work-link-meta">공식 사이트 열기</div>
+            </a>
+            <a class="work-link-card" href="https://www.kofia.or.kr/" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">KOFIA</div>
+              <div class="work-link-desc">금융투자협회 규정, 공시, 통계와 회원사 관련 정보를 확인할 수 있습니다.</div>
+              <div class="work-link-meta">공식 사이트 열기</div>
+            </a>
+            <a class="work-link-card" href="https://audit.kftc.or.kr/" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">온라인 조회서</div>
+              <div class="work-link-desc">조회서 발송과 회신 확인 등 조회 업무를 진행할 때 쓰는 사이트입니다.</div>
+              <div class="work-link-meta">조회 사이트 열기</div>
+            </a>
+            <a class="work-link-card" href="https://audit.kftc.or.kr/" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">금융기관 조회서</div>
+              <div class="work-link-desc">금융기관 대상 조회 확인이 필요할 때 바로 진입할 수 있게 두었습니다.</div>
+              <div class="work-link-meta">조회 사이트 열기</div>
+            </a>
+            <a class="work-link-card" href="https://www.hometax.go.kr/" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">홈택스</div>
+              <div class="work-link-desc">세금 신고, 증빙, 사업자 관련 확인 업무를 할 때 자주 쓰는 공식 사이트입니다.</div>
+              <div class="work-link-meta">공식 사이트 열기</div>
+            </a>
+            <a class="work-link-card" href="https://dart.fss.or.kr/" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">전자공시 DART</div>
+              <div class="work-link-desc">법인 공시와 재무 관련 자료를 빠르게 찾을 수 있는 공식 공시 시스템입니다.</div>
+              <div class="work-link-meta">공식 사이트 열기</div>
+            </a>
+            <a class="work-link-card" href="https://www.iros.go.kr/" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">인터넷등기소</div>
+              <div class="work-link-desc">법인 등기나 부동산 등기 확인이 필요할 때 바로 들어갈 수 있습니다.</div>
+              <div class="work-link-meta">공식 사이트 열기</div>
+            </a>
+            <a class="work-link-card" href="https://www.gov.kr/portal/main?newVersionGbn=tobe" target="_blank" rel="noopener noreferrer">
+              <div class="work-link-label">정부24</div>
+              <div class="work-link-desc">민원 서류와 각종 행정 서비스 조회가 필요할 때 쓰는 정부 공식 사이트입니다.</div>
+              <div class="work-link-meta">공식 사이트 열기</div>
+            </a>
+          </div>
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
         <!-- 점심 추천 -->
@@ -4101,11 +4273,10 @@ async function saveSchedule(eid){
 }
 function renderGanttOverviewCards(projs,schs){
   const el=document.getElementById('ganttOverview'); if(!el) return;
-  const today=new Date();
   const activeCount=projs.filter(p=>p.status==='\uC9C4\uD589\uC911').length;
   const doneStatus='\uC644\uB8CC';
   const billingPending='\uBBF8\uCCAD\uAD6C';
-  const overdueCount=projs.filter(p=>toDate(p.end)<today&&p.status!==doneStatus).length;
+  const overdueCount=projs.filter(p=>isOverdue(p)).length;
   const unbilledCount=projs.filter(p=>p.status===doneStatus&&p.is_billable&&p.billing_status===billingPending).length;
   const issueCount=projs.reduce((sum,p)=>sum+(openIssuesByProject[p.id]||0),0);
   const stats=[
@@ -7197,6 +7368,476 @@ renderKudos = async function(offset){
     el.innerHTML='';
   }
 };
+
+gRow = function(p,days){
+  const od=isOverdue(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
+  const color=TYPES[p.type]||'#4e5968';
+  const opacity=ST_OP[p.status]||1;
+  const pS=toDate(p.start),pE=toDate(p.end);
+  const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
+  const barS=pS<mFirst?1:pS.getDate();
+  const barE=pE>mLast?days:pE.getDate();
+  const span=barE-barS+1;
+  const leaveOverlays={};
+  schedules.forEach(s=>{
+    if(s.schedule_type!=='leave'&&s.schedule_type!=='fieldwork') return;
+    if(!p.members.includes(s.member_name)) return;
+    const sS=toDate(s.start),sE=toDate(s.end);
+    if(sS>mLast||sE<mFirst) return;
+    const oS=Math.max(barS,sS<mFirst?1:sS.getDate());
+    const oE=Math.min(barE,sE>mLast?days:sE.getDate());
+    for(let d=oS;d<=oE;d++){
+      if(!leaveOverlays[d]) leaveOverlays[d]=[];
+      leaveOverlays[d].push({type:s.schedule_type,member:s.member_name,title:s.title||scheduleLabel(s.schedule_type)});
+    }
+  });
+  const issueCount=openIssuesByProject[p.id]||0;
+  const hasMemo=!!(p.memo&&String(p.memo).trim());
+  const badges=(od?'<span class="g-badge overdue">지연</span>':'')
+    +(mine?'<span class="g-badge mine">내 담당</span>':'')
+    +(hasMemo?'<span class="g-badge" style="background:#E2E8F0;color:#334155" title="'+esc(p.memo||'')+'">메모</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">이슈 '+issueCount+'</span>':'');
+  const rowCls='row-label'+(od?' row-warn':'')+(issueCount?' row-issue':'');
+  const memberText=(p.members||[]).join(' · ')||'담당자 미배정';
+  const lbl='<div class="rn">'+esc(p.name)+badges+'</div><div class="rs">'+esc(memberText)+'</div>';
+  let cells='';
+  for(let d=1;d<=days;d++){
+    const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
+    const cls='cell '+(wk?'weekend ':'')+(td?'today-c':'');
+    const overlays=leaveOverlays[d]||[];
+    let overlayHtml='';
+    if(overlays.length&&d>=barS&&d<=barE){
+      const icons=overlays.map(ov=>ov.type==='leave'?'L':'F').join(' ');
+      const tip=overlays.map(ov=>ov.member+' '+ov.title).join(', ');
+      const oc=overlays.some(ov=>ov.type==='leave')?'rgba(200,178,138,.48)':'rgba(154,167,182,.42)';
+      overlayHtml='<div class="leave-marker" style="left:1px;right:1px;background:'+oc+'" title="'+esc(tip)+'">'+icons+'</div>';
+    }
+    if(d===barS){
+      const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
+      cells+='<td class="'+cls+'" style="position:relative">'
+        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | 메모 있음':'')+(issueCount?' | 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +overlayHtml+'</td>';
+    }else{
+      cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
+    }
+  }
+  return '<tr><td class="'+rowCls+'" onclick="openProjModal(\''+p.id+'\')">'+lbl+'</td>'+cells+'</tr>';
+};
+
+/*
+
+renderGanttSidebarList = function(projs){
+  const el=document.getElementById('ganttProjectList');
+  if(!el) return;
+  if(!projs.length){
+    el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
+    return;
+  }
+  if(!ganttFocusProjectId || !projs.some(p=>p.id===ganttFocusProjectId)) ganttFocusProjectId=projs[0].id;
+  const today=new Date();
+  const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
+  el.innerHTML=sorted.map(p=>{
+    const client=clients.find(c=>c.id===p.client_id);
+    const issueCount=openIssuesByProject[p.id]||0;
+    const hasMemo=!!(p.memo&&String(p.memo).trim());
+    const warning=toDate(p.end)<today&&p.status!=='\uC644\uB8CC'
+      ?'Overdue'
+      :p.status==='\uC644\uB8CC'&&p.is_billable&&p.billing_status==='\uBBF8\uCCAD\uAD6C'
+      ?'Billing needed'
+      :issueCount
+      ?'Open issues '+issueCount
+      :'On track';
+    const memoMeta=hasMemo?'<div class="gantt-project-meta" style="color:#334155;font-weight:700">메모 있음</div>':'';
+    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="setGanttFocusProject(\''+p.id+'\')">'
+      +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+(p.status==='\uC9C4\uD589\uC911'?'badge-blue':p.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(p.status||'No status')+'</span></div>'
+      +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
+      +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
+      +memoMeta
+      +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
+      +'</div>';
+  }).join('');
+};
+
+canEdit = function(p){
+  return !!(
+    isAdmin ||
+    (currentUser && p && p.created_by===currentUser.id) ||
+    (currentMember && p && Array.isArray(p.members) && p.members.includes(currentMember.name))
+  );
+};
+
+canDeleteProject = function(p){
+  return !!(isAdmin || (currentUser && p && p.created_by===currentUser.id));
+};
+
+isDueToday = function(p){
+  if(!p || p.status==='완료') return false;
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return toDate(p.end).getTime()===today.getTime();
+};
+
+isOverdue = function(p){
+  if(!p || p.status==='완료') return false;
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return toDate(p.end)<today;
+};
+
+const renderProjModalBaseForRoles = renderProjModal;
+renderProjModal = function(p,editable,preClientId,preContractId){
+  const resolvedEditable=!p || canEdit(p);
+  renderProjModalBaseForRoles(p,resolvedEditable,preClientId,preContractId);
+  if(p && !canDeleteProject(p)){
+    const footer=document.querySelector('#modalArea .modal-footer');
+    if(footer && footer.firstElementChild) footer.firstElementChild.innerHTML='';
+  }
+};
+
+saveProj = async function(){
+  const existing=editingProjId?projects.find(x=>x.id===editingProjId):null;
+  if(!editingProjId && !canManageCore()){
+    alert('멤버 이상 권한이 필요합니다.');
+    return;
+  }
+  if(editingProjId && !canEdit(existing)){
+    alert('담당 프로젝트만 수정할 수 있습니다.');
+    return;
+  }
+  const name=document.getElementById('fName')?.value.trim();
+  const type=document.getElementById('fType')?.value;
+  const start=document.getElementById('fStart')?.value;
+  const end=document.getElementById('fEnd')?.value;
+  const status=document.getElementById('fStatus')?.value;
+  const client_id=document.getElementById('fClient')?.value||null;
+  const contract_id=document.getElementById('fContract')?.value||null;
+  const is_billable=!!document.getElementById('fBillable')?.checked;
+  /*
+  const billing_status=is_billable?(document.getElementById('fBilling')?.value||'미청구'):'미청구';
+  */
+  const billingPendingStatus='\uBBF8\uCCAD\uAD6C';
+  const doneStatus='\uC644\uB8CC';
+  const billing_status=is_billable?(document.getElementById('fBilling')?.value||billingPendingStatus):billingPendingStatus;
+  const billing_amount=is_billable&&document.getElementById('fAmt')?.value?parseInt(document.getElementById('fAmt').value,10):null;
+  const billing_note=is_billable?(document.getElementById('fBNote')?.value.trim()||null):null;
+  const memo=document.getElementById('fMemo')?.value.trim()||null;
+  const project_code=document.getElementById('fProjCode')?.value.trim()||null;
+  let actual_end_date=document.getElementById('fActualEnd')?.value||null;
+  if(status===doneStatus&&!actual_end_date) actual_end_date=new Date().toISOString().slice(0,10);
+  if(status==='완료'&&!actual_end_date) actual_end_date=new Date().toISOString().slice(0,10);
+  const result_summary=document.getElementById('fResultSummary')?.value.trim()||null;
+  const work_summary=document.getElementById('fWorkSummary')?.value.trim()||null;
+  const issue_note=document.getElementById('fIssueNote')?.value.trim()||null;
+  const follow_up_needed=!!document.getElementById('fFollowUp')?.checked;
+  const follow_up_note=document.getElementById('fFollowUpNote')?.value.trim()||null;
+  if(!name||!start||!end){
+    alert('프로젝트명, 시작일, 종료일을 입력해주세요.');
+    return;
+  }
+  if(start>end){
+    alert('종료일이 시작일보다 빠릅니다.');
+    return;
+  }
+  try{
+    const body={name,type,start_date:start,end_date:end,status,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
+    const wasEditing=!!editingProjId;
+    if(wasEditing){
+      await api('PATCH','projects?id=eq.'+editingProjId,body);
+      await api('DELETE','project_members?project_id=eq.'+editingProjId);
+    }else{
+      const res=await api('POST','projects',{...body,created_by:currentUser.id});
+      editingProjId=res[0].id;
+    }
+    for(const mn of formMembers){
+      const mem=members.find(m=>m.name===mn);
+      if(mem) await api('POST','project_members',{project_id:editingProjId,member_id:mem.id});
+    }
+    await logActivity(wasEditing?'프로젝트 수정':'프로젝트 추가','project',editingProjId,name);
+    closeModal();
+    await loadAll();
+    if(curPage==='gantt') renderGantt();
+    else if(curPage==='detail'){
+      const savedProj=projects.find(p=>p.id===editingProjId);
+      const cid=savedProj?.client_id;
+      if(cid) openClientDetail(cid,'projects');
+      else setPage('clients');
+    }else{
+      renderClients();
+    }
+  }catch(e){
+    alert('저장 오류: '+e.message);
+  }
+};
+
+deleteProj = async function(){
+  const p=projects.find(x=>x.id===editingProjId);
+  if(!canDeleteProject(p)){
+    alert('프로젝트 작성자 또는 관리자만 삭제할 수 있습니다.');
+    return;
+  }
+  if(!confirm('프로젝트를 삭제할까요?')) return;
+  try{
+    await api('DELETE','projects?id=eq.'+editingProjId);
+    await logActivity('프로젝트 삭제','project',editingProjId,p?.name||'');
+    closeModal();
+    await loadAll();
+    if(curPage==='gantt') renderGantt();
+    else renderClients();
+  }catch(e){
+    alert('오류: '+e.message);
+  }
+};
+
+copyProj = function(){
+  const p=projects.find(x=>x.id===editingProjId);
+  if(!canDeleteProject(p)){
+    alert('프로젝트 작성자 또는 관리자만 복사할 수 있습니다.');
+    return;
+  }
+  if(!p) return;
+  closeModal();
+  setTimeout(()=>{
+    openProjModal(null,p.client_id,p.contract_id);
+    setTimeout(()=>{
+      const nameInput=document.getElementById('fName');
+      if(nameInput) nameInput.value=(p.name||'')+' (복사)';
+      if(document.getElementById('fType')) document.getElementById('fType').value=p.type;
+      if(document.getElementById('fStatus')) document.getElementById('fStatus').value='예정';
+      formMembers=[...p.members];
+      renderMemberTags();
+    },80);
+  },60);
+};
+
+gRow = function(p,days){
+  const od=isOverdue(p),dueToday=isDueToday(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
+  const color=TYPES[p.type]||'#4e5968';
+  const opacity=ST_OP[p.status]||1;
+  const pS=toDate(p.start),pE=toDate(p.end);
+  const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
+  const barS=pS<mFirst?1:pS.getDate();
+  const barE=pE>mLast?days:pE.getDate();
+  const span=barE-barS+1;
+  const leaveOverlays={};
+  schedules.forEach(s=>{
+    if(s.schedule_type!=='leave'&&s.schedule_type!=='fieldwork') return;
+    if(!p.members.includes(s.member_name)) return;
+    const sS=toDate(s.start),sE=toDate(s.end);
+    if(sS>mLast||sE<mFirst) return;
+    const oS=Math.max(barS,sS<mFirst?1:sS.getDate());
+    const oE=Math.min(barE,sE>mLast?days:sE.getDate());
+    for(let d=oS;d<=oE;d++){
+      if(!leaveOverlays[d]) leaveOverlays[d]=[];
+      leaveOverlays[d].push({type:s.schedule_type,member:s.member_name,title:s.title||scheduleLabel(s.schedule_type)});
+    }
+  });
+  const issueCount=openIssuesByProject[p.id]||0;
+  const hasMemo=!!(p.memo&&String(p.memo).trim());
+  const badges=(od?'<span class="g-badge overdue">지연</span>':'')
+    +(dueToday?'<span class="g-badge" style="background:#FEF3C7;color:#92400E">오늘 마감</span>':'')
+    +(mine?'<span class="g-badge mine">내 담당</span>':'')
+    +(hasMemo?'<span class="g-badge" style="background:#E2E8F0;color:#334155" title="'+esc(p.memo||'')+'">메모</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">이슈 '+issueCount+'</span>':'');
+  const rowCls='row-label'+(od?' row-warn':'')+(issueCount?' row-issue':'');
+  const memberText=(p.members||[]).join(' · ')||'담당자 미배정';
+  const lbl='<div class="rn">'+esc(p.name)+badges+'</div><div class="rs">'+esc(memberText)+'</div>';
+  let cells='';
+  for(let d=1;d<=days;d++){
+    const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
+    const cls='cell '+(wk?'weekend ':'')+(td?'today-c':'');
+    const overlays=leaveOverlays[d]||[];
+    let overlayHtml='';
+    if(overlays.length&&d>=barS&&d<=barE){
+      const icons=overlays.map(ov=>ov.type==='leave'?'L':'F').join(' ');
+      const tip=overlays.map(ov=>ov.member+' '+ov.title).join(', ');
+      const oc=overlays.some(ov=>ov.type==='leave')?'rgba(200,178,138,.48)':'rgba(154,167,182,.42)';
+      overlayHtml='<div class="leave-marker" style="left:1px;right:1px;background:'+oc+'" title="'+esc(tip)+'">'+icons+'</div>';
+    }
+    if(d===barS){
+      const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
+      cells+='<td class="'+cls+'" style="position:relative">'
+        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | 메모 있음':'')+(issueCount?' | 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +overlayHtml+'</td>';
+    }else{
+      cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
+    }
+  }
+  return '<tr><td class="'+rowCls+'" onclick="openProjModal(\''+p.id+'\')">'+lbl+'</td>'+cells+'</tr>';
+};
+
+renderGanttSidebarList = function(projs){
+  const el=document.getElementById('ganttProjectList');
+  if(!el) return;
+  if(!projs.length){
+    el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
+    return;
+  }
+  if(!ganttFocusProjectId || !projs.some(p=>p.id===ganttFocusProjectId)) ganttFocusProjectId=projs[0].id;
+  const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
+  el.innerHTML=sorted.map(p=>{
+    const client=clients.find(c=>c.id===p.client_id);
+    const issueCount=openIssuesByProject[p.id]||0;
+    const hasMemo=!!(p.memo&&String(p.memo).trim());
+    const warning=isOverdue(p)
+      ?'기간 초과'
+      :isDueToday(p)
+      ?'오늘 마감'
+      :p.status==='완료'&&p.is_billable&&p.billing_status==='미청구'
+      ?'빌링 필요'
+      :issueCount
+      ?'열린 이슈 '+issueCount+'건'
+      :'정상 진행';
+    const memoMeta=hasMemo?'<div class="gantt-project-meta" style="color:#334155;font-weight:700">메모 있음</div>':'';
+    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="setGanttFocusProject(\''+p.id+'\')">'
+      +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+(p.status==='진행중'?'badge-blue':p.status==='완료'?'badge-green':'badge-orange')+'">'+esc(p.status||'No status')+'</span></div>'
+      +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
+      +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
+      +memoMeta
+      +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
+      +'</div>';
+  }).join('');
+};
+
+renderGanttSidebarList = function(projs){
+  const el=document.getElementById('ganttProjectList');
+  if(!el) return;
+  if(!projs.length){
+    el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
+    return;
+  }
+  if(!ganttFocusProjectId || !projs.some(p=>p.id===ganttFocusProjectId)) ganttFocusProjectId=projs[0].id;
+  const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
+  el.innerHTML=sorted.map(p=>{
+    const client=clients.find(c=>c.id===p.client_id);
+    const issueCount=openIssuesByProject[p.id]||0;
+    const hasMemo=!!(p.memo&&String(p.memo).trim());
+    const warning=isOverdue(p)
+      ?'기간 초과'
+      :isDueToday(p)
+      ?'오늘 마감'
+      :p.status==='완료'&&p.is_billable&&p.billing_status==='미청구'
+      ?'빌링 필요'
+      :issueCount
+      ?'열린 이슈 '+issueCount+'건'
+      :'정상 진행';
+    const memoMeta=hasMemo?'<div class="gantt-project-meta" style="color:#334155;font-weight:700">메모 있음</div>':'';
+    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="setGanttFocusProject(\''+p.id+'\')">'
+      +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+(p.status==='진행중'?'badge-blue':p.status==='완료'?'badge-green':'badge-orange')+'">'+esc(p.status||'No status')+'</span></div>'
+      +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
+      +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
+      +memoMeta
+      +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
+      +'</div>';
+  }).join('');
+};
+
+*/
+
+isDueToday = function(p){
+  if(!p || p.status==='\uC644\uB8CC') return false;
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return toDate(p.end).getTime()===today.getTime();
+};
+
+isOverdue = function(p){
+  if(!p || p.status==='\uC644\uB8CC') return false;
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return toDate(p.end)<today;
+};
+
+gRow = function(p,days){
+  const od=isOverdue(p),dueToday=isDueToday(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
+  const color=TYPES[p.type]||'#4e5968';
+  const opacity=ST_OP[p.status]||1;
+  const pS=toDate(p.start),pE=toDate(p.end);
+  const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
+  const barS=pS<mFirst?1:pS.getDate();
+  const barE=pE>mLast?days:pE.getDate();
+  const span=barE-barS+1;
+  const leaveOverlays={};
+  schedules.forEach(s=>{
+    if(s.schedule_type!=='leave'&&s.schedule_type!=='fieldwork') return;
+    if(!p.members.includes(s.member_name)) return;
+    const sS=toDate(s.start),sE=toDate(s.end);
+    if(sS>mLast||sE<mFirst) return;
+    const oS=Math.max(barS,sS<mFirst?1:sS.getDate());
+    const oE=Math.min(barE,sE>mLast?days:sE.getDate());
+    for(let d=oS;d<=oE;d++){
+      if(!leaveOverlays[d]) leaveOverlays[d]=[];
+      leaveOverlays[d].push({type:s.schedule_type,member:s.member_name,title:s.title||scheduleLabel(s.schedule_type)});
+    }
+  });
+  const issueCount=openIssuesByProject[p.id]||0;
+  const hasMemo=!!(p.memo&&String(p.memo).trim());
+  const badges=(od?'<span class="g-badge overdue">\uC9C0\uC5F0</span>':'')
+    +(dueToday?'<span class="g-badge" style="background:#FEF3C7;color:#92400E">\uC624\uB298 \uB9C8\uAC10</span>':'')
+    +(mine?'<span class="g-badge mine">\uB0B4 \uB2F4\uB2F9</span>':'')
+    +(hasMemo?'<span class="g-badge" style="background:#E2E8F0;color:#334155" title="'+esc(p.memo||'')+'">\uBA54\uBAA8</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">\uC774\uC288 '+issueCount+'</span>':'');
+  const rowCls='row-label'+(od?' row-warn':'')+(issueCount?' row-issue':'');
+  const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
+  const lbl='<div class="rn">'+esc(p.name)+badges+'</div><div class="rs">'+esc(memberText)+'</div>';
+  let cells='';
+  for(let d=1;d<=days;d++){
+    const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
+    const cls='cell '+(wk?'weekend ':'')+(td?'today-c':'');
+    const overlays=leaveOverlays[d]||[];
+    let overlayHtml='';
+    if(overlays.length&&d>=barS&&d<=barE){
+      const icons=overlays.map(ov=>ov.type==='leave'?'L':'F').join(' ');
+      const tip=overlays.map(ov=>ov.member+' '+ov.title).join(', ');
+      const oc=overlays.some(ov=>ov.type==='leave')?'rgba(200,178,138,.48)':'rgba(154,167,182,.42)';
+      overlayHtml='<div class="leave-marker" style="left:1px;right:1px;background:'+oc+'" title="'+esc(tip)+'">'+icons+'</div>';
+    }
+    if(d===barS){
+      const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
+      cells+='<td class="'+cls+'" style="position:relative">'
+        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | \uBA54\uBAA8 \uC788\uC74C':'')+(issueCount?' | \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +overlayHtml+'</td>';
+    }else{
+      cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
+    }
+  }
+  return '<tr><td class="'+rowCls+'" onclick="openProjModal(\''+p.id+'\')">'+lbl+'</td>'+cells+'</tr>';
+};
+
+renderGanttSidebarList = function(projs){
+  const el=document.getElementById('ganttProjectList');
+  const doneStatus='\uC644\uB8CC';
+  const activeStatus='\uC9C4\uD589\uC911';
+  if(!el) return;
+  if(!projs.length){
+    el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
+    return;
+  }
+  if(!ganttFocusProjectId || !projs.some(p=>p.id===ganttFocusProjectId)) ganttFocusProjectId=projs[0].id;
+  const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
+  el.innerHTML=sorted.map(p=>{
+    const client=clients.find(c=>c.id===p.client_id);
+    const issueCount=openIssuesByProject[p.id]||0;
+    const hasMemo=!!(p.memo&&String(p.memo).trim());
+    const warning=isOverdue(p)
+      ?'\uAE30\uAC04 \uCD08\uACFC'
+      :isDueToday(p)
+      ?'\uC624\uB298 \uB9C8\uAC10'
+      :p.status===doneStatus&&p.is_billable&&p.billing_status==='\uBBF8\uCCAD\uAD6C'
+      ?'\uBE4C\uB9C1 \uD544\uC694'
+      :issueCount
+      ?'\uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74'
+      :'\uC815\uC0C1 \uC9C4\uD589';
+    const memoMeta=hasMemo?'<div class="gantt-project-meta" style="color:#334155;font-weight:700">\uBA54\uBAA8 \uC788\uC74C</div>':'';
+    const badgeClass=p.status===activeStatus?'badge-blue':p.status===doneStatus?'badge-green':'badge-orange';
+    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="setGanttFocusProject(\''+p.id+'\')">'
+      +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+badgeClass+'">'+esc(p.status||'No status')+'</span></div>'
+      +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
+      +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
+      +memoMeta
+      +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
+      +'</div>';
+  }).join('');
+};
 </script>
 
 <script id="stripeThemeSearch">
@@ -8048,6 +8689,309 @@ renderKudos = async function(offset){
     console.error('renderKudos failed',e);
     el.innerHTML='';
   }
+};
+
+let curGanttLayout='timeline';
+let ladderResultTimer=null;
+let ladderAnimationFrame=null;
+
+function ensureGanttLayoutToggle(){
+  const toolbar=document.querySelector('#pageGantt .gantt-toolbar');
+  if(!toolbar || document.getElementById('ganttLayoutToggle')) return;
+  const wrap=document.createElement('div');
+  wrap.id='ganttLayoutToggle';
+  wrap.className='toggle-wrap gantt-layout-toggle';
+  wrap.innerHTML='<button class="toggle-btn active" id="glt" type="button">\uAC04\uD2B8</button><button class="toggle-btn" id="glc" type="button">\uB2EC\uB825</button>';
+  const memberFilter=document.getElementById('memberFilter');
+  if(memberFilter){
+    toolbar.insertBefore(wrap, memberFilter);
+  }else{
+    toolbar.appendChild(wrap);
+  }
+  document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
+  document.getElementById('glc').onclick=()=>setGanttLayout('calendar');
+  updateGanttLayoutButtons();
+}
+
+function updateGanttLayoutButtons(){
+  [['glt','timeline'],['glc','calendar']].forEach(([id,mode])=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.classList.toggle('active',curGanttLayout===mode);
+  });
+  ['gvp','gvm'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    const disabled=curGanttLayout==='calendar';
+    btn.style.opacity=disabled?'.45':'';
+    btn.style.pointerEvents=disabled?'none':'';
+  });
+}
+
+function withAlpha(color,alphaHex){
+  if(/^#[0-9A-Fa-f]{6}$/.test(color||'')) return color+alphaHex;
+  return color||'#94A3B8';
+}
+
+function buildGanttCalendarItemHtml(item){
+  const itemClass=item.kind==='project'?'project':'schedule';
+  const bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
+  const text=item.kind==='project'?'#FFFFFF':'#243241';
+  const border=item.kind==='project'?'transparent':withAlpha(item.color,'55');
+  const action=item.kind==='project'
+    ?`openProjModal('${item.id}')`
+    :`openScheduleModal('${item.id}')`;
+  return '<button class="gantt-calendar-item '+itemClass+'" type="button" onclick="'+action+'" style="background:'+bg+';color:'+text+';border:1px solid '+border+(item.dueToday?';box-shadow:inset 0 0 0 1px rgba(146,64,14,.24)':'')+'" title="'+esc(item.title)+'">'+esc(item.label)+'</button>';
+}
+
+function buildGanttCalendarItemsForDate(cellDate,projs,schs){
+  const ts=cellDate.getTime();
+  const items=[];
+  projs.forEach(p=>{
+    if(toDate(p.start).getTime()<=ts && toDate(p.end).getTime()>=ts){
+      items.push({
+        kind:'project',
+        id:p.id,
+        label:p.name,
+        title:[p.name,p.type||'',(p.members||[]).join(', ')].filter(Boolean).join(' | '),
+        color:TYPES[p.type]||'#4e5968',
+        dueToday:isDueToday(p) && toDate(p.end).getTime()===ts
+      });
+    }
+  });
+  schs.forEach(s=>{
+    if(toDate(s.start).getTime()<=ts && toDate(s.end).getTime()>=ts){
+      const labelBase=s.title||scheduleLabel(s.schedule_type);
+      items.push({
+        kind:'schedule',
+        id:s.id,
+        label:(s.member_name? s.member_name+' · ':'')+labelBase,
+        title:[labelBase,s.member_name||'',s.location||'',s.memo||''].filter(Boolean).join(' | '),
+        color:scheduleColor(s.schedule_type)
+      });
+    }
+  });
+  return items.sort((a,b)=>{
+    if(a.kind!==b.kind) return a.kind==='project' ? -1 : 1;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+function renderGanttCalendarGrid(projs,schs){
+  const wrap=document.getElementById('ganttWrap');
+  if(!wrap) return;
+  const weekdayLabels=['\uC77C','\uC6D4','\uD654','\uC218','\uBAA9','\uAE08','\uD1A0'];
+  const totalDays=daysInMonth(curYear,curMonth);
+  const firstDay=new Date(curYear,curMonth-1,1);
+  const startOffset=firstDay.getDay();
+  const totalCells=Math.ceil((startOffset+totalDays)/7)*7;
+  if(!projs.length && !schs.length){
+    wrap.innerHTML='<div class="empty-state" style="padding:40px">\uC774 \uB2EC\uC5D0 \uD45C\uC2DC\uD560 \uD504\uB85C\uC81D\uD2B8\uC640 \uC77C\uC815\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.</div>';
+    renderLegend();
+    return;
+  }
+  const weekdayHead=weekdayLabels.map(label=>'<div class="gantt-calendar-weekday">'+label+'</div>').join('');
+  let cells='';
+  for(let i=0;i<totalCells;i++){
+    const dayNumber=i-startOffset+1;
+    if(dayNumber<1 || dayNumber>totalDays){
+      cells+='<div class="gantt-calendar-day is-empty"></div>';
+      continue;
+    }
+    const cellDate=new Date(curYear,curMonth-1,dayNumber);
+    cellDate.setHours(0,0,0,0);
+    const items=buildGanttCalendarItemsForDate(cellDate,projs,schs);
+    const preview=items.slice(0,4).map(buildGanttCalendarItemHtml).join('');
+    const overflow=items.length>4?'<div class="gantt-calendar-item more">+'+(items.length-4)+'\uAC1C \uB354</div>':'';
+    const isWeekendCell=cellDate.getDay()===0 || cellDate.getDay()===6;
+    const todayClass=isToday(curYear,curMonth,dayNumber)?' is-today':'';
+    const weekendClass=isWeekendCell?' is-weekend':'';
+    cells+='<div class="gantt-calendar-day'+todayClass+weekendClass+'">'
+      +'<div class="gantt-calendar-date-row"><div class="gantt-calendar-date">'+dayNumber+'</div>'+(items.length?'<div class="gantt-calendar-count">'+items.length+'\uAC74</div>':'')+'</div>'
+      +'<div class="gantt-calendar-items">'+preview+overflow+'</div>'
+      +'</div>';
+  }
+  wrap.innerHTML='<div class="gantt-calendar-wrap"><div class="gantt-calendar-board"><div class="gantt-calendar-weekdays">'+weekdayHead+'</div><div class="gantt-calendar-grid">'+cells+'</div></div></div>';
+  renderLegend();
+}
+
+const renderGanttLayoutBase=renderGantt;
+renderGantt = function(){
+  ensureGanttLayoutToggle();
+  updateGanttLayoutButtons();
+  if(curGanttLayout==='calendar'){
+    const monthLabel=document.getElementById('monthLabel');
+    if(monthLabel) monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
+    const shell=document.querySelector('.gantt-shell');
+    if(shell) shell.classList.add('is-reverted');
+    const {projs,schs}=getGanttFilteredData();
+    renderGanttOverviewCards(projs,schs);
+    renderGanttCalendarGrid(projs,schs);
+    const detail=document.getElementById('ganttDetail');
+    if(detail) detail.innerHTML='';
+    return;
+  }
+  renderGanttLayoutBase();
+  ensureGanttLayoutToggle();
+  updateGanttLayoutButtons();
+};
+
+function setGanttLayout(mode){
+  curGanttLayout=mode;
+  updateGanttLayoutButtons();
+  renderGantt();
+}
+
+function buildLadderTrace(startIndex,xPositions,rungs,topY,bottomY){
+  let currentCol=startIndex;
+  let currentX=xPositions[currentCol];
+  const points=[[currentX,topY]];
+  rungs.forEach(rung=>{
+    points.push([currentX,rung.y]);
+    if(rung.col===currentCol){
+      currentCol+=1;
+      currentX=xPositions[currentCol];
+      points.push([currentX,rung.y]);
+    }else if(rung.col===currentCol-1){
+      currentCol-=1;
+      currentX=xPositions[currentCol];
+      points.push([currentX,rung.y]);
+    }
+  });
+  points.push([currentX,bottomY]);
+  return { points, finalCol:currentCol };
+}
+
+function buildLadderGameData(names){
+  const n=names.length;
+  const width=Math.max(320,Math.min(620,120+(n-1)*92));
+  const height=336;
+  const topY=44;
+  const bottomY=258;
+  const left=36;
+  const usableWidth=width-left*2;
+  const xPositions=Array.from({length:n},(_,idx)=>left+(n===1?usableWidth/2:(usableWidth/(n-1))*idx));
+  const rowPool=[];
+  for(let y=84;y<=220;y+=24) rowPool.push(y);
+  const targetRungs=Math.min(rowPool.length,Math.max(n+1,n*2));
+  const rowCols={};
+  const rungs=[];
+  let guard=0;
+  while(rungs.length<targetRungs && guard<500){
+    guard+=1;
+    const y=rowPool[Math.floor(Math.random()*rowPool.length)];
+    const col=Math.floor(Math.random()*Math.max(1,n-1));
+    const used=rowCols[y]||[];
+    if(used.includes(col) || used.includes(col-1) || used.includes(col+1)) continue;
+    used.push(col);
+    rowCols[y]=used;
+    rungs.push({ y, col });
+  }
+  rungs.sort((a,b)=>a.y-b.y);
+  const traces=names.map((_,idx)=>buildLadderTrace(idx,xPositions,rungs,topY,bottomY));
+  const winnerIndex=Math.floor(Math.random()*names.length);
+  const prizeIndex=traces[winnerIndex].finalCol;
+  return { names, width, height, topY, bottomY, xPositions, rungs, traces, winnerIndex, prizeIndex };
+}
+
+function ladderPointsToPath(points){
+  return points.map((point,index)=>(index?'L':'M')+point[0]+' '+point[1]).join(' ');
+}
+
+function renderLadderSvg(data){
+  const { names, width, height, topY, bottomY, xPositions, rungs, traces, winnerIndex, prizeIndex }=data;
+  const prizeLabels=names.map((_,idx)=>idx===prizeIndex?'\uB2F9\uCCA8':'\uC544\uC27D');
+  const baseLines=xPositions.map(x=>'<line x1="'+x+'" y1="'+topY+'" x2="'+x+'" y2="'+bottomY+'" stroke="#CBD5E1" stroke-width="3" stroke-linecap="round"/>').join('');
+  const rungLines=rungs.map(rung=>'<line x1="'+xPositions[rung.col]+'" y1="'+rung.y+'" x2="'+xPositions[rung.col+1]+'" y2="'+rung.y+'" stroke="#8FB7D9" stroke-width="5" stroke-linecap="round"/>').join('');
+  const topLabels=names.map((name,idx)=>{
+    const x=xPositions[idx];
+    const active=idx===winnerIndex;
+    return '<g>'
+      +'<circle cx="'+x+'" cy="24" r="'+(active?11:9)+'" fill="'+(active?'#0F172A':'#E2E8F0')+'"/>'
+      +'<text x="'+x+'" y="28" text-anchor="middle" font-size="11" font-weight="800" fill="'+(active?'#FFFFFF':'#334155')+'">'+(idx+1)+'</text>'
+      +'<text x="'+x+'" y="12" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">'+esc(name)+'</text>'
+      +'</g>';
+  }).join('');
+  const bottomLabels=prizeLabels.map((label,idx)=>{
+    const x=xPositions[idx];
+    const isPrize=idx===prizeIndex;
+    return '<g>'
+      +'<rect x="'+(x-26)+'" y="'+(bottomY+12)+'" rx="12" ry="12" width="52" height="26" fill="'+(isPrize?'#F59E0B':'#E2E8F0')+'" stroke="'+(isPrize?'#D97706':'#CBD5E1')+'"/>'
+      +'<text x="'+x+'" y="'+(bottomY+29)+'" text-anchor="middle" font-size="11" font-weight="800" fill="'+(isPrize?'#FFFFFF':'#334155')+'">'+label+'</text>'
+      +'</g>';
+  }).join('');
+  const pathData=ladderPointsToPath(traces[winnerIndex].points);
+  return '<svg id="ladderSvg" width="'+width+'" height="'+height+'" viewBox="0 0 '+width+' '+height+'" style="width:100%;height:auto;display:block">'
+    +'<defs><filter id="ladderGlow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity=".22"/></filter></defs>'
+    +baseLines+rungLines+topLabels+bottomLabels
+    +'<path id="ladderTracePath" d="'+pathData+'" fill="none" stroke="#111827" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#ladderGlow)"/>'
+    +'<circle id="ladderTraceDot" cx="'+traces[winnerIndex].points[0][0]+'" cy="'+traces[winnerIndex].points[0][1]+'" r="7" fill="#F59E0B" stroke="#FFFFFF" stroke-width="3" filter="url(#ladderGlow)"/>'
+    +'</svg>';
+}
+
+function animateLadderTrace(data){
+  const path=document.getElementById('ladderTracePath');
+  const dot=document.getElementById('ladderTraceDot');
+  const resultWrap=document.getElementById('ladderResult');
+  if(!path || !dot || !resultWrap) return;
+  if(ladderResultTimer) clearTimeout(ladderResultTimer);
+  if(ladderAnimationFrame) cancelAnimationFrame(ladderAnimationFrame);
+  const total=path.getTotalLength();
+  path.style.strokeDasharray=String(total);
+  path.style.strokeDashoffset=String(total);
+  resultWrap.innerHTML='<div class="ladder-status-note">\uC0AC\uB2E4\uB9AC\uB97C \uD0C0\uB294 \uC911...</div>';
+  const start=performance.now();
+  const duration=1900;
+  const tick=(now)=>{
+    const progress=Math.min((now-start)/duration,1);
+    const eased=1-Math.pow(1-progress,3);
+    const drawLength=total*eased;
+    path.style.strokeDashoffset=String(total-drawLength);
+    const point=path.getPointAtLength(drawLength);
+    dot.setAttribute('cx',point.x);
+    dot.setAttribute('cy',point.y);
+    if(progress<1){
+      ladderAnimationFrame=requestAnimationFrame(tick);
+    }else{
+      const winnerName=data.names[data.winnerIndex];
+      resultWrap.innerHTML='<div style="text-align:center">'
+        +'<div style="font-size:13px;color:var(--text3);margin-bottom:6px">\uACB0\uACFC</div>'
+        +'<div style="font-size:26px;font-weight:900;color:var(--navy);letter-spacing:-.4px">'+esc(winnerName)+'</div>'
+        +'<div style="font-size:13px;color:var(--text2);margin-top:6px">\uC624\uB298 \uCEE4\uD53C \uB2F4\uB2F9\uC740 \uC774 \uBD84\uC785\uB2C8\uB2E4.</div>'
+        +'<button class="btn sm" style="margin-top:12px" onclick="runLadder()">\uB2E4\uC2DC \uD0C0\uAE30</button>'
+        +'</div>';
+    }
+  };
+  ladderAnimationFrame=requestAnimationFrame(tick);
+}
+
+openLadderGame = function(){
+  const memberOpts=members.map(m=>'<div class="ladder-member" onclick="toggleLadderMember(this)" data-name="'+esc(m.name)+'" style="padding:8px 16px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s">'+esc(m.name)+'</div>').join('');
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:min(700px,calc(100vw - 24px))">'
+    +'<div class="modal-title">\uCEE4\uD53C \uC0AC\uB2E4\uB9AC\uD0C0\uAE30</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">\uBA64\uBC84\uB97C \uACE0\uB974\uBA74 \uC2DC\uC791\uC810\uC5D0\uC11C \uC544\uB798\uB85C \uD0C0\uACE0 \uB0B4\uB824\uAC00 \uB2F9\uCCA8\uC790\uB97C \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.</div>'
+    +'<div id="ladderMembers" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">'+memberOpts+'</div>'
+    +'<div id="ladderCanvas" class="ladder-stage" style="display:none;margin-bottom:16px"></div>'
+    +'<div id="ladderResult" style="min-height:70px;display:flex;align-items:center;justify-content:center"></div>'
+    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">\uB2EB\uAE30</button><button class="btn primary" onclick="runLadder()">\uC0AC\uB2E4\uB9AC \uD0C0\uAE30</button></div></div>'
+    +'</div></div>';
+};
+
+runLadder = function(){
+  const selected=[...document.querySelectorAll('.ladder-member.active')].map(el=>el.dataset.name);
+  if(selected.length<2){
+    alert('\uCD5C\uC18C 2\uBA85 \uC774\uC0C1 \uC120\uD0DD\uD574\uC8FC\uC138\uC694.');
+    return;
+  }
+  const canvas=document.getElementById('ladderCanvas');
+  const resultWrap=document.getElementById('ladderResult');
+  if(!canvas || !resultWrap) return;
+  const ladderData=buildLadderGameData(selected);
+  canvas.style.display='block';
+  canvas.innerHTML=renderLadderSvg(ladderData);
+  animateLadderTrace(ladderData);
 };
 </script>
 
