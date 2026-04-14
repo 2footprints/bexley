@@ -4116,7 +4116,10 @@ async function saveProj(){
       const res=await api('POST','projects',{...body,created_by:currentUser.id});
       editingProjId=res[0].id;
     }
-    for(const mn of formMembers){const mem=members.find(m=>m.name===mn);if(mem)await api('POST','project_members',{project_id:editingProjId,member_id:mem.id});}
+    for(const mn of formMembers){
+      const mem=members.find(m=>m.name===mn);
+      if(mem)await apiEx('POST','project_members?on_conflict=project_id,member_id',{project_id:editingProjId,member_id:mem.id},'resolution=merge-duplicates,return=representation');
+    }
     await logActivity(editingProjId&&projects.find(x=>x.id===editingProjId)?'프로젝트 수정':'프로젝트 추가','project',editingProjId,name);
     closeModal();await loadAll();
     if(curPage==='gantt')renderGantt();
@@ -7781,7 +7784,7 @@ saveProj = async function(){
       }
       for(const memberId of uniqueMemberIds){
         if(!currentSet.has(memberId)){
-          await api('POST','project_members',{project_id:editingProjId,member_id:memberId});
+          await apiEx('POST','project_members?on_conflict=project_id,member_id',{project_id:editingProjId,member_id:memberId},'resolution=merge-duplicates,return=representation');
         }
       }
     }
@@ -9825,6 +9828,28 @@ renderDash = function(){
       +'<div id="activityFeedList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
     +'</div>';
   loadActivityFeed();
+};
+</script>
+
+<script>
+const apiExProjectMembersGuardBase = apiEx;
+apiEx = async function(method,path,body,prefer){
+  const upper=String(method||'GET').toUpperCase();
+  if(upper==='POST' && typeof path==='string' && path.startsWith('project_members')){
+    const guardedPath=path.includes('on_conflict=')
+      ?path
+      :(path.includes('?')
+        ?path+'&on_conflict=project_id,member_id'
+        :'project_members?on_conflict=project_id,member_id');
+    const guardedPrefer=prefer&&prefer.includes('resolution=merge-duplicates')
+      ?prefer
+      :(prefer?`resolution=merge-duplicates,${prefer}`:'resolution=merge-duplicates,return=representation');
+    return apiExProjectMembersGuardBase(upper,guardedPath,body,guardedPrefer);
+  }
+  return apiExProjectMembersGuardBase(method,path,body,prefer);
+};
+api = async function(method,path,body){
+  return apiEx(method,path,body,body?'return=representation':null);
 };
 </script>
 
