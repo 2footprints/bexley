@@ -10041,5 +10041,39 @@ window.doAuth = async function(){
 };
 </script>
 
+<script>
+window.doAuth = async function(){
+  const email=document.getElementById('authEmail').value.trim();
+  const pw=document.getElementById('authPw').value;
+  const msg=document.getElementById('authMsg');
+  const btn=document.getElementById('authBtn');
+  if(!email||!pw){setMsg(msg,'이메일과 비밀번호를 입력해주세요.','err');return;}
+  if(!email.endsWith('@bexleyintl.com')){setMsg(msg,'회사 이메일만 사용 가능합니다.','err');return;}
+  if(pw.length<6){setMsg(msg,'비밀번호는 6자 이상이어야 합니다.','err');return;}
+  btn.disabled=true;
+  btn.textContent=authMode==='login'?'로그인 중...':'가입 중...';
+  try{
+    if(authMode==='login'){
+      await signIn(email,pw);
+      await initApp();
+    }else{
+      await signUp(email,pw);
+      switchTab('login');
+      setMsg(msg,'가입 완료! 인증 메일을 확인한 뒤 로그인해주세요.','ok');
+    }
+  }catch(e){
+    const em={
+      'Invalid login credentials':'이메일 또는 비밀번호가 올바르지 않습니다.',
+      'Email not confirmed':'이메일 인증이 필요합니다. 메일함에서 인증을 완료해주세요.',
+      'User already registered':'이미 가입된 이메일입니다. 로그인하거나 비밀번호를 다시 확인해주세요.'
+    };
+    setMsg(msg,em[e.message]||e.message,'err');
+  }finally{
+    btn.disabled=false;
+    btn.textContent=authMode==='login'?'로그인':'회원가입';
+  }
+};
+</script>
+
 </body>
 </html>
