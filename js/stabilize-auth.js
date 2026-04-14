@@ -50,7 +50,7 @@
     const help = document.getElementById('passwordResetHelp');
     if(!box) return;
     box.classList.toggle('active', !!active);
-    if(help && typeof helpText === 'string' && helpText){
+    if(help && typeof helpText === 'string'){
       help.textContent = helpText;
     }
     if(!active){
@@ -91,8 +91,8 @@
     const message = String(error?.message || error || '');
     const map = {
       'Invalid login credentials':'이메일 또는 비밀번호가 올바르지 않습니다.',
-      'Email not confirmed':'이메일 인증이 필요합니다. 인증 메일을 확인하거나 "인증 메일 재발송"을 사용해주세요.',
-      'User already registered':'이미 가입된 계정입니다. 로그인하거나 인증 메일을 다시 보내주세요.',
+      'Email not confirmed':'이메일 인증이 필요합니다. 메일함을 확인하거나 "인증 메일 재발송"을 눌러주세요.',
+      'User already registered':'이미 가입된 계정입니다. 로그인하거나 인증 메일을 다시 받아주세요.',
       'Email rate limit exceeded':'잠시 후 다시 시도해주세요. 메일 발송 횟수 제한에 걸렸습니다.'
     };
     return map[message] || message || '인증 처리 중 오류가 발생했습니다.';
@@ -114,15 +114,15 @@
     baseSwitchTab(mode);
     setAuthMode(mode);
     if(mode !== 'login' || !recoveryAccessToken){
-      showResetBox(false);
+      showResetBox(false, '');
     }
   };
 
   window.signIn = async function(email, password){
     const response = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY},
-      body:JSON.stringify({email, password})
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SB_KEY},
+      body: JSON.stringify({ email, password })
     });
     const data = await response.json().catch(() => ({}));
     if(!response.ok){
@@ -134,12 +134,12 @@
 
   window.signUp = async function(email, password){
     const response = await fetch(SB_URL + '/auth/v1/signup', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SB_KEY},
-      body:JSON.stringify({
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SB_KEY},
+      body: JSON.stringify({
         email,
         password,
-        options:{ emailRedirectTo: AUTH_REDIRECT_URL }
+        options: { emailRedirectTo: AUTH_REDIRECT_URL }
       })
     });
     const data = await response.json().catch(() => ({}));
@@ -153,14 +153,14 @@
     try{
       if(accessToken){
         await fetch(SB_URL + '/auth/v1/logout', {
-          method:'POST',
-          headers:{'apikey':SB_KEY,'Authorization':'Bearer ' + accessToken}
+          method: 'POST',
+          headers: {'apikey':SB_KEY,'Authorization':'Bearer ' + accessToken}
         }).catch(() => {});
       }
-    }finally{
+    } finally {
       if(typeof clearSession === 'function') clearSession();
       recoveryAccessToken = null;
-      showResetBox(false);
+      showResetBox(false, '');
       if(typeof showPage === 'function') showPage('login');
       if(typeof switchLoginType === 'function') switchLoginType('staff');
       window.switchTab('login');
@@ -172,6 +172,7 @@
     const password = getAuthPassword();
     const button = getAuthButton();
     const mode = getAuthMode();
+
     if(!email || !password){
       setAuthMessage('이메일과 비밀번호를 입력해주세요.', 'err');
       return;
@@ -184,10 +185,12 @@
       setAuthMessage('비밀번호는 6자 이상이어야 합니다.', 'err');
       return;
     }
+
     if(button){
       button.disabled = true;
       button.textContent = mode === 'login' ? '로그인 중...' : '가입 중...';
     }
+
     try{
       if(mode === 'login'){
         await window.signIn(email, password);
@@ -197,7 +200,7 @@
       }else{
         await window.signUp(email, password);
         window.switchTab('login');
-        setAuthMessage('가입 완료! 1) 인증 메일 확인 2) 다시 로그인 3) 관리자 승인 후 사용 가능합니다. 승인 시 동일 이메일의 인력 프로필은 자동 연결됩니다.', 'ok');
+        setAuthMessage('가입 완료! 이메일 인증 후 다시 로그인하면 관리자에게 가입 신청이 자동 접수됩니다. 관리자 승인 후 바로 접속할 수 있습니다.', 'ok');
       }
     }catch(error){
       setAuthMessage(mapAuthError(error), 'err');
@@ -212,7 +215,7 @@
   window.cancelPasswordReset = function(){
     recoveryAccessToken = null;
     clearRecoveryUrlState();
-    showResetBox(false);
+    showResetBox(false, '');
     if(typeof switchLoginType === 'function') switchLoginType('staff');
     window.switchTab('login');
   };
@@ -225,12 +228,12 @@
     }
     try{
       const response = await fetch(SB_URL + '/auth/v1/resend', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','apikey':SB_KEY},
-        body:JSON.stringify({
-          type:'signup',
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SB_KEY},
+        body: JSON.stringify({
+          type: 'signup',
           email,
-          options:{ emailRedirectTo: AUTH_REDIRECT_URL }
+          options: { emailRedirectTo: AUTH_REDIRECT_URL }
         })
       });
       const data = await response.json().catch(() => ({}));
@@ -251,9 +254,9 @@
     }
     try{
       const response = await fetch(SB_URL + '/auth/v1/recover', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','apikey':SB_KEY},
-        body:JSON.stringify({
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SB_KEY},
+        body: JSON.stringify({
           email,
           redirect_to: AUTH_REDIRECT_URL
         })
@@ -272,8 +275,9 @@
     const password = document.getElementById('resetPw')?.value || '';
     const confirm = document.getElementById('resetPwConfirm')?.value || '';
     const button = document.getElementById('resetPwBtn');
+
     if(!recoveryAccessToken){
-      setAuthMessage('재설정 링크를 메일에서 다시 열어주세요.', 'err');
+      setAuthMessage('메일의 재설정 링크를 다시 열어주세요.', 'err');
       return;
     }
     if(password.length < 6){
@@ -284,16 +288,17 @@
       setAuthMessage('새 비밀번호와 확인 값이 일치하지 않습니다.', 'err');
       return;
     }
+
     if(button) button.disabled = true;
     try{
       const response = await fetch(SB_URL + '/auth/v1/user', {
-        method:'PUT',
-        headers:{
+        method: 'PUT',
+        headers: {
           'Content-Type':'application/json',
           'apikey':SB_KEY,
           'Authorization':'Bearer ' + recoveryAccessToken
         },
-        body:JSON.stringify({ password })
+        body: JSON.stringify({ password })
       });
       const data = await response.json().catch(() => ({}));
       if(!response.ok){
@@ -301,7 +306,7 @@
       }
       recoveryAccessToken = null;
       clearRecoveryUrlState();
-      showResetBox(false);
+      showResetBox(false, '');
       if(typeof switchLoginType === 'function') switchLoginType('staff');
       window.switchTab('login');
       setAuthMessage('비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.', 'ok');
@@ -319,8 +324,8 @@
     if(typeof showPage === 'function') showPage('login');
     if(typeof switchLoginType === 'function') switchLoginType('staff');
     window.switchTab('login');
-    showResetBox(true, '메일 링크가 확인되었습니다. 아래에서 새 비밀번호를 입력해주세요.');
-    setAuthMessage('새 비밀번호를 입력한 뒤 저장해주세요.', 'ok');
+    showResetBox(true, '메일의 링크가 확인되었습니다. 아래에서 새 비밀번호를 입력해주세요.');
+    setAuthMessage('새 비밀번호를 입력하고 저장해주세요.', 'ok');
   }
 
   const bootRecovery = function(){ setTimeout(mountRecoveryState, 0); };
