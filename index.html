@@ -1372,6 +1372,16 @@ select{
   border:none!important;
   background:transparent!important;
 }
+.gantt-wrap{
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.gantt-wrap > table,
+.gantt-wrap table{
+  width:max-content!important;
+  min-width:max-content!important;
+}
 .gantt-layout-toggle{
   display:inline-flex!important;
   align-items:center!important;
@@ -2915,6 +2925,8 @@ function setPage(page, extra) {
     refreshKnowledgePosts().then(() => renderKnowledgeBoard());
   } else if (page === 'admin') {
     renderAdminPage();
+  } else if (page === 'fun') {
+    setTimeout(enhanceFunPage, 0);
   }
 }
 
@@ -3441,7 +3453,8 @@ function getConflicts(mems,s,e,xid){
     return toDate(s)<=toDate(sc.end)&&toDate(e)>=toDate(sc.start);
   }).map(sc=>(sc.member_name||'')+'의 '+(sc.title||scheduleLabel(sc.schedule_type)));
 }
-function canEdit(p){return isAdmin||(currentUser&&p.created_by===currentUser.id);}
+function canEdit(p){return canManageCore()||isAdmin;}
+function canDeleteProject(p){return isAdmin||(currentUser&&p&&p.created_by===currentUser.id);}
 function isOverdue(p){return toDate(p.end)<new Date()&&p.status!=='완료';}
 function scheduleLabel(type){return SCHEDULE_META[type]?.label||type||'일정';}
 function scheduleColor(type){return SCHEDULE_META[type]?.color||'#8b95a1';}
@@ -3884,6 +3897,11 @@ function renderProjModal(p,editable,preClientId,preContractId){
       </div>
     </div>`;
 
+  if(p && !canDeleteProject(p)){
+    const deleteBtn=document.querySelector('#modalArea .modal-footer .btn.danger');
+    if(deleteBtn) deleteBtn.remove();
+  }
+
   if(editable){
     document.getElementById('fBillable').onchange=function(){document.getElementById('billingFields').style.display=this.checked?'':'none';};
     const followUp=document.getElementById('fFollowUp');
@@ -4000,6 +4018,8 @@ async function saveProj(){
 }
 
 async function deleteProj(){
+  const p=projects.find(x=>x.id===editingProjId);
+  if(!canDeleteProject(p)){alert('프로젝트 삭제는 작성자 또는 관리자만 가능합니다.');return;}
   if(!confirm('프로젝트를 삭제할까요?'))return;
   const p=projects.find(x=>x.id===editingProjId);
   try{await api('DELETE','projects?id=eq.'+editingProjId);await logActivity('프로젝트 삭제','project',editingProjId,p?.name||'');closeModal();await loadAll();if(curPage==='gantt')renderGantt();else renderClients();}
@@ -7104,6 +7124,49 @@ async function openActivityLog(){
 }
 
 // ── 아카이브 모달 ──
+function openWorkLinksModal(){
+  const links=[
+    {label:'서울외국환중개',desc:'환율과 외환시장 관련 정보를 확인할 때 바로 들어가는 공식 사이트입니다.',href:'https://www.smbs.biz/'},
+    {label:'KOFIA',desc:'금융투자협회 규정, 공시, 통계와 회원사 관련 정보를 확인할 수 있습니다.',href:'https://www.kofia.or.kr/'},
+    {label:'온라인 조회서',desc:'조회서 발송과 회신 확인 등 조회 업무를 진행할 때 쓰는 사이트입니다.',href:'https://audit.kftc.or.kr/'},
+    {label:'금융기관 조회서',desc:'금융기관 대상 조회 확인이 필요할 때 바로 진입할 수 있게 두었습니다.',href:'https://audit.kftc.or.kr/'},
+    {label:'홈택스',desc:'세금 신고, 증빙, 사업자 관련 확인 업무를 할 때 자주 쓰는 공식 사이트입니다.',href:'https://www.hometax.go.kr/'},
+    {label:'전자공시 DART',desc:'법인 공시와 재무 관련 자료를 빠르게 찾을 수 있는 공식 공시 시스템입니다.',href:'https://dart.fss.or.kr/'},
+    {label:'인터넷등기소',desc:'법인 등기나 부동산 등기 확인이 필요할 때 바로 들어갈 수 있습니다.',href:'https://www.iros.go.kr/'},
+    {label:'정부24',desc:'민원 서류와 각종 행정 서비스 조회가 필요할 때 쓰는 정부 공식 사이트입니다.',href:'https://www.gov.kr/portal/main?newVersionGbn=tobe'}
+  ];
+  const cards=links.map(link=>
+    '<a class="work-link-card" href="'+link.href+'" target="_blank" rel="noopener noreferrer">'
+    +'<div class="work-link-label">'+esc(link.label)+'</div>'
+    +'<div class="work-link-desc">'+esc(link.desc)+'</div>'
+    +'<div class="work-link-meta">바로가기 열기</div>'
+    +'</a>'
+  ).join('');
+  document.getElementById('modalArea').innerHTML=
+    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +'<div class="modal" style="width:780px;max-width:calc(100vw - 24px)">'
+    +'<div class="modal-title">업무 바로가기</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:14px">자주 찾는 외부 사이트와 조회 링크를 한곳에 모아뒀습니다.</div>'
+    +'<div class="work-links-grid">'+cards+'</div>'
+    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
+    +'</div></div>';
+}
+
+function enhanceFunPage(){
+  const page=document.getElementById('pageFun');
+  if(!page) return;
+  const linksSection=page.querySelector('.work-links-section');
+  if(linksSection) linksSection.style.display='none';
+  const archiveCard=[...page.querySelectorAll('.card[onclick]')].find(card=>(card.getAttribute('onclick')||'').includes('openArchiveModal'));
+  if(!archiveCard) return;
+  archiveCard.setAttribute('onclick','openWorkLinksModal()');
+  archiveCard.innerHTML=
+    '<div style="font-size:36px;margin-bottom:12px">🔗</div>'
+    +'<div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px">업무 바로가기</div>'
+    +'<div style="font-size:13px;color:var(--text3)">서울외국환중개, KOFIA, 조회 사이트 등 자주 쓰는 외부 링크를 모아둔 공간입니다.</div>'
+    +'<div style="margin-top:12px;font-size:11px;color:var(--blue);font-weight:600">링크 모아보기 →</div>';
+}
+
 async function openArchiveModal(){
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
@@ -7169,6 +7232,23 @@ async function openArchiveModal(){
     document.getElementById('archiveBody').innerHTML='<div style="color:var(--red);font-size:12px">불러오기 실패: '+esc(e.message)+'</div>';
   }
 }
+
+deleteProj = async function(){
+  const p=projects.find(x=>x.id===editingProjId);
+  if(!canDeleteProject(p)){alert('프로젝트 삭제는 작성자 또는 관리자만 가능합니다.');return;}
+  if(!confirm('프로젝트를 삭제할까요?'))return;
+  try{
+    await api('DELETE','projects?id=eq.'+editingProjId);
+    await logActivity('프로젝트 삭제','project',editingProjId,p?.name||'');
+    closeModal();
+    await loadAll();
+    if(curPage==='gantt')renderGantt();
+    else renderClients();
+  }catch(e){
+    alert('오류: '+e.message);
+  }
+}
+
 function closeModal(){document.getElementById('modalArea').innerHTML='';}
 
 // ── Init ──
@@ -8444,6 +8524,16 @@ legacyHandleProjectOutlookEventCurrent = async function(projectId){
     }
     alert('Outlook 일정 추가 실패: ' + (e.message||'알 수 없는 오류'));
   }
+}
+
+function addDaysLocal(dateStr, days){
+  const base = dateStr || new Date().toISOString().slice(0,10);
+  const d = new Date(base + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
 
 function buildOutlookComposeUrlForProject(projectId){
