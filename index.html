@@ -1415,6 +1415,28 @@ select{
   width:max-content!important;
   min-width:max-content!important;
 }
+.gantt-shell.is-reverted .gantt-wrap{
+  width:100%!important;
+}
+.gantt-shell.is-reverted .gantt-wrap > table,
+.gantt-shell.is-reverted .gantt-wrap table{
+  width:max-content!important;
+  min-width:max(100%,1400px)!important;
+  table-layout:auto!important;
+}
+.gantt-shell.is-reverted .th-label,
+.gantt-shell.is-reverted .row-label{
+  min-width:190px!important;
+}
+.gantt-shell.is-reverted .th-day,
+.gantt-shell.is-reverted .cell{
+  min-width:34px!important;
+}
+.gantt-shell.is-reverted .th-day.weekend,
+.gantt-shell.is-reverted .cell.weekend{
+  min-width:26px!important;
+  max-width:none!important;
+}
 .gantt-layout-toggle{
   display:inline-flex!important;
   align-items:center!important;
@@ -1783,6 +1805,7 @@ input,textarea{border-radius:12px!important}
         <h2 class="section-title">팀</h2>
       </div>
 
+      <div id="teamMainDashboardWrap" style="margin-bottom:16px"></div>
       <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
 
       <!-- 상단: 이슈 + 이번주 일정 -->
@@ -2592,7 +2615,7 @@ async function initApp(){
   await loadAll();
   checkPopup();
   try{
-    setPage('clients');
+    setPage('team');
   }catch(e){
     console.error('initial landing failed:',e);
     setStatus('초기 화면을 불러오는 중 오류가 발생했습니다.','err');
@@ -2978,6 +3001,7 @@ function setPage(page, extra) {
     } else if (page === 'contracts') {
       renderContractsPage();
     } else if (page === 'team') {
+      if(typeof renderTeamMainDashboard === 'function') renderTeamMainDashboard();
       renderTeamNotices();
       setTimeout(() => loadIssueFeed(true), 0);
       renderMyWeek();
@@ -9371,6 +9395,243 @@ renderClients = function(){
     }
   },1300);
 };
+
+function getTeamExceptionItems(limit=4){
+  const {overdue=[],unbilled=[],followups=[]}=getAlerts()||{};
+  const items=[];
+  overdue.forEach(p=>{
+    items.push({
+      title:p.name,
+      meta:'기간 초과 프로젝트',
+      badges:['<span class="badge badge-red">기한 초과</span>'],
+      action:'openProjModal(\''+p.id+'\')'
+    });
+  });
+  unbilled.forEach(p=>{
+    items.push({
+      title:p.name,
+      meta:'완료 후 청구 확인 필요',
+      badges:['<span class="badge badge-orange">빌링 필요</span>'],
+      action:'openProjModal(\''+p.id+'\',null,null,\'completion\')'
+    });
+  });
+  followups.forEach(p=>{
+    items.push({
+      title:p.name,
+      meta:truncateText(p.note||'후속 액션을 확인해주세요.',32),
+      badges:['<span class="badge badge-orange">후속 필요</span>'],
+      action:'openProjModal(\''+p.id+'\',null,null,\'completion\')'
+    });
+  });
+  return items.slice(0,limit);
+}
+
+function renderTeamMainDashboard(){
+  const el=document.getElementById('teamMainDashboardWrap');
+  if(!el) return;
+  const today=getHomeBaseDate();
+  const todayDue=getHomeTodayDueProjects();
+  const todayItems=getHomeTodayItems(4);
+  const issueItems=getHomeIssueItems(4);
+  const exceptionItems=getTeamExceptionItems(4);
+  const unreadRequired=getUnreadRequiredNotices().length;
+  const todayLeave=(schedules||[]).filter(s=>s.schedule_type==='leave'&&toDate(s.start)<=today&&toDate(s.end)>=today).length;
+  const todayFieldwork=(schedules||[]).filter(s=>s.schedule_type==='fieldwork'&&toDate(s.start)<=today&&toDate(s.end)>=today).length;
+  const myIssueTotal=(currentMember?.name
+    ?(projects||[])
+      .filter(p=>Array.isArray(p.members)&&p.members.includes(currentMember.name))
+      .reduce((sum,p)=>sum+(openIssuesByProject[p.id]||0),0)
+    :0);
+  const cards=[
+    {label:'오늘 일정',value:todayItems.length,sub:todayItems.length?'오늘 처리할 일정과 프로젝트가 있습니다.':'오늘 바로 처리할 일정이 없습니다.',className:'info',action:"document.getElementById('myWeekWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+    {label:'오늘 마감',value:todayDue.length,sub:todayDue.length?truncateText(todayDue.map(p=>p.name).join(', '),28):'오늘 마감 프로젝트 없음',className:'today',action:"setPage('gantt')"},
+    {label:'내 담당 이슈',value:myIssueTotal,sub:myIssueTotal?'프로젝트별 확인이 필요합니다.':'열린 담당 이슈 없음',className:'info',action:"document.getElementById('issueFeedWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+    {label:'필독 공지',value:unreadRequired,sub:unreadRequired?'확인하지 않은 필독 공지가 있습니다.':'미확인 필독 공지 없음',className:unreadRequired?'warn':'info',action:"document.getElementById('teamNoticeWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+    {label:'오늘 휴가',value:todayLeave,sub:todayLeave?'팀 가용성을 확인해주세요.':'오늘 휴가 일정 없음',className:'info',action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"},
+    {label:'오늘 필드웍',value:todayFieldwork,sub:todayFieldwork?'현장 일정이 있습니다.':'오늘 필드웍 일정 없음',className:'info',action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"}
+  ];
+  el.innerHTML=
+    '<div class="main-focus-grid">'+cards.map(card=>
+      '<div class="main-focus-card clickable '+(card.className||'')+'" onclick="'+card.action+'">'
+        +'<div class="main-focus-label">'+esc(card.label)+'</div>'
+        +'<div class="main-focus-value">'+card.value+'</div>'
+        +'<div class="main-focus-sub">'+esc(card.sub)+'</div>'
+      +'</div>'
+    ).join('')+'</div>'
+    +'<div class="main-home-grid">'
+      +'<div class="main-home-card">'
+        +'<div class="main-home-head">'
+          +'<div><div class="main-home-title">오늘 해야 할 일</div><div class="main-home-sub">'+(currentMember?.name?esc(currentMember.name)+'님 기준으로 오늘 처리할 일정과 프로젝트를 먼저 보여줍니다.':'오늘 체크할 항목')+'</div></div>'
+          +'<button class="btn ghost sm" onclick="setPage(\'gantt\')">프로젝트 관리</button>'
+        +'</div>'
+        +renderHomeInfoList(todayItems,currentMember?.name?'오늘 바로 처리할 일정이 없습니다.':'로그인 정보가 없어 개인 일정을 표시할 수 없습니다.')
+      +'</div>'
+      +'<div class="main-home-stack">'
+        +'<div class="main-home-card">'
+          +'<div class="main-home-head">'
+            +'<div><div class="main-home-title">예외 상황</div><div class="main-home-sub">지연, 빌링, 후속 액션처럼 먼저 확인이 필요한 항목입니다.</div></div>'
+            +'<button class="btn ghost sm" onclick="setPage(\'dash\')">대시보드 보기</button>'
+          +'</div>'
+          +renderHomeInfoList(exceptionItems,'현재 바로 대응할 예외 상황이 없습니다.')
+        +'</div>'
+        +'<div class="main-home-card">'
+          +'<div class="main-home-head">'
+            +'<div><div class="main-home-title">내 담당 이슈</div><div class="main-home-sub">열린 이슈가 있는 프로젝트를 우선순위대로 보여줍니다.</div></div>'
+            +'<button class="btn ghost sm" onclick="document.getElementById(\'issueFeedWrap\')?.scrollIntoView({behavior:\'smooth\',block:\'start\'})">아래 이슈 보기</button>'
+          +'</div>'
+          +renderHomeInfoList(issueItems,'현재 열려 있는 담당 이슈가 없습니다.')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+}
+
+renderTeamNotices = function(){
+  const el=document.getElementById('teamNoticeWrap');
+  if(!el) return;
+  const list=[...(notices||[])].sort((a,b)=>{
+    const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
+    if(pinDiff) return pinDiff;
+    return new Date(b.created_at)-new Date(a.created_at);
+  }).slice(0,6);
+  el.innerHTML='<div class="card team-notice-panel" style="margin-bottom:0">'
+    +'<div class="team-notice-head">'
+    +'<div><div class="section-label" style="margin:0">공지사항</div><div style="font-size:12px;color:var(--text3);margin-top:4px">메인에서는 제목과 상태만 빠르게 보고, 자세한 내용은 클릭해서 확인합니다.</div></div>'
+    +(isAdmin?'<button class="btn primary sm" onclick="openNoticeWrite()">+ 공지 작성</button>':'')
+    +'</div>'
+    +(!list.length
+      ?'<div class="notice-empty" style="padding:26px 16px">등록된 공지가 없습니다.</div>'
+      :'<div class="team-notice-list">'
+        +list.map(n=>'<div class="notice-card'+(n.is_pinned?' pinned':'')+'" style="margin-bottom:0" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
+          +'<div class="notice-chip-row">'+(n.is_pinned?'<span class="badge badge-blue">고정</span>':'')+(n.require_confirm?'<span class="badge badge-red">필독</span>':'')+'</div>'
+          +'<div class="notice-title">'+esc(n.title)+'</div>'
+          +'<div class="notice-meta">'+formatDate(n.created_at)+'</div>'
+          +'</div>').join('')
+        +'</div>')
+    +'</div>';
+};
+
+renderAlerts = function(){
+  const {overdue=[],unbilled=[],followups=[]}=getAlerts()||{};
+  const el=document.getElementById('alertWrap');
+  if(!el) return;
+  let html='';
+  if(overdue.length){
+    html+=`<div class="alert-card red" style="margin-bottom:8px"><div class="alert-icon">⏰</div><div class="alert-body"><div class="alert-title red" style="font-size:13px;font-weight:800">기한 초과 미완료 프로젝트 ${overdue.length}건</div><div class="alert-items" style="margin-top:5px">${overdue.map(x=>`<button class="alert-tag red" onclick="openProjModal('${x.id}')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
+  }
+  if(unbilled.length){
+    html+=`<div class="alert-card orange" style="margin-bottom:8px"><div class="alert-icon">💰</div><div class="alert-body"><div class="alert-title orange" style="font-size:13px;font-weight:800">완료됐으나 빌링 미처리 ${unbilled.length}건</div><div class="alert-items" style="margin-top:5px">${unbilled.map(x=>`<button class="alert-tag orange" onclick="openProjModal('${x.id}',null,null,'completion')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
+  }
+  if(followups.length){
+    html+=`<div class="alert-card orange" style="margin-bottom:8px"><div class="alert-icon">📍</div><div class="alert-body"><div class="alert-title orange" style="font-size:13px;font-weight:800">완료 후 후속 조치 필요 ${followups.length}건</div><div class="alert-items" style="margin-top:5px">${followups.map(x=>`<button class="alert-tag orange" onclick="openProjModal('${x.id}',null,null,'completion')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
+  }
+  el.innerHTML=html?'<div style="margin-bottom:16px">'+html+'</div>':'';
+};
+
+renderPinned = function(){
+  const pinned=(notices||[]).find(n=>n.is_pinned);
+  const el=document.getElementById('pinnedWrap');
+  if(!el) return;
+  el.innerHTML=pinned
+    ?'<div class="pinned-card" onclick="openNoticeDetail(this.dataset.id)" data-id="'+pinned.id+'" style="margin-bottom:12px">'
+      +'<span style="color:var(--blue);font-size:16px;flex-shrink:0">📌</span>'
+      +'<div class="pinned-card-text"><div class="pinned-card-title">'+esc(pinned.title)+'</div>'
+      +'<div class="pinned-card-preview">'+esc((pinned.content||'').substring(0,80))+'</div></div>'
+      +'<div class="pinned-card-date">'+formatDate(pinned.created_at)+'</div>'
+      +'</div>'
+    :'';
+};
+
+renderClients = function(){
+  renderClientsHomeBase();
+  renderPinned();
+  renderAlerts();
+  const title=document.getElementById('boardTitle');
+  if(title) title.textContent='거래처';
+};
+
+const LOCAL_VERIFY_MODE =
+  window.location.protocol==='file:' ||
+  /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname) ||
+  /(?:\?|&)localVerify=1(?:&|$)/.test(window.location.search);
+
+window.LOCAL_VERIFY_MODE = LOCAL_VERIFY_MODE;
+window.__LOCAL_VERIFY_ACTIVE__ = false;
+
+function renderLocalVerifyEntry(){
+  if(!LOCAL_VERIFY_MODE) return;
+  const staffArea=document.getElementById('staffLoginArea');
+  if(!staffArea || document.getElementById('localVerifyEntry')) return;
+  const hostLabel=window.location.protocol==='file:'?'file://':'로컬 서버';
+  const box=document.createElement('div');
+  box.id='localVerifyEntry';
+  box.style.cssText='margin-top:14px;padding:12px;border:1px dashed var(--border);border-radius:14px;background:var(--bg)';
+  box.innerHTML=
+    '<div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:6px">로컬 검증 모드</div>'
+    +'<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:10px">'+hostLabel+'에서는 로그인 없이 화면 확인만 빠르게 할 수 있습니다. 저장과 Outlook 연동은 막아둡니다.</div>'
+    +'<button class="btn sm" type="button" onclick="enterLocalVerifyMode()">로컬 검증으로 보기</button>';
+  staffArea.appendChild(box);
+}
+
+async function enterLocalVerifyMode(){
+  window.__LOCAL_VERIFY_ACTIVE__ = true;
+  clearSession();
+  currentUser={id:'local-verify-user',email:'local@bexleyintl.com'};
+  currentRole='admin';
+  isAdmin=true;
+  currentRoleRow={id:'local-verify-user',role:'admin',is_admin:true};
+  pendingRequest=null;
+  currentMember=currentMember||null;
+  showPage('main');
+  try{
+    await loadAll();
+  }catch(e){
+    console.error('local verify load failed:',e);
+  }
+  if(!currentMember){
+    currentMember=members.find(m=>m.email&&/@bexleyintl\.com$/i.test(m.email))||members[0]||{id:'local-member',name:'로컬 검증'};
+  }
+  applyRolePermissions();
+  const userDisplay=document.getElementById('userDisplay');
+  if(userDisplay) userDisplay.textContent=(currentMember?.name||'로컬 검증');
+  updateNoticeDot();
+  setStatus('로컬 검증 모드: 저장과 외부 연동은 비활성화됩니다.','ok');
+  try{
+    setPage('team');
+  }catch(e){
+    console.error('local verify landing failed:',e);
+    try{setPage('clients');}catch(inner){console.error('local verify fallback failed:',inner);}
+  }
+}
+
+const apiExLocalVerifyBase = apiEx;
+apiEx = async function(method,path,body,prefer){
+  const upper=String(method||'GET').toUpperCase();
+  if(window.__LOCAL_VERIFY_ACTIVE__ && upper!=='GET'){
+    throw new Error('로컬 검증 모드에서는 저장/수정/삭제가 비활성화됩니다.');
+  }
+  return apiExLocalVerifyBase(method,path,body,prefer);
+};
+api = async function(method,path,body){
+  return apiEx(method,path,body,body?'return=representation':null);
+};
+
+const handleProjectOutlookEventLocalBase =
+  typeof handleProjectOutlookEvent === 'function' ? handleProjectOutlookEvent : null;
+handleProjectOutlookEvent = async function(projectId){
+  if(window.__LOCAL_VERIFY_ACTIVE__){
+    alert('로컬 검증 모드에서는 Outlook 연동을 실행하지 않습니다. 배포 환경에서 확인해주세요.');
+    return;
+  }
+  if(handleProjectOutlookEventLocalBase){
+    return handleProjectOutlookEventLocalBase(projectId);
+  }
+};
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', renderLocalVerifyEntry);
+}else{
+  renderLocalVerifyEntry();
+}
 </script>
 
 </body>
