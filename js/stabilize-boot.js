@@ -2,24 +2,43 @@
   if(window.__STABILIZE_BOOT_LOADED__) return;
   window.__STABILIZE_BOOT_LOADED__ = true;
 
-  async function notifyAdminsForProfileLink(){
-    if(!currentUser?.id || !currentUser?.email) return;
+  async function notifyAdmins(message, requestId){
+    if(!currentUser?.id) return;
     const admins = await api('GET', 'user_roles?select=id,role,is_admin&or=(role.eq.admin,is_admin.eq.true)') || [];
     for(const admin of admins){
       if(admin.id === currentUser.id) continue;
       await createNotification(
         admin.id,
         'access_request',
-        currentUser.email + ' 계정의 승인 반영 또는 계정 연결 확인이 필요합니다.',
+        message,
         'access_request',
-        pendingRequest?.id || null
+        requestId || null
       );
     }
   }
 
   async function ensurePendingAccessRequest(){
     if(!currentUser?.id || !currentUser?.email || currentRoleRow) return pendingRequest || null;
-    if(pendingRequest?.status && pendingRequest.status !== 'draft') return pendingRequest;
+
+    const existingByUser = await api('GET', 'access_requests?user_id=eq.' + currentUser.id + '&select=*&limit=1').catch(() => []);
+    if(existingByUser?.length){
+      pendingRequest = existingByUser[0];
+      return pendingRequest;
+    }
+
+    const existingByEmail = await api('GET', 'access_requests?email=eq.' + encodeURIComponent(currentUser.email) + '&select=*&limit=1').catch(() => []);
+    if(existingByEmail?.length){
+      const found = existingByEmail[0];
+      pendingRequest = found;
+      if(found.user_id !== currentUser.id){
+        const patched = await api('PATCH', 'access_requests?id=eq.' + found.id, {
+          user_id: currentUser.id,
+          updated_at: new Date().toISOString()
+        }).catch(() => []);
+        pendingRequest = patched?.[0] || { ...found, user_id: currentUser.id };
+      }
+      return pendingRequest;
+    }
 
     const requestedAt = new Date().toISOString();
     const name = currentMember?.name
@@ -29,8 +48,8 @@
       user_id: currentUser.id,
       email: currentUser.email,
       name,
-      requested_role: pendingRequest?.requested_role || 'member',
-      note: pendingRequest?.note || '회원가입 후 자동 생성된 가입 신청',
+      requested_role: 'member',
+      note: '회원가입 후 자동 생성된 가입 신청',
       status: 'pending',
       reviewed_role: null,
       reviewed_by: null,
@@ -38,28 +57,14 @@
       updated_at: requestedAt
     };
 
-    let saved;
-    if(pendingRequest?.id){
-      saved = await api('PATCH', 'access_requests?id=eq.' + pendingRequest.id, body);
-      pendingRequest = saved?.[0] || { ...pendingRequest, ...body };
-      return pendingRequest;
-    }
-
-    saved = await api('POST', 'access_requests', body);
+    const saved = await api('POST', 'access_requests', body);
     pendingRequest = saved?.[0] || null;
 
     try{
-      const admins = await api('GET', 'user_roles?select=id,role,is_admin&or=(role.eq.admin,is_admin.eq.true)') || [];
-      for(const admin of admins){
-        if(admin.id === currentUser.id) continue;
-        await createNotification(
-          admin.id,
-          'access_request',
-          name + '님의 가입 신청이 접수되었습니다. 승인하면 바로 접속할 수 있습니다.',
-          'access_request',
-          pendingRequest?.id || null
-        );
-      }
+      await notifyAdmins(
+        name + '님의 가입 신청이 접수되었습니다. 이름 확인 후 승인하면 바로 접속할 수 있습니다.',
+        pendingRequest?.id || null
+      );
     }catch(error){
       console.error('auto access request notify failed:', error);
     }
@@ -67,9 +72,14 @@
     return pendingRequest;
   }
 
+  window.__ensureAccessRequestAfterLogin = ensurePendingAccessRequest;
+
   window.requestProfileLinkHelp = async function(){
     try{
-      await notifyAdminsForProfileLink();
+      await notifyAdmins(
+        (currentUser?.email || '계정') + ' 사용자의 승인 반영 또는 계정 연결 확인이 필요합니다.',
+        pendingRequest?.id || null
+      );
       alert('관리자에게 승인 반영 확인 요청을 보냈습니다. 잠시 후 다시 로그인해 주세요.');
     }catch(error){
       alert('요청 전송 오류: ' + error.message);
@@ -85,7 +95,7 @@
       + '<div class="section-label" style="margin:0 0 10px">가입 승인 반영 중</div>'
       + '<div style="font-size:14px;line-height:1.7;color:var(--text2)">'
       + '로그인은 완료되었지만 아직 관리자 승인 반영이 마무리되지 않았습니다.<br>'
-      + '승인과 계정 연결이 완료되면 바로 접속할 수 있습니다.<br>'
+      + '관리자가 승인하면 바로 접속할 수 있습니다.<br>'
       + '계속 이 화면이 보이면 관리자에게 확인을 요청해 주세요.'
       + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'

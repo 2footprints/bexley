@@ -63,6 +63,81 @@
     };
   }
 
+  if(typeof window.approveAccessRequest === 'function'){
+    window.approveAccessRequest = async function(requestId){
+      const req = (accessRequests || []).find(function(item){ return item.id === requestId; });
+      if(!req) return;
+
+      const role = document.getElementById('access-role-' + requestId)?.value || 'member';
+      const name = (document.getElementById('access-name-' + requestId)?.value || '').trim()
+        || req.name
+        || (typeof inferNameFromEmail === 'function' ? inferNameFromEmail(req.email) : '');
+
+      if(!name){
+        alert('이름을 입력한 뒤 승인해주세요.');
+        return;
+      }
+
+      const reviewedAt = new Date().toISOString();
+      try{
+        const existingMembers = await api('GET', 'members?email=eq.' + encodeURIComponent(req.email) + '&select=id,email,name,auth_user_id').catch(function(){ return []; });
+        if(existingMembers?.length){
+          await api('PATCH', 'members?id=eq.' + existingMembers[0].id, {
+            name: name,
+            email: req.email,
+            auth_user_id: req.user_id
+          });
+        }else{
+          await api('POST', 'members', {
+            name: name,
+            email: req.email,
+            auth_user_id: req.user_id
+          });
+        }
+
+        const existingRoles = await api('GET', 'user_roles?id=eq.' + req.user_id + '&select=id').catch(function(){ return []; });
+        const roleBody = {
+          id: req.user_id,
+          role: role,
+          is_admin: role === 'admin',
+          approved_by: currentUser.id,
+          approved_at: reviewedAt
+        };
+
+        if(existingRoles?.length){
+          await api('PATCH', 'user_roles?id=eq.' + req.user_id, roleBody);
+        }else{
+          await apiEx('POST', 'user_roles', roleBody, 'return=representation');
+        }
+
+        await api('PATCH', 'access_requests?id=eq.' + requestId, {
+          name: name,
+          status: 'approved',
+          reviewed_role: role,
+          reviewed_by: currentUser.id,
+          reviewed_at: reviewedAt,
+          updated_at: reviewedAt
+        });
+
+        await createNotification(
+          req.user_id,
+          'access_approved',
+          '가입 신청이 승인되었습니다. 다시 로그인하면 바로 사용할 수 있습니다. (' + (typeof getRoleLabel === 'function' ? getRoleLabel(role) : role) + ')',
+          'access_request',
+          requestId
+        );
+
+        try{
+          if(typeof loadAll === 'function') await loadAll();
+        }catch(error){}
+
+        await window.openAccessRequestManager(requestId);
+      }catch(error){
+        alert('승인 처리 오류: ' + error.message);
+      }
+    };
+  }
+
   if(typeof window.openMemberManager === 'function'){
     const baseOpenMemberManager = window.openMemberManager;
     window.openMemberManager = function(){
