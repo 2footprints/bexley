@@ -2,7 +2,7 @@
   if(window.__STABILIZE_AUTH_LOADED__) return;
   window.__STABILIZE_AUTH_LOADED__ = true;
 
-  const AUTH_REDIRECT_URL = window.location.origin + window.location.pathname;
+  const AUTH_REDIRECT_URL = window.location.origin + '/';
   let recoveryAccessToken = null;
 
   function authMessageEl(){
@@ -91,7 +91,7 @@
     const message = String(error?.message || error || '');
     const map = {
       'Invalid login credentials':'이메일 또는 비밀번호가 올바르지 않습니다.',
-      'Email not confirmed':'이메일 인증이 필요합니다. 인증 메일을 확인해주세요.',
+      'Email not confirmed':'이메일 인증이 필요합니다. 인증 메일을 확인하거나 "인증 메일 재발송"을 사용해주세요.',
       'User already registered':'이미 가입된 계정입니다. 로그인하거나 인증 메일을 다시 보내주세요.',
       'Email rate limit exceeded':'잠시 후 다시 시도해주세요. 메일 발송 횟수 제한에 걸렸습니다.'
     };
@@ -197,7 +197,7 @@
       }else{
         await window.signUp(email, password);
         window.switchTab('login');
-        setAuthMessage('가입 완료! 인증 메일을 확인한 뒤 로그인해주세요.', 'ok');
+        setAuthMessage('가입 완료! 1) 인증 메일 확인 2) 다시 로그인 3) 관리자 승인 후 사용 가능합니다. 승인 시 동일 이메일의 인력 프로필은 자동 연결됩니다.', 'ok');
       }
     }catch(error){
       setAuthMessage(mapAuthError(error), 'err');
