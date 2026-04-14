@@ -1990,6 +1990,34 @@ input,textarea{border-radius:12px!important}
 <div id="modalArea"></div>
 
 <script>
+window.switchLoginType = window.switchLoginType || function(type){
+  var staffBtn=document.getElementById('typeStaff');
+  var clientBtn=document.getElementById('typeClient');
+  var staffArea=document.getElementById('staffLoginArea');
+  var clientArea=document.getElementById('clientLoginArea');
+  if(staffBtn) staffBtn.classList.toggle('active',type==='staff');
+  if(clientBtn) clientBtn.classList.toggle('active',type==='client');
+  if(staffArea) staffArea.style.display=type==='staff'?'block':'none';
+  if(clientArea) clientArea.style.display=type==='client'?'block':'none';
+};
+window.switchTab = window.switchTab || function(mode){
+  var loginTab=document.getElementById('tabLogin');
+  var signupTab=document.getElementById('tabSignup');
+  var authBtn=document.getElementById('authBtn');
+  var authMsg=document.getElementById('authMsg');
+  if(loginTab) loginTab.classList.toggle('active',mode==='login');
+  if(signupTab) signupTab.classList.toggle('active',mode==='signup');
+  if(authBtn) authBtn.textContent=mode==='login'?'로그인':'회원가입';
+  if(authMsg) authMsg.textContent='';
+  window.__loginAuthMode=mode;
+};
+window.addEventListener('DOMContentLoaded',function(){
+  window.switchLoginType('staff');
+  window.switchTab('login');
+});
+</script>
+
+<script>
 const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null,currentRole='',currentRoleRow=null,pendingRequest=null;
@@ -3788,8 +3816,8 @@ function renderGanttDetailPanel(projs,schs){
     +(relatedSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' · '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No overlapping events in this project window.</div>')
     +'</div></div>';
 }
-const renderGanttTimelineBase = renderGantt;
-renderGantt = function(){
+const renderGanttTimelineBase = typeof window.renderGantt === 'function' ? window.renderGantt : function(){};
+window.renderGantt = function(){
   renderGanttTimelineBase();
   const monthLabel=document.getElementById('monthLabel');
   if(monthLabel) monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
@@ -3798,6 +3826,7 @@ renderGantt = function(){
   const overview=document.getElementById('ganttOverview');
   if(overview) overview.innerHTML='';
 };
+renderGantt = window.renderGantt;
 
 let projModalTab='basic';
 function openProjModal(eid,preClientId,preContractId,initialTab){
@@ -4080,7 +4109,6 @@ async function deleteProj(){
   const p=projects.find(x=>x.id===editingProjId);
   if(!canDeleteProject(p)){alert('프로젝트 삭제는 작성자 또는 관리자만 가능합니다.');return;}
   if(!confirm('프로젝트를 삭제할까요?'))return;
-  const p=projects.find(x=>x.id===editingProjId);
   try{await api('DELETE','projects?id=eq.'+editingProjId);await logActivity('프로젝트 삭제','project',editingProjId,p?.name||'');closeModal();await loadAll();if(curPage==='gantt')renderGantt();else renderClients();}
   catch(e){alert('오류: '+e.message);}
 }
@@ -8966,8 +8994,8 @@ function renderGanttCalendarGrid(projs,schs){
   renderLegend();
 }
 
-const renderGanttLayoutBase=renderGantt;
-renderGantt = function(){
+const renderGanttLayoutBase = typeof window.renderGantt === 'function' ? window.renderGantt : function(){};
+window.renderGantt = function(){
   ensureGanttLayoutToggle();
   updateGanttLayoutButtons();
   if(curGanttLayout==='calendar'){
@@ -8986,6 +9014,7 @@ renderGantt = function(){
   ensureGanttLayoutToggle();
   updateGanttLayoutButtons();
 };
+renderGantt = window.renderGantt;
 
 function setGanttLayout(mode){
   curGanttLayout=mode;
