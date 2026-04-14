@@ -531,6 +531,15 @@ table{border-collapse:collapse;min-width:100%}
 .login-msg{font-size:12px;text-align:center;margin-top:10px;min-height:18px;font-weight:500}
 .login-msg.err{color:var(--red)}
 .login-msg.ok{color:var(--green)}
+.login-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.login-link-btn{border:none;background:transparent;padding:0;font-size:12px;font-weight:700;font-family:inherit;color:var(--text2);cursor:pointer}
+.login-link-btn:hover{color:var(--navy);text-decoration:underline}
+.login-reset-box{display:none;margin-top:16px;padding:14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.login-reset-box.active{display:block}
+.login-reset-title{font-size:12px;font-weight:800;color:var(--navy);margin-bottom:6px}
+.login-reset-help{font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:10px}
+.login-reset-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.login-reset-actions .btn,.login-reset-actions .login-submit{flex:1;min-width:120px;margin-top:0}
 </style>
 
 <style id="stripeThemeOverride">
@@ -1660,6 +1669,20 @@ input,textarea{border-radius:12px!important}
       <div class="login-input-wrap"><label>비밀번호</label><input type="password" id="authPw" placeholder="비밀번호 (6자 이상)" onkeydown="if(event.key==='Enter')doAuth()"/></div>
       <button class="login-submit" id="authBtn" onclick="doAuth()">로그인</button>
       <div class="login-msg" id="authMsg"></div>
+      <div class="login-actions" id="authActions">
+        <button class="login-link-btn" type="button" onclick="resendSignupEmail()">인증 메일 재발송</button>
+        <button class="login-link-btn" type="button" onclick="sendPasswordReset()">비밀번호 재설정</button>
+      </div>
+      <div class="login-reset-box" id="passwordResetBox">
+        <div class="login-reset-title">비밀번호 재설정</div>
+        <div class="login-reset-help" id="passwordResetHelp">재설정 메일의 링크를 열면 여기서 새 비밀번호를 바로 설정할 수 있습니다.</div>
+        <div class="login-input-wrap"><label>새 비밀번호</label><input type="password" id="resetPw" placeholder="새 비밀번호 (6자 이상)"/></div>
+        <div class="login-input-wrap"><label>새 비밀번호 확인</label><input type="password" id="resetPwConfirm" placeholder="비밀번호를 다시 입력"/></div>
+        <div class="login-reset-actions">
+          <button class="login-submit" type="button" id="resetPwBtn" onclick="completePasswordReset()">새 비밀번호 저장</button>
+          <button class="btn ghost" type="button" onclick="cancelPasswordReset()">취소</button>
+        </div>
+      </div>
     </div>
     <!-- 고객사 로그인 -->
     <div id="clientLoginArea" style="display:none">
@@ -10073,6 +10096,183 @@ window.doAuth = async function(){
     btn.textContent=authMode==='login'?'로그인':'회원가입';
   }
 };
+</script>
+
+<script>
+(function(){
+  const AUTH_REDIRECT_URL=window.location.origin+window.location.pathname;
+  let recoveryAccessToken=null;
+
+  function authMessageEl(){
+    return document.getElementById('authMsg');
+  }
+
+  function getAuthEmail(){
+    return (document.getElementById('authEmail')?.value||'').trim();
+  }
+
+  function isValidWorkEmail(email){
+    return !!email && /@bexleyintl\.com$/i.test(email);
+  }
+
+  function showResetBox(active, helpText){
+    const box=document.getElementById('passwordResetBox');
+    const help=document.getElementById('passwordResetHelp');
+    if(!box) return;
+    box.classList.toggle('active',!!active);
+    if(help && helpText) help.textContent=helpText;
+  }
+
+  function clearRecoveryUrlState(){
+    try{
+      history.replaceState(null,'',window.location.pathname+window.location.search.replace(/([?&])type=recovery[^&]*/,'').replace(/[?&]$/,''));
+    }catch(e){}
+    if(window.location.hash) window.location.hash='';
+  }
+
+  function readRecoveryParams(){
+    const hash=window.location.hash&&window.location.hash.startsWith('#')
+      ?new URLSearchParams(window.location.hash.slice(1))
+      :new URLSearchParams();
+    const search=new URLSearchParams(window.location.search);
+    const type=hash.get('type')||search.get('type')||'';
+    const accessToken=hash.get('access_token')||search.get('access_token')||'';
+    const refreshToken=hash.get('refresh_token')||search.get('refresh_token')||'';
+    return {type,accessToken,refreshToken};
+  }
+
+  window.cancelPasswordReset=function(){
+    recoveryAccessToken=null;
+    showResetBox(false);
+    const pw=document.getElementById('resetPw');
+    const pw2=document.getElementById('resetPwConfirm');
+    if(pw) pw.value='';
+    if(pw2) pw2.value='';
+    clearRecoveryUrlState();
+  };
+
+  window.resendSignupEmail=async function(){
+    const email=getAuthEmail();
+    const msg=authMessageEl();
+    if(!isValidWorkEmail(email)){
+      setMsg(msg,'회사 이메일을 입력한 뒤 인증 메일을 다시 보내주세요.','err');
+      return;
+    }
+    try{
+      const r=await fetch(SB_URL+'/auth/v1/resend',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY},
+        body:JSON.stringify({
+          type:'signup',
+          email,
+          options:{emailRedirectTo:AUTH_REDIRECT_URL}
+        })
+      });
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.msg||d.error_description||d.error||d.message||'인증 메일 재발송 실패');
+      setMsg(msg,'인증 메일을 다시 보냈습니다. 메일함과 스팸함을 확인해주세요.','ok');
+    }catch(e){
+      const map={
+        'Email rate limit exceeded':'잠시 후 다시 시도해주세요. 메일 발송 횟수 제한에 걸렸습니다.',
+        'User not found':'먼저 회원가입을 완료한 뒤 다시 시도해주세요.'
+      };
+      setMsg(msg,map[e.message]||e.message,'err');
+    }
+  };
+
+  window.sendPasswordReset=async function(){
+    const email=getAuthEmail();
+    const msg=authMessageEl();
+    if(!isValidWorkEmail(email)){
+      setMsg(msg,'회사 이메일을 입력한 뒤 비밀번호 재설정을 요청해주세요.','err');
+      return;
+    }
+    try{
+      const r=await fetch(SB_URL+'/auth/v1/recover',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY},
+        body:JSON.stringify({
+          email,
+          redirect_to:AUTH_REDIRECT_URL
+        })
+      });
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.msg||d.error_description||d.error||d.message||'비밀번호 재설정 메일 발송 실패');
+      setMsg(msg,'비밀번호 재설정 메일을 보냈습니다. 메일의 링크를 열어 새 비밀번호를 설정해주세요.','ok');
+    }catch(e){
+      const map={
+        'Email rate limit exceeded':'잠시 후 다시 시도해주세요. 메일 발송 횟수 제한에 걸렸습니다.'
+      };
+      setMsg(msg,map[e.message]||e.message,'err');
+    }
+  };
+
+  window.completePasswordReset=async function(){
+    const pw=document.getElementById('resetPw')?.value||'';
+    const pw2=document.getElementById('resetPwConfirm')?.value||'';
+    const btn=document.getElementById('resetPwBtn');
+    const msg=authMessageEl();
+    if(!recoveryAccessToken){
+      setMsg(msg,'재설정 링크를 메일에서 다시 열어주세요.','err');
+      return;
+    }
+    if(pw.length<6){
+      setMsg(msg,'새 비밀번호는 6자 이상이어야 합니다.','err');
+      return;
+    }
+    if(pw!==pw2){
+      setMsg(msg,'새 비밀번호와 확인 값이 일치하지 않습니다.','err');
+      return;
+    }
+    if(btn) btn.disabled=true;
+    try{
+      const r=await fetch(SB_URL+'/auth/v1/user',{
+        method:'PUT',
+        headers:{
+          'Content-Type':'application/json',
+          'apikey':SB_KEY,
+          'Authorization':'Bearer '+recoveryAccessToken
+        },
+        body:JSON.stringify({password:pw})
+      });
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(d.msg||d.error_description||d.error||d.message||'비밀번호 변경 실패');
+      recoveryAccessToken=null;
+      showResetBox(false);
+      clearRecoveryUrlState();
+      switchTab('login');
+      setMsg(msg,'비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.','ok');
+    }catch(e){
+      setMsg(msg,e.message,'err');
+    }finally{
+      if(btn) btn.disabled=false;
+    }
+  };
+
+  function mountRecoveryState(){
+    const {type,accessToken}=readRecoveryParams();
+    if(type!=='recovery' || !accessToken) return;
+    recoveryAccessToken=accessToken;
+    showPage('login');
+    switchLoginType('staff');
+    switchTab('login');
+    showResetBox(true,'메일 링크가 확인되었습니다. 아래에서 새 비밀번호를 입력해주세요.');
+    setMsg(authMessageEl(),'새 비밀번호를 입력한 뒤 저장해주세요.','ok');
+  }
+
+  const originalSwitchTab=window.switchTab;
+  window.switchTab=function(mode){
+    originalSwitchTab(mode);
+    if(mode!=='login' || !recoveryAccessToken){
+      showResetBox(false);
+    }
+  };
+
+  const bootRecovery=()=>setTimeout(mountRecoveryState,0);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bootRecovery);
+  else bootRecovery();
+  window.addEventListener('load',bootRecovery);
+})();
 </script>
 
 </body>
