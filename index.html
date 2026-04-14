@@ -358,6 +358,39 @@ table{border-collapse:collapse;min-width:100%}
 .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);font-weight:500}
 .legend-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
 
+.main-focus-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 16px}
+.main-focus-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:none;transition:all .16s ease}
+.main-focus-card.clickable{cursor:pointer}
+.main-focus-card.clickable:hover{transform:translateY(-2px);border-color:var(--blue);box-shadow:var(--shadow)}
+.main-focus-label{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.35px}
+.main-focus-value{font-size:30px;line-height:1.05;font-weight:900;color:var(--navy);margin-top:12px;letter-spacing:-.7px}
+.main-focus-sub{font-size:12px;color:var(--text3);margin-top:6px}
+.main-focus-card.warn .main-focus-value{color:var(--red)}
+.main-focus-card.today .main-focus-value{color:#92400E}
+.main-focus-card.info .main-focus-value{color:var(--blue)}
+.main-home-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.95fr);gap:14px;margin:0 0 18px}
+.main-home-stack{display:grid;gap:14px}
+.main-home-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px}
+.main-home-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.main-home-title{font-size:15px;font-weight:800;color:var(--navy);letter-spacing:-.2px}
+.main-home-sub{font-size:12px;color:var(--text3);margin-top:4px}
+.main-home-list{display:flex;flex-direction:column}
+.main-home-item{padding:12px 0;border-bottom:1px solid var(--bg);cursor:pointer}
+.main-home-item:last-child{border-bottom:none;padding-bottom:0}
+.main-home-item:first-child{padding-top:4px}
+.main-home-item-title{font-size:13px;font-weight:700;color:var(--navy);line-height:1.45}
+.main-home-item-meta{font-size:11px;color:var(--text3);margin-top:4px}
+.main-home-item-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.main-home-empty{padding:28px 12px;text-align:center;font-size:12px;color:var(--text3);background:var(--bg);border-radius:var(--radius-sm)}
+.main-inline-badges{display:flex;gap:6px;flex-wrap:wrap}
+.main-inline-badges .badge{margin:0}
+@media (max-width: 980px){
+  .main-home-grid{grid-template-columns:1fr}
+}
+@media (max-width: 720px){
+  .main-focus-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
 /* Dash */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
@@ -2530,9 +2563,14 @@ async function initApp(){
   document.getElementById('userDisplay').textContent=currentMember?currentMember.name:currentUser.email;
   await loadAll();
   checkPopup();
-  setPage('team');
-  loadInitialNotifBadge();
-  initRealtime();
+  try{
+    setPage('clients');
+  }catch(e){
+    console.error('initial landing failed:',e);
+    setStatus('초기 화면을 불러오는 중 오류가 발생했습니다.','err');
+  }
+  try{loadInitialNotifBadge();}catch(e){console.error('notif badge init failed:',e);}
+  try{initRealtime();}catch(e){console.error('realtime init failed:',e);}
 }
 
 // ── API ──
@@ -2905,28 +2943,49 @@ function setPage(page, extra) {
     document.getElementById(id)?.classList.add('active');
   });
 
-  if (page === 'clients') {
-    renderAlerts();
-    renderClients();
-  } else if (page === 'contracts') {
-    renderContractsPage();
-  } else if (page === 'team') {
-    renderTeamNotices();
-    setTimeout(() => loadIssueFeed(true), 0);
-    renderMyWeek();
-    renderWeeklyScheduleSummary();
-    renderKudos();
-    renderWeeklyReviews();
-  } else if (page === 'gantt') {
-    renderGantt();
-  } else if (page === 'dash') {
-    renderDash();
-  } else if (page === 'notice') {
-    refreshKnowledgePosts().then(() => renderKnowledgeBoard());
-  } else if (page === 'admin') {
-    renderAdminPage();
-  } else if (page === 'fun') {
-    setTimeout(enhanceFunPage, 0);
+  try{
+    if (page === 'clients') {
+      renderAlerts();
+      renderClients();
+    } else if (page === 'contracts') {
+      renderContractsPage();
+    } else if (page === 'team') {
+      renderTeamNotices();
+      setTimeout(() => loadIssueFeed(true), 0);
+      renderMyWeek();
+      renderWeeklyScheduleSummary();
+      renderKudos();
+      renderWeeklyReviews();
+    } else if (page === 'gantt') {
+      renderGantt();
+    } else if (page === 'dash') {
+      renderDash();
+    } else if (page === 'notice') {
+      refreshKnowledgePosts().then(() => renderKnowledgeBoard());
+    } else if (page === 'admin') {
+      renderAdminPage();
+    } else if (page === 'fun') {
+      setTimeout(enhanceFunPage, 0);
+    }
+  }catch(e){
+    console.error('page render failed:',page,e);
+    setStatus('화면을 불러오는 중 오류가 발생했습니다. 기본 화면으로 이동합니다.','err');
+    if(page!=='clients'){
+      try{
+        setPage('clients');
+        return;
+      }catch(inner){
+        console.error('clients fallback failed:',inner);
+      }
+    }
+    const pinned=document.getElementById('pinnedWrap');
+    const alerts=document.getElementById('alertWrap');
+    const grid=document.getElementById('clientGrid');
+    if(pinned)pinned.innerHTML='';
+    if(alerts)alerts.innerHTML='';
+    if(grid){
+      grid.innerHTML='<div class="empty-state">기본 화면을 불러오는 중 오류가 발생했습니다.<br><br>새로고침 후 다시 시도해주세요.</div>';
+    }
   }
 }
 
@@ -9084,6 +9143,204 @@ runLadder = function(){
   canvas.style.display='block';
   canvas.innerHTML=renderLadderSvg(ladderData);
   animateLadderTrace(ladderData);
+};
+
+let homeClientsRefreshTimer=null;
+let homeClientsRefreshTimerSlow=null;
+
+function getHomeBaseDate(){
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return today;
+}
+
+function formatHomeShortDate(dateLike){
+  const d=typeof dateLike==='string'?toDate(dateLike):new Date(dateLike);
+  return (d.getMonth()+1)+'/'+d.getDate();
+}
+
+function getHomeNoticeHeadlines(limit=5){
+  return [...(notices||[])]
+    .sort((a,b)=>{
+      const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
+      if(pinDiff) return pinDiff;
+      return new Date(b.created_at)-new Date(a.created_at);
+    })
+    .slice(0,limit);
+}
+
+function getHomeTodayDueProjects(){
+  const today=getHomeBaseDate();
+  return (projects||[]).filter(p=>p.status!=='완료'&&toDate(p.end).getTime()===today.getTime());
+}
+
+function getHomeTodayItems(limit=4){
+  if(!currentMember?.name) return [];
+  const today=getHomeBaseDate();
+  const items=[];
+  (projects||[])
+    .filter(p=>Array.isArray(p.members)&&p.members.includes(currentMember.name)&&p.status!=='완료'&&toDate(p.start)<=today&&toDate(p.end)>=today)
+    .forEach(p=>{
+      const client=clients.find(c=>c.id===p.client_id);
+      const dueToday=toDate(p.end).getTime()===today.getTime();
+      items.push({
+        title:p.name,
+        meta:(client?client.name+' · ':'')+(dueToday?'오늘 마감':'진행 중 프로젝트'),
+        badges:[dueToday?'<span class="badge badge-orange">오늘 마감</span>':'<span class="badge badge-blue">프로젝트</span>'],
+        action:'openProjModal(\''+p.id+'\')',
+        sortKey:dueToday?0:1
+      });
+    });
+  (schedules||[])
+    .filter(s=>s.member_name===currentMember.name&&toDate(s.start)<=today&&toDate(s.end)>=today)
+    .forEach(s=>{
+      const meta=SCHEDULE_META[s.schedule_type]?.label||s.schedule_type||'일정';
+      items.push({
+        title:s.title||meta,
+        meta:'개인 일정 · '+meta,
+        badges:['<span class="badge badge-gray">'+esc(meta)+'</span>'],
+        action:'openScheduleModal(\''+s.id+'\')',
+        sortKey:2
+      });
+    });
+  return items
+    .sort((a,b)=>a.sortKey-b.sortKey||a.title.localeCompare(b.title,'ko'))
+    .slice(0,limit);
+}
+
+function getHomeIssueItems(limit=4){
+  const mine=currentMember?.name
+    ?(projects||[]).filter(p=>Array.isArray(p.members)&&p.members.includes(currentMember.name)&&(openIssuesByProject[p.id]||0)>0)
+    :[];
+  const source=mine.length?mine:(projects||[]).filter(p=>(openIssuesByProject[p.id]||0)>0);
+  return source
+    .sort((a,b)=>{
+      const issueDiff=(openIssuesByProject[b.id]||0)-(openIssuesByProject[a.id]||0);
+      if(issueDiff) return issueDiff;
+      return toDate(a.end)-toDate(b.end);
+    })
+    .slice(0,limit)
+    .map(p=>{
+      const client=clients.find(c=>c.id===p.client_id);
+      const issueCount=openIssuesByProject[p.id]||0;
+      const overdue=toDate(p.end)<getHomeBaseDate()&&p.status!=='완료';
+      return {
+        title:p.name,
+        meta:(client?client.name+' · ':'')+'열린 이슈 '+issueCount+'건',
+        badges:[overdue?'<span class="badge badge-red">기한 주의</span>':'<span class="badge badge-blue">이슈 '+issueCount+'건</span>'],
+        action:'openProjModal(\''+p.id+'\',null,null,\'issue\')'
+      };
+    });
+}
+
+function renderHomeInfoList(items,emptyText){
+  if(!items.length){
+    return '<div class="main-home-empty">'+esc(emptyText)+'</div>';
+  }
+  return '<div class="main-home-list">'+items.map(item=>{
+    const badges=(item.badges||[]).length?'<div class="main-inline-badges">'+item.badges.join('')+'</div>':'';
+    return '<div class="main-home-item"'+(item.action?' onclick="'+item.action+'"':' style="cursor:default"')+'>'
+      +'<div class="main-home-item-row">'
+      +'<div class="main-home-item-title">'+esc(item.title)+'</div>'
+      +badges
+      +'</div>'
+      +(item.meta?'<div class="main-home-item-meta">'+esc(item.meta)+'</div>':'')
+      +'</div>';
+  }).join('')+'</div>';
+}
+
+const renderClientsHomeBase=renderClients;
+
+renderAlerts = function(){
+  const el=document.getElementById('alertWrap');
+  if(!el) return;
+  const {overdue=[],unbilled=[],followups=[]}=getAlerts()||{};
+  const dueToday=getHomeTodayDueProjects();
+  const todayItems=getHomeTodayItems(99);
+  const myIssueTotal=(currentMember?.name
+    ?(projects||[])
+      .filter(p=>Array.isArray(p.members)&&p.members.includes(currentMember.name))
+      .reduce((sum,p)=>sum+(openIssuesByProject[p.id]||0),0)
+    :0);
+  const cards=[
+    {label:'오늘 마감',value:dueToday.length,sub:dueToday.length?truncateText(dueToday.map(p=>p.name).join(', '),28):'오늘 종료 예정 없음',className:'today',action:"setPage('gantt')"},
+    {label:'기간 초과',value:overdue.length,sub:overdue.length?truncateText(overdue.map(p=>p.name).join(', '),28):'지연 프로젝트 없음',className:'warn',action:"setPage('dash')"},
+    {label:'빌링 필요',value:unbilled.length,sub:unbilled.length?truncateText(unbilled.map(p=>p.name).join(', '),28):'미청구 프로젝트 없음',className:'info',action:"setPage('dash')"},
+    {label:'후속 조치',value:followups.length,sub:followups.length?truncateText(followups.map(p=>p.name).join(', '),28):'후속 조치 없음',className:'info',action:"setPage('dash')"},
+    {label:'오늘 일정',value:todayItems.length,sub:todayItems.length?truncateText(todayItems.map(item=>item.title).join(', '),28):'오늘 등록된 일정 없음',className:'info',action:"setPage('team')"},
+    {label:'내 담당 이슈',value:myIssueTotal,sub:myIssueTotal?'내 프로젝트에서 확인이 필요합니다':'열린 이슈 없음',className:'info',action:"setPage('team')"}
+  ];
+  el.innerHTML='<div class="main-focus-grid">'+cards.map(card=>
+    '<div class="main-focus-card clickable '+(card.className||'')+'" onclick="'+card.action+'">'
+      +'<div class="main-focus-label">'+esc(card.label)+'</div>'
+      +'<div class="main-focus-value">'+card.value+'</div>'
+      +'<div class="main-focus-sub">'+esc(card.sub)+'</div>'
+    +'</div>'
+  ).join('')+'</div>';
+};
+
+renderPinned = function(){
+  const el=document.getElementById('pinnedWrap');
+  if(!el) return;
+  const noticeRows=getHomeNoticeHeadlines(5).map(n=>({
+    title:n.title,
+    meta:formatDate(n.created_at),
+    badges:[
+      ...(n.is_pinned?['<span class="badge badge-blue">고정</span>']:[]),
+      ...(n.require_confirm?['<span class="badge badge-red">필독</span>']:[])
+    ],
+    action:'openNoticeDetail(\''+n.id+'\')'
+  }));
+  const todayRows=getHomeTodayItems(4);
+  const issueRows=getHomeIssueItems(4);
+  el.innerHTML=
+    '<div class="main-home-grid">'
+      +'<div class="main-home-card">'
+        +'<div class="main-home-head">'
+          +'<div><div class="main-home-title">공지사항</div><div class="main-home-sub">길게 읽는 본문 대신, 지금 확인할 제목만 먼저 보여줍니다.</div></div>'
+          +'<button class="btn ghost sm" onclick="setPage(\'team\')">팀 탭 보기</button>'
+        +'</div>'
+        +renderHomeInfoList(noticeRows,'등록된 공지가 없습니다.')
+      +'</div>'
+      +'<div class="main-home-stack">'
+        +'<div class="main-home-card">'
+          +'<div class="main-home-head">'
+            +'<div><div class="main-home-title">오늘 일정</div><div class="main-home-sub">'+(currentMember?.name?esc(currentMember.name)+'님의 오늘 일정과 진행 중 프로젝트입니다.':'오늘 일정 요약')+'</div></div>'
+            +'<button class="btn ghost sm" onclick="setPage(\'team\')">팀 일정 보기</button>'
+          +'</div>'
+          +renderHomeInfoList(todayRows,currentMember?.name?'오늘 바로 처리할 일정이 없습니다.':'로그인 정보가 없어 개인 일정을 표시할 수 없습니다.')
+        +'</div>'
+        +'<div class="main-home-card">'
+          +'<div class="main-home-head">'
+            +'<div><div class="main-home-title">내 담당 이슈</div><div class="main-home-sub">지금 확인이 필요한 열린 이슈를 프로젝트 기준으로 묶어 보여줍니다.</div></div>'
+            +'<button class="btn ghost sm" onclick="setPage(\'team\')">이슈 보기</button>'
+          +'</div>'
+          +renderHomeInfoList(issueRows,'현재 열려 있는 담당 이슈가 없습니다.')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+};
+
+renderClients = function(){
+  renderClientsHomeBase();
+  renderAlerts();
+  renderPinned();
+  const title=document.getElementById('boardTitle');
+  if(title) title.textContent='거래처';
+  if(homeClientsRefreshTimer) clearTimeout(homeClientsRefreshTimer);
+  if(homeClientsRefreshTimerSlow) clearTimeout(homeClientsRefreshTimerSlow);
+  homeClientsRefreshTimer=setTimeout(()=>{
+    if(curPage==='clients'){
+      renderAlerts();
+      renderPinned();
+    }
+  },320);
+  homeClientsRefreshTimerSlow=setTimeout(()=>{
+    if(curPage==='clients'){
+      renderAlerts();
+      renderPinned();
+    }
+  },1300);
 };
 </script>
 
