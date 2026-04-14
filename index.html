@@ -7115,6 +7115,76 @@ async function legacyMsLoginFinal(){
   alert('Microsoft 로그인 없이 프로젝트 관리 탭에서 바로 캘린더 파일을 추가할 수 있도록 변경했습니다.');
 }
 */
+renderKudos = async function(offset){
+  if(offset!==undefined) kudosWeekOffset=offset;
+  const el=document.getElementById('kudosWrap');
+  if(!el) return;
+  const ws=getWeekStart(kudosWeekOffset);
+  const {start}=getWeekBounds(kudosWeekOffset);
+  const weekLabel=kudosWeekOffset===0?'\uC774\uBC88 \uC8FC':kudosWeekOffset===-1?'\uC9C0\uB09C \uC8FC':`${start.getMonth()+1}/${start.getDate()} \uC8FC`;
+  try{
+    const [votes,myVoteArr]=await Promise.all([
+      api('GET','kudos_votes?week_start=eq.'+ws+'&select=*'),
+      api('GET','kudos_votes?week_start=eq.'+ws+'&voter_id=eq.'+(currentUser?.id||'null')+'&select=*').catch(()=>[])
+    ]);
+    const tally={};
+    (votes||[]).forEach(v=>{
+      tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;
+    });
+    const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+    const myVote=myVoteArr&&myVoteArr[0];
+    const hasVotes=sorted.length>0;
+    const isCurrentWeek=kudosWeekOffset===0;
+    const prevBtn=`<button onclick="renderKudos(${kudosWeekOffset-1})" style="background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center">&lt;</button>`;
+    const nextBtn=kudosWeekOffset<0
+      ? `<button onclick="renderKudos(${kudosWeekOffset+1})" style="background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center">&gt;</button>`
+      : '<div style="width:32px;height:32px"></div>';
+    const voteBtn=isCurrentWeek
+      ? `<button class="btn sm" style="background:#111827;border:1px solid #111827;color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">${myVote?'\uD22C\uD45C \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30'}</button>`
+      : '';
+    const summaryCards=sorted.map(([name,cnt])=>`
+      <div style="text-align:center;background:#FFFFFF;border:1px solid #E2E8F0;padding:8px 10px;border-radius:10px;min-width:60px">
+        <div style="font-size:11px;color:#475569;margin-bottom:3px;font-weight:700">${esc(name)}</div>
+        <div style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
+      </div>
+    `).join('');
+    const body=hasVotes
+      ? `
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="width:56px;height:56px;border-radius:14px;background:#E2E8F0;border:1px solid #CBD5E1;color:#111827;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${esc(sorted[0][0].charAt(0))}</div>
+          <div>
+            <div style="font-size:22px;font-weight:900;color:#0F172A;letter-spacing:-.4px">${esc(sorted[0][0])}</div>
+            <div style="font-size:13px;color:#334155;margin-top:2px;font-weight:800">${sorted[0][1]}\uD45C${myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):''}</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">${summaryCards}</div>
+        </div>
+      `
+      : `
+        <div style="color:#111827;font-size:14px;font-weight:800;text-align:center;padding:14px 0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px">
+          ${isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}
+        </div>
+      `;
+    el.innerHTML=`
+      <div class="card" style="margin-bottom:16px;background:#F8FAFC;border:1px solid #CBD5E1;box-shadow:0 8px 24px rgba(15,23,42,.06)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">
+            <div style="font-size:16px;font-weight:900;color:#0F172A;letter-spacing:.2px">\uCE6D\uCC2C \uC0AC\uC6D0</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${prevBtn}
+              <span style="font-size:12px;color:#334155;min-width:72px;text-align:center;font-weight:800">${weekLabel}</span>
+              ${nextBtn}
+            </div>
+          </div>
+          ${voteBtn}
+        </div>
+        ${body}
+      </div>
+    `;
+  }catch(e){
+    console.error('renderKudos failed',e);
+    el.innerHTML='';
+  }
+};
 </script>
 
 <script id="stripeThemeSearch">
@@ -7895,6 +7965,77 @@ renderKudos = async function(offset){
     const isCurrentWeek=kudosWeekOffset===0;
     el.innerHTML='<div class="card" style="margin-bottom:16px;background:#F8FAFC;border:1px solid #CBD5E1;box-shadow:0 8px 24px rgba(15,23,42,.06)"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:10px;min-width:0"><div style="font-size:16px;font-weight:900;color:#0F172A;letter-spacing:.3px">\uCE6D\uCC2C\uC0AC\uC6D0</div><div style="display:flex;align-items:center;gap:6px"><button onclick="renderKudos('+(kudosWeekOffset-1)+')" style="background:#E2E8F0;border:1px solid #CBD5E1;color:#111827;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center">‹</button><span style="font-size:12px;color:#334155;min-width:70px;text-align:center;font-weight:800">'+weekLabel+'</span>'+(kudosWeekOffset<0?'<button onclick="renderKudos('+(kudosWeekOffset+1)+')" style="background:#E2E8F0;border:1px solid #CBD5E1;color:#111827;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center">›</button>':'<div style="width:30px"></div>')+'</div></div>'+(isCurrentWeek?'<button class="btn sm" style="background:#111827;border:1px solid #111827;color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">'+(myVote?'\uD22C\uD45C \uC644\uB8CC · \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30')+'</button>':'')+'</div>'+(hasVotes?'<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div style="width:56px;height:56px;border-radius:14px;background:#E2E8F0;border:1px solid #CBD5E1;color:#111827;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(sorted[0][0].charAt(0))+'</div><div><div style="font-size:22px;font-weight:900;color:#0F172A;letter-spacing:-.5px">'+esc(sorted[0][0])+'</div><div style="font-size:13px;color:#334155;margin-top:2px;font-weight:800">'+sorted[0][1]+'\uD45C'+(myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):'')+'</div></div><div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">'+sorted.map(([name,cnt])=>'<div style="text-align:center;background:#FFFFFF;border:1px solid #E2E8F0;padding:6px 8px;border-radius:10px"><div style="font-size:11px;color:#475569;margin-bottom:3px;font-weight:700">'+esc(name)+'</div><div style="font-size:18px;font-weight:900;color:#0F172A">'+cnt+'</div></div>').join('')+'</div></div>':'<div style="color:#111827;font-size:14px;font-weight:800;text-align:center;padding:14px 0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px">'+(isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.')+'</div>')+'</div>';
   }catch(e){el.innerHTML='';}
+};
+
+renderKudos = async function(offset){
+  if(offset!==undefined) kudosWeekOffset=offset;
+  const el=document.getElementById('kudosWrap');
+  if(!el) return;
+  const ws=getWeekStart(kudosWeekOffset);
+  const {start}=getWeekBounds(kudosWeekOffset);
+  const weekLabel=kudosWeekOffset===0?'\uC774\uBC88 \uC8FC':kudosWeekOffset===-1?'\uC9C0\uB09C \uC8FC':`${start.getMonth()+1}/${start.getDate()} \uC8FC`;
+  try{
+    const [votes,myVoteArr]=await Promise.all([
+      api('GET','kudos_votes?week_start=eq.'+ws+'&select=*'),
+      api('GET','kudos_votes?week_start=eq.'+ws+'&voter_id=eq.'+(currentUser?.id||'null')+'&select=*').catch(()=>[])
+    ]);
+    const tally={};
+    (votes||[]).forEach(v=>{
+      tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;
+    });
+    const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+    const myVote=myVoteArr&&myVoteArr[0];
+    const hasVotes=sorted.length>0;
+    const isCurrentWeek=kudosWeekOffset===0;
+    const prevBtn=`<button onclick="renderKudos(${kudosWeekOffset-1})" style="background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center">&lt;</button>`;
+    const nextBtn=kudosWeekOffset<0
+      ? `<button onclick="renderKudos(${kudosWeekOffset+1})" style="background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center">&gt;</button>`
+      : '<div style="width:32px;height:32px"></div>';
+    const voteBtn=isCurrentWeek
+      ? `<button class="btn sm" style="background:#111827;border:1px solid #111827;color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">${myVote?'\uD22C\uD45C \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30'}</button>`
+      : '';
+    const summaryCards=sorted.map(([name,cnt])=>`
+      <div style="text-align:center;background:#FFFFFF;border:1px solid #E2E8F0;padding:8px 10px;border-radius:10px;min-width:60px">
+        <div style="font-size:11px;color:#475569;margin-bottom:3px;font-weight:700">${esc(name)}</div>
+        <div style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
+      </div>
+    `).join('');
+    const body=hasVotes
+      ? `
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="width:56px;height:56px;border-radius:14px;background:#E2E8F0;border:1px solid #CBD5E1;color:#111827;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${esc(sorted[0][0].charAt(0))}</div>
+          <div>
+            <div style="font-size:22px;font-weight:900;color:#0F172A;letter-spacing:-.4px">${esc(sorted[0][0])}</div>
+            <div style="font-size:13px;color:#334155;margin-top:2px;font-weight:800">${sorted[0][1]}\uD45C${myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):''}</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">${summaryCards}</div>
+        </div>
+      `
+      : `
+        <div style="color:#111827;font-size:14px;font-weight:800;text-align:center;padding:14px 0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px">
+          ${isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}
+        </div>
+      `;
+    el.innerHTML=`
+      <div class="card" style="margin-bottom:16px;background:#F8FAFC;border:1px solid #CBD5E1;box-shadow:0 8px 24px rgba(15,23,42,.06)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">
+            <div style="font-size:16px;font-weight:900;color:#0F172A;letter-spacing:.2px">\uCE6D\uCC2C \uC0AC\uC6D0</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${prevBtn}
+              <span style="font-size:12px;color:#334155;min-width:72px;text-align:center;font-weight:800">${weekLabel}</span>
+              ${nextBtn}
+            </div>
+          </div>
+          ${voteBtn}
+        </div>
+        ${body}
+      </div>
+    `;
+  }catch(e){
+    console.error('renderKudos failed',e);
+    el.innerHTML='';
+  }
 };
 </script>
 
