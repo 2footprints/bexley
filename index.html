@@ -194,6 +194,8 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
   .detail-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:0;padding-bottom:2px}
   .detail-tab{white-space:nowrap;font-size:12px;padding:10px 12px;flex-shrink:0}
   .weekly-schedule-grid{grid-template-columns:1fr}
+  .gantt-wrap{overflow-x:auto;overflow-y:hidden;padding-bottom:8px}
+  .gantt-wrap::after{content:'좌우로 스크롤';position:sticky;right:8px;bottom:8px;float:right;background:rgba(15,23,42,.72);color:#fff;font-size:10px;font-weight:700;padding:5px 8px;border-radius:999px;letter-spacing:.1px;pointer-events:none}
   .gantt-wrap table{font-size:11px}
   .th-label{min-width:120px!important}
   .card{padding:16px}
@@ -324,7 +326,11 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .month-label{font-size:14px;font-weight:800;min-width:90px;text-align:center;color:var(--navy);letter-spacing:-.3px}
 .month-nav-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:16px;color:var(--text3);flex-shrink:0}
 .month-nav-btn:hover{background:var(--bg);color:var(--text)}
-.gantt-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.gantt-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);position:relative;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#CBD5E1 transparent;touch-action:pan-x pan-y}
+.gantt-wrap::-webkit-scrollbar{height:10px}
+.gantt-wrap::-webkit-scrollbar-track{background:transparent}
+.gantt-wrap::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:999px}
+.gantt-wrap::-webkit-scrollbar-thumb:hover{background:#94A3B8}
 table{border-collapse:collapse;min-width:100%}
 .th-label{position:sticky;left:0;z-index:3;background:#f7fafc;font-size:11px;font-weight:800;color:#6b7684;padding:10px 14px;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid #dbe2ea;min-width:160px;letter-spacing:.2px;text-transform:uppercase}
 .th-day{font-size:10px;color:var(--text3);padding:6px 2px;text-align:center;min-width:28px;border-bottom:1px solid var(--border);font-weight:500}
@@ -7142,36 +7148,42 @@ renderKudos = async function(offset){
     const voteBtn=isCurrentWeek
       ? `<button class="btn sm" style="background:#111827;border:1px solid #111827;color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">${myVote?'\uD22C\uD45C \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30'}</button>`
       : '';
-    const summaryCards=sorted.map(([name,cnt])=>`
-      <div style="text-align:center;background:#FFFFFF;border:1px solid #E2E8F0;padding:8px 10px;border-radius:10px;min-width:60px">
-        <div style="font-size:11px;color:#475569;margin-bottom:3px;font-weight:700">${esc(name)}</div>
-        <div style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
+    const leader=sorted[0]||null;
+    const rankingRows=sorted.slice(1,4).map(([name,cnt],idx)=>`
+      <div style="display:flex;gap:12px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);align-items:center">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${idx+2}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${esc(name)}</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6">${cnt}\uD45C${myVote&&isCurrentWeek&&myVote.target_member_name===name?' · \uB0B4 \uD22C\uD45C':''}</div>
+        </div>
       </div>
     `).join('');
     const body=hasVotes
       ? `
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-          <div style="width:56px;height:56px;border-radius:14px;background:#E2E8F0;border:1px solid #CBD5E1;color:#111827;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${esc(sorted[0][0].charAt(0))}</div>
-          <div>
-            <div style="font-size:22px;font-weight:900;color:#0F172A;letter-spacing:-.4px">${esc(sorted[0][0])}</div>
-            <div style="font-size:13px;color:#334155;margin-top:2px;font-weight:800">${sorted[0][1]}\uD45C${myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):''}</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:12px;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${esc((leader[0]||'?').charAt(0))}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${esc(leader[0])}</div>
+              <div style="font-size:13px;color:var(--text2);line-height:1.6">${leader[1]}\uD45C${myVote&&isCurrentWeek?' · \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):''}</div>
+            </div>
           </div>
-          <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">${summaryCards}</div>
+          ${rankingRows}
         </div>
       `
       : `
-        <div style="color:#111827;font-size:14px;font-weight:800;text-align:center;padding:14px 0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px">
-          ${isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}
+        <div style="color:var(--text3);font-size:13px;text-align:center;padding:16px 0">
+          ${isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694.<br><br><button class="btn primary sm" onclick="openKudosModal()">\uCCAB \uD22C\uD45C\uD558\uAE30</button>':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}
         </div>
       `;
     el.innerHTML=`
-      <div class="card" style="margin-bottom:16px;background:#F8FAFC;border:1px solid #CBD5E1;box-shadow:0 8px 24px rgba(15,23,42,.06)">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">
-            <div style="font-size:16px;font-weight:900;color:#0F172A;letter-spacing:.2px">\uCE6D\uCC2C \uC0AC\uC6D0</div>
-            <div style="display:flex;align-items:center;gap:8px">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap">
+            <div class="section-label" style="margin:0">\uCE6D\uCC2C \uC0AC\uC6D0</div>
+            <div style="display:flex;align-items:center;gap:6px">
               ${prevBtn}
-              <span style="font-size:12px;color:#334155;min-width:72px;text-align:center;font-weight:800">${weekLabel}</span>
+              <span style="font-size:12px;color:var(--text2);min-width:72px;text-align:center;font-weight:700">${weekLabel}</span>
               ${nextBtn}
             </div>
           </div>
