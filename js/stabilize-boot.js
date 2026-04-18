@@ -22,20 +22,62 @@
 
     const existingByUser = await api('GET', 'access_requests?user_id=eq.' + currentUser.id + '&select=*&limit=1').catch(() => []);
     if(existingByUser?.length){
-      pendingRequest = existingByUser[0];
+      const found = existingByUser[0];
+      if(found.status !== 'pending'){
+        const reopened = await api('PATCH', 'access_requests?id=eq.' + found.id, {
+          name: found.name || (typeof inferNameFromEmail === 'function' ? inferNameFromEmail(currentUser.email) : String(currentUser.email).split('@')[0]),
+          email: currentUser.email,
+          status: 'pending',
+          reviewed_role: null,
+          reviewed_by: null,
+          reviewed_at: null,
+          updated_at: new Date().toISOString()
+        }).catch(() => []);
+        pendingRequest = reopened?.[0] || { ...found, status: 'pending', reviewed_role: null, reviewed_by: null, reviewed_at: null };
+        try{
+          await notifyAdmins(
+            (pendingRequest?.name || currentUser.email) + '님의 가입 신청이 다시 접수되었습니다. 이름 확인 후 승인해주세요.',
+            pendingRequest?.id || null
+          );
+        }catch(error){
+          console.error('reopen access request notify failed:', error);
+        }
+        return pendingRequest;
+      }
+      pendingRequest = found;
       return pendingRequest;
     }
 
     const existingByEmail = await api('GET', 'access_requests?email=eq.' + encodeURIComponent(currentUser.email) + '&select=*&limit=1').catch(() => []);
     if(existingByEmail?.length){
       const found = existingByEmail[0];
-      pendingRequest = found;
-      if(found.user_id !== currentUser.id){
-        const patched = await api('PATCH', 'access_requests?id=eq.' + found.id, {
-          user_id: currentUser.id,
-          updated_at: new Date().toISOString()
-        }).catch(() => []);
-        pendingRequest = patched?.[0] || { ...found, user_id: currentUser.id };
+      const patched = await api('PATCH', 'access_requests?id=eq.' + found.id, {
+        user_id: currentUser.id,
+        email: currentUser.email,
+        name: found.name || (typeof inferNameFromEmail === 'function' ? inferNameFromEmail(currentUser.email) : String(currentUser.email).split('@')[0]),
+        requested_role: found.requested_role || 'member',
+        status: 'pending',
+        reviewed_role: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        updated_at: new Date().toISOString()
+      }).catch(() => []);
+      pendingRequest = patched?.[0] || {
+        ...found,
+        user_id: currentUser.id,
+        email: currentUser.email,
+        status: 'pending',
+        reviewed_role: null,
+        reviewed_by: null,
+        reviewed_at: null
+      };
+      try{
+        await notifyAdmins(
+          (pendingRequest?.name || currentUser.email) + '님의 가입 신청이 접수되었습니다. 이름 확인 후 승인해주세요.',
+          pendingRequest?.id || null
+        );
+      }catch(error){
+        console.error('reused access request notify failed:', error);
       }
       return pendingRequest;
     }
