@@ -5,16 +5,11 @@
   async function notifyAdmins(message, requestId){
     if(!currentUser?.id) return;
     const admins = await api('GET', 'user_roles?select=id,role,is_admin&or=(role.eq.admin,is_admin.eq.true)') || [];
-    for(const admin of admins){
-      if(admin.id === currentUser.id) continue;
-      await createNotification(
-        admin.id,
-        'access_request',
-        message,
-        'access_request',
-        requestId || null
-      );
-    }
+    await Promise.all(
+      admins
+        .filter(admin => admin.id !== currentUser.id)
+        .map(admin => createNotification(admin.id, 'access_request', message, 'access_request', requestId || null))
+    );
   }
 
   async function ensurePendingAccessRequest(){

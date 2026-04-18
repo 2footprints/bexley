@@ -2106,7 +2106,7 @@ function getAssignedMemberNames(clientId){
     .map(a=>members.find(m=>m.id===a.member_id)?.name||'')
     .filter(Boolean);
 }
-function formatPendingDate(ts){try{return formatCommentDate(ts);}catch(e){return ts||'';}}
+function formatPendingDate(ts){ return formatCommentDate(ts); }
 
 
 function truncateText(text,max=42){const raw=String(text||'').replace(/\s+/g,' ').trim();return raw.length>max?raw.slice(0,max-1)+'…':raw;}
@@ -2756,13 +2756,7 @@ function formatCommentDate(ts){
   const mi=String(d.getMinutes()).padStart(2,'0');
   return `${yy}.${mm}.${dd} ${hh}:${mi}`;
 }
-function formatIssueDateInput(value){
-  const v=String(value||'').trim();
-  if(!v)return '';
-  const m=v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(m)return `${Number(m[2])}월 ${Number(m[3])}일`;
-  return v;
-}
+function formatIssueDateInput(value){ return formatBillingDate(String(value||'').trim()); }
 
 // ── Alerts ──
 function getAlerts(){
@@ -2944,25 +2938,33 @@ function updateNoticeDot(){
   updateAdminPendingBadge();
 }
 
+var __adminBadgeTimer = null;
+var __adminBadgePending = false;
 function updateAdminPendingBadge(){
-  api('GET', 'access_requests?status=eq.pending&select=id').then(rows => {
-    const count = (rows||[]).length;
-    ['navAdmin','mNavAdmin'].forEach(id => {
-      const btn = document.getElementById(id);
-      if(!btn) return;
-      let badge = btn.querySelector('.admin-pending-badge');
-      if(count > 0){
-        if(!badge){
-          badge = document.createElement('span');
-          badge.className = 'admin-pending-badge notif-dot';
-          badge.style.cssText = 'background:var(--red);margin-left:4px';
-          btn.appendChild(badge);
+  if(__adminBadgePending) return;
+  if(__adminBadgeTimer) return;
+  __adminBadgeTimer = setTimeout(function(){
+    __adminBadgeTimer = null;
+    __adminBadgePending = true;
+    api('GET', 'access_requests?status=eq.pending&select=id').then(rows => {
+      const count = (rows||[]).length;
+      ['navAdmin','mNavAdmin'].forEach(id => {
+        const btn = document.getElementById(id);
+        if(!btn) return;
+        let badge = btn.querySelector('.admin-pending-badge');
+        if(count > 0){
+          if(!badge){
+            badge = document.createElement('span');
+            badge.className = 'admin-pending-badge notif-dot';
+            badge.style.cssText = 'background:var(--red);margin-left:4px';
+            btn.appendChild(badge);
+          }
+        } else {
+          badge && badge.remove();
         }
-      } else {
-        badge && badge.remove();
-      }
-    });
-  }).catch(()=>{});
+      });
+    }).catch(()=>{}).finally(()=>{ __adminBadgePending = false; });
+  }, 5000);
 }
 
 function checkPopup(){

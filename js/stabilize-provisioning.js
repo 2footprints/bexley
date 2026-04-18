@@ -63,8 +63,7 @@
     };
   }
 
-  if(typeof window.approveAccessRequest === 'function'){
-    window.approveAccessRequest = async function(requestId){
+  window.approveAccessRequest = async function(requestId){
       const req = (accessRequests || []).find(function(item){ return item.id === requestId; });
       if(!req) return;
 
@@ -135,8 +134,7 @@
       }catch(error){
         alert('승인 처리 오류: ' + error.message);
       }
-    };
-  }
+  };
 
   if(typeof window.openMemberManager === 'function'){
     const baseOpenMemberManager = window.openMemberManager;

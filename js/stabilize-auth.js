@@ -5,6 +5,21 @@
   const AUTH_REDIRECT_URL = window.location.origin + '/';
   let recoveryAccessToken = null;
 
+  async function authFetch(path, body, { method = 'POST', token, defaultError = '인증 처리 중 오류가 발생했습니다.' } = {}){
+    const headers = {'Content-Type':'application/json','apikey':SB_KEY};
+    if(token) headers['Authorization'] = 'Bearer ' + token;
+    const response = await fetch(SB_URL + '/auth/v1/' + path, {
+      method,
+      headers,
+      body: JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => ({}));
+    if(!response.ok){
+      throw new Error(data.error_description || data.msg || data.error || data.message || defaultError);
+    }
+    return data;
+  }
+
   function authMessageEl(){
     return document.getElementById('authMsg');
   }
@@ -119,34 +134,17 @@
   };
 
   window.signIn = async function(email, password){
-    const response = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':SB_KEY},
-      body: JSON.stringify({ email, password })
-    });
-    const data = await response.json().catch(() => ({}));
-    if(!response.ok){
-      throw new Error(data.error_description || data.msg || data.error || data.message || '로그인에 실패했습니다.');
-    }
+    const data = await authFetch('token?grant_type=password', { email, password }, { defaultError: '로그인에 실패했습니다.' });
     saveSession(data);
     return data;
   };
 
   window.signUp = async function(email, password){
-    const response = await fetch(SB_URL + '/auth/v1/signup', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':SB_KEY},
-      body: JSON.stringify({
-        email,
-        password,
-        options: { emailRedirectTo: AUTH_REDIRECT_URL }
-      })
-    });
-    const data = await response.json().catch(() => ({}));
-    if(!response.ok){
-      throw new Error(data.error_description || data.msg || data.error || data.message || '회원가입에 실패했습니다.');
-    }
-    return data;
+    return authFetch('signup', {
+      email,
+      password,
+      options: { emailRedirectTo: AUTH_REDIRECT_URL }
+    }, { defaultError: '회원가입에 실패했습니다.' });
   };
 
   window.doLogout = async function(){
@@ -227,19 +225,11 @@
       return;
     }
     try{
-      const response = await fetch(SB_URL + '/auth/v1/resend', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','apikey':SB_KEY},
-        body: JSON.stringify({
-          type: 'signup',
-          email,
-          options: { emailRedirectTo: AUTH_REDIRECT_URL }
-        })
-      });
-      const data = await response.json().catch(() => ({}));
-      if(!response.ok){
-        throw new Error(data.error_description || data.msg || data.error || data.message || '인증 메일 재발송에 실패했습니다.');
-      }
+      await authFetch('resend', {
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: AUTH_REDIRECT_URL }
+      }, { defaultError: '인증 메일 재발송에 실패했습니다.' });
       setAuthMessage('인증 메일을 다시 보냈습니다. 메일함과 스팸함을 확인해주세요.', 'ok');
     }catch(error){
       setAuthMessage(mapAuthError(error), 'err');
@@ -253,18 +243,10 @@
       return;
     }
     try{
-      const response = await fetch(SB_URL + '/auth/v1/recover', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json','apikey':SB_KEY},
-        body: JSON.stringify({
-          email,
-          redirect_to: AUTH_REDIRECT_URL
-        })
-      });
-      const data = await response.json().catch(() => ({}));
-      if(!response.ok){
-        throw new Error(data.error_description || data.msg || data.error || data.message || '비밀번호 재설정 메일 발송에 실패했습니다.');
-      }
+      await authFetch('recover', {
+        email,
+        redirect_to: AUTH_REDIRECT_URL
+      }, { defaultError: '비밀번호 재설정 메일 발송에 실패했습니다.' });
       setAuthMessage('비밀번호 재설정 메일을 보냈습니다. 메일의 링크를 열어 새 비밀번호를 설정해주세요.', 'ok');
     }catch(error){
       setAuthMessage(mapAuthError(error), 'err');
@@ -291,19 +273,7 @@
 
     if(button) button.disabled = true;
     try{
-      const response = await fetch(SB_URL + '/auth/v1/user', {
-        method: 'PUT',
-        headers: {
-          'Content-Type':'application/json',
-          'apikey':SB_KEY,
-          'Authorization':'Bearer ' + recoveryAccessToken
-        },
-        body: JSON.stringify({ password })
-      });
-      const data = await response.json().catch(() => ({}));
-      if(!response.ok){
-        throw new Error(data.error_description || data.msg || data.error || data.message || '비밀번호 변경에 실패했습니다.');
-      }
+      await authFetch('user', { password }, { method: 'PUT', token: recoveryAccessToken, defaultError: '비밀번호 변경에 실패했습니다.' });
       recoveryAccessToken = null;
       clearRecoveryUrlState();
       showResetBox(false, '');
@@ -334,5 +304,4 @@
   }else{
     bootRecovery();
   }
-  window.addEventListener('load', bootRecovery);
 })();
