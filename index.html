@@ -2936,7 +2936,34 @@ function renderPinned(){
       +'</div>':'';
 }
 
-function updateNoticeDot(){const el=document.getElementById('teamNoticeDot');if(el)el.style.display=getUnreadRequiredNotices().length?'inline-block':'none';}
+function updateNoticeDot(){
+  const el = document.getElementById('teamNoticeDot');
+  if(el) el.style.display = getUnreadRequiredNotices().length ? 'inline-block' : 'none';
+
+  // 추가: 관리 탭 대기 뱃지
+  updateAdminPendingBadge();
+}
+
+function updateAdminPendingBadge(){
+  api('GET', 'access_requests?status=eq.pending&select=id').then(rows => {
+    const count = (rows||[]).length;
+    ['navAdmin','mNavAdmin'].forEach(id => {
+      const btn = document.getElementById(id);
+      if(!btn) return;
+      let badge = btn.querySelector('.admin-pending-badge');
+      if(count > 0){
+        if(!badge){
+          badge = document.createElement('span');
+          badge.className = 'admin-pending-badge notif-dot';
+          badge.style.cssText = 'background:var(--red);margin-left:4px';
+          btn.appendChild(badge);
+        }
+      } else {
+        badge && badge.remove();
+      }
+    });
+  }).catch(()=>{});
+}
 
 function checkPopup(){
   const unread=getUnreadRequiredNotices();
