@@ -6323,6 +6323,7 @@ async function saveIssue(issueId=''){
         actor+'님이 이슈 “'+issueLabel+'” 담당으로 지정했습니다',
         'issue',createdId);
     }
+    await logActivity(issueId ? '이슈 수정' : '이슈 추가', 'issue', createdId, truncateText(title, 40));
     closeModal();
     await loadIssueFeed();
     if(createdId)focusTargetElement('issue-card-'+createdId);
@@ -6332,8 +6333,10 @@ async function saveIssue(issueId=''){
 async function deleteIssue(issueId){
   if(!confirm('이슈와 연결된 댓글을 삭제할까요?'))return;
   try{
+    const issueMeta=(await api('GET','project_issues?id=eq.'+issueId+'&select=title').catch(()=>[]))?.[0];
     await api('DELETE','issue_comments?issue_id=eq.'+issueId);
     await api('DELETE','project_issues?id=eq.'+issueId);
+    await logActivity('이슈 삭제', 'issue', issueId, issueMeta?.title||'');
     closeModal();
     await loadIssueFeed();
   }catch(e){alert('삭제 오류: '+e.message);}
@@ -6346,6 +6349,7 @@ async function resolveIssue(id){
       status:'resolved',resolved_at:new Date().toISOString(),
       resolved_by:currentMember?.name||currentUser?.email||'익명'
     });
+    await logActivity('이슈 해결', 'issue', id, '');
     await loadIssueFeed();
   }catch(e){alert('오류: '+e.message);}
 }
@@ -6354,6 +6358,7 @@ async function reopenIssue(id){
   if(!confirm('이슈를 다시 열까요?'))return;
   try{
     await api('PATCH','project_issues?id=eq.'+id,{status:'open',resolved_at:null,resolved_by:null});
+    await logActivity('이슈 재오픈', 'issue', id, '');
     await loadIssueFeed();
   }catch(e){alert('오류: '+e.message);}
 }
@@ -6441,6 +6446,7 @@ async function saveIssueCommentEdit(commentId,issueId){
           'issue_comment',commentId);
       }
     }
+    await logActivity('이슈 댓글 수정', 'issue_comment', commentId, issueLabel);
     activeIssueCommentEditId=null;
     await openIssueComments(issueId,true,commentId);
   }catch(e){alert('댓글 수정 오류: '+e.message);}
@@ -6475,17 +6481,19 @@ async function submitIssueComment(issueId){
           'issue_comment',commentId);
       }
     }
+    await logActivity('이슈 댓글 작성', 'issue_comment', commentId, issueLabel);
     const el=document.getElementById('comments-'+issueId);
     if(el)el.style.display='none';
     activeIssueCommentEditId=null;
     await openIssueComments(issueId,true,commentId||'');
-  }catch(e){alert('오류: '+e.message);} 
+  }catch(e){alert('오류: '+e.message);}
 }
 
 async function deleteIssueComment(commentId,issueId){
   if(!confirm('댓글을 삭제할까요?'))return;
   try{
     await api('DELETE','issue_comments?id=eq.'+commentId);
+    await logActivity('이슈 댓글 삭제', 'issue_comment', commentId, '');
     const el=document.getElementById('comments-'+issueId);
     if(el)el.style.display='none';
     activeIssueCommentEditId=null;
