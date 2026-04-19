@@ -136,14 +136,14 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .team-page-header .btn,.team-notice-head .btn{display:inline-flex;align-items:center;justify-content:center}
 .team-notice-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .team-notice-list{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding-right:2px}
-.issue-card{margin-bottom:8px}
+.issue-card{margin-bottom:8px;padding:14px}
 .issue-card-layout{display:flex;align-items:flex-start;gap:10px}
 .issue-card-main{flex:1;min-width:0}
 .issue-card-context{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px}
 .issue-card-title{font-size:13px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:6px;line-height:1.45}
 .issue-card-title.is-resolved{color:var(--text3)}
 .issue-meta{font-size:11px;color:var(--text3);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
-.issue-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.issue-actions{display:flex;flex-direction:row;gap:6px;flex-wrap:wrap;flex-shrink:0}
 .issue-action-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;line-height:1;padding:0}
 .issue-action-btn .issue-action-label{display:none}
 .issue-action-btn.resolve-btn{border-color:var(--green);color:var(--green);font-size:13px}
@@ -225,11 +225,11 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
   .weekly-item{padding:12px 0;gap:10px}
   .weekly-name{font-size:14px}
   .weekly-sub{font-size:12px}
-  .issue-card{padding:16px!important;border-radius:16px!important;margin-bottom:10px!important}
+  .issue-card{padding:14px!important;border-radius:16px!important;margin-bottom:10px!important}
   .issue-card-layout{display:flex;flex-direction:column;gap:12px}
   .issue-card-context{font-size:11px}
   .issue-card-title{font-size:15px;line-height:1.45}
-  .issue-actions{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;gap:8px!important;width:100%}
+  .issue-actions{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;gap:6px!important;width:100%}
   .issue-action-btn{width:auto!important;height:40px!important;min-width:calc(50% - 4px);padding:0 12px!important;border-radius:10px!important;font-size:13px!important;font-weight:700}
   .issue-action-btn .issue-action-label{display:inline}
   .issue-meta{gap:8px!important;font-size:11px!important}
@@ -668,7 +668,7 @@ body{
 .pinned-card-preview,.detail-hero-text p,.portal-hero-text p{color:var(--text3)!important}
 .detail-avatar,.portal-hero-avatar,.client-avatar,.login-logo-mark{background:var(--navy)!important;box-shadow:0 10px 20px rgba(10,37,64,.12)!important}
 .gantt-wrap,.myweek-day,.comment-item,.comment-item.reply,.helper-box,.issue-card,.weekly-item,.contract-item,.proj-item{background:rgba(255,255,255,.94)!important;border:1px solid var(--border)!important;box-shadow:none!important}
-.issue-card{border-radius:18px!important;padding:16px!important}
+.issue-card{border-radius:18px!important;padding:14px!important}
 .issue-card:hover{box-shadow:var(--shadow)!important;border-color:rgba(10,37,64,.12)!important}
 .issue-card-context{font-size:11px!important;text-transform:uppercase!important;letter-spacing:.08em!important;color:var(--text3)!important}
 .issue-card-title{font-size:14px!important;color:var(--navy)!important}
@@ -2805,6 +2805,10 @@ function renderMyWeek(){
   const days=Array.from({length:5},(_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);return d;});
   const dayLabels=['월','화','수','목','금'];
   const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const shortWeekLabel=text=>{
+    const raw=String(text||'').trim();
+    return raw.length>6?raw.slice(0,6)+'...':raw;
+  };
   // 내 프로젝트 (이번 주 걸치는 것)
   const myProjs=projects.filter(p=>
     p.members.includes(currentMember.name)&&p.status!=='완료'&&
@@ -2824,7 +2828,7 @@ function renderMyWeek(){
       if(toDate(p.start)<=d&&toDate(p.end)>=d){
         const client=clients.find(c=>c.id===p.client_id);
         const label=(client?client.name+' ':'')+p.name;
-        items.push('<span class="myweek-item" style="background:'+( TYPES[p.type]||'#4e5968')+'" onclick="openProjModal(\''+p.id+'\')" title="'+esc(label)+'">'+esc(label)+'</span>');
+        items.push('<span class="myweek-item" style="background:'+( TYPES[p.type]||'#4e5968')+'" onclick="openProjModal(\''+p.id+'\')" title="'+esc(label)+'">'+esc(shortWeekLabel(label))+'</span>');
       }
     });
     // 스케줄 (휴가/필드웍/내부업무)
@@ -2832,7 +2836,7 @@ function renderMyWeek(){
       if(toDate(s.start)<=d&&toDate(s.end)>=d){
         const color=SCHEDULE_META[s.schedule_type]?.color||'#8b95a1';
         const label=s.title||SCHEDULE_META[s.schedule_type]?.label||s.schedule_type;
-        items.push('<span class="myweek-item" style="background:'+color+';opacity:.85" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(label)+'">'+esc(label)+'</span>');
+        items.push('<span class="myweek-item" style="background:'+color+';opacity:.85" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(label)+'">'+esc(shortWeekLabel(label))+'</span>');
       }
     });
     return '<div class="myweek-day'+(isToday?' today':'')+'">'
