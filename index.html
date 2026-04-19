@@ -1727,7 +1727,6 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
       <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">프로젝트 관리</button>
       <button class="nav-btn" id="navTeam" onclick="setPage('team')">팀<span id="teamNoticeDot" class="notif-dot" style="display:none"></span></button>
-      <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
       <button class="nav-btn" id="navFun" onclick="setPage('fun')">팀편의</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
     </nav>
@@ -1765,7 +1764,6 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">계약</button>
     <button class="nav-btn" id="mNavGantt" onclick="setPage('gantt');closeMobileMenu()">프로젝트 관리</button>
     <button class="nav-btn" id="mNavTeam" onclick="setPage('team');closeMobileMenu()">팀</button>
-    <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">대시보드</button>
     <button class="nav-btn" id="mNavFun" onclick="setPage('fun');closeMobileMenu()">팀편의</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1823,7 +1821,6 @@ input,textarea{border-radius:12px!important}
       </div>
 
       <div id="teamMainDashboardWrap" style="margin-bottom:16px"></div>
-      <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
 
       <!-- 상단: 이슈 + 이번주 일정 -->
       <div class="team-main-grid">
@@ -1833,6 +1830,8 @@ input,textarea{border-radius:12px!important}
           <div id="memberScheduleWrap"></div>
         </div>
       </div>
+
+      <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
 
       <!-- 하단: 칭찬투표 + 업무후기 -->
       <div style="border-top:1px solid var(--border);padding-top:16px">
@@ -1898,9 +1897,6 @@ input,textarea{border-radius:12px!important}
         <section class="gantt-detail" id="ganttDetail"></section>
       </div>
     </div>
-
-    <!-- 대시보드 -->
-    <div id="pageDash" style="display:none"></div>
 
     <!-- 관리자 페이지 -->
     <div id="pageAdmin" style="display:none"></div>
@@ -2953,19 +2949,20 @@ function closeMobileMenu(){
 }
 
 function setPage(page, extra) {
+  if (page === 'dash') page = 'admin';
   curPage = page;
 
   [
     'pageClients','pageDetail','pageContract','pageContracts',
-    'pageTeam','pageGantt','pageDash','pageAdmin','pageFun'
+    'pageTeam','pageGantt','pageAdmin','pageFun'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
   [
-    'navClients','navContracts','navGantt','navTeam','navDash','navAdmin','navFun',
-    'mNavClients','mNavContracts','mNavGantt','mNavTeam','mNavDash','mNavAdmin','mNavFun'
+    'navClients','navContracts','navGantt','navTeam','navAdmin','navFun',
+    'mNavClients','mNavContracts','mNavGantt','mNavTeam','mNavAdmin','mNavFun'
   ].forEach(id => document.getElementById(id)?.classList.remove('active'));
 
   document.querySelector('.header-logo').style.color = 'var(--navy)';
@@ -2977,7 +2974,6 @@ function setPage(page, extra) {
     contract:'pageContract',
     contracts:'pageContracts',
     gantt:'pageGantt',
-    dash:'pageDash',
     admin:'pageAdmin',
     fun:'pageFun'
   };
@@ -2987,7 +2983,6 @@ function setPage(page, extra) {
     clients:['navClients','mNavClients'],
     contracts:['navContracts','mNavContracts'],
     gantt:['navGantt','mNavGantt'],
-    dash:['navDash','mNavDash'],
     admin:['navAdmin','mNavAdmin'],
     fun:['navFun','mNavFun']
   };
@@ -3007,16 +3002,14 @@ function setPage(page, extra) {
       renderContractsPage();
     } else if (page === 'team') {
       if(typeof renderTeamMainDashboard === 'function') renderTeamMainDashboard();
-      renderTeamNotices();
-      setTimeout(() => loadIssueFeed(true), 0);
+      loadIssueFeed(true);
       renderMyWeek();
       renderWeeklyScheduleSummary();
+      renderTeamNotices();
       renderKudos();
       renderWeeklyReviews();
     } else if (page === 'gantt') {
       renderGantt();
-    } else if (page === 'dash') {
-      renderDash();
     } else if (page === 'admin') {
       renderAdminPage();
     } else if (page === 'fun') {
@@ -4498,7 +4491,7 @@ renderDash = async function(){
   const overdue=projects.filter(p=>isOverdue(p));
   const unbilled=projects.filter(p=>p.status===doneStatus&&p.is_billable&&p.billing_status===billingPending);
   const followups=projects.filter(p=>p.status===doneStatus&&p.follow_up_needed);
-  const el=document.getElementById('pageDash');
+  const el=document.getElementById('adminDashMount')||document.getElementById('pageDash');
   el.innerHTML=
     '<div class="card" style="margin-bottom:14px">'
     +'<div class="section-label">Today Exceptions</div>'
@@ -4802,7 +4795,7 @@ async function renderDash(){
   const memberLoad=members.map(m=>({name:m.name,cnt:active.filter(p=>p.members.includes(m.name)).length})).sort((a,b)=>b.cnt-a.cnt);
   const maxL=Math.max(...memberLoad.map(m=>m.cnt),1);
   const bt={};projects.forEach(p=>{bt[p.type]=(bt[p.type]||0)+1;});const tot=projects.length||1;
-  const el=document.getElementById('pageDash');
+  const el=document.getElementById('adminDashMount')||document.getElementById('pageDash');
   el.innerHTML=
     '<div class="stat-grid">'
     +'<div class="stat-card clickable" onclick="openDashDrilldown(\'clients\')"><div class="stat-label">고객사</div><div class="stat-num">'+clients.length+'</div><div class="stat-sub">전체 거래처</div></div>'
@@ -6813,6 +6806,12 @@ renderAdminPage = async function(){
     +'<div class="card"><div class="section-label">인력 관리</div>'+memberPreview+'<div class="ui-card-actions-row"><button class="btn primary sm" onclick="openMemberManager()">인력 관리 열기</button><button class="btn sm" onclick="openActivityLog()">활동 로그</button></div></div>'
     +'</div>'
     +'<div class="card"><div class="section-label">고객사 페이지 관리</div><div class="ui-admin-note">설정과 수정은 관리자만 가능하고, 각 고객사의 접속 상태와 내부 담당 현황을 확인할 수 있습니다.</div>'+portalPreview+'<div class="ui-card-actions"><button class="btn primary sm" onclick="openPortalManager()">전체 관리 열기</button></div></div>';
+  el.insertAdjacentHTML('afterbegin','<div id="adminDashMount" style="margin-bottom:14px"></div>');
+
+  // 관리자 페이지 상단에 대시보드 통계 카드 삽입
+  renderDash(); // 기존 대시보드 렌더 함수 재활용
+}
+
 }
 
 async function addAssignment(clientId){
@@ -9045,9 +9044,9 @@ renderAlerts = function(){
     :0);
   const cards=[
     {label:'오늘 마감',value:dueToday.length,sub:dueToday.length?truncateText(dueToday.map(p=>p.name).join(', '),28):'오늘 종료 예정 없음',className:'today',action:"setPage('gantt')"},
-    {label:'기간 초과',value:overdue.length,sub:overdue.length?truncateText(overdue.map(p=>p.name).join(', '),28):'지연 프로젝트 없음',className:'warn',action:"setPage('dash')"},
-    {label:'빌링 필요',value:unbilled.length,sub:unbilled.length?truncateText(unbilled.map(p=>p.name).join(', '),28):'미청구 프로젝트 없음',className:'info',action:"setPage('dash')"},
-    {label:'후속 조치',value:followups.length,sub:followups.length?truncateText(followups.map(p=>p.name).join(', '),28):'후속 조치 없음',className:'info',action:"setPage('dash')"},
+    {label:'기간 초과',value:overdue.length,sub:overdue.length?truncateText(overdue.map(p=>p.name).join(', '),28):'지연 프로젝트 없음',className:'warn',action:"setPage('admin')"},
+    {label:'빌링 필요',value:unbilled.length,sub:unbilled.length?truncateText(unbilled.map(p=>p.name).join(', '),28):'미청구 프로젝트 없음',className:'info',action:"setPage('admin')"},
+    {label:'후속 조치',value:followups.length,sub:followups.length?truncateText(followups.map(p=>p.name).join(', '),28):'후속 조치 없음',className:'info',action:"setPage('admin')"},
     {label:'오늘 일정',value:todayItems.length,sub:todayItems.length?truncateText(todayItems.map(item=>item.title).join(', '),28):'오늘 등록된 일정 없음',className:'info',action:"setPage('team')"},
     {label:'내 담당 이슈',value:myIssueTotal,sub:myIssueTotal?'내 프로젝트에서 확인이 필요합니다':'열린 이슈 없음',className:'info',action:"setPage('team')"}
   ];
@@ -9468,7 +9467,7 @@ renderDash = function(){
       return a.name.localeCompare(b.name);
     })
     .slice(0,8);
-  const el=document.getElementById('pageDash');
+  const el=document.getElementById('adminDashMount')||document.getElementById('pageDash');
   if(!el) return;
   el.innerHTML=
     '<div class="card" style="margin-bottom:14px">'
