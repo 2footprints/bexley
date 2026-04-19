@@ -644,15 +644,13 @@ body{
 #navAdmin,#mNavAdmin{order:8}
 #pageClients .section-title,
 #pageContracts .section-title,
-#pageNotice .section-title,
 #pageFun .section-title,
 #pageAdmin .section-title{display:none!important}
 #pageTeam .team-page-header{display:none!important}
-#pageNotice .section-header,
 #pageFun .section-header,
 #pageAdmin .section-header{align-items:center!important}
 .filter-row{gap:10px!important}
-.card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.pending-box,.access-request-card,.knowledge-card,.knowledge-featured-card{
+.card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.pending-box,.access-request-card{
   background:rgba(255,255,255,.94)!important;
   border:1px solid rgba(227,232,238,.92)!important;
   border-radius:20px!important;
@@ -988,9 +986,7 @@ select{
 .portal-proj-card,
 .myweek-card,
 .pending-box,
-.access-request-card,
-.knowledge-card,
-.knowledge-featured-card{
+.access-request-card{
   padding:22px!important;
 }
 .card-sm,
@@ -1732,7 +1728,6 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">프로젝트 관리</button>
       <button class="nav-btn" id="navTeam" onclick="setPage('team')">팀<span id="teamNoticeDot" class="notif-dot" style="display:none"></span></button>
       <button class="nav-btn" id="navDash" onclick="setPage('dash')">대시보드</button>
-      <button class="nav-btn" id="navNotice" onclick="setPage('notice')">지식공유</button>
       <button class="nav-btn" id="navFun" onclick="setPage('fun')">팀편의</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
     </nav>
@@ -1771,7 +1766,6 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavGantt" onclick="setPage('gantt');closeMobileMenu()">프로젝트 관리</button>
     <button class="nav-btn" id="mNavTeam" onclick="setPage('team');closeMobileMenu()">팀</button>
     <button class="nav-btn" id="mNavDash" onclick="setPage('dash');closeMobileMenu()">대시보드</button>
-    <button class="nav-btn" id="mNavNotice" onclick="setPage('notice');closeMobileMenu()">지식공유</button>
     <button class="nav-btn" id="mNavFun" onclick="setPage('fun');closeMobileMenu()">팀편의</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1908,41 +1902,6 @@ input,textarea{border-radius:12px!important}
     <!-- 대시보드 -->
     <div id="pageDash" style="display:none"></div>
 
-    <!-- 지식공유 -->
-    <div id="pageNotice" style="display:none">
-      <div class="section-header" style="margin-bottom:12px">
-        <div>
-          <h2 class="section-title">지식공유</h2>
-          <div style="font-size:12px;color:var(--text3);margin-top:6px">AI 활용 팁, 업무 개선 아이디어, 자주 쓰는 템플릿과 링크를 팀끼리 계속 쌓아두는 보드입니다.</div>
-        </div>
-        <div class="filter-row">
-          <button class="btn primary sm" id="knowledgeWriteBtn" onclick="openKnowledgeWrite()">+ 글 작성</button>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:14px;padding:16px 18px">
-        <div style="display:grid;grid-template-columns:minmax(240px,1.4fr) repeat(2,minmax(140px,.6fr)) auto;gap:10px;align-items:center">
-          <input id="knowledgeSearch" placeholder="제목, 내용, 태그, 프롬프트, 첨부 링크 검색" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;width:100%" oninput="renderKnowledgeBoard()"/>
-          <select id="knowledgeCategoryFilter" onchange="renderKnowledgeBoard()">
-            <option value="">전체 카테고리</option>
-            <option value="AI 활용 팁">AI 활용 팁</option>
-            <option value="업무 개선">업무 개선</option>
-            <option value="자료/템플릿">자료/템플릿</option>
-            <option value="운영 아이디어">운영 아이디어</option>
-            <option value="기타">기타</option>
-          </select>
-          <select id="knowledgeKindFilter" onchange="renderKnowledgeBoard()">
-            <option value="">전체 형식</option>
-            <option value="article">노하우 글</option>
-            <option value="prompt">프롬프트 템플릿</option>
-          </select>
-          <button class="btn ghost sm" onclick="resetKnowledgeFilters()">초기화</button>
-        </div>
-        <div id="knowledgeStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px"></div>
-        <div id="knowledgeTagFilters" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"></div>
-      </div>
-      <div id="knowledgeList"></div>
-    </div>
-
     <!-- 관리자 페이지 -->
     <div id="pageAdmin" style="display:none"></div>
 
@@ -2067,14 +2026,13 @@ window.addEventListener('DOMContentLoaded',function(){
 const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null,currentRole='',currentRoleRow=null,pendingRequest=null;
-let projects=[],members=[],clients=[],notices=[],knowledgePosts=[],schedules=[],contracts=[],billingLogs=[];
+let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
 let clientAssignments=[],openIssuesByProject={},accessRequests=[];
 let curPage='clients',curGView='project';
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
 let editingProjId=null,formMembers=[],editingClientId=null,editingContractId=null;
 let projectComments=[],activeReplyParentId=null,activeProjectCommentEditId=null,activeIssueCommentEditId=null;
-let activeKnowledgeTag='',knowledgeAttachmentDraft=[];
 
 
 function inferNameFromEmail(email){
@@ -2095,7 +2053,6 @@ function isApprovedRole(){return ['observer','member','admin'].includes(currentR
 function isObserverRole(){return currentRole==='observer';}
 function canManageCore(){return currentRole==='member'||currentRole==='admin';}
 function canCreateIssueRole(){return isApprovedRole();}
-function canWriteKnowledgeRole(){return isApprovedRole();}
 function canPostCommentsRole(){return isApprovedRole();}
 function setElementDisplay(id,visible,display='inline-block'){const el=document.getElementById(id);if(el)el.style.display=visible?display:'none';}
 function roleIsAdmin(){return currentRole==='admin'||isAdmin===true;}
@@ -2454,7 +2411,6 @@ function applyRolePermissions(){
   setElementDisplay('addContractBtn',canManageCore());
   setElementDisplay('scheduleAddBtn',canManageCore(),'inline-block');
   setElementDisplay('projectAddBtn',canManageCore());
-  setElementDisplay('knowledgeWriteBtn',canWriteKnowledgeRole());
   const issueCreateBtn=document.querySelector('.team-issue-create-btn');
   if(issueCreateBtn)issueCreateBtn.style.display=canCreateIssueRole()?'inline-flex':'none';
 }
@@ -2664,18 +2620,17 @@ async function loadAll(){
   setStatus('불러오는 중...');
   try{
     // 핵심 데이터 먼저 (메인화면 렌더에 필요)
-    const[projs,mems,pm,cls,nts,schs,kps]=await Promise.all([
+    const[projs,mems,pm,cls,nts,schs]=await Promise.all([
       api('GET','projects?select=*&order=start_date'),
       api('GET','members?select=*&order=name'),
       api('GET','project_members?select=project_id,member_id,members(name)'),
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
-      api('GET','schedules?select=*&order=start_date'),
-      api('GET','knowledge_posts?select=*&order=is_pinned.desc,created_at.desc').catch(()=>[])
+      api('GET','schedules?select=*&order=start_date')
     ]);
     members=mems||[];
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
-    clients=cls||[];notices=nts||[];knowledgePosts=kps||[];
+    clients=cls||[];notices=nts||[];
     schedules=(schs||[]).map(s=>({...s,start:s.start_date,end:s.end_date,member_name:s.member_name||members.find(m=>m.id===s.member_id)?.name||''}));
     populateMemberFilter();
     setStatus('✓ '+clients.length+'개 고객사 · '+projects.length+'개 프로젝트','ok');
@@ -3002,15 +2957,15 @@ function setPage(page, extra) {
 
   [
     'pageClients','pageDetail','pageContract','pageContracts',
-    'pageTeam','pageGantt','pageDash','pageNotice','pageAdmin','pageFun'
+    'pageTeam','pageGantt','pageDash','pageAdmin','pageFun'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
   [
-    'navClients','navContracts','navGantt','navTeam','navDash','navNotice','navAdmin','navFun',
-    'mNavClients','mNavContracts','mNavGantt','mNavTeam','mNavDash','mNavNotice','mNavAdmin','mNavFun'
+    'navClients','navContracts','navGantt','navTeam','navDash','navAdmin','navFun',
+    'mNavClients','mNavContracts','mNavGantt','mNavTeam','mNavDash','mNavAdmin','mNavFun'
   ].forEach(id => document.getElementById(id)?.classList.remove('active'));
 
   document.querySelector('.header-logo').style.color = 'var(--navy)';
@@ -3023,7 +2978,6 @@ function setPage(page, extra) {
     contracts:'pageContracts',
     gantt:'pageGantt',
     dash:'pageDash',
-    notice:'pageNotice',
     admin:'pageAdmin',
     fun:'pageFun'
   };
@@ -3034,7 +2988,6 @@ function setPage(page, extra) {
     contracts:['navContracts','mNavContracts'],
     gantt:['navGantt','mNavGantt'],
     dash:['navDash','mNavDash'],
-    notice:['navNotice','mNavNotice'],
     admin:['navAdmin','mNavAdmin'],
     fun:['navFun','mNavFun']
   };
@@ -3064,8 +3017,6 @@ function setPage(page, extra) {
       renderGantt();
     } else if (page === 'dash') {
       renderDash();
-    } else if (page === 'notice') {
-      refreshKnowledgePosts().then(() => renderKnowledgeBoard());
     } else if (page === 'admin') {
       renderAdminPage();
     } else if (page === 'fun') {
@@ -5068,334 +5019,6 @@ async function deleteNotice(id){
   }catch(e){alert('오류: '+e.message);}
 }
 
-
-async function refreshKnowledgePosts(){
-  try{knowledgePosts=await api('GET','knowledge_posts?select=*&order=is_pinned.desc,created_at.desc')||[];}
-  catch(e){knowledgePosts=[];}
-}
-
-function safeKnowledgeJsonArray(value){
-  if(Array.isArray(value))return value;
-  if(!value)return [];
-  try{
-    const parsed=typeof value==='string'?JSON.parse(value):value;
-    return Array.isArray(parsed)?parsed:[];
-  }catch(e){return [];}
-}
-function normalizeKnowledgeTags(value){
-  const raw=Array.isArray(value)?value.join(','):String(value||'');
-  return [...new Set(raw.split(/[,#\n]/).map(x=>x.trim()).filter(Boolean))].slice(0,20);
-}
-function serializeKnowledgeTags(value){return normalizeKnowledgeTags(value).join(', ');}
-function knowledgeCategoryBadge(category){
-  if(category==='AI 활용 팁')return 'badge-blue';
-  if(category==='업무 개선')return 'badge-green';
-  if(category==='자료/템플릿')return 'badge-orange';
-  if(category==='운영 아이디어')return 'badge-gray';
-  return 'badge-gray';
-}
-function knowledgeKindLabel(kind){return kind==='prompt'?'프롬프트 템플릿':'노하우 글';}
-function knowledgeKindBadge(kind){return kind==='prompt'?'badge-blue':'badge-gray';}
-function getKnowledgeSearchValue(){return (document.getElementById('knowledgeSearch')?.value||'').trim().toLowerCase();}
-function knowledgeMatchesSearch(post,query){
-  if(!query)return true;
-  const attachments=safeKnowledgeJsonArray(post.attachments).map(a=>(a?.label||'')+' '+(a?.url||'')).join(' ');
-  const haystack=[
-    post.title,post.content,post.category,post.author_name,post.tags,
-    post.prompt_template,post.prompt_input_guide,post.prompt_output_example,attachments
-  ].filter(Boolean).join(' ').toLowerCase();
-  return haystack.includes(query);
-}
-function setKnowledgeTag(tag){
-  activeKnowledgeTag=activeKnowledgeTag===tag?'':tag;
-  renderKnowledgeBoard();
-}
-function resetKnowledgeFilters(){
-  const search=document.getElementById('knowledgeSearch');
-  const cat=document.getElementById('knowledgeCategoryFilter');
-  const kind=document.getElementById('knowledgeKindFilter');
-  if(search)search.value='';
-  if(cat)cat.value='';
-  if(kind)kind.value='';
-  activeKnowledgeTag='';
-  renderKnowledgeBoard();
-}
-function renderKnowledgeStats(sourcePosts,filteredPosts){
-  const el=document.getElementById('knowledgeStats');if(!el)return;
-  const total=sourcePosts.length;
-  const prompts=sourcePosts.filter(p=>(p.post_kind||'article')==='prompt').length;
-  const attachments=sourcePosts.filter(p=>safeKnowledgeJsonArray(p.attachments).length).length;
-  const uniqueTags=[...new Set(sourcePosts.flatMap(p=>normalizeKnowledgeTags(p.tags)))].length;
-  const stats=[
-    ['검색 결과',filteredPosts.length+'건'],
-    ['프롬프트 템플릿',prompts+'건'],
-    ['첨부 링크 포함',attachments+'건'],
-    ['태그',uniqueTags+'개']
-  ];
-  el.innerHTML=stats.map(([label,val])=>'<div class="card-sm" style="padding:12px 14px">'
-    +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">'+label+'</div>'
-    +'<div style="font-size:20px;font-weight:800;color:var(--navy);letter-spacing:-.4px">'+val+'</div>'
-    +'</div>').join('');
-}
-function renderKnowledgeTagFilters(posts){
-  const wrap=document.getElementById('knowledgeTagFilters');if(!wrap)return;
-  const counts={};
-  posts.forEach(p=>normalizeKnowledgeTags(p.tags).forEach(tag=>counts[tag]=(counts[tag]||0)+1));
-  const tags=Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,16);
-  wrap.innerHTML=tags.length
-    ?tags.map(([tag,cnt])=>'<button class="btn sm'+(activeKnowledgeTag===tag?' primary':'')+'" data-tag="'+esc(tag)+'" onclick="setKnowledgeTag(this.dataset.tag)" style="border-radius:20px">'+esc(tag)+' <span style="opacity:.7">· '+cnt+'</span></button>').join('')
-    :'<span style="font-size:12px;color:var(--text3)">등록된 태그가 아직 없습니다.</span>';
-}
-function getKnowledgePreview(post){
-  const kind=post.post_kind||'article';
-  const raw=kind==='prompt'?(post.prompt_template||post.content||''):(post.content||'');
-  return truncateText(raw,160);
-}
-function buildKnowledgeCard(post,featured=false){
-  const tags=normalizeKnowledgeTags(post.tags);
-  const attachments=safeKnowledgeJsonArray(post.attachments);
-  const kind=post.post_kind||'article';
-  return '<div class="notice-card'+(post.is_pinned?' pinned':'')+'" onclick="openKnowledgeDetail(this.dataset.id)" data-id="'+post.id+'" style="'+(featured?'border:1px solid rgba(99,102,241,.18);background:linear-gradient(180deg,#fff 0%,#fafbff 100%)':'')+'">'
-    +'<div class="notice-chip-row">'
-    +(post.is_pinned?'<span class="badge badge-blue">📌 추천</span>':'')
-    +'<span class="badge '+knowledgeKindBadge(kind)+'">'+knowledgeKindLabel(kind)+'</span>'
-    +(post.category?'<span class="badge '+knowledgeCategoryBadge(post.category)+'">'+esc(post.category)+'</span>':'')
-    +(attachments.length?'<span class="badge badge-gray">첨부 '+attachments.length+'</span>':'')
-    +'</div>'
-    +'<div class="notice-title">'+esc(post.title)+'</div>'
-    +'<div class="notice-meta">'+esc(post.author_name||'작성자')+' · '+formatDate(post.created_at)+'</div>'
-    +'<div class="notice-preview">'+esc(getKnowledgePreview(post))+'</div>'
-    +(tags.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+tags.slice(0,5).map(tag=>'<button class="btn ghost sm" data-tag="'+esc(tag)+'" onclick="event.stopPropagation();setKnowledgeTag(this.dataset.tag)" style="padding:3px 10px;font-size:11px;border-radius:16px;background:var(--bg2);color:var(--text2)">#'+esc(tag)+'</button>').join('')+'</div>':'')
-    +(kind==='prompt'&&post.prompt_template?'<div style="margin-top:12px"><button class="btn sm" data-id="'+post.id+'" onclick="event.stopPropagation();copyKnowledgePrompt(this.dataset.id)">프롬프트 복사</button></div>':'')
-    +'</div>';
-}
-function renderKnowledgeBoard(){
-  const el=document.getElementById('knowledgeList');if(!el)return;
-  const category=document.getElementById('knowledgeCategoryFilter')?.value||'';
-  const kind=document.getElementById('knowledgeKindFilter')?.value||'';
-  const search=getKnowledgeSearchValue();
-  const base=(knowledgePosts||[]).filter(p=>(!category||p.category===category)&&(!kind||(p.post_kind||'article')===kind)&&knowledgeMatchesSearch(p,search));
-  renderKnowledgeTagFilters(base);
-  const filtered=base.filter(p=>!activeKnowledgeTag||normalizeKnowledgeTags(p.tags).includes(activeKnowledgeTag));
-  renderKnowledgeStats(base,filtered);
-  if(!filtered.length){
-    el.innerHTML='<div class="notice-empty">조건에 맞는 글이 없습니다.<br><br>검색어를 바꾸거나 새 글을 작성해보세요.</div>';
-    return;
-  }
-  const featuredPrompts=filtered.filter(p=>p.is_pinned&&(p.post_kind||'article')==='prompt').slice(0,3);
-  const featuredIds=new Set(featuredPrompts.map(p=>p.id));
-  const rest=filtered.filter(p=>!featuredIds.has(p.id));
-  el.innerHTML=
-    (featuredPrompts.length?'<div class="card" style="margin-bottom:14px"><div class="section-label" style="margin-bottom:14px">추천 프롬프트 템플릿</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">'+featuredPrompts.map(p=>buildKnowledgeCard(p,true)).join('')+'</div></div>':'')
-    +rest.map(p=>buildKnowledgeCard(p,false)).join('');
-}
-
-function copyKnowledgePrompt(postId){
-  const post=knowledgePosts.find(x=>x.id===postId);
-  if(!post||!post.prompt_template){alert('복사할 프롬프트가 없습니다.');return;}
-  copyText(post.prompt_template);
-}
-function initKnowledgeAttachmentDraft(existing){
-  knowledgeAttachmentDraft=safeKnowledgeJsonArray(existing).map(a=>({
-    label:String(a?.label||''),
-    url:String(a?.url||'')
-  }));
-}
-function renderKnowledgeAttachmentEditor(){
-  const wrap=document.getElementById('knowledgeAttachmentEditor');if(!wrap)return;
-  if(!knowledgeAttachmentDraft.length){
-    wrap.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">아직 첨부 링크가 없습니다. OneDrive, Drive, Notion, 문서 URL 등을 붙여둘 수 있습니다.</div>';
-    return;
-  }
-  wrap.innerHTML=knowledgeAttachmentDraft.map((item,idx)=>'<div style="display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;margin-bottom:8px">'
-    +'<input value="'+esc(item.label||'')+'" placeholder="표시 이름 (예: 마감체크리스트)" oninput="updateKnowledgeAttachmentField('+idx+',\'label\',this.value)"/>'
-    +'<input value="'+esc(item.url||'')+'" placeholder="https://..." oninput="updateKnowledgeAttachmentField('+idx+',\'url\',this.value)"/>'
-    +'<button class="btn ghost sm" type="button" onclick="removeKnowledgeAttachmentRow('+idx+')">삭제</button>'
-    +'</div>').join('');
-}
-function addKnowledgeAttachmentRow(){
-  knowledgeAttachmentDraft.push({label:'',url:''});
-  renderKnowledgeAttachmentEditor();
-}
-function updateKnowledgeAttachmentField(index,key,value){
-  if(!knowledgeAttachmentDraft[index])return;
-  knowledgeAttachmentDraft[index][key]=value;
-}
-function removeKnowledgeAttachmentRow(index){
-  knowledgeAttachmentDraft.splice(index,1);
-  renderKnowledgeAttachmentEditor();
-}
-function getKnowledgeAttachmentPayload(){
-  return knowledgeAttachmentDraft
-    .map(item=>({label:String(item.label||'').trim(),url:String(item.url||'').trim()}))
-    .filter(item=>item.url)
-    .slice(0,8);
-}
-function toggleKnowledgePromptFields(){
-  const kind=document.getElementById('kType')?.value||'article';
-  const promptWrap=document.getElementById('knowledgePromptFields');
-  const help=document.getElementById('knowledgeContentHelp');
-  if(promptWrap)promptWrap.style.display=kind==='prompt'?'block':'none';
-  if(help)help.textContent=kind==='prompt'
-    ?'프롬프트를 언제 어떻게 쓰면 좋은지, 적용 맥락을 적어두면 팀원이 바로 가져다 쓰기 편합니다.'
-    :'업무 노하우, 운영 팁, 템플릿 설명, 시행착오 정리 등을 자유롭게 적어주세요.';
-}
-
-function openKnowledgeDetail(id){
-  const post=knowledgePosts.find(x=>x.id===id);if(!post)return;
-  const editable=isAdmin||post.created_by===currentUser?.id;
-  const tags=normalizeKnowledgeTags(post.tags);
-  const attachments=safeKnowledgeJsonArray(post.attachments);
-  const kind=post.post_kind||'article';
-  document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:700px">'
-    +'<div class="notice-chip-row" style="margin-bottom:10px">'
-    +'<span class="badge '+knowledgeKindBadge(kind)+'">'+knowledgeKindLabel(kind)+'</span>'
-    +(post.category?'<span class="badge '+knowledgeCategoryBadge(post.category)+'">'+esc(post.category)+'</span>':'')
-    +(post.is_pinned?'<span class="badge badge-blue">📌 추천</span>':'')
-    +'</div>'
-    +'<div class="notice-detail-title">'+esc(post.title)+'</div>'
-    +'<div class="notice-detail-meta">'+esc(post.author_name||'작성자')+' · '+formatDate(post.created_at)+(post.updated_at?' · 수정됨 '+formatDate(post.updated_at):'')+'</div>'
-    +(tags.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 16px">'+tags.map(tag=>'<span class="badge badge-gray">#'+esc(tag)+'</span>').join('')+'</div>':'')
-    +'<div class="notice-detail-body">'+esc(post.content||'')+'</div>'
-    +(kind==='prompt'
-      ?'<div class="card-sm" style="margin-top:16px;background:var(--bg);border-color:var(--border)">'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px"><div class="section-label" style="margin:0">프롬프트 템플릿</div><button class="btn sm" data-id="'+post.id+'" onclick="copyKnowledgePrompt(this.dataset.id)">프롬프트 복사</button></div>'
-        +'<div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px">'+esc(post.prompt_template||'')+'</div>'
-        +(post.prompt_input_guide?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px">입력 가이드</div><div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap">'+esc(post.prompt_input_guide)+'</div></div>':'')
-        +(post.prompt_output_example?'<div style="margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px">출력 예시</div><div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap">'+esc(post.prompt_output_example)+'</div></div>':'')
-      +'</div>':'')
-    +(attachments.length
-      ?'<div class="card-sm" style="margin-top:16px"><div class="section-label" style="margin-bottom:12px">첨부 링크</div><div style="display:flex;flex-direction:column;gap:8px">'+attachments.map((a,idx)=>'<a href="'+esc(a.url||'#')+'" target="_blank" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--navy);font-size:13px;font-weight:600"><span>🔗</span><span style="flex:1">'+esc(a.label||('첨부 링크 '+(idx+1)))+'</span><span style="font-size:11px;color:var(--text3)">열기</span></a>').join('')+'</div></div>'
-      :'')
-    +'<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">'
-    +'<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px">댓글</div>'
-    +'<div id="knowledgeComments" style="margin-bottom:12px"><div style="color:var(--text3);font-size:12px">불러오는 중...</div></div>'
-    +'<div style="display:flex;gap:8px"><input id="kcInput" placeholder="댓글을 입력하세요" style="flex:1;padding:9px 12px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit" onkeydown="if(event.key===\'Enter\')submitKnowledgeComment(\''+post.id+'\')"/>'
-    +'<button class="btn primary sm" onclick="submitKnowledgeComment(\''+post.id+'\')">등록</button></div>'
-    +'</div>'
-    +'<div class="modal-footer" style="margin-top:16px">'
-    +(editable?'<button class="btn danger" onclick="deleteKnowledge(\''+post.id+'\')">삭제</button>':'<div></div>')
-    +'<div class="modal-footer-right">'
-    +(editable?'<button class="btn ghost" onclick="openKnowledgeEdit(\''+post.id+'\')">수정</button>':'')
-    +(kind==='prompt'?'<button class="btn sm" data-id="'+post.id+'" onclick="copyKnowledgePrompt(this.dataset.id)">프롬프트 복사</button>':'')
-    +'<button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
-    +'</div></div>';
-  loadKnowledgeComments(post.id);
-}
-
-async function loadKnowledgeComments(postId){
-  const el=document.getElementById('knowledgeComments');if(!el)return;
-  try{
-    const comments=await api('GET','knowledge_comments?knowledge_post_id=eq.'+postId+'&select=*&order=created_at.asc');
-    if(!comments||!comments.length){el.innerHTML='<div style="color:var(--text3);font-size:12px">아직 댓글이 없습니다.</div>';return;}
-    el.innerHTML=comments.map(c=>'<div style="display:flex;gap:10px;margin-bottom:10px">'
-      +'<div style="width:26px;height:26px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(c.author_name||'?').charAt(0)+'</div>'
-      +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(c.author_name||'익명')+'<span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:6px">'+formatCommentDate(c.created_at)+'</span></div>'
-      +'<div style="font-size:13px;color:var(--text2);margin-top:2px;white-space:pre-wrap">'+esc(c.content)+'</div></div>'
-      +((c.created_by===currentUser?.id||isAdmin)?'<button class="btn ghost sm" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="deleteKnowledgeComment(\''+c.id+'\',\''+postId+'\')">삭제</button>':'')
-      +'</div>').join('');
-  }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px">댓글 로딩 실패</div>';}
-}
-
-async function submitKnowledgeComment(postId){
-  if(!canPostCommentsRole()){alert('승인 후 사용할 수 있습니다.');return;}
-  const input=document.getElementById('kcInput');
-  const content=input?.value.trim();if(!content)return;
-  try{
-    await api('POST','knowledge_comments',{knowledge_post_id:postId,content,author_name:currentMember?.name||currentUser?.email,created_by:currentUser?.id});
-    input.value='';
-    await loadKnowledgeComments(postId);
-  }catch(e){alert('댓글 등록 오류: '+e.message);}
-}
-
-async function deleteKnowledgeComment(id,postId){
-  if(!confirm('댓글을 삭제할까요?'))return;
-  try{
-    await api('DELETE','knowledge_comments?id=eq.'+id);
-    await loadKnowledgeComments(postId);
-  }catch(e){alert('오류: '+e.message);}
-}
-
-function openKnowledgeWrite(editId){
-  if(!editId&&!canWriteKnowledgeRole()){alert('승인 후 사용할 수 있습니다.');return;}
-  const post=editId?knowledgePosts.find(x=>x.id===editId):null;
-  const editable=!post||isAdmin||post.created_by===currentUser?.id;
-  const kind=post?.post_kind||'article';
-  initKnowledgeAttachmentDraft(post?.attachments||[]);
-  document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:700px"><div class="modal-title">'+(post?'지식공유 글 수정':'지식공유 글 작성')+'</div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">카테고리</label><select id="kCategory">'
-      +['AI 활용 팁','업무 개선','자료/템플릿','운영 아이디어','기타'].map(cat=>'<option '+(post&&post.category===cat?'selected':'')+'>'+cat+'</option>').join('')
-    +'</select></div>'
-    +'<div class="form-row"><label class="form-label">형식</label><select id="kType" onchange="toggleKnowledgePromptFields()">'
-      +'<option value="article" '+(kind==='article'?'selected':'')+'>노하우 글</option>'
-      +'<option value="prompt" '+(kind==='prompt'?'selected':'')+'>프롬프트 템플릿</option>'
-    +'</select></div></div>'
-    +'<div class="form-row"><label class="form-label">태그</label><input id="kTags" value="'+esc(normalizeKnowledgeTags(post?.tags).join(', '))+'" placeholder="쉼표로 구분해서 입력하세요. 예) 엑셀, 마감, 보고서"/></div>'
-    +'<div class="form-row"><label class="form-label">제목</label><input id="kTitle" value="'+esc(post?post.title:'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">설명 / 본문</label><textarea id="kContent" rows="7" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(post?post.content:'')+'</textarea><div id="knowledgeContentHelp" class="muted" style="margin-top:6px"></div></div>'
-    +'<div id="knowledgePromptFields" style="display:none">'
-      +'<div class="divider">프롬프트 템플릿</div>'
-      +'<div class="form-row"><label class="form-label">프롬프트 본문</label><textarea id="kPromptTemplate" rows="8" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(post?.prompt_template||'')+'</textarea></div>'
-      +'<div class="form-row"><label class="form-label">입력 가이드</label><textarea id="kPromptInputGuide" rows="3" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(post?.prompt_input_guide||'')+'</textarea></div>'
-      +'<div class="form-row"><label class="form-label">출력 예시</label><textarea id="kPromptOutputExample" rows="3" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(post?.prompt_output_example||'')+'</textarea></div>'
-    +'</div>'
-    +'<div class="divider">첨부 링크</div>'
-    +'<div id="knowledgeAttachmentEditor"></div>'
-    +(editable?'<button class="btn sm" type="button" onclick="addKnowledgeAttachmentRow()">+ 첨부 링크 추가</button>':'')
-    +(isAdmin?'<div class="checkbox-row" style="margin-top:14px"><input type="checkbox" id="kPin" '+(post&&post.is_pinned?'checked':'')+' '+(editable?'':'disabled')+'/><label for="kPin">추천 글로 고정</label></div>':'')
-    +'<div class="modal-footer">'+(post&&editable?'<button class="btn danger" onclick="deleteKnowledge(\''+post.id+'\')">삭제</button>':'<div></div>')
-    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" onclick="saveKnowledge(\''+(post?post.id:'')+'\')">저장</button>':'')+'</div></div>'
-    +'</div></div>';
-  renderKnowledgeAttachmentEditor();
-  toggleKnowledgePromptFields();
-  document.getElementById('kTitle')?.focus();
-}
-function openKnowledgeEdit(id){closeModal();openKnowledgeWrite(id);}
-
-async function saveKnowledge(editId){
-  if(!canWriteKnowledgeRole()){alert('승인 후 사용할 수 있습니다.');return;}
-  const title=document.getElementById('kTitle')?.value.trim();
-  let content=document.getElementById('kContent')?.value.trim();
-  const category=document.getElementById('kCategory')?.value||'기타';
-  const kind=document.getElementById('kType')?.value||'article';
-  const tags=serializeKnowledgeTags(document.getElementById('kTags')?.value||'');
-  const prompt_template=kind==='prompt'?(document.getElementById('kPromptTemplate')?.value.trim()||null):null;
-  const prompt_input_guide=kind==='prompt'?(document.getElementById('kPromptInputGuide')?.value.trim()||null):null;
-  const prompt_output_example=kind==='prompt'?(document.getElementById('kPromptOutputExample')?.value.trim()||null):null;
-  const existing=editId?knowledgePosts.find(x=>x.id===editId):null;
-  const is_pinned=isAdmin?(document.getElementById('kPin')?.checked||false):(existing?.is_pinned||false);
-  if(!title){alert('제목을 입력해주세요.');return;}
-  if(kind==='article'&&!content){alert('내용을 입력해주세요.');return;}
-  if(kind==='prompt'&&!prompt_template){alert('프롬프트 본문을 입력해주세요.');return;}
-  if(kind==='prompt'&&!content)content='프롬프트 템플릿 공유';
-  const attachments=getKnowledgeAttachmentPayload();
-  try{
-    if(editId){
-      await api('PATCH','knowledge_posts?id=eq.'+editId,{title,content,category,is_pinned,post_kind:kind,tags,prompt_template,prompt_input_guide,prompt_output_example,attachments,updated_at:new Date().toISOString()});
-    }else{
-      await api('POST','knowledge_posts',{title,content,category,is_pinned,post_kind:kind,tags,prompt_template,prompt_input_guide,prompt_output_example,attachments,author_name:currentMember?.name||currentUser?.email,created_by:currentUser?.id});
-    }
-    closeModal();
-    await refreshKnowledgePosts();
-    if(curPage==='notice')renderKnowledgeBoard();
-  }catch(e){alert('오류: '+e.message);}
-}
-
-async function deleteKnowledge(id){
-  if(!confirm('삭제할까요?'))return;
-  try{
-    await api('DELETE','knowledge_posts?id=eq.'+id);
-    closeModal();
-    await refreshKnowledgePosts();
-    if(curPage==='notice')renderKnowledgeBoard();
-  }catch(e){alert('오류: '+e.message);}
-}
-
-// ── 사다리타기 🪜 ──
 
 function openLadderGame(){
   const memberOpts=members.map(m=>'<div class="ladder-member" onclick="toggleLadderMember(this)" data-name="'+esc(m.name)+'" style="padding:8px 16px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s">'+esc(m.name)+'</div>').join('');
