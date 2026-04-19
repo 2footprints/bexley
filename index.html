@@ -6812,8 +6812,6 @@ renderAdminPage = async function(){
   renderDash(); // 기존 대시보드 렌더 함수 재활용
 }
 
-}
-
 async function addAssignment(clientId){
   if(!canManagePortalSettings())return;
   const sel=document.getElementById('assignSel-'+clientId);
