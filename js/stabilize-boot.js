@@ -12,8 +12,12 @@
     );
   }
 
+  function isApprovedRole(row){
+    return !!(row?.role || row?.is_admin);
+  }
+
   async function ensurePendingAccessRequest(){
-    if(!currentUser?.id || !currentUser?.email || currentRoleRow) return pendingRequest || null;
+    if(!currentUser?.id || !currentUser?.email || isApprovedRole(currentRoleRow)) return pendingRequest || null;
 
     const existingByUser = await api('GET', 'access_requests?user_id=eq.' + currentUser.id + '&select=*&limit=1').catch(() => []);
     if(existingByUser?.length){
@@ -209,7 +213,7 @@
     window.__STABLE_BOOT_RUNNING__ = true;
     try{
       await refreshRoleContext();
-      if(!currentRoleRow){
+      if(!isApprovedRole(currentRoleRow)){
         try{
           await ensurePendingAccessRequest();
           await refreshRoleContext();
