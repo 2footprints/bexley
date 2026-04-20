@@ -3016,35 +3016,48 @@ async function renderHomeDashboardIssues(){
   const el=document.getElementById('homeIssueSummaryWrap');
   if(!el)return;
   if(!currentMember){
-    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">멤버 정보가 없어 담당 이슈를 집계하지 못했습니다.</div></div>';
+    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">멤버 정보가 없어 담당 이슈를 불러오지 못했습니다.</div></div>';
     return;
   }
   el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">불러오는 중...</div></div>';
   try{
-    const rows=await api('GET','project_issues?status=eq.open&select=project_id,owner_member_id,assignee_member_id')||[];
-    const counts={};
-    (rows||[]).forEach(issue=>{
-      const assigned=issue.assignee_member_id===currentMember.id||issue.owner_member_id===currentMember.id;
-      if(!assigned||!issue.project_id)return;
-      counts[issue.project_id]=(counts[issue.project_id]||0)+1;
-    });
-    const items=Object.entries(counts).map(([projectId,count])=>{
-      const project=projects.find(p=>p.id===projectId);
-      const client=project?clients.find(c=>c.id===project.client_id):null;
-      return {
-        label:(client?client.name+' - ':'')+(project?.name||'프로젝트 없음'),
-        count
-      };
-    }).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'ko'));
+    const rows=await api('GET','project_issues?status=eq.open&select=*')||[];
+    const items=(rows||[])
+      .filter(issue=>issue.assignee_member_id===currentMember.id||issue.owner_member_id===currentMember.id)
+      .map(issue=>{
+        const project=projects.find(p=>p.id===issue.project_id)||null;
+        const client=project?clients.find(c=>c.id===project.client_id):null;
+        return {
+          id:issue.id,
+          projectId:issue.project_id||'',
+          title:issue.title||'제목 없음',
+          label:(client?client.name+' - ':'')+(project?.name||'프로젝트 없음'),
+          isPinned:!!issue.is_pinned,
+          created_at:issue.created_at||''
+        };
+      })
+      .sort((a,b)=>{
+        const pinDiff=Number(b.isPinned)-Number(a.isPinned);
+        if(pinDiff)return pinDiff;
+        return new Date(b.created_at||0)-new Date(a.created_at||0);
+      });
+    const visibleItems=items.slice(0,5);
     el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div>'
       +(items.length
-        ?'<div class="weekly-list">'+items.map(item=>
-          '<button type="button" class="weekly-item" onclick="setPage(\'issues\')" style="width:100%;background:none;border:none;text-align:left;cursor:pointer">'
-            +'<div><div class="weekly-name">'+esc(item.label)+'</div><div class="weekly-sub">열린 이슈 '+item.count+'건</div></div>'
-            +'<span class="badge badge-orange">'+item.count+'</span>'
+        ?'<div class="weekly-list">'+visibleItems.map(item=>
+          '<button type="button" class="weekly-item" onclick="openIssueModal(\''+item.projectId+'\',\''+item.id+'\')" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;border-left:3px solid '+(item.isPinned?'#FBBF24':'transparent')+'">'
+            +'<div style="min-width:0;display:flex;align-items:center;gap:8px;flex:1">'
+              +'<span style="width:8px;height:8px;border-radius:50%;background:'+(item.isPinned?'#FBBF24':'var(--blue)')+';flex-shrink:0"></span>'
+              +'<div style="min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+                +'<span class="weekly-name" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px">'+esc(item.title)+'</span>'
+                +'<span class="weekly-sub" style="margin-top:0">| '+esc(item.label)+'</span>'
+              +'</div>'
+            +'</div>'
+            +'<span class="badge '+(item.isPinned?'badge-orange':'badge-blue')+'">'+(item.isPinned?'PINNED':'OPEN')+'</span>'
           +'</button>'
         ).join('')+'</div>'
-        :'<div class="weekly-empty">현재 담당 중인 열린 이슈가 없습니다.</div>')
+        +(items.length>5?'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn sm" onclick="setPage(\'issues\')">더보기 →</button></div>':'')
+        :'<div class="weekly-empty">현재 담당 이슈가 없습니다 ✓</div>')
       +'</div>';
   }catch(e){
     el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">이슈 현황을 불러오지 못했습니다.</div></div>';
