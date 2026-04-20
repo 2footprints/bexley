@@ -195,6 +195,26 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .issue-action-btn .issue-action-label{display:none}
 .issue-action-btn.resolve-btn{border-color:var(--green);color:var(--green);font-size:13px}
 .issue-action-btn.pin-btn.active{background:var(--red-bg);color:var(--red)}
+.issues-page-groups{display:flex;flex-direction:column;gap:14px}
+.issues-page-group{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);padding:14px 16px}
+.issues-page-group-toggle{width:100%;display:flex;align-items:center;gap:8px;border:none;background:none;padding:0;cursor:pointer;font-family:inherit;text-align:left}
+.issues-page-group-name{font-size:14px;font-weight:700;color:var(--navy)}
+.issues-page-group-count{font-size:12px;color:var(--text3);font-weight:600}
+.issues-page-project{padding-left:18px;margin-top:12px}
+.issues-page-project-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.issues-page-item{border:1px solid var(--border);border-left:3px solid var(--border);border-radius:10px;background:#fff;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.issues-page-item.mine{border-left-color:var(--color-info)}
+.issues-page-item:last-child{margin-bottom:0}
+.issues-page-item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.issues-page-item-main{min-width:0;flex:1}
+.issues-page-item-title{font-size:13px;font-weight:700;color:var(--navy);line-height:1.5}
+.issues-page-item-meta{font-size:12px;color:var(--text3);margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.issues-page-assignee{font-weight:400;color:var(--color-text-secondary)}
+.issues-page-assignee.mine{font-weight:600;color:var(--color-info)}
+.issues-page-item-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0}
+.issues-page-item-body{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.issues-page-item-desc{font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap}
+.issues-page-empty{font-size:13px;color:var(--text3);padding:8px 0}
 .team-notice-panel{margin-bottom:0}
 .team-extra-toggle{min-height:36px;display:none!important}
 .comment-actions .btn.sm{display:inline-flex;align-items:center;justify-content:center}
@@ -1852,7 +1872,7 @@ input,textarea{border-radius:12px!important}
   align-items:center;
   justify-content:center;
   flex-shrink:0;
-  background:var(--color-border);
+  background:var(--color-bg);
   color:var(--color-text);
 }
 #pageTeam .home-issue-groups{
@@ -3607,7 +3627,7 @@ async function renderHomeDashboardIssues(){
     el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div>'
       +(groupedClients.length
         ?'<div class="home-issue-groups">'+groupedHtml+'</div>'
-        :'<div class="weekly-empty">현재 처리할 이슈가 없습니다 ✓</div>')
+        :'<div class="weekly-empty" style="color:var(--color-success)">현재 담당 이슈가 없습니다 ✓</div>')
       +'</div>';
   }catch(e){
     el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div><div class="weekly-empty">이슈 현황을 불러오지 못했습니다.</div></div>';
@@ -3627,8 +3647,11 @@ function renderTeamWorkload(){
     const color=percent>100?'var(--red)':percent>80?'var(--orange)':'var(--green)';
     return {name:member.name,totalHours,capacity,percent,color};
   }).sort((a,b)=>b.percent-a.percent||a.name.localeCompare(b.name,'ko'));
+  const allZero=rows.length&&rows.every(row=>row.totalHours===0);
   el.innerHTML='<div class="card home-card"><div class="home-section-title">팀 워크로드</div>'
-    +(rows.length
+    +(allZero
+      ?'<div class="weekly-empty" style="font-size:var(--font-size-sm);color:var(--color-text-muted)">프로젝트 수정에서 \'예상 시간\'을 입력하면 워크로드가 표시됩니다</div>'
+      :(rows.length
       ?'<div class="team-workload-list">'+rows.map(row=>
         '<div class="team-workload-row">'
           +'<div class="team-workload-name">'+esc(row.name)+'</div>'
@@ -3636,7 +3659,7 @@ function renderTeamWorkload(){
           +'<div class="team-workload-meta">'+row.totalHours+'/'+row.capacity+'h '+row.percent+'%</div>'
         +'</div>'
       ).join('')+'</div>'
-      :'<div class="weekly-empty">표시할 워크로드 데이터가 없습니다.</div>')
+      :'<div class="weekly-empty">표시할 워크로드 데이터가 없습니다.</div>'))
     +'</div>';
 }
 
@@ -4498,8 +4521,12 @@ function gRow(p,days){
     if(overlays.length&&d>=barS&&d<=barE){
       const icons=overlays.map(ov=>ov.type==='leave'?'L':'F').join(' ');
       const tip=overlays.map(ov=>ov.member+' '+ov.title).join(', ');
-      const oc=overlays.some(ov=>ov.type==='leave')?'rgba(200,178,138,.48)':'rgba(154,167,182,.42)';
-      overlayHtml='<div class="leave-marker" style="left:1px;right:1px;background:'+oc+'" title="'+esc(tip)+'">'+icons+'</div>';
+      const hasLeave=overlays.some(ov=>ov.type==='leave');
+      const hasFieldwork=overlays.some(ov=>ov.type==='fieldwork');
+      const markerStyle=hasLeave&&!hasFieldwork
+        ?'left:1px;right:1px;background:repeating-linear-gradient(45deg, #e2e8f0, #e2e8f0 4px, #f1f5f9 4px, #f1f5f9 8px);border-left:3px solid var(--color-text-muted);color:var(--color-text-secondary)'
+        :'left:1px;right:1px;background:repeating-linear-gradient(45deg, #fef3c7, #fef3c7 4px, #fefce8 4px, #fefce8 8px);border-left:3px solid var(--color-warning);color:#92400e';
+      overlayHtml='<div class="leave-marker" style="'+markerStyle+'" title="'+esc(tip)+'">'+icons+'</div>';
     }
     if(d===barS){
       const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
@@ -6188,7 +6215,7 @@ async function renderWeeklyReviews(offset){
       :'')
       +'</div>'
       +(!reviews||!reviews.length
-        ?'<div class="home-meta-text" style="text-align:center;padding:20px 0">'+(isCurrentWeek?'아직 작성된 후기가 없어요.<br><br><button class="home-inline-btn" onclick="openReviewModal()">첫 번째로 후기 남기기</button>':'이 주의 후기 기록이 없습니다.')+'</div>'
+        ?'<div class="home-meta-text" style="text-align:center;padding:20px 0">'+(isCurrentWeek?'아직 후기가 없습니다. 첫 번째 후기를 남겨보세요!<br><br><button class="home-inline-btn" onclick="openReviewModal()">첫 번째 후기 작성</button>':'이 주의 후기 기록이 없습니다.')+'</div>'
         :'<div style="display:flex;flex-direction:column;gap:10px">'
           +reviews.map(r=>'<div style="display:flex;gap:12px;padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">'
             +'<div class="home-avatar">'+esc((r.member_name||'?').charAt(0))+'</div>'
@@ -6775,16 +6802,54 @@ function toggleIssuesPageStatus(status){
   renderIssuesPageFromCache();
 }
 
+function toggleIssuesPageClientGroup(clientKey){
+  issuesPageCollapsedClients[clientKey]=!issuesPageCollapsedClients[clientKey];
+  renderIssuesPageFromCache();
+}
+
 function toggleIssuesPageAccordion(issueId){
   if(expandedIssuesPageIds.has(issueId))expandedIssuesPageIds.delete(issueId);
   else expandedIssuesPageIds.add(issueId);
   renderIssuesPageFromCache();
 }
 
-function getIssuesPageStatusMeta(issue){
+function getIssuesPageStatusMeta(issue,project){
   if(issue?.status==='resolved')return {label:'RESOLVED',cls:'badge-gray'};
   if(issue?.is_pinned)return {label:'PINNED',cls:'badge-orange'};
+  const projectEnd=project?.end||project?.end_date||'';
+  if(projectEnd&&toDate(projectEnd)<getHomeBaseDate())return {label:'OVERDUE',cls:'badge-red'};
   return {label:'OPEN',cls:'badge-blue'};
+}
+
+function getIssuesPagePriorityMeta(issue,project){
+  const priority=issue?.priority||project?.priority||'medium';
+  if(priority==='high')return {label:'긴급',cls:'badge-red'};
+  if(priority==='low')return {label:'낮음',cls:'badge-gray'};
+  return null;
+}
+
+function getIssuesPageAssigneeMeta(issue){
+  const isMine=!!currentMember&&(
+    issue?.assignee_member_id===currentMember.id||
+    issue?.assignee_id===currentMember.id||
+    (!issue?.assignee_member_id&&(
+      issue?.assignee_name===currentMember.name||
+      issue?.owner_member_id===currentMember.id||
+      issue?.owner_name===currentMember.name
+    ))
+  );
+  return {
+    isMine,
+    label:isMine?'나':(issue?.assignee_name||issue?.owner_name||'미지정')
+  };
+}
+
+function getIssuesPageIssueRank(issue,project){
+  if(issue?.is_pinned)return 0;
+  if(issue?.status==='resolved')return 3;
+  const projectEnd=project?.end||project?.end_date||'';
+  if(projectEnd&&toDate(projectEnd)<getHomeBaseDate())return 1;
+  return 2;
 }
 
 function getIssuesPageRows(){
@@ -6797,9 +6862,17 @@ function getIssuesPageRows(){
     if(issuesPageFilters.status==='pinned')return !!issue.is_pinned;
     if(issuesPageFilters.status==='resolved')return issue.status==='resolved';
     return issue.status==='open';
+  }).map(issue=>{
+    const project=projects.find(p=>p.id===issue.project_id)||null;
+    const client=project?clients.find(c=>c.id===project.client_id):null;
+    return {
+      ...issue,
+      _project:project,
+      _client:client,
+      _rank:getIssuesPageIssueRank(issue,project)
+    };
   }).sort((a,b)=>{
-    const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
-    if(pinDiff)return pinDiff;
+    if(a._rank!==b._rank)return a._rank-b._rank;
     return new Date(b.created_at||0)-new Date(a.created_at||0);
   });
 }
@@ -6815,22 +6888,98 @@ function renderIssuesPageFromCache(){
     .join('');
   const rows=getIssuesPageRows();
   const createBtn=canCreateIssueRole()?'<button class="btn primary sm" onclick="openIssueModal()">+ 이슈 등록</button>':'';
+  const groupedClients=Object.values(rows.reduce((acc,issue)=>{
+    const project=issue._project||null;
+    const client=issue._client||null;
+    const clientKey=client?.id||('client-'+(project?.client_id||'none'));
+    const clientName=client?.name||'기타';
+    if(!acc[clientKey]){
+      acc[clientKey]={key:clientKey,name:clientName,count:0,projects:{}};
+    }
+    const projectKey=project?.id||('project-'+issue.id);
+    if(!acc[clientKey].projects[projectKey]){
+      acc[clientKey].projects[projectKey]={
+        id:project?.id||'',
+        name:project?.name||'프로젝트 없음',
+        issues:[]
+      };
+    }
+    acc[clientKey].projects[projectKey].issues.push(issue);
+    acc[clientKey].count+=1;
+    return acc;
+  },{})).map(group=>{
+    const projectsInGroup=Object.values(group.projects).map(project=>({
+      ...project,
+      issueCount:project.issues.length,
+      issues:[...project.issues].sort((a,b)=>{
+        if(a._rank!==b._rank)return a._rank-b._rank;
+        return new Date(b.created_at||0)-new Date(a.created_at||0);
+      })
+    })).sort((a,b)=>{
+      const aTop=a.issues[0]?a.issues[0]._rank:99;
+      const bTop=b.issues[0]?b.issues[0]._rank:99;
+      if(aTop!==bTop)return aTop-bTop;
+      if(a.issueCount!==b.issueCount)return b.issueCount-a.issueCount;
+      return a.name.localeCompare(b.name,'ko');
+    });
+    return {...group,projects:projectsInGroup};
+  }).sort((a,b)=>{
+    if(a.count!==b.count)return b.count-a.count;
+    return a.name.localeCompare(b.name,'ko');
+  });
   el.innerHTML='<div class="section-header" style="margin-bottom:16px"><h2 class="section-title">이슈</h2>'+createBtn+'</div>'
     +'<div class="card" style="margin-bottom:14px;padding:14px 16px"><div class="filter-row" style="width:100%"><select onchange="setIssuesPageFilter(\'project_id\',this.value)">'+projectOptions+'</select><select onchange="setIssuesPageFilter(\'member_id\',this.value)">'+memberOptions+'</select><div class="toggle-wrap"><button class="toggle-btn '+(issuesPageFilters.status==='open'?'active':'')+'" onclick="toggleIssuesPageStatus(\'open\')">OPEN</button><button class="toggle-btn '+(issuesPageFilters.status==='pinned'?'active':'')+'" onclick="toggleIssuesPageStatus(\'pinned\')">PINNED</button><button class="toggle-btn '+(issuesPageFilters.status==='resolved'?'active':'')+'" onclick="toggleIssuesPageStatus(\'resolved\')">RESOLVED</button></div></div></div>'
-    +(rows.length?rows.map(issue=>{
-      const project=projects.find(p=>p.id===issue.project_id)||null;
-      const client=project?clients.find(c=>c.id===project.client_id):null;
-      const meta=getIssuesPageStatusMeta(issue);
-      const isExpanded=expandedIssuesPageIds.has(issue.id);
-      const isOpen=issue.status==='open';
-      const editable=canEditIssue(issue);
-      const assigneeLabel=issue.assignee_name||issue.owner_name||'미지정';
-      const projectLabel=(client?client.name+' - ':'')+(project?.name||'프로젝트 없음');
-      return '<div class="card issue-card" style="margin-bottom:10px;border-left:4px solid '+(issue.is_pinned?'#FBBF24':'var(--border)')+';opacity:'+(issue.status==='resolved'?'.68':'1')+'" onclick="toggleIssuesPageAccordion(\''+issue.id+'\')">'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow:hidden"><span class="badge '+meta.cls+'" style="flex-shrink:0">'+meta.label+'</span><span style="font-size:13px;font-weight:800;color:var(--navy);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(issue.title)+'</span><span style="font-size:12px;color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">| '+esc(projectLabel)+' | '+esc(assigneeLabel)+'</span></div><div style="font-size:11px;color:var(--text3);flex-shrink:0">'+formatCommentDate(issue.created_at)+'</div></div>'
-        +(isExpanded?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'+(issue.content?'<div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'<div style="font-size:12px;color:var(--text3)">설명 없음</div>')+'<div class="issue-actions" style="margin-top:10px">'+(isOpen?'<button class="issue-action-btn resolve-btn" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')" title="해결"><span class="issue-action-icon">✓</span><span class="issue-action-label">해결</span></button>':'')+(editable?'<button class="issue-action-btn" onclick="event.stopPropagation();openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="수정"><span class="issue-action-icon">✏️</span><span class="issue-action-label">수정</span></button>':'')+(isAdmin&&isOpen?'<button class="issue-action-btn pin-btn '+(issue.is_pinned?'active':'')+'" onclick="event.stopPropagation();toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" title="고정"><span class="issue-action-icon">📌</span><span class="issue-action-label">고정</span></button>':'')+'<button class="issue-action-btn" onclick="event.stopPropagation();openIssueComments(\''+issue.id+'\')" title="댓글"><span class="issue-action-icon">💬</span><span class="issue-action-label">댓글</span></button></div><div id="comments-'+issue.id+'" style="display:none"></div></div>':'')
-      +'</div>';
-    }).join(''):'<div class="card"><div style="font-size:13px;color:var(--text3)">조건에 맞는 이슈가 없습니다.</div></div>');
+    +(groupedClients.length
+      ?'<div class="issues-page-groups">'+groupedClients.map(group=>{
+        const collapsed=!!issuesPageCollapsedClients[group.key];
+        return '<div class="issues-page-group">'
+          +'<button type="button" class="issues-page-group-toggle" onclick="toggleIssuesPageClientGroup(\''+group.key+'\')">'
+            +'<span style="font-size:13px;color:var(--text3)">'+(collapsed?'▸':'▾')+'</span>'
+            +'<span class="issues-page-group-name">'+esc(group.name)+'</span>'
+            +'<span class="issues-page-group-count">('+group.count+'건)</span>'
+          +'</button>'
+          +(!collapsed?group.projects.map(project=>{
+            return '<div class="issues-page-project">'
+              +'<div class="issues-page-item-head" style="margin-bottom:8px">'
+                +'<div class="issues-page-project-title">'+esc(project.name)+'</div>'
+                +'<span class="issues-page-group-count">'+project.issueCount+'건</span>'
+              +'</div>'
+              +project.issues.map(issue=>{
+                const statusMeta=getIssuesPageStatusMeta(issue,issue._project);
+                const priorityMeta=getIssuesPagePriorityMeta(issue,issue._project);
+                const assigneeMeta=getIssuesPageAssigneeMeta(issue);
+                const isExpanded=expandedIssuesPageIds.has(issue.id);
+                const isOpen=issue.status==='open';
+                const editable=canEditIssue(issue);
+                return '<div id="issue-card-'+issue.id+'" class="issues-page-item'+(assigneeMeta.isMine?' mine':'')+'" onclick="toggleIssuesPageAccordion(\''+issue.id+'\')">'
+                  +'<div class="issues-page-item-head">'
+                    +'<div class="issues-page-item-main">'
+                      +'<div class="issues-page-item-title">● '+esc(issue.title||'제목 없음')+'</div>'
+                      +'<div class="issues-page-item-meta"><span>'+esc(group.name)+' - '+esc(project.name)+'</span><span class="issues-page-assignee'+(assigneeMeta.isMine?' mine':'')+'">담당: '+esc(assigneeMeta.label)+'</span></div>'
+                    +'</div>'
+                    +'<div class="issues-page-item-badges"><span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>'+(priorityMeta?'<span class="badge '+priorityMeta.cls+'">'+priorityMeta.label+'</span>':'')+'</div>'
+                  +'</div>'
+                  +(isExpanded
+                    ?'<div class="issues-page-item-body">'
+                      +(issue.content?'<div class="issues-page-item-desc">'+esc(issue.content)+'</div>':'<div class="issues-page-empty">설명 없음</div>')
+                      +'<div class="issue-actions" style="margin-top:10px">'
+                        +(isOpen?'<button class="issue-action-btn resolve-btn" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')" title="해결"><span class="issue-action-label">해결</span></button>':'')
+                        +(editable?'<button class="issue-action-btn" onclick="event.stopPropagation();openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="수정"><span class="issue-action-label">수정</span></button>':'')
+                        +(isAdmin&&isOpen?'<button class="issue-action-btn pin-btn '+(issue.is_pinned?'active':'')+'" onclick="event.stopPropagation();toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" title="고정"><span class="issue-action-label">고정</span></button>':'')
+                        +(issue.project_id?'<button class="issue-action-btn" onclick="event.stopPropagation();openProjModal(\''+issue.project_id+'\')" title="프로젝트 보기"><span class="issue-action-label">프로젝트 보기</span></button>':'')
+                        +'<button class="issue-action-btn" onclick="event.stopPropagation();openIssueComments(\''+issue.id+'\',true)" title="댓글"><span class="issue-action-label">댓글</span></button>'
+                      +'</div>'
+                      +'<div id="comments-'+issue.id+'" style="display:none"></div>'
+                    +'</div>'
+                    :'')
+                +'</div>';
+              }).join('')
+            +'</div>';
+          }).join(''):'')
+        +'</div>';
+      }).join('')+'</div>'
+      :'<div class="card"><div style="font-size:13px;color:var(--text3)">조건에 맞는 이슈가 없습니다.</div></div>');
+  rows.filter(issue=>expandedIssuesPageIds.has(issue.id)).forEach(issue=>openIssueComments(issue.id,true));
 }
 
 async function renderIssuesPage(){
@@ -8419,6 +8568,8 @@ saveProj = async function(){
   const start=document.getElementById('fStart')?.value;
   const end=document.getElementById('fEnd')?.value;
   const status=document.getElementById('fStatus')?.value;
+  const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseFloat(document.getElementById('fEstimatedHours').value):null;
+  const priority=document.getElementById('fPriority')?.value||'medium';
   const client_id=document.getElementById('fClient')?.value||null;
   const contract_id=document.getElementById('fContract')?.value||null;
   const is_billable=!!document.getElementById('fBillable')?.checked;
@@ -8449,7 +8600,7 @@ saveProj = async function(){
     return;
   }
   try{
-    const body={name,type,start_date:start,end_date:end,status,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
+    const body={name,type,start_date:start,end_date:end,status,estimated_hours,priority,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
     const wasEditing=!!editingProjId;
     const canSyncMembers=!wasEditing || (!!existing && canManageProjectMembers(existing));
     if(wasEditing){
@@ -9454,6 +9605,7 @@ issueCommentCountMap={};
 let issuesPageCache=[];
 let issuesPageFilters={project_id:'',member_id:'',status:'open'};
 let expandedIssuesPageIds=new Set();
+let issuesPageCollapsedClients={};
 
 loadIssueFeed = async function(force=false){
   const el=document.getElementById('issueFeedWrap');if(!el)return;
@@ -9592,8 +9744,8 @@ renderKudos = async function(offset){
       ? `<button class="home-inline-btn" onclick="openKudosModal()">${myVote?'\uD22C\uD45C \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30'}</button>`
       : '';
     const summaryCards=sorted.map(([name,cnt])=>`
-      <div style="text-align:center;background:#F8FAFC;border:1px solid #E2E8F0;padding:8px 10px;border-radius:8px;min-width:60px">
-        <div class="home-meta-text" style="font-size:12px;margin-bottom:3px;font-weight:500">${esc(name)}</div>
+      <div style="text-align:center;background:var(--color-bg);border:1px solid var(--color-border);padding:8px 10px;border-radius:8px;min-width:60px">
+        <div class="home-meta-text" style="margin-bottom:3px">${esc(name)}</div>
         <div class="home-person-name" style="font-size:18px">${cnt}</div>
       </div>
     `).join('');
@@ -9609,7 +9761,7 @@ renderKudos = async function(offset){
         </div>
       `
       : `
-        <div class="home-meta-text" style="text-align:center;padding:16px 0;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">
+        <div class="home-meta-text" style="text-align:center;padding:16px 0;background:var(--color-bg);border:1px solid var(--color-border);border-radius:8px">
           ${isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}
         </div>
       `;
@@ -10034,10 +10186,10 @@ async function renderHomeRiskSummary(){
         label:'자료 미제출',
         value:pendingDocRows.length?pendingDocRows.length+'건':'없음 ✓',
         tone:pendingDocRows.length?'warning':'success',
-        meta:pendingDocRows.length?'제출 대기 중 자료 요청':'미제출 자료 요청 없음',
+        meta:pendingDocRows.length?'제출 대기 중 자료 요청':'모든 자료가 제출되었습니다 ✓',
         action:pendingDocRows.length&&firstPendingProjectId
           ?"openProjModal('"+firstPendingProjectId+"',null,null,'documents')"
-          :"alert('현재 미제출 자료 요청이 없습니다.')"
+          :"alert('모든 자료가 제출되었습니다 ✓')"
       }
     ];
 
@@ -10658,7 +10810,7 @@ window.saveProj = async function(){
   const start=document.getElementById('fStart')?.value||null;
   const end=document.getElementById('fEnd')?.value||null;
   const status=document.getElementById('fStatus')?.value||null;
-  const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseInt(document.getElementById('fEstimatedHours').value,10):null;
+  const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseFloat(document.getElementById('fEstimatedHours').value):null;
   const priority=document.getElementById('fPriority')?.value||'medium';
   const client_id=document.getElementById('fClient')?.value||null;
   const contract_id=document.getElementById('fContract')?.value||null;
