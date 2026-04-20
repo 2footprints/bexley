@@ -1679,6 +1679,78 @@ input,textarea{border-radius:12px!important}
 }
 </style>
 
+<style id="sectionCardUnifyOverride">
+.card,.card-sm,.myweek-card,.portal-proj-card,.notice-card,.weekly-item,.gantt-kpi,.team-fun-card,.team-notice-panel{
+  background:#ffffff!important;
+  border:1px solid #e2e8f0!important;
+  border-radius:8px!important;
+  box-shadow:0 1px 3px rgba(0,0,0,.08)!important;
+}
+.card,.card-sm,.myweek-card,.portal-proj-card,.team-notice-panel{
+  padding:20px 24px!important;
+  margin-bottom:16px!important;
+}
+#pageTeam .pinned-card{
+  background:#ffffff!important;
+  border:1px solid #e2e8f0!important;
+  border-radius:8px!important;
+  box-shadow:0 1px 3px rgba(0,0,0,.08)!important;
+  margin-bottom:16px!important;
+}
+#pageTeam .pinned-card-title,
+#pageTeam .section-label,
+#pageTeam .myweek-title{
+  font-size:16px!important;
+  font-weight:600!important;
+  color:#0f172a!important;
+  letter-spacing:-.01em!important;
+  text-transform:none!important;
+}
+#pageTeam .myweek-row-title,
+#pageTeam .weekly-name,
+#pageTeam .team-workload-name,
+#pageTeam .team-fun-title,
+#pageTeam .team-notice-row-title{
+  font-size:14px!important;
+  font-weight:600!important;
+  color:#0f172a!important;
+}
+#pageTeam .weekly-empty,
+#pageTeam .team-workload-meta,
+#pageTeam .myweek-row-title,
+#pageTeam .pinned-card-preview{
+  font-size:14px!important;
+  color:#334155!important;
+}
+#pageTeam .weekly-sub,
+#pageTeam .notice-meta,
+#pageTeam .myweek-summary,
+#pageTeam .team-fun-desc,
+#pageTeam .team-notice-row-date,
+#pageTeam .pinned-card-date{
+  font-size:12px!important;
+  color:#64748b!important;
+}
+#pageTeam .team-notice-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 0;
+  border-top:1px solid #e2e8f0;
+  cursor:pointer;
+}
+#pageTeam .team-notice-row:first-child{border-top:none}
+#pageTeam .team-notice-row-title{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#pageTeam .team-extra-grid > *{min-width:0}
+#pageTeam .team-extra-grid .card-sm{height:100%}
+</style>
+
 
   
 </head>
@@ -1827,7 +1899,6 @@ input,textarea{border-radius:12px!important}
 
     <!-- 메인(고객사) -->
     <div id="pageClients" style="display:none">
-      <div id="pinnedWrap"></div>
       <div id="alertWrap"></div>
       <div class="section-header">
         <h2 class="section-title" id="boardTitle">거래처</h2>
@@ -1869,6 +1940,7 @@ input,textarea{border-radius:12px!important}
       <div class="section-header team-page-header" style="margin-bottom:20px">
         <h2 class="section-title">팀</h2>
       </div>
+      <div id="homePinnedWrap"></div>
       <div id="myWeekWrap"></div>
       <div id="homeIssueSummaryWrap" style="margin-bottom:16px"></div>
       <div id="teamWorkloadWrap" style="margin-bottom:16px"></div>
@@ -3273,11 +3345,11 @@ function setPage(page, extra) {
 
   try{
     if (page === 'clients') {
-      renderAlerts();
       renderClients();
     } else if (page === 'contracts') {
       renderContractsPage();
     } else if (page === 'home') {
+      renderPinned();
       renderMyWeek();
       renderHomeDashboardIssues();
       renderTeamWorkload();
@@ -3302,7 +3374,7 @@ function setPage(page, extra) {
         console.error('clients fallback failed:',inner);
       }
     }
-    const pinned=document.getElementById('pinnedWrap');
+    const pinned=document.getElementById('homePinnedWrap');
     const alerts=document.getElementById('alertWrap');
     const grid=document.getElementById('clientGrid');
     if(pinned)pinned.innerHTML='';
@@ -5289,7 +5361,7 @@ async function saveNotice(eid){
     else{await api('POST','notices',{title,content,is_pinned,require_confirm,created_by:currentUser.id});}
     closeModal();
     await loadAll();
-    if(curPage==='home')renderTeamNotices();
+    if(curPage==='home'){renderPinned();renderTeamNotices();}
   }catch(e){alert('오류: '+e.message);}
 }
 async function deleteNotice(id){
@@ -5298,7 +5370,7 @@ async function deleteNotice(id){
     await api('DELETE','notices?id=eq.'+id);
     closeModal();
     await loadAll();
-    if(curPage==='home')renderTeamNotices();
+    if(curPage==='home'){renderPinned();renderTeamNotices();}
   }catch(e){alert('오류: '+e.message);}
 }
 
@@ -5541,14 +5613,14 @@ async function renderWeeklyReviews(offset){
   try{
     const reviews=await api('GET','weekly_reviews?week_start=eq.'+ws+'&select=*&order=created_at.desc');
     const myReview=isCurrentWeek?reviews?.find(r=>r.created_by===currentUser?.id):null;
-    el.innerHTML='<div class="card" style="margin-bottom:16px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-      +'<div style="display:flex;align-items:center;gap:10px">'
-      +'<div class="section-label" style="margin:0">업무 후기 ✍️</div>'
-      +'<div style="display:flex;align-items:center;gap:4px">'
-      +'<button onclick="renderWeeklyReviews('+(reviewWeekOffset-1)+')" style="background:var(--bg2);border:none;color:var(--text2);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">‹</button>'
-      +'<span style="font-size:11px;color:var(--text3);min-width:50px;text-align:center">'+weekLabel+'</span>'
-      +(reviewWeekOffset<0?'<button onclick="renderWeeklyReviews('+(reviewWeekOffset+1)+')" style="background:var(--bg2);border:none;color:var(--text2);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">›</button>':'<div style="width:24px"></div>')
+    el.innerHTML='<div class="card-sm" style="margin-bottom:0;height:100%">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<div class="section-label" style="margin:0">업무 후기</div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'
+      +'<button onclick="renderWeeklyReviews('+(reviewWeekOffset-1)+')" style="background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">‹</button>'
+      +'<span style="font-size:12px;color:#64748B;min-width:62px;text-align:center;font-weight:600">'+weekLabel+'</span>'
+      +(reviewWeekOffset<0?'<button onclick="renderWeeklyReviews('+(reviewWeekOffset+1)+')" style="background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">›</button>':'<div style="width:28px"></div>')
       +'</div></div>'
       +(isCurrentWeek?(myReview
         ?'<button class="btn sm" data-id="'+myReview.id+'" onclick="openReviewModal(this.dataset.id)">내 후기 수정</button>'
@@ -5556,13 +5628,13 @@ async function renderWeeklyReviews(offset){
       :'')
       +'</div>'
       +(!reviews||!reviews.length
-        ?'<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px 0">'+(isCurrentWeek?'아직 작성된 후기가 없어요.<br><br><button class="btn primary sm" onclick="openReviewModal()">첫 번째로 후기 남기기</button>':'이 주의 후기 기록이 없습니다.')+'</div>'
+        ?'<div style="color:#64748B;font-size:12px;text-align:center;padding:20px 0">'+(isCurrentWeek?'아직 작성된 후기가 없어요.<br><br><button class="btn primary sm" onclick="openReviewModal()">첫 번째로 후기 남기기</button>':'이 주의 후기 기록이 없습니다.')+'</div>'
         :'<div style="display:flex;flex-direction:column;gap:10px">'
-          +reviews.map(r=>'<div style="display:flex;gap:12px;padding:12px;background:var(--bg);border-radius:var(--radius-sm)">'
-            +'<div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc((r.member_name||'?').charAt(0))+'</div>'
+          +reviews.map(r=>'<div style="display:flex;gap:12px;padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">'
+            +'<div style="width:32px;height:32px;border-radius:50%;background:#E2E8F0;color:#0F172A;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc((r.member_name||'?').charAt(0))+'</div>'
             +'<div style="flex:1;min-width:0">'
-            +'<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">'+esc(r.member_name||'익명')+'</div>'
-            +'<div style="font-size:13px;color:var(--text2);line-height:1.6;white-space:pre-wrap;word-break:break-word">'+esc(r.content)+'</div>'
+            +'<div style="font-size:14px;font-weight:600;color:#0F172A;margin-bottom:4px">'+esc(r.member_name||'익명')+'</div>'
+            +'<div style="font-size:14px;color:#334155;line-height:1.6;white-space:pre-wrap;word-break:break-word">'+esc(r.content)+'</div>'
             +'</div>'
             +(isCurrentWeek&&r.created_by===currentUser?.id?'<button class="btn ghost sm" style="flex-shrink:0;padding:3px 8px;font-size:11px" data-id="'+r.id+'" onclick="openReviewModal(this.dataset.id)">수정</button>':'')
             +'</div>').join('')
@@ -8958,8 +9030,8 @@ renderKudos = async function(offset){
       ? `<button class="btn sm" style="background:#111827;border:1px solid #111827;color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">${myVote?'\uD22C\uD45C \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30'}</button>`
       : '';
     const summaryCards=sorted.map(([name,cnt])=>`
-      <div style="text-align:center;background:#FFFFFF;border:1px solid #E2E8F0;padding:8px 10px;border-radius:10px;min-width:60px">
-        <div style="font-size:11px;color:#475569;margin-bottom:3px;font-weight:700">${esc(name)}</div>
+      <div style="text-align:center;background:#F8FAFC;border:1px solid #E2E8F0;padding:8px 10px;border-radius:8px;min-width:60px">
+        <div style="font-size:11px;color:#64748B;margin-bottom:3px;font-weight:700">${esc(name)}</div>
         <div style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
       </div>
     `).join('');
@@ -8975,19 +9047,19 @@ renderKudos = async function(offset){
         </div>
       `
       : `
-        <div style="color:#111827;font-size:14px;font-weight:800;text-align:center;padding:14px 0;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px">
+        <div style="color:#334155;font-size:14px;font-weight:600;text-align:center;padding:16px 0;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">
           ${isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}
         </div>
       `;
     el.innerHTML=`
-      <div class="card" style="margin-bottom:16px;background:#F8FAFC;border:1px solid #CBD5E1;box-shadow:0 8px 24px rgba(15,23,42,.06)">
+      <div class="card-sm" style="margin-bottom:0;height:100%">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">
-            <div style="font-size:16px;font-weight:900;color:#0F172A;letter-spacing:.2px">\uCE6D\uCC2C \uC0AC\uC6D0</div>
+            <div class="section-label" style="margin:0">\uCE6D\uCC2C\uC0AC\uC6D0</div>
             <div style="display:flex;align-items:center;gap:8px">
-              ${prevBtn}
-              <span style="font-size:12px;color:#334155;min-width:72px;text-align:center;font-weight:800">${weekLabel}</span>
-              ${nextBtn}
+              ${prevBtn.replace('background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center','background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center')}
+              <span style="font-size:12px;color:#64748B;min-width:72px;text-align:center;font-weight:600">${weekLabel}</span>
+              ${nextBtn.replace('background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center','background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center')}
             </div>
           </div>
           ${voteBtn}
@@ -9142,6 +9214,7 @@ window.renderGantt = function(){
     return;
   }
   renderGanttLayoutBase();
+  renderGanttOverviewCards(projs,schs);
   ensureGanttLayoutToggle();
   updateGanttLayoutButtons();
 };
@@ -9599,47 +9672,46 @@ renderTeamNotices = function(){
     const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
     if(pinDiff) return pinDiff;
     return new Date(b.created_at)-new Date(a.created_at);
-  }).slice(0,6);
+  });
+  const visible=teamNoticeExpanded?list:list.slice(0,3);
   el.innerHTML='<div class="card team-notice-panel" style="margin-bottom:0">'
     +'<div class="team-notice-head">'
-    +'<div><div class="section-label" style="margin:0">공지사항</div><div style="font-size:12px;color:var(--text3);margin-top:4px">메인에서는 제목과 상태만 빠르게 보고, 자세한 내용은 클릭해서 확인합니다.</div></div>'
+    +'<div><div class="section-label" style="margin:0">공지사항</div><div style="font-size:12px;color:var(--text3);margin-top:4px">중요한 공지는 제목과 날짜만 먼저 보여주고, 필요하면 펼쳐서 더 확인합니다.</div></div>'
     +(isAdmin?'<button class="btn primary sm" onclick="openNoticeWrite()">+ 공지 작성</button>':'')
     +'</div>'
     +(!list.length
       ?'<div class="notice-empty" style="padding:26px 16px">등록된 공지가 없습니다.</div>'
-      :'<div class="team-notice-list">'
-        +list.map(n=>'<div class="notice-card'+(n.is_pinned?' pinned':'')+'" style="margin-bottom:0" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
-          +'<div class="notice-chip-row">'+(n.is_pinned?'<span class="badge badge-blue">고정</span>':'')+(n.require_confirm?'<span class="badge badge-red">필독</span>':'')+'</div>'
-          +'<div class="notice-title">'+esc(n.title)+'</div>'
-          +'<div class="notice-meta">'+formatDate(n.created_at)+'</div>'
+      :'<div class="team-notice-list" style="display:flex;flex-direction:column;gap:0;max-height:none;overflow:visible;padding-right:0">'
+        +visible.map(n=>'<div class="team-notice-row" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
+          +'<div style="min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden">'
+          +(n.is_pinned?'<span class="badge badge-blue" style="flex-shrink:0">📌</span>':'')
+          +(n.require_confirm?'<span class="badge badge-red" style="flex-shrink:0">필독</span>':'')
+          +'<span class="team-notice-row-title">'+esc(n.title)+'</span>'
+          +'</div>'
+          +'<div class="team-notice-row-date">'+formatDate(n.created_at)+'</div>'
           +'</div>').join('')
-        +'</div>')
+        +'</div>'
+        +(list.length>3?'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn sm" onclick="teamNoticeExpanded='+(!teamNoticeExpanded)+';renderTeamNotices()">'+(teamNoticeExpanded?'접기':'더보기')+'</button></div>':''))
     +'</div>';
 };
 
 renderAlerts = function(){
-  const {overdue=[],unbilled=[],followups=[]}=getAlerts()||{};
+  const {unbilled=[]}=getAlerts()||{};
   const el=document.getElementById('alertWrap');
   if(!el) return;
   let html='';
-  if(overdue.length){
-    html+=`<div class="alert-card red" style="margin-bottom:8px"><div class="alert-icon">⏰</div><div class="alert-body"><div class="alert-title red" style="font-size:13px;font-weight:800">기한 초과 미완료 프로젝트 ${overdue.length}건</div><div class="alert-items" style="margin-top:5px">${overdue.map(x=>`<button class="alert-tag red" onclick="openProjModal('${x.id}')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
-  }
   if(unbilled.length){
     html+=`<div class="alert-card orange" style="margin-bottom:8px"><div class="alert-icon">💰</div><div class="alert-body"><div class="alert-title orange" style="font-size:13px;font-weight:800">완료됐으나 빌링 미처리 ${unbilled.length}건</div><div class="alert-items" style="margin-top:5px">${unbilled.map(x=>`<button class="alert-tag orange" onclick="openProjModal('${x.id}',null,null,'completion')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
-  }
-  if(followups.length){
-    html+=`<div class="alert-card orange" style="margin-bottom:8px"><div class="alert-icon">📍</div><div class="alert-body"><div class="alert-title orange" style="font-size:13px;font-weight:800">완료 후 후속 조치 필요 ${followups.length}건</div><div class="alert-items" style="margin-top:5px">${followups.map(x=>`<button class="alert-tag orange" onclick="openProjModal('${x.id}',null,null,'completion')">${esc(x.name)}</button>`).join('')}</div></div></div>`;
   }
   el.innerHTML=html?'<div style="margin-bottom:16px">'+html+'</div>':'';
 };
 
 renderPinned = function(){
   const pinned=(notices||[]).find(n=>n.is_pinned);
-  const el=document.getElementById('pinnedWrap');
+  const el=document.getElementById('homePinnedWrap');
   if(!el) return;
   el.innerHTML=pinned
-    ?'<div class="pinned-card" onclick="openNoticeDetail(this.dataset.id)" data-id="'+pinned.id+'" style="margin-bottom:12px">'
+    ?'<div class="pinned-card" onclick="openNoticeDetail(this.dataset.id)" data-id="'+pinned.id+'">'
       +'<span style="color:var(--blue);font-size:16px;flex-shrink:0">📌</span>'
       +'<div class="pinned-card-text"><div class="pinned-card-title">'+esc(pinned.title)+'</div>'
       +'<div class="pinned-card-preview">'+esc((pinned.content||'').substring(0,80))+'</div></div>'
@@ -9650,7 +9722,6 @@ renderPinned = function(){
 
 renderClients = function(){
   renderClientsHomeBase();
-  renderPinned();
   renderAlerts();
   const title=document.getElementById('boardTitle');
   if(title) title.textContent='거래처';
