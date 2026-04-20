@@ -384,11 +384,18 @@ table{border-collapse:collapse;min-width:100%}
 .main-home-empty{padding:28px 12px;text-align:center;font-size:12px;color:var(--text3);background:var(--bg);border-radius:var(--radius-sm)}
 .main-inline-badges{display:flex;gap:6px;flex-wrap:wrap}
 .main-inline-badges .badge{margin:0}
+.team-fun-section{margin-bottom:16px}
+.team-fun-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.team-fun-card{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;cursor:pointer;font-family:inherit;transition:all .18s ease}
+.team-fun-card:hover{transform:translateY(-2px);border-color:var(--blue);box-shadow:var(--shadow)}
+.team-fun-title{font-size:14px;font-weight:800;color:var(--navy);margin:10px 0 6px;letter-spacing:-.2px}
+.team-fun-desc{font-size:12px;color:var(--text3);line-height:1.65}
 @media (max-width: 980px){
   .main-home-grid{grid-template-columns:1fr}
 }
 @media (max-width: 720px){
   .main-focus-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .team-fun-grid{grid-template-columns:1fr}
 }
 
 /* Dash */
@@ -1821,26 +1828,30 @@ input,textarea{border-radius:12px!important}
       <div class="section-header team-page-header" style="margin-bottom:20px">
         <h2 class="section-title">팀</h2>
       </div>
-
-      <div id="teamMainDashboardWrap" style="margin-bottom:16px"></div>
-
-      <!-- 상단: 이슈 + 이번주 일정 -->
-      <div class="team-main-grid">
-        <div class="team-issue-col" id="issueFeedWrap"></div>
-        <div class="team-schedule-col">
-          <div id="myWeekWrap"></div>
-          <div id="memberScheduleWrap"></div>
-        </div>
-      </div>
-
+      <div id="myWeekWrap"></div>
+      <div id="homeIssueSummaryWrap" style="margin-bottom:16px"></div>
+      <div id="memberScheduleWrap"></div>
       <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
-
-      <!-- 하단: 칭찬투표 + 업무후기 -->
-      <div style="border-top:1px solid var(--border);padding-top:16px">
-        <div id="teamExtraContent" style="display:block">
-          <div class="team-extra-grid">
-            <div id="kudosWrap"></div>
-            <div id="weeklyReviewWrap"></div>
+      <div id="teamKudosReviewWrap" style="margin-bottom:16px"></div>
+      <div class="team-fun-section">
+        <div class="card" style="margin-bottom:0">
+          <div class="section-label" style="margin-bottom:14px">🎲 팀 소소 기능</div>
+          <div class="team-fun-grid">
+            <button type="button" class="team-fun-card" onclick="openLunchPicker()">
+              <div style="font-size:24px">🍱</div>
+              <div class="team-fun-title">오늘 점심 뭐 먹지?</div>
+              <div class="team-fun-desc">카테고리를 고르고 오늘 점심 메뉴를 가볍게 정합니다.</div>
+            </button>
+            <button type="button" class="team-fun-card" onclick="openLadderGame()">
+              <div style="font-size:24px">🪜</div>
+              <div class="team-fun-title">커피 사다리타기</div>
+              <div class="team-fun-desc">팀원끼리 랜덤으로 뽑아 커피 담당을 정할 수 있습니다.</div>
+            </button>
+            <button type="button" class="team-fun-card" onclick="openWorkLinksModal()">
+              <div style="font-size:24px">🔗</div>
+              <div class="team-fun-title">업무 바로가기</div>
+              <div class="team-fun-desc">자주 쓰는 외부 링크와 조회 사이트를 한 번에 엽니다.</div>
+            </button>
           </div>
         </div>
       </div>
@@ -2027,6 +2038,7 @@ let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMem
 let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
 let clientAssignments=[],openIssuesByProject={},accessRequests=[];
 let curPage='home',curGView='project';
+let teamNoticeExpanded=false;
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
 let editingProjId=null,formMembers=[],editingClientId=null,editingContractId=null;
@@ -2857,6 +2869,53 @@ function renderMyWeek(){
     +'</div>';
 }
 
+async function renderHomeDashboardIssues(){
+  const el=document.getElementById('homeIssueSummaryWrap');
+  if(!el)return;
+  if(!currentMember){
+    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">멤버 정보가 없어 담당 이슈를 집계하지 못했습니다.</div></div>';
+    return;
+  }
+  el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">불러오는 중...</div></div>';
+  try{
+    const rows=await api('GET','project_issues?status=eq.open&select=project_id,owner_member_id,assignee_member_id')||[];
+    const counts={};
+    (rows||[]).forEach(issue=>{
+      const assigned=issue.assignee_member_id===currentMember.id||issue.owner_member_id===currentMember.id;
+      if(!assigned||!issue.project_id)return;
+      counts[issue.project_id]=(counts[issue.project_id]||0)+1;
+    });
+    const items=Object.entries(counts).map(([projectId,count])=>{
+      const project=projects.find(p=>p.id===projectId);
+      const client=project?clients.find(c=>c.id===project.client_id):null;
+      return {
+        label:(client?client.name+' - ':'')+(project?.name||'프로젝트 없음'),
+        count
+      };
+    }).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'ko'));
+    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div>'
+      +(items.length
+        ?'<div class="weekly-list">'+items.map(item=>
+          '<button type="button" class="weekly-item" onclick="setPage(\'issues\')" style="width:100%;background:none;border:none;text-align:left;cursor:pointer">'
+            +'<div><div class="weekly-name">'+esc(item.label)+'</div><div class="weekly-sub">열린 이슈 '+item.count+'건</div></div>'
+            +'<span class="badge badge-orange">'+item.count+'</span>'
+          +'</button>'
+        ).join('')+'</div>'
+        :'<div class="weekly-empty">현재 담당 중인 열린 이슈가 없습니다.</div>')
+      +'</div>';
+  }catch(e){
+    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">이슈 현황을 불러오지 못했습니다.</div></div>';
+  }
+}
+
+function renderTeamKudosAndReviews(){
+  const el=document.getElementById('teamKudosReviewWrap');
+  if(!el)return;
+  el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:14px">이번 주 팀 한마디</div><div class="team-extra-grid"><div id="kudosWrap"></div><div id="weeklyReviewWrap"></div></div></div>';
+  renderKudos();
+  renderWeeklyReviews();
+}
+
 
 function renderAlerts(){
   const{overdue=[],unbilled=[],followups=[]}=getAlerts()||{};
@@ -3010,13 +3069,11 @@ function setPage(page, extra) {
     } else if (page === 'contracts') {
       renderContractsPage();
     } else if (page === 'home') {
-      if(typeof renderTeamMainDashboard === 'function') renderTeamMainDashboard();
-      loadIssueFeed(true);
       renderMyWeek();
+      renderHomeDashboardIssues();
       renderWeeklyScheduleSummary();
       renderTeamNotices();
-      renderKudos();
-      renderWeeklyReviews();
+      renderTeamKudosAndReviews();
     } else if (page === 'issues') {
       renderIssuesPage();
     } else if (page === 'gantt') {
@@ -4911,22 +4968,30 @@ function formatDate(ts){const d=new Date(ts);return d.getFullYear()+'.'+(d.getMo
 
 function renderTeamNotices(){
   const el=document.getElementById('teamNoticeWrap');if(!el)return;
-  const list=[...notices];
-  el.innerHTML='<div class="card team-notice-panel" style="margin-bottom:0">'
+  const list=[...notices].sort((a,b)=>{
+    const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
+    if(pinDiff)return pinDiff;
+    return new Date(b.created_at||0)-new Date(a.created_at||0);
+  });
+  const visible=teamNoticeExpanded?list:list.slice(0,3);
+  el.innerHTML='<div class="card team-notice-panel" style="margin-bottom:0;padding:14px 16px">'
     +'<div class="team-notice-head">'
     +'<div><div class="section-label" style="margin:0">팀 공지</div><div style="font-size:12px;color:var(--text3);margin-top:4px">운영 공지와 필독 사항을 팀 탭에서 바로 확인하세요.</div></div>'
     +(isAdmin?'<button class="btn primary sm" onclick="openNoticeWrite()">+ 공지 작성</button>':'')
     +'</div>'
     +(!list.length
       ?'<div class="notice-empty" style="padding:26px 16px">등록된 공지가 없습니다.</div>'
-      :'<div class="team-notice-list">'
-        +list.map(n=>'<div class="notice-card'+(n.is_pinned?' pinned':'')+'" style="margin-bottom:0" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
-          +'<div class="notice-chip-row">'+(n.is_pinned?'<span class="badge badge-blue">📌 고정</span>':'')+(n.require_confirm?'<span class="badge badge-red">필독</span>':'')+'</div>'
-          +'<div class="notice-title">'+esc(n.title)+'</div>'
-          +'<div class="notice-meta">'+formatDate(n.created_at)+'</div>'
-          +'<div class="notice-preview">'+esc((n.content||'').substring(0,140))+'</div>'
+      :'<div class="team-notice-list" style="gap:0;max-height:none;overflow:visible;padding-right:0">'
+        +visible.map(n=>'<div onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--bg);cursor:pointer">'
+          +'<div style="min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden">'
+          +(n.is_pinned?'<span class="badge badge-blue" style="flex-shrink:0">📌</span>':'')
+          +(n.require_confirm?'<span class="badge badge-red" style="flex-shrink:0">필독</span>':'')
+          +'<span style="font-size:13px;font-weight:700;color:var(--navy);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(n.title)+'</span>'
+          +'</div>'
+          +'<div style="font-size:11px;color:var(--text3);flex-shrink:0">'+formatDate(n.created_at)+'</div>'
           +'</div>').join('')
-        +'</div>')
+        +'</div>'
+        +(list.length>3?'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn sm" onclick="teamNoticeExpanded='+(!teamNoticeExpanded)+';renderTeamNotices()">'+(teamNoticeExpanded?'접기':'더보기')+'</button></div>':''))
     +'</div>';
 }
 
@@ -5008,7 +5073,7 @@ async function saveNotice(eid){
     else{await api('POST','notices',{title,content,is_pinned,require_confirm,created_by:currentUser.id});}
     closeModal();
     await loadAll();
-    if(curPage==='team')renderTeamNotices();
+    if(curPage==='home')renderTeamNotices();
   }catch(e){alert('오류: '+e.message);}
 }
 async function deleteNotice(id){
@@ -5017,7 +5082,7 @@ async function deleteNotice(id){
     await api('DELETE','notices?id=eq.'+id);
     closeModal();
     await loadAll();
-    if(curPage==='team')renderTeamNotices();
+    if(curPage==='home')renderTeamNotices();
   }catch(e){alert('오류: '+e.message);}
 }
 
@@ -9750,12 +9815,12 @@ window.saveProj = async function(){
       const cid=savedProj?.client_id;
       if(cid) openClientDetail(cid,'projects');
       else setPage('clients');
-    }else if(curPage==='team'){
-      if(typeof renderTeamMainDashboard==='function') renderTeamMainDashboard();
-      renderTeamNotices();
-      loadIssueFeed(true);
+    }else if(curPage==='home'){
       renderMyWeek();
+      renderHomeDashboardIssues();
       renderWeeklyScheduleSummary();
+      renderTeamNotices();
+      renderTeamKudosAndReviews();
     }else{
       renderClients();
     }
