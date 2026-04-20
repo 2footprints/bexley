@@ -122,6 +122,18 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .myweek-item{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;color:#fff;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;display:block;max-width:100%}
 .myweek-item:hover{filter:brightness(.88)}
 .myweek-empty{font-size:11px;color:var(--text3);padding:4px 0}
+.myweek-today-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.myweek-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--bg);background:none;border:none;width:100%;text-align:left;cursor:pointer;font-family:inherit}
+.myweek-row:last-child{border-bottom:none}
+.myweek-row-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.myweek-row-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.myweek-row-title{font-size:13px;font-weight:700;color:var(--navy);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.myweek-row-badge{flex-shrink:0}
+.myweek-summary{font-size:12px;color:var(--text3);line-height:1.7;padding-top:2px}
+.myweek-summary strong{color:var(--navy);font-weight:800}
+.myweek-expand{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:12px}
+.myweek-expand-day{border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;background:var(--bg)}
+.myweek-expand-head{font-size:12px;font-weight:800;color:var(--navy);margin-bottom:8px}
 .btn.lunch-cat.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .weekly-list{display:flex;flex-direction:column;gap:8px}
 .weekly-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--bg)}
@@ -222,6 +234,9 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
   .myweek-day-label{font-size:12px}
   .myweek-day-date{font-size:11px}
   .myweek-item{font-size:11px;padding:4px 8px;border-radius:6px;margin-bottom:5px}
+  .myweek-row{padding:12px 0}
+  .myweek-row-title{font-size:14px}
+  .myweek-summary{font-size:13px}
   .weekly-item{padding:12px 0;gap:10px}
   .weekly-name{font-size:14px}
   .weekly-sub{font-size:12px}
@@ -2039,6 +2054,7 @@ let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billi
 let clientAssignments=[],openIssuesByProject={},accessRequests=[];
 let curPage='home',curGView='project';
 let teamNoticeExpanded=false;
+let myWeekExpanded=false;
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
 let editingProjId=null,formMembers=[],editingClientId=null,editingContractId=null;
@@ -2812,60 +2828,68 @@ function renderMyWeek(){
   const el=document.getElementById('myWeekWrap');if(!el)return;
   if(!currentMember){el.innerHTML='';return;}
   const today=new Date();today.setHours(0,0,0,0);
-  // 이번 주 월~금
   const dayOfWeek=today.getDay();
   const diffToMon=dayOfWeek===0?-6:1-dayOfWeek;
   const monday=new Date(today);monday.setDate(today.getDate()+diffToMon);
   const days=Array.from({length:5},(_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);return d;});
   const dayLabels=['월','화','수','목','금'];
   const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-  const shortWeekLabel=text=>{
-    const raw=String(text||'').trim();
-    return raw.length>6?raw.slice(0,6)+'...':raw;
-  };
-  // 내 프로젝트 (이번 주 걸치는 것)
+  const todayIndex=days.findIndex(d=>d.getTime()===today.getTime());
+  const todayLabel=['일','월','화','수','목','금','토'][today.getDay()];
   const myProjs=projects.filter(p=>
     p.members.includes(currentMember.name)&&p.status!=='완료'&&
     toDate(p.start)<=days[4]&&toDate(p.end)>=days[0]
   );
-  // 내 스케줄
   const mySchs=schedules.filter(s=>
     s.member_name===currentMember.name&&
     toDate(s.start)<=days[4]&&toDate(s.end)>=days[0]
   );
-  const cols=days.map((d,i)=>{
-    const ds=fmt(d);
-    const isToday=d.getTime()===today.getTime();
-    const items=[];
-    // 프로젝트
+  const dayEntries=days.map(d=>{
+    const entries=[];
     myProjs.forEach(p=>{
       if(toDate(p.start)<=d&&toDate(p.end)>=d){
         const client=clients.find(c=>c.id===p.client_id);
-        const label=(client?client.name+' ':'')+p.name;
-        items.push('<span class="myweek-item" style="background:'+( TYPES[p.type]||'#4e5968')+'" onclick="openProjModal(\''+p.id+'\')" title="'+esc(label)+'">'+esc(shortWeekLabel(label))+'</span>');
+        entries.push({
+          kind:'project',
+          id:p.id,
+          title:(client?client.name+' ':'')+p.name,
+          badge:p.type||'기타',
+          color:TYPES[p.type]||'#4e5968',
+          action:"openProjModal('"+p.id+"')"
+        });
       }
     });
-    // 스케줄 (휴가/필드웍/내부업무)
     mySchs.forEach(s=>{
       if(toDate(s.start)<=d&&toDate(s.end)>=d){
-        const color=SCHEDULE_META[s.schedule_type]?.color||'#8b95a1';
-        const label=s.title||SCHEDULE_META[s.schedule_type]?.label||s.schedule_type;
-        items.push('<span class="myweek-item" style="background:'+color+';opacity:.85" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(label)+'">'+esc(shortWeekLabel(label))+'</span>');
+        entries.push({
+          kind:'schedule',
+          id:s.id,
+          title:s.title||SCHEDULE_META[s.schedule_type]?.label||s.schedule_type,
+          badge:scheduleLabel(s.schedule_type),
+          color:SCHEDULE_META[s.schedule_type]?.color||'#8b95a1',
+          action:"openScheduleModal('"+s.id+"')"
+        });
       }
     });
-    return '<div class="myweek-day'+(isToday?' today':'')+'">'
-      +'<div class="myweek-day-label">'+dayLabels[i]+'<span class="myweek-day-date">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></div>'
-      +(items.length?items.join(''):'<div class="myweek-empty">—</div>')
-      +'</div>';
-  }).join('');
-  // 이번 주 날짜 범위
-  const rangeLabel=(monday.getMonth()+1)+'.'+monday.getDate()+' ~ '+(days[4].getMonth()+1)+'.'+days[4].getDate();
+    return entries;
+  });
+  const renderEntryRow=item=>'<button type="button" class="myweek-row" onclick="'+item.action+'">'
+    +'<div class="myweek-row-main"><span class="myweek-row-dot" style="background:'+item.color+'"></span><span class="myweek-row-title" title="'+esc(item.title)+'">'+esc(item.title)+'</span></div>'
+    +'<span class="badge badge-gray myweek-row-badge" style="color:'+item.color+';background:rgba(15,23,42,.06)">'+esc(item.badge)+'</span>'
+    +'</button>';
+  const todayEntries=todayIndex>=0?(dayEntries[todayIndex]||[]):[];
+  const summaryParts=days.map((d,i)=>i===todayIndex?'':('<strong>'+dayLabels[i]+'</strong> '+(dayEntries[i]?.length||0)+'건')).filter(Boolean);
+  const expandedDays=days.map((d,i)=>i===todayIndex?'':('<div class="myweek-expand-day"><div class="myweek-expand-head">'+dayLabels[i]+' '+(d.getMonth()+1)+'/'+d.getDate()+'</div>'+(dayEntries[i]?.length?dayEntries[i].map(renderEntryRow).join(''):'<div class="myweek-empty">일정 없음</div>')+'</div>')).filter(Boolean).join('');
+  const toggleLabel=myWeekExpanded?'접기 ↑':'이번 주 전체 보기 →';
+  const titleLabel='오늘 내 일정 ('+(today.getMonth()+1)+'/'+today.getDate()+' '+todayLabel+')';
   el.innerHTML='<div class="myweek-card">'
     +'<div class="myweek-header">'
-    +'<span class="myweek-title">이번 주 내 일정 ('+currentMember.name+')</span>'
-    +'<span style="font-size:11px;color:var(--text3)">'+rangeLabel+'</span>'
+    +'<span class="myweek-title">'+titleLabel+'</span>'
+    +'<button type="button" class="btn ghost sm" onclick="myWeekExpanded='+(!myWeekExpanded)+';renderMyWeek()">'+toggleLabel+'</button>'
     +'</div>'
-    +'<div class="myweek-grid">'+cols+'</div>'
+    +'<div class="myweek-today-list">'+(todayEntries.length?todayEntries.map(renderEntryRow).join(''):'<div class="myweek-empty">오늘 등록된 일정이 없습니다.</div>')+'</div>'
+    +'<div class="myweek-summary">'+summaryParts.join(' | ')+'</div>'
+    +(myWeekExpanded?'<div class="myweek-expand">'+expandedDays+'</div>':'')
     +'</div>';
 }
 
