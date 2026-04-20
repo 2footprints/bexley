@@ -531,6 +531,23 @@ table{border-collapse:collapse;min-width:100%}
 .portal-drive-btn:hover{background:var(--blue-dark)}
 .portal-section-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:24px 0 10px}
 .portal-empty{text-align:center;padding:40px;color:var(--text3);background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.portal-doc-list{display:flex;flex-direction:column;gap:10px}
+.portal-doc-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+.portal-doc-row:first-child{border-top:none;padding-top:0}
+.portal-doc-main{min-width:0;flex:1}
+.portal-doc-title{font-size:13px;font-weight:700;color:var(--navy);line-height:1.45}
+.portal-doc-date{font-size:11px;color:var(--text3);margin-top:4px}
+.portal-doc-side{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.portal-doc-status{min-width:82px;justify-content:center}
+.portal-doc-disabled{font-size:11px;color:var(--text3);font-weight:600}
+.portal-doc-check{font-size:13px;font-weight:700;color:var(--green);white-space:nowrap}
+.portal-doc-progress{background:var(--bg);border-radius:999px;height:8px;overflow:hidden}
+.portal-doc-progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue) 0%,var(--green) 100%)}
+.portal-doc-submit{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.portal-doc-submit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.portal-doc-input{width:100%;padding:10px 12px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--text);font-family:inherit}
+.portal-doc-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(49,130,246,.1)}
+.portal-doc-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 .login-type-toggle{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
 .login-type-btn{padding:6px 16px;font-size:12px;font-weight:600;border:1px solid var(--border2);border-radius:20px;cursor:pointer;background:transparent;color:var(--text3);font-family:inherit;transition:all .15s}
 .login-type-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
@@ -2453,6 +2470,7 @@ function switchLoginType(type){
 
 // ── 고객사 포털 로그인 ──
 let portalClient=null;
+let activePortalDocumentSubmitId='';
 async function doClientLogin(){
   const email=document.getElementById('clientEmail').value.trim();
   const pw=document.getElementById('clientPw').value;
@@ -2534,6 +2552,95 @@ async function restorePortalSession(){
   }catch(e){return false;}
 }
 
+function getPortalDocumentRequestStatusMeta(status){
+  if(status==='confirmed') return {label:'확인완료 ✓', badge:'badge-green'};
+  if(status==='uploaded') return {label:'제출완료', badge:'badge-blue'};
+  return {label:'요청중', badge:'badge-gray'};
+}
+
+function togglePortalDocumentSubmitForm(requestId, projectId){
+  activePortalDocumentSubmitId=activePortalDocumentSubmitId===requestId?'':requestId;
+  loadPortalDocumentRequests(projectId);
+}
+
+async function loadPortalDocumentRequests(projectId){
+  const el=document.getElementById('portalDocRequests-'+projectId);
+  if(!el)return;
+  try{
+    const rows=await fetch(SB_URL+'/rest/v1/document_requests?project_id=eq.'+projectId+'&select=*&order=sort_order.asc',{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    }).then(r=>r.json());
+    const completedCount=(rows||[]).filter(r=>r.status==='uploaded'||r.status==='confirmed').length;
+    const totalCount=(rows||[]).length;
+    const pct=totalCount?Math.round((completedCount/totalCount)*100):0;
+    el.innerHTML=''
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px"><div style="font-size:13px;font-weight:800;color:var(--navy)">자료 제출 현황: '+completedCount+'건 완료 / 전체 '+totalCount+'건</div><div style="font-size:11px;color:var(--text3)">'+pct+'%</div></div>'
+      +'<div class="portal-doc-progress" style="margin-bottom:14px"><div class="portal-doc-progress-bar" style="width:'+pct+'%"></div></div>'
+      +((rows||[]).length
+        ?'<div class="portal-doc-list">'+rows.map(req=>{
+            const meta=getPortalDocumentRequestStatusMeta(req.status);
+            const formOpen=activePortalDocumentSubmitId===req.id&&req.status==='pending';
+            return '<div>'
+              +'<div class="portal-doc-row">'
+                +'<div class="portal-doc-main"><div class="portal-doc-title">'+esc(req.title||'자료명 없음')+'</div><div class="portal-doc-date">회수 희망일 '+esc(req.due_date||'-')+'</div></div>'
+                +'<div class="portal-doc-side">'
+                  +'<span class="badge '+meta.badge+' portal-doc-status">'+meta.label+'</span>'
+                  +(req.status==='pending'
+                    ?'<button class="btn sm" onclick="togglePortalDocumentSubmitForm(\''+req.id+'\',\''+projectId+'\')">제출 완료</button>'
+                    :req.status==='uploaded'
+                      ?'<span class="portal-doc-disabled">제출완료</span>'
+                      :'<span class="portal-doc-check">확인완료 ✓</span>')
+                +'</div>'
+              +'</div>'
+              +(formOpen
+                ?'<div class="portal-doc-submit">'
+                  +'<div class="portal-doc-submit-grid"><input id="portalDocNote-'+req.id+'" class="portal-doc-input" placeholder="메모 (선택)"/><input id="portalDocLink-'+req.id+'" class="portal-doc-input" placeholder="링크 (선택)"/></div>'
+                  +'<div class="portal-doc-actions"><button class="btn ghost sm" onclick="togglePortalDocumentSubmitForm(\''+req.id+'\',\''+projectId+'\')">취소</button><button class="btn primary sm" onclick="submitDocumentRequest(\''+req.id+'\',\''+projectId+'\')">저장</button></div>'
+                +'</div>'
+                :'')
+              +'</div>';
+          }).join('')+'</div>'
+        :'<div class="portal-empty" style="padding:24px 18px">요청된 자료가 없습니다.</div>');
+  }catch(e){
+    el.innerHTML='<div class="portal-empty" style="padding:24px 18px">자료 요청을 불러오지 못했습니다.</div>';
+  }
+}
+
+async function submitDocumentRequest(requestId, projectId){
+  const upload_note=(document.getElementById('portalDocNote-'+requestId)?.value||'').trim()||null;
+  const upload_link=(document.getElementById('portalDocLink-'+requestId)?.value||'').trim()||null;
+  try{
+    const requestRows=await api('GET','document_requests?id=eq.'+requestId+'&select=id,title,created_by')||[];
+    const requestRow=requestRows?.[0]||null;
+    await api('PATCH','document_requests?id=eq.'+requestId,{status:'uploaded',upload_note,upload_link});
+    const message='['+(portalClient?.name||'고객사')+'] '+(requestRow?.title||'자료')+' 제출 완료';
+    const notifyUserIds=requestRow?.created_by
+      ?[requestRow.created_by]
+      :[...new Set(((await api('GET','project_members?project_id=eq.'+projectId+'&select=members(auth_user_id)').catch(()=>[]))||[])
+          .map(row=>row.members?.auth_user_id)
+          .filter(Boolean))];
+    for(const userId of notifyUserIds){
+      try{
+        await api('POST','notifications',{
+          user_id:userId,
+          type:'doc_submitted',
+          title:'자료 제출 완료',
+          message,
+          link_type:'project',
+          link_id:projectId,
+          is_read:false
+        });
+      }catch(err){
+        console.warn('자료 제출 알림 생성 실패:',err.message);
+      }
+    }
+    activePortalDocumentSubmitId='';
+    await loadPortalDocumentRequests(projectId);
+  }catch(e){
+    alert('자료 제출 처리 오류: '+e.message);
+  }
+}
+
 async function renderPortal(){
   const el=document.getElementById('portalBody');
   if(!portalClient){el.innerHTML='';return;}
@@ -2556,6 +2663,15 @@ async function renderPortal(){
       +'</div>'
       +(p.members.length?'<div class="portal-proj-members">'+p.members.map(m=>'<span class="portal-member-chip">'+esc(m)+'</span>').join('')+'</div>':'')
       +'</div>';
+    const docCard=p=>'<div class="portal-proj-card">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">'
+      +'<div><div class="portal-proj-name">'+esc(p.name)+'</div>'
+      +'<div class="portal-proj-meta">'+p.start_date+' ~ '+p.end_date+' · '+esc(p.type)+'</div></div>'
+      +'<span class="badge '+stBadge(p.status)+'">'+p.status+'</span>'
+      +'</div>'
+      +(p.members.length?'<div class="portal-proj-members" style="margin-top:0;margin-bottom:12px">'+p.members.map(m=>'<span class="portal-member-chip">'+esc(m)+'</span>').join('')+'</div>':'')
+      +'<div id="portalDocRequests-'+p.id+'"><div style="color:var(--text3);font-size:13px;padding:10px 0;text-align:center">불러오는 중...</div></div>'
+      +'</div>';
 
     // 재무제표 있는지 확인
     const finReports=await fetch(SB_URL+'/rest/v1/financial_reports?client_id=eq.'+portalClient.id+'&select=id,period&order=period.desc&limit=1',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()).catch(()=>[]);
@@ -2576,6 +2692,8 @@ async function renderPortal(){
       +'</div>'
       // 업무 탭 (기본)
       +'<div id="ptab-content-업무">'
+      +'<div class="portal-section-label">자료 요청</div>'
+      +(active.length?active.map(docCard).join(''):'<div class="portal-empty">현재 요청된 자료가 없습니다.</div>')
       +((updates&&updates.length)?'<div class="portal-section-label">업데이트 ('+updates.length+'건)</div>'
         +updates.map(u=>'<div class="portal-proj-card">'
           +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
@@ -2595,6 +2713,7 @@ async function renderPortal(){
       // 문서 탭
       +(portalClient.onedrive_url?'<div id="ptab-content-문서" style="display:none"><div style="text-align:center;padding:40px"><a href="'+esc(portalClient.onedrive_url)+'" target="_blank" class="portal-drive-btn" style="display:inline-flex;font-size:15px;padding:14px 28px">📁 OneDrive 문서함 열기</a></div></div>':'');
 
+    await Promise.all(active.map(p=>loadPortalDocumentRequests(p.id)));
     if(hasFinance) loadPortalFinance(portalClient.id);
   }catch(e){el.innerHTML='<div class="portal-empty">불러오기 실패: '+esc(e.message)+'</div>';}
 }
@@ -8937,13 +9056,13 @@ const renderGanttLayoutBase = typeof window.renderGantt === 'function' ? window.
 window.renderGantt = function(){
   ensureGanttLayoutToggle();
   updateGanttLayoutButtons();
+  const {projs,schs}=getGanttFilteredData();
+  renderGanttOverviewCards(projs,schs);
   if(curGanttLayout==='calendar'){
     const monthLabel=document.getElementById('monthLabel');
     if(monthLabel) monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
     const shell=document.querySelector('.gantt-shell');
     if(shell) shell.classList.add('is-reverted');
-    const {projs,schs}=getGanttFilteredData();
-    renderGanttOverviewCards(projs,schs);
     renderGanttCalendarGrid(projs,schs);
     const detail=document.getElementById('ganttDetail');
     if(detail) detail.innerHTML='';
