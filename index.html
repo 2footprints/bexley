@@ -1940,7 +1940,6 @@ input,textarea{border-radius:12px!important}
       <div class="section-header team-page-header" style="margin-bottom:20px">
         <h2 class="section-title">팀</h2>
       </div>
-      <div id="homePinnedWrap"></div>
       <div id="myWeekWrap"></div>
       <div id="homeIssueSummaryWrap" style="margin-bottom:16px"></div>
       <div id="teamWorkloadWrap" style="margin-bottom:16px"></div>
@@ -3349,7 +3348,6 @@ function setPage(page, extra) {
     } else if (page === 'contracts') {
       renderContractsPage();
     } else if (page === 'home') {
-      renderPinned();
       renderMyWeek();
       renderHomeDashboardIssues();
       renderTeamWorkload();
@@ -3374,10 +3372,8 @@ function setPage(page, extra) {
         console.error('clients fallback failed:',inner);
       }
     }
-    const pinned=document.getElementById('homePinnedWrap');
     const alerts=document.getElementById('alertWrap');
     const grid=document.getElementById('clientGrid');
-    if(pinned)pinned.innerHTML='';
     if(alerts)alerts.innerHTML='';
     if(grid){
       grid.innerHTML='<div class="empty-state">기본 화면을 불러오는 중 오류가 발생했습니다.<br><br>새로고침 후 다시 시도해주세요.</div>';
@@ -4125,11 +4121,11 @@ function renderGanttOverviewCards(projs,schs){
   const el=document.getElementById('ganttOverview'); if(!el) return;
   const today=new Date();
   const stats=[
-    ['Projects', projs.length, 'Filtered this month'],
-    ['Active', projs.filter(p=>p.status==='吏꾪뻾以?').length, 'Running now'],
-    ['At Risk', projs.filter(p=>toDate(p.end)<today&&p.status!=='?꾨즺').length, 'Needs attention'],
-    ['Billing', projs.filter(p=>p.status==='?꾨즺'&&p.is_billable&&p.billing_status==='誘몄껌援?').length, 'Waiting to bill'],
-    ['Events', schs.length, 'Leave and fieldwork']
+    ['이번 달 프로젝트', projs.length, '현재 필터 기준'],
+    ['진행중', projs.filter(p=>p.status==='吏꾪뻾以?').length, '현재 진행중'],
+    ['주의 필요', projs.filter(p=>toDate(p.end)<today&&p.status!=='?꾨즺').length, '지연 프로젝트 없음'],
+    ['빌링 필요', projs.filter(p=>p.status==='?꾨즺'&&p.is_billable&&p.billing_status==='誘몄껌援?').length, '완료했으나 미청구'],
+    ['미해결 이슈', schs.length, '휴가/필드웍 일정']
   ];
   el.innerHTML=stats.map(([label,value,sub])=>'<div class="gantt-kpi"><div class="gantt-kpi-label">'+label+'</div><div class="gantt-kpi-value">'+value+'</div><div class="gantt-kpi-sub">'+sub+'</div></div>').join('');
 }
@@ -4764,11 +4760,11 @@ function renderGanttOverviewCards(projs,schs){
   const unbilledCount=projs.filter(p=>p.status===doneStatus&&p.is_billable&&p.billing_status===billingPending).length;
   const issueCount=projs.reduce((sum,p)=>sum+(openIssuesByProject[p.id]||0),0);
   const stats=[
-    ['Projects This Month', projs.length, 'Current filter'],
-    ['Active', activeCount, 'Running now'],
-    ['Needs Attention', overdueCount, overdueCount?'Overdue projects found':'No overdue projects'],
-    ['Billing Needed', unbilledCount, unbilledCount?'Completed but not billed':'No billing queue'],
-    ['Open Issues', issueCount, schs.length+' leave / fieldwork events']
+    ['이번 달 프로젝트', projs.length, '현재 필터 기준'],
+    ['진행중', activeCount, '현재 진행중'],
+    ['주의 필요', overdueCount, overdueCount?'지연 프로젝트 있음':'지연 프로젝트 없음'],
+    ['빌링 필요', unbilledCount, '완료했으나 미청구'],
+    ['미해결 이슈', issueCount, '휴가/필드웍 일정']
   ];
   el.innerHTML=stats.map(([label,value,sub])=>'<div class="gantt-kpi"><div class="gantt-kpi-label">'+label+'</div><div class="gantt-kpi-value">'+value+'</div><div class="gantt-kpi-sub">'+sub+'</div></div>').join('');
 }
@@ -5361,7 +5357,7 @@ async function saveNotice(eid){
     else{await api('POST','notices',{title,content,is_pinned,require_confirm,created_by:currentUser.id});}
     closeModal();
     await loadAll();
-    if(curPage==='home'){renderPinned();renderTeamNotices();}
+    if(curPage==='home')renderTeamNotices();
   }catch(e){alert('오류: '+e.message);}
 }
 async function deleteNotice(id){
@@ -5370,7 +5366,7 @@ async function deleteNotice(id){
     await api('DELETE','notices?id=eq.'+id);
     closeModal();
     await loadAll();
-    if(curPage==='home'){renderPinned();renderTeamNotices();}
+    if(curPage==='home')renderTeamNotices();
   }catch(e){alert('오류: '+e.message);}
 }
 
