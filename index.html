@@ -3018,10 +3018,7 @@ function setPage(page, extra) {
       renderKudos();
       renderWeeklyReviews();
     } else if (page === 'issues') {
-      const issuesPage=document.getElementById('pageIssues');
-      if(issuesPage){
-        issuesPage.innerHTML='<div class="card"><div class="section-header" style="margin-bottom:8px"><h2 class="section-title">이슈</h2></div><div style="font-size:13px;color:var(--text3);line-height:1.7">이슈 화면은 곧 연결할 예정입니다.</div></div>';
-      }
+      renderIssuesPage();
     } else if (page === 'gantt') {
       renderGantt();
     } else if (page === 'admin') {
@@ -5855,6 +5852,87 @@ function renderIssueFeed(el,pinned,recent){
   el.innerHTML=html;
 }
 
+function setIssuesPageFilter(key,value){
+  issuesPageFilters[key]=value||'';
+  renderIssuesPageFromCache();
+}
+
+function toggleIssuesPageStatus(status){
+  issuesPageFilters.status=status;
+  renderIssuesPageFromCache();
+}
+
+function toggleIssuesPageAccordion(issueId){
+  if(expandedIssuesPageIds.has(issueId))expandedIssuesPageIds.delete(issueId);
+  else expandedIssuesPageIds.add(issueId);
+  renderIssuesPageFromCache();
+}
+
+function getIssuesPageStatusMeta(issue){
+  if(issue?.status==='resolved')return {label:'RESOLVED',cls:'badge-gray'};
+  if(issue?.is_pinned)return {label:'PINNED',cls:'badge-orange'};
+  return {label:'OPEN',cls:'badge-blue'};
+}
+
+function getIssuesPageRows(){
+  return [...(issuesPageCache||[])].filter(issue=>{
+    if(issuesPageFilters.project_id&&issue.project_id!==issuesPageFilters.project_id)return false;
+    if(issuesPageFilters.member_id){
+      const memberMatch=issue.assignee_member_id===issuesPageFilters.member_id||issue.owner_member_id===issuesPageFilters.member_id;
+      if(!memberMatch)return false;
+    }
+    if(issuesPageFilters.status==='pinned')return !!issue.is_pinned;
+    if(issuesPageFilters.status==='resolved')return issue.status==='resolved';
+    return issue.status==='open';
+  }).sort((a,b)=>{
+    const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
+    if(pinDiff)return pinDiff;
+    return new Date(b.created_at||0)-new Date(a.created_at||0);
+  });
+}
+
+function renderIssuesPageFromCache(){
+  const el=document.getElementById('pageIssues');
+  if(!el)return;
+  const projectOptions=['<option value="">전체 프로젝트</option>']
+    .concat((projects||[]).map(project=>'<option value="'+project.id+'"'+(issuesPageFilters.project_id===project.id?' selected':'')+'>'+esc(project.name)+'</option>'))
+    .join('');
+  const memberOptions=['<option value="">전체 담당자</option>']
+    .concat((members||[]).map(member=>'<option value="'+member.id+'"'+(issuesPageFilters.member_id===member.id?' selected':'')+'>'+esc(member.name)+'</option>'))
+    .join('');
+  const rows=getIssuesPageRows();
+  const createBtn=canCreateIssueRole()?'<button class="btn primary sm" onclick="openIssueModal()">+ 이슈 등록</button>':'';
+  el.innerHTML='<div class="section-header" style="margin-bottom:16px"><h2 class="section-title">이슈</h2>'+createBtn+'</div>'
+    +'<div class="card" style="margin-bottom:14px;padding:14px 16px"><div class="filter-row" style="width:100%"><select onchange="setIssuesPageFilter(\'project_id\',this.value)">'+projectOptions+'</select><select onchange="setIssuesPageFilter(\'member_id\',this.value)">'+memberOptions+'</select><div class="toggle-wrap"><button class="toggle-btn '+(issuesPageFilters.status==='open'?'active':'')+'" onclick="toggleIssuesPageStatus(\'open\')">OPEN</button><button class="toggle-btn '+(issuesPageFilters.status==='pinned'?'active':'')+'" onclick="toggleIssuesPageStatus(\'pinned\')">PINNED</button><button class="toggle-btn '+(issuesPageFilters.status==='resolved'?'active':'')+'" onclick="toggleIssuesPageStatus(\'resolved\')">RESOLVED</button></div></div></div>'
+    +(rows.length?rows.map(issue=>{
+      const project=projects.find(p=>p.id===issue.project_id)||null;
+      const client=project?clients.find(c=>c.id===project.client_id):null;
+      const meta=getIssuesPageStatusMeta(issue);
+      const isExpanded=expandedIssuesPageIds.has(issue.id);
+      const isOpen=issue.status==='open';
+      const editable=canEditIssue(issue);
+      const assigneeLabel=issue.assignee_name||issue.owner_name||'미지정';
+      const projectLabel=(client?client.name+' - ':'')+(project?.name||'프로젝트 없음');
+      return '<div class="card issue-card" style="margin-bottom:10px;border-left:4px solid '+(issue.is_pinned?'#FBBF24':'var(--border)')+';opacity:'+(issue.status==='resolved'?'.68':'1')+'" onclick="toggleIssuesPageAccordion(\''+issue.id+'\')">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0"><div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow:hidden"><span class="badge '+meta.cls+'" style="flex-shrink:0">'+meta.label+'</span><span style="font-size:13px;font-weight:800;color:var(--navy);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(issue.title)+'</span><span style="font-size:12px;color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">| '+esc(projectLabel)+' | '+esc(assigneeLabel)+'</span></div><div style="font-size:11px;color:var(--text3);flex-shrink:0">'+formatCommentDate(issue.created_at)+'</div></div>'
+        +(isExpanded?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'+(issue.content?'<div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'<div style="font-size:12px;color:var(--text3)">설명 없음</div>')+'<div class="issue-actions" style="margin-top:10px">'+(isOpen?'<button class="issue-action-btn resolve-btn" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')" title="해결"><span class="issue-action-icon">✓</span><span class="issue-action-label">해결</span></button>':'')+(editable?'<button class="issue-action-btn" onclick="event.stopPropagation();openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="수정"><span class="issue-action-icon">✏️</span><span class="issue-action-label">수정</span></button>':'')+(isAdmin&&isOpen?'<button class="issue-action-btn pin-btn '+(issue.is_pinned?'active':'')+'" onclick="event.stopPropagation();toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" title="고정"><span class="issue-action-icon">📌</span><span class="issue-action-label">고정</span></button>':'')+'<button class="issue-action-btn" onclick="event.stopPropagation();openIssueComments(\''+issue.id+'\')" title="댓글"><span class="issue-action-icon">💬</span><span class="issue-action-label">댓글</span></button></div><div id="comments-'+issue.id+'" style="display:none"></div></div>':'')
+      +'</div>';
+    }).join(''):'<div class="card"><div style="font-size:13px;color:var(--text3)">조건에 맞는 이슈가 없습니다.</div></div>');
+}
+
+async function renderIssuesPage(){
+  const el=document.getElementById('pageIssues');
+  if(!el)return;
+  el.innerHTML='<div class="card"><div style="font-size:13px;color:var(--text3)">이슈를 불러오는 중...</div></div>';
+  try{
+    const rows=await api('GET','project_issues?select=*&order=created_at.desc');
+    issuesPageCache=Array.isArray(rows)?rows.filter(Boolean):[];
+    renderIssuesPageFromCache();
+  }catch(e){
+    el.innerHTML='<div class="card"><div style="font-size:13px;color:var(--red)">이슈를 불러오지 못했습니다.</div></div>';
+  }
+}
+
 
 async function openIssueModal(projId='',issueId=''){
   if(!issueId&&!canCreateIssueRole()){alert('승인 후 사용할 수 있습니다.');return;}
@@ -5954,6 +6032,7 @@ async function saveIssue(issueId=''){
     await logActivity(issueId ? '이슈 수정' : '이슈 추가', 'issue', createdId, truncateText(title, 40));
     closeModal();
     await loadIssueFeed();
+    if(curPage==='issues')await renderIssuesPage();
     if(createdId)focusTargetElement('issue-card-'+createdId);
   }catch(e){alert('저장 오류: '+e.message);}
 }
@@ -5967,6 +6046,7 @@ async function deleteIssue(issueId){
     await logActivity('이슈 삭제', 'issue', issueId, issueMeta?.title||'');
     closeModal();
     await loadIssueFeed();
+    if(curPage==='issues')await renderIssuesPage();
   }catch(e){alert('삭제 오류: '+e.message);}
 }
 
@@ -5979,6 +6059,7 @@ async function resolveIssue(id){
     });
     await logActivity('이슈 해결', 'issue', id, '');
     await loadIssueFeed();
+    if(curPage==='issues')await renderIssuesPage();
   }catch(e){alert('오류: '+e.message);}
 }
 
@@ -5988,11 +6069,16 @@ async function reopenIssue(id){
     await api('PATCH','project_issues?id=eq.'+id,{status:'open',resolved_at:null,resolved_by:null});
     await logActivity('이슈 재오픈', 'issue', id, '');
     await loadIssueFeed();
+    if(curPage==='issues')await renderIssuesPage();
   }catch(e){alert('오류: '+e.message);}
 }
 
 async function toggleIssuePin(id,newVal){
-  try{await api('PATCH','project_issues?id=eq.'+id,{is_pinned:newVal});await loadIssueFeed();}
+  try{
+    await api('PATCH','project_issues?id=eq.'+id,{is_pinned:newVal});
+    await loadIssueFeed();
+    if(curPage==='issues')await renderIssuesPage();
+  }
   catch(e){alert('오류: '+e.message);}
 }
 
@@ -8448,6 +8534,9 @@ async function deleteSchedule(id){
   }
 }
 issueCommentCountMap={};
+let issuesPageCache=[];
+let issuesPageFilters={project_id:'',member_id:'',status:'open'};
+let expandedIssuesPageIds=new Set();
 
 loadIssueFeed = async function(force=false){
   const el=document.getElementById('issueFeedWrap');if(!el)return;
