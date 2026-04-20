@@ -12,24 +12,54 @@
 <meta name="theme-color" content="#0F172A">
 <style>
 :root{
-  --bg:#F7F8FA;
+  --color-primary:#0F172A;
+  --color-accent:#10B981;
+  --color-accent-hover:#059669;
+  --color-bg:#F8FAFC;
+  --color-surface:#FFFFFF;
+  --color-border:#E2E8F0;
+  --color-text:#0F172A;
+  --color-text-secondary:#475569;
+  --color-text-muted:#94A3B8;
+  --color-warning:#F59E0B;
+  --color-danger:#EF4444;
+  --color-success:#10B981;
+  --color-info:#3B82F6;
+  --font-size-xs:12px;
+  --font-size-sm:13px;
+  --font-size-base:14px;
+  --font-size-md:15px;
+  --font-size-lg:18px;
+  --font-size-xl:24px;
+  --font-size-2xl:32px;
+  --radius-sm:6px;
+  --radius-md:8px;
+  --radius-lg:12px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg:0 4px 12px rgba(0,0,0,0.1);
+  --spacing-xs:4px;
+  --spacing-sm:8px;
+  --spacing-md:16px;
+  --spacing-lg:24px;
+  --bg:var(--color-bg);
   --bg2:#EEF0F4;
-  --card:#FFFFFF;
-  --blue:#6366F1;
+  --card:var(--color-surface);
+  --blue:var(--color-info);
   --blue-light:#EEF2FF;
   --blue-dark:#4F46E5;
-  --navy:#0F172A;
+  --navy:var(--color-primary);
   --navy2:#1E293B;
-  --text:#0F172A;
-  --text2:#475569;
-  --text3:#94A3B8;
-  --border:#E2E8F0;
-  --border2:#CBD5E1;
-  --red:#F43F5E;
+  --text:var(--color-text);
+  --text2:var(--color-text-secondary);
+  --text3:var(--color-text-muted);
+  --border:var(--color-border);
+  --border2:var(--color-border);
+  --red:var(--color-danger);
   --red-bg:#FFF1F2;
-  --green:#10B981;
+  --green:var(--color-success);
   --green-bg:#ECFDF5;
-  --orange:#F59E0B;
+  --orange:var(--color-warning);
   --orange-bg:#FFFBEB;
   --cyan:#06B6D4;
   --cyan-light:#ECFEFF;
@@ -37,13 +67,11 @@
   --purple-light:#F5F3FF;
   --pink:#EC4899;
   --pink-light:#FDF2F8;
-  --radius:14px;
-  --radius-sm:8px;
-  --shadow:0 1px 8px rgba(15,23,42,.07);
-  --shadow-lg:0 8px 30px rgba(15,23,42,.12);
+  --radius:var(--radius-lg);
+  --shadow:var(--shadow-md);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:var(--color-bg);color:var(--color-text);font-size:var(--font-size-base);min-height:100vh}
 
 /* Header */
 .header{background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 28px;height:62px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:100}
@@ -62,10 +90,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Ne
 
 /* App */
 .app{padding:24px;max-width:1200px;margin:0 auto}
-.btn{padding:8px 16px;font-size:13px;font-weight:600;border:1px solid var(--border2);background:var(--card);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;transition:all .15s;letter-spacing:-.2px}
+.btn{padding:8px 16px;font-size:var(--font-size-sm);font-weight:600;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text);border-radius:var(--radius-md);cursor:pointer;font-family:inherit;transition:all .15s;letter-spacing:-.2px}
 .btn:hover{border-color:var(--blue);color:var(--blue)}
-.btn.primary{background:linear-gradient(135deg,var(--blue) 0%,var(--blue-dark) 100%);color:#fff;border-color:var(--blue)}
-.btn.primary:hover{background:linear-gradient(135deg,var(--blue-dark) 0%,#3730A3 100%);border-color:var(--blue-dark)}
+.btn.primary{background:var(--color-primary);color:#fff;border-color:var(--color-primary);border-radius:var(--radius-md)}
+.btn.primary:hover{background:var(--color-accent-hover);border-color:var(--color-accent-hover)}
 .btn.danger{color:var(--red);border-color:#fcc}
 .btn.danger:hover{background:var(--red-bg)}
 .btn.ghost{border-color:transparent;color:var(--text3)}
@@ -77,8 +105,8 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .status-bar.err{color:var(--red)}
 
 /* Cards */
-.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:20px}
-.card-sm{background:var(--card);border-radius:var(--radius-sm);border:1px solid var(--border);padding:16px}
+.card{background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-border);padding:20px 24px;margin-bottom:var(--spacing-md);box-shadow:var(--shadow-md)}
+.card-sm{background:var(--color-surface);border-radius:var(--radius-lg);border:1px solid var(--color-border);padding:20px 24px;margin-bottom:var(--spacing-md);box-shadow:var(--shadow-md)}
 
 /* Alert */
 .alert-wrap{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
@@ -275,7 +303,7 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 
 /* Board */
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
-.section-title{font-size:18px;font-weight:800;color:var(--navy);letter-spacing:-.3px}
+.section-title{font-size:var(--font-size-md);font-weight:600;color:var(--color-text);letter-spacing:-.02em}
 .filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 /* 토글 스위치 */
 .toggle-wrap{display:flex;align-items:center;gap:0;background:var(--bg2);border-radius:20px;padding:3px;border:1px solid var(--border)}
@@ -592,35 +620,33 @@ table{border-collapse:collapse;min-width:100%}
 
 <style id="stripeThemeOverride">
 :root{
-  --bg:#F5F7FA;
+  --bg:var(--color-bg);
   --bg2:#EEF2F6;
-  --card:#FFFFFF;
-  --blue:#1F4FD1;
+  --card:var(--color-surface);
+  --blue:var(--color-info);
   --blue-light:#EDF3FF;
   --blue-dark:#173EA6;
-  --navy:#0A2540;
+  --navy:var(--color-primary);
   --navy2:#17324D;
-  --text:#162033;
-  --text2:#5C6B7E;
-  --text3:#8B98A9;
-  --border:#DCE4EC;
-  --border2:#C7D2DE;
-  --red:#E25950;
+  --text:var(--color-text);
+  --text2:var(--color-text-secondary);
+  --text3:var(--color-text-muted);
+  --border:var(--color-border);
+  --border2:var(--color-border);
+  --red:var(--color-danger);
   --red-bg:#FFF1F0;
-  --green:#0A8F58;
+  --green:var(--color-success);
   --green-bg:#ECFDF3;
-  --orange:#C15E00;
+  --orange:var(--color-warning);
   --orange-bg:#FFF7ED;
-  --shadow:0 1px 2px rgba(10,37,64,.04),0 10px 24px rgba(10,37,64,.05);
-  --shadow-lg:0 24px 48px rgba(10,37,64,.10);
-  --radius:18px;
-  --radius-sm:12px;
+  --shadow:var(--shadow-md);
+  --radius:var(--radius-lg);
+  --radius-sm:var(--radius-md);
 }
-html{background:#F5F7FA}
+html{background:var(--color-bg)}
 body{
-  background:
-    linear-gradient(180deg,#f8fafc 0%, #f5f7fa 180px, #f5f7fa 100%);
-  color:var(--text);
+  background:var(--color-bg);
+  color:var(--color-text);
 }
 .header,.portal-header{
   height:72px!important;
@@ -641,12 +667,12 @@ body{
   font-weight:650!important;
   letter-spacing:-.1px!important;
 }
-.nav-btn:hover{background:#F2F5F9!important;color:var(--navy)!important}
+.nav-btn:hover{background:var(--color-bg)!important;color:var(--color-primary)!important}
 .nav-btn.active{
-  background:#FFFFFF!important;
-  color:var(--navy)!important;
-  border:1px solid var(--border)!important;
-  box-shadow:0 1px 2px rgba(10,37,64,.04)!important;
+  background:var(--color-surface)!important;
+  color:var(--color-primary)!important;
+  border:1px solid var(--color-border)!important;
+  box-shadow:var(--shadow-sm)!important;
   font-weight:700!important;
 }
 .header-search-wrap{flex:1;max-width:440px;margin:0 18px 0 18px;position:relative;min-width:220px}
@@ -673,20 +699,20 @@ body{
 .status-bar{padding-bottom:18px!important}
 .btn,.logout-btn,select,.login-type-btn,.login-tab,.modal-tab,.toggle-btn,.detail-tab{transition:all .18s ease!important}
 .btn,.logout-btn,select{
-  border-radius:12px!important;
-  border-color:var(--border)!important;
-  background:#fff!important;
-  color:var(--text)!important;
-  box-shadow:0 1px 2px rgba(10,37,64,.03)!important;
+  border-radius:var(--radius-md)!important;
+  border-color:var(--color-border)!important;
+  background:var(--color-surface)!important;
+  color:var(--color-text)!important;
+  box-shadow:var(--shadow-sm)!important;
 }
 .btn:hover,.logout-btn:hover,select:hover{border-color:rgba(31,79,209,.18)!important;color:var(--navy)!important;transform:translateY(-1px)}
-.btn.primary,.login-submit{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important;box-shadow:0 8px 18px rgba(10,37,64,.12)!important}
-.btn.primary:hover,.login-submit:hover{background:#16324f!important;transform:translateY(-1px)!important;box-shadow:0 12px 22px rgba(10,37,64,.14)!important}
+.btn.primary,.login-submit{background:var(--color-primary)!important;border-color:var(--color-primary)!important;color:#fff!important;box-shadow:var(--shadow-md)!important}
+.btn.primary:hover,.login-submit:hover{background:var(--color-accent-hover)!important;transform:translateY(-1px)!important;box-shadow:var(--shadow-lg)!important}
 .toggle-wrap,.detail-tabs,.modal-tabs,.login-tabs{background:#EEF3F7!important;border:1px solid var(--border)!important;border-radius:999px!important;padding:4px!important}
 .toggle-btn,.detail-tab,.modal-tab,.login-tab{border-radius:999px!important;padding:8px 14px!important;font-weight:650!important}
 .toggle-btn.active,.detail-tab.active,.modal-tab.active,.login-tab.active{background:#fff!important;color:var(--navy)!important;box-shadow:0 1px 3px rgba(10,37,64,.07)!important}
 .section-header{align-items:flex-end!important;margin-bottom:18px!important}
-.section-title{font-size:26px!important;font-weight:760!important;letter-spacing:-.04em!important;color:var(--navy)!important}
+.section-title{font-size:var(--font-size-md)!important;font-weight:600!important;letter-spacing:-.02em!important;color:var(--color-text)!important}
 .header-nav + .header-search-wrap{}
 #navFun,#mNavFun{order:7}
 #navAdmin,#mNavAdmin{order:8}
@@ -699,10 +725,10 @@ body{
 #pageAdmin .section-header{align-items:center!important}
 .filter-row{gap:10px!important}
 .card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.pending-box,.access-request-card{
-  background:rgba(255,255,255,.94)!important;
-  border:1px solid rgba(227,232,238,.92)!important;
-  border-radius:20px!important;
-  box-shadow:var(--shadow)!important;
+  background:var(--color-surface)!important;
+  border:1px solid var(--color-border)!important;
+  border-radius:var(--radius-lg)!important;
+  box-shadow:var(--shadow-md)!important;
 }
 .client-card:hover,.notice-card:hover,.stat-card.clickable:hover,.portal-proj-card:hover{transform:translateY(-2px)!important;box-shadow:0 18px 34px rgba(10,37,64,.07)!important;border-color:rgba(10,37,64,.10)!important}
 .detail-hero,.portal-hero,.pinned-card{
@@ -884,7 +910,7 @@ td{
   border:1px solid rgba(10,37,64,.08)!important;
 }
 body{
-  font-size:14px!important;
+  font-size:var(--font-size-base)!important;
   line-height:1.5!important;
 }
 .section-title,
@@ -896,9 +922,10 @@ body{
   letter-spacing:-.035em!important;
 }
 .section-title{
-  font-size:24px!important;
-  font-weight:760!important;
-  line-height:1.15!important;
+  font-size:var(--font-size-md)!important;
+  font-weight:600!important;
+  line-height:1.3!important;
+  color:var(--color-text)!important;
 }
 .detail-hero-text h2,
 .portal-hero-text h2{
@@ -1651,14 +1678,14 @@ select{
 #pageAdmin .btn.sm{
   min-height:34px!important;
 }
-.login-page{background:linear-gradient(180deg,#f8fafc 0%,#f3f6f9 100%)!important}
+.login-page{background:var(--color-bg)!important}
 .login-box{backdrop-filter:blur(14px)!important}
 .login-type-btn.active{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important}
-.portal-page,.login-page{background-color:#F5F7FA!important}
+.portal-page,.login-page{background-color:var(--color-bg)!important}
 .table-toolbar,.gantt-toolbar{margin-bottom:18px!important}
 .month-nav,.toggle-wrap,.helper-box,.readonly-notice,.conflict-warn{border-radius:16px!important}
 input,textarea{border-radius:12px!important}
-.form-row input,.form-row select,.form-row textarea,.login-input-wrap input{border-color:var(--border)!important;background:#fff!important;color:var(--text)!important}
+.form-row input,.form-row select,.form-row textarea,.login-input-wrap input{border-color:var(--border)!important;background:var(--color-surface)!important;color:var(--text)!important}
 .form-row input:focus,.form-row select:focus,.form-row textarea:focus,.login-input-wrap input:focus{box-shadow:0 0 0 4px rgba(31,79,209,.08)!important;border-color:rgba(31,79,209,.26)!important}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:#D8E2EC;border-radius:999px;border:2px solid transparent;background-clip:padding-box}
@@ -1667,12 +1694,12 @@ input,textarea{border-radius:12px!important}
   .header-search-wrap{display:none!important}
 }
 @media(max-width:768px){
-  body{background:#F6F9FC!important}
+  body{background:var(--color-bg)!important}
   .header,.portal-header{height:60px!important;padding:0 14px!important}
   .app{padding:18px 12px calc(32px + env(safe-area-inset-bottom))!important}
   .app::before{margin-left:4px;margin-bottom:8px}
   .card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.issue-card{border-radius:18px!important}
-  .section-title{font-size:22px!important}
+  .section-title{font-size:var(--font-size-md)!important}
   .card,.notice-card,.client-card,.portal-proj-card,.myweek-card,.stat-card,.modal,.login-box{padding:18px!important}
   .card-sm,.helper-box,.weekly-item,.contract-item,.proj-item,.comment-item,.comment-item.reply{padding:14px!important}
   .modal-footer{gap:10px!important}
@@ -1681,28 +1708,28 @@ input,textarea{border-radius:12px!important}
 
 <style id="sectionCardUnifyOverride">
 .card,.card-sm,.myweek-card,.portal-proj-card,.notice-card,.weekly-item,.gantt-kpi,.team-fun-card,.team-notice-panel{
-  background:#ffffff!important;
-  border:1px solid #e2e8f0!important;
-  border-radius:8px!important;
-  box-shadow:0 1px 3px rgba(0,0,0,.08)!important;
+  background:var(--color-surface)!important;
+  border:1px solid var(--color-border)!important;
+  border-radius:var(--radius-lg)!important;
+  box-shadow:var(--shadow-md)!important;
 }
 .card,.card-sm,.myweek-card,.portal-proj-card,.team-notice-panel{
-  padding:20px 24px!important;
-  margin-bottom:16px!important;
+  padding:20px var(--spacing-lg)!important;
+  margin-bottom:var(--spacing-md)!important;
 }
 #pageTeam .pinned-card{
-  background:#ffffff!important;
-  border:1px solid #e2e8f0!important;
-  border-radius:8px!important;
-  box-shadow:0 1px 3px rgba(0,0,0,.08)!important;
-  margin-bottom:16px!important;
+  background:var(--color-surface)!important;
+  border:1px solid var(--color-border)!important;
+  border-radius:var(--radius-lg)!important;
+  box-shadow:var(--shadow-md)!important;
+  margin-bottom:var(--spacing-md)!important;
 }
 #pageTeam .pinned-card-title,
 #pageTeam .section-label,
 #pageTeam .myweek-title{
-  font-size:16px!important;
+  font-size:var(--font-size-md)!important;
   font-weight:600!important;
-  color:#0f172a!important;
+  color:var(--color-text)!important;
   letter-spacing:-.01em!important;
   text-transform:none!important;
 }
@@ -1711,16 +1738,16 @@ input,textarea{border-radius:12px!important}
 #pageTeam .team-workload-name,
 #pageTeam .team-fun-title,
 #pageTeam .team-notice-row-title{
-  font-size:14px!important;
+  font-size:var(--font-size-base)!important;
   font-weight:600!important;
-  color:#0f172a!important;
+  color:var(--color-text)!important;
 }
 #pageTeam .weekly-empty,
 #pageTeam .team-workload-meta,
 #pageTeam .myweek-row-title,
 #pageTeam .pinned-card-preview{
-  font-size:14px!important;
-  color:#334155!important;
+  font-size:var(--font-size-base)!important;
+  color:var(--color-text)!important;
 }
 #pageTeam .weekly-sub,
 #pageTeam .notice-meta,
@@ -1728,8 +1755,8 @@ input,textarea{border-radius:12px!important}
 #pageTeam .team-fun-desc,
 #pageTeam .team-notice-row-date,
 #pageTeam .pinned-card-date{
-  font-size:12px!important;
-  color:#64748b!important;
+  font-size:var(--font-size-xs)!important;
+  color:var(--color-text-secondary)!important;
 }
 #pageTeam .team-notice-row{
   display:flex;
@@ -1737,7 +1764,7 @@ input,textarea{border-radius:12px!important}
   justify-content:space-between;
   gap:12px;
   padding:10px 0;
-  border-top:1px solid #e2e8f0;
+  border-top:1px solid var(--color-border);
   cursor:pointer;
 }
 #pageTeam .team-notice-row:first-child{border-top:none}
@@ -1750,12 +1777,12 @@ input,textarea{border-radius:12px!important}
 #pageTeam .team-extra-grid > *{min-width:0}
 #pageTeam .team-extra-grid .card-sm{height:100%}
 #pageTeam .home-card{
-  background:#ffffff!important;
-  border:1px solid #e2e8f0!important;
-  border-radius:12px!important;
-  padding:20px 24px!important;
-  margin-bottom:16px!important;
-  box-shadow:0 1px 3px rgba(0,0,0,.06)!important;
+  background:var(--color-surface)!important;
+  border:1px solid var(--color-border)!important;
+  border-radius:var(--radius-lg)!important;
+  padding:20px var(--spacing-lg)!important;
+  margin-bottom:var(--spacing-md)!important;
+  box-shadow:var(--shadow-md)!important;
 }
 #pageTeam .home-section-head{
   display:flex;
@@ -1766,18 +1793,18 @@ input,textarea{border-radius:12px!important}
   margin-bottom:12px;
 }
 #pageTeam .home-section-title{
-  font-size:15px!important;
+  font-size:var(--font-size-md)!important;
   font-weight:600!important;
-  color:#1e293b!important;
+  color:var(--color-text)!important;
   margin-bottom:12px!important;
   letter-spacing:0!important;
   text-transform:none!important;
 }
 #pageTeam .home-section-head .home-section-title{margin-bottom:0!important}
 #pageTeam .home-subcard{
-  background:#ffffff;
-  border:1px solid #e2e8f0;
-  border-radius:10px;
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-md);
   padding:16px;
   height:100%;
 }
@@ -1790,43 +1817,43 @@ input,textarea{border-radius:12px!important}
   flex-wrap:wrap;
 }
 #pageTeam .home-subsection-title{
-  font-size:13px;
-  color:#64748b;
+  font-size:var(--font-size-sm);
+  color:var(--color-text-secondary);
   font-weight:500;
 }
 #pageTeam .home-person-name{
-  font-size:14px;
+  font-size:var(--font-size-base);
   font-weight:600;
-  color:#1e293b;
+  color:var(--color-text);
 }
 #pageTeam .home-meta-text{
-  font-size:13px;
-  color:#64748b;
+  font-size:var(--font-size-sm);
+  color:var(--color-text-secondary);
   line-height:1.6;
 }
 #pageTeam .home-inline-btn{
-  font-size:12px;
+  font-size:var(--font-size-xs);
   padding:4px 12px;
-  border:1px solid #e2e8f0;
-  border-radius:6px;
-  background:#fff;
-  color:#334155;
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-sm);
+  background:var(--color-surface);
+  color:var(--color-text);
   font-family:inherit;
   cursor:pointer;
 }
-#pageTeam .home-inline-btn:hover{background:#f8fafc}
+#pageTeam .home-inline-btn:hover{background:var(--color-bg)}
 #pageTeam .home-avatar{
   width:36px;
   height:36px;
   border-radius:50%;
-  font-size:14px;
+  font-size:var(--font-size-base);
   font-weight:700;
   display:flex;
   align-items:center;
   justify-content:center;
   flex-shrink:0;
-  background:#e2e8f0;
-  color:#1e293b;
+  background:var(--color-border);
+  color:var(--color-text);
 }
 #pageTeam .home-issue-groups{
   display:flex;
@@ -2004,6 +2031,63 @@ input,textarea{border-radius:12px!important}
   justify-content:flex-end;
   flex-shrink:0;
 }
+#pageTeam .home-risk-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin-bottom:16px;
+}
+#pageTeam .home-risk-card{
+  background:var(--color-surface);
+  border:1px solid var(--color-border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-md);
+  padding:18px 20px;
+  cursor:pointer;
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+#pageTeam .home-risk-card:hover{
+  transform:translateY(-1px);
+  box-shadow:var(--shadow-lg);
+}
+#pageTeam .home-risk-label{
+  font-size:var(--font-size-sm);
+  font-weight:600;
+  color:var(--color-text-secondary);
+  margin-bottom:8px;
+}
+#pageTeam .home-risk-value{
+  font-size:28px;
+  font-weight:700;
+  line-height:1.1;
+  color:var(--color-text);
+  letter-spacing:-.03em;
+}
+#pageTeam .home-risk-value.is-danger{color:var(--color-danger)}
+#pageTeam .home-risk-value.is-warning{color:var(--color-warning)}
+#pageTeam .home-risk-value.is-success{color:var(--color-success)}
+#pageTeam .home-risk-meta{
+  margin-top:8px;
+  font-size:var(--font-size-xs);
+  color:var(--color-text-secondary);
+  line-height:1.5;
+}
+#pageTeam .home-main-grid{
+  display:grid;
+  grid-template-columns:3fr 2fr;
+  gap:var(--spacing-md);
+  margin-bottom:var(--spacing-md);
+}
+#pageTeam .home-main-col,
+#pageTeam .home-bottom-grid > *{
+  min-width:0;
+}
+#pageTeam .home-bottom-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:var(--spacing-md);
+  margin-bottom:var(--spacing-md);
+}
 #pageTeam .home-issue-project-head{
   display:flex;
   align-items:center;
@@ -2013,6 +2097,13 @@ input,textarea{border-radius:12px!important}
 }
 
 @media(max-width:768px){
+  #pageTeam .home-risk-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+  #pageTeam .home-main-grid,
+  #pageTeam .home-bottom-grid{
+    grid-template-columns:1fr;
+  }
   #pageTeam .home-focus-summary{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
@@ -2208,12 +2299,21 @@ input,textarea{border-radius:12px!important}
       <div class="section-header team-page-header" style="margin-bottom:20px">
         <h2 class="section-title">팀</h2>
       </div>
-      <div id="myWeekWrap"></div>
-      <div id="homeIssueSummaryWrap" style="margin-bottom:16px"></div>
-      <div id="teamWorkloadWrap" style="margin-bottom:16px"></div>
-      <div id="memberScheduleWrap"></div>
-      <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
-      <div id="teamKudosReviewWrap" style="margin-bottom:16px"></div>
+      <div id="homeRiskWrap"></div>
+      <div class="home-main-grid">
+        <div class="home-main-col">
+          <div id="myWeekWrap"></div>
+          <div id="homeIssueSummaryWrap" style="margin-bottom:16px"></div>
+        </div>
+        <div class="home-main-col">
+          <div id="teamWorkloadWrap" style="margin-bottom:16px"></div>
+          <div id="memberScheduleWrap"></div>
+        </div>
+      </div>
+      <div class="home-bottom-grid">
+        <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
+        <div id="teamKudosReviewWrap" style="margin-bottom:16px"></div>
+      </div>
       <div class="team-fun-section">
         <div class="card home-card" style="margin-bottom:0">
           <div class="home-section-title">🎲 팀 소소 기능</div>
@@ -3647,6 +3747,7 @@ function closeMobileMenu(){
 
 function setPage(page, extra) {
   if (page === 'dash') page = 'admin';
+  if (page === 'projects') page = 'gantt';
   if (page === 'team') page = 'home';
   if (page === 'fun') page = 'home';
   curPage = page;
@@ -3700,6 +3801,7 @@ function setPage(page, extra) {
     } else if (page === 'contracts') {
       renderContractsPage();
     } else if (page === 'home') {
+      renderHomeRiskSummary();
       renderMyWeek();
       renderHomeDashboardIssues();
       renderTeamWorkload();
@@ -4475,9 +4577,9 @@ function renderGanttOverviewCards(projs,schs){
   const stats=[
     ['이번 달 프로젝트', projs.length, '현재 필터 기준'],
     ['진행중', projs.filter(p=>p.status==='吏꾪뻾以?').length, '현재 진행중'],
-    ['주의 필요', projs.filter(p=>toDate(p.end)<today&&p.status!=='?꾨즺').length, '지연 프로젝트 없음'],
-    ['빌링 필요', projs.filter(p=>p.status==='?꾨즺'&&p.is_billable&&p.billing_status==='誘몄껌援?').length, '완료했으나 미청구'],
-    ['미해결 이슈', schs.length, '휴가/필드웍 일정']
+    ['주의 필요', projs.filter(p=>toDate(p.end)<today&&p.status!=='?꾨즺').length, '지연 없음'],
+    ['청구 필요', projs.filter(p=>p.status==='?꾨즺'&&p.is_billable&&p.billing_status==='誘몄껌援?').length, '완료, 미청구'],
+    ['미해결 이슈', schs.length, '휴가/필드웍']
   ];
   el.innerHTML=stats.map(([label,value,sub])=>'<div class="gantt-kpi"><div class="gantt-kpi-label">'+label+'</div><div class="gantt-kpi-value">'+value+'</div><div class="gantt-kpi-sub">'+sub+'</div></div>').join('');
 }
@@ -4648,6 +4750,7 @@ async function saveDocumentRequest(projectId){
       sort_order:nextSort
     });
     openProjModal(projectId,null,null,'documents');
+    if(curPage==='home') renderHomeRiskSummary();
     setTimeout(()=>loadDocumentRequests(projectId),60);
   }catch(e){
     alert('자료 요청 저장 오류: '+e.message);
@@ -4662,6 +4765,7 @@ async function confirmDocumentRequest(requestId, projectId){
       confirmed_by:currentMember?.id||null
     });
     await loadDocumentRequests(projectId);
+    if(curPage==='home') renderHomeRiskSummary();
   }catch(e){
     alert('확인완료 처리 오류: '+e.message);
   }
@@ -5222,9 +5326,9 @@ function renderGanttOverviewCards(projs,schs){
   const stats=[
     ['이번 달 프로젝트', projs.length, '현재 필터 기준'],
     ['진행중', activeCount, '현재 진행중'],
-    ['주의 필요', overdueCount, overdueCount?'지연 프로젝트 있음':'지연 프로젝트 없음'],
-    ['빌링 필요', unbilledCount, '완료했으나 미청구'],
-    ['미해결 이슈', issueCount, '휴가/필드웍 일정']
+    ['주의 필요', overdueCount, overdueCount?'지연 있음':'지연 없음'],
+    ['청구 필요', unbilledCount, '완료, 미청구'],
+    ['미해결 이슈', issueCount, '휴가/필드웍']
   ];
   el.innerHTML=stats.map(([label,value,sub])=>'<div class="gantt-kpi"><div class="gantt-kpi-label">'+label+'</div><div class="gantt-kpi-value">'+value+'</div><div class="gantt-kpi-sub">'+sub+'</div></div>').join('');
 }
@@ -9850,6 +9954,99 @@ function formatHomeShortDate(dateLike){
   return (d.getMonth()+1)+'/'+d.getDate();
 }
 
+function renderHomeRiskSummaryCard(card){
+  return '<button type="button" class="home-risk-card" onclick="'+card.action+'">'
+    +'<div class="home-risk-label">'+esc(card.label)+'</div>'
+    +'<div class="home-risk-value '+(card.tone?'is-'+card.tone:'')+'">'+esc(card.value)+'</div>'
+    +(card.meta?'<div class="home-risk-meta">'+esc(card.meta)+'</div>':'')
+    +'</button>';
+}
+
+async function renderHomeRiskSummary(){
+  const el=document.getElementById('homeRiskWrap');
+  if(!el)return;
+  el.innerHTML='<div class="home-risk-grid">'
+    +['마감 임박','미해결 이슈','청구 대기','자료 미제출'].map(label=>
+      '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">—</div><div class="home-risk-meta">불러오는 중...</div></div>'
+    ).join('')
+    +'</div>';
+  try{
+    const today=getHomeBaseDate();
+    const dueLimit=new Date(today);
+    dueLimit.setDate(today.getDate()+3);
+    const urgentProjects=(projects||[]).filter(project=>{
+      const endDateRaw=project.end||project.end_date;
+      if(!endDateRaw)return false;
+      const status=project.status||'';
+      if(status==='완료'||status==='completed')return false;
+      const endDate=toDate(endDateRaw);
+      return endDate>=today&&endDate<=dueLimit;
+    });
+
+    const [issueRows,billingRows,pendingDocs]=await Promise.all([
+      currentMember?.id
+        ?api('GET','project_issues?select=id,status,is_pinned,assignee_member_id').catch(()=>[])
+        :Promise.resolve([]),
+      api('GET','billing_records?select=contract_id,amount,status').catch(()=>[]),
+      api('GET','document_requests?status=eq.pending&select=id,project_id,title').catch(()=>[])
+    ]);
+
+    const myOpenIssueCount=(issueRows||[]).filter(issue=>
+      issue?.assignee_member_id===currentMember?.id &&
+      (issue.status==='open'||issue.is_pinned===true)
+    ).length;
+
+    const completedProjects=(projects||[]).filter(project=>{
+      const status=project.status||'';
+      return (status==='완료'||status==='completed')&&project.contract_id;
+    });
+    const completedContractIds=new Set(completedProjects.map(project=>project.contract_id).filter(Boolean));
+    const pendingBillingAmount=(billingRows||[])
+      .filter(row=>completedContractIds.has(row.contract_id)&&row.status!=='수금완료')
+      .reduce((sum,row)=>sum+Number(row.amount||0),0);
+
+    const pendingDocRows=(pendingDocs||[]).filter(Boolean);
+    const firstPendingProjectId=pendingDocRows.find(row=>row.project_id)?.project_id||'';
+
+    const cards=[
+      {
+        label:'마감 임박',
+        value:urgentProjects.length?urgentProjects.length+'건':'없음 ✓',
+        tone:urgentProjects.length?'danger':'success',
+        meta:urgentProjects.length?'3일 내 마감 예정 프로젝트':'오늘 기준 3일 내 마감 없음',
+        action:"setPage('projects')"
+      },
+      {
+        label:'미해결 이슈',
+        value:myOpenIssueCount?myOpenIssueCount+'건':'없음 ✓',
+        tone:myOpenIssueCount?'warning':'success',
+        meta:currentMember?.name?'내 담당 기준 열린 이슈':'담당자 정보 없음',
+        action:"setPage('issues')"
+      },
+      {
+        label:'청구 대기',
+        value:pendingBillingAmount?pendingBillingAmount.toLocaleString()+'원':'없음 ✓',
+        tone:pendingBillingAmount?'danger':'success',
+        meta:pendingBillingAmount?'수금완료 전 청구 누적 금액':'완료 프로젝트 미수금 없음',
+        action:"setPage('contracts')"
+      },
+      {
+        label:'자료 미제출',
+        value:pendingDocRows.length?pendingDocRows.length+'건':'없음 ✓',
+        tone:pendingDocRows.length?'warning':'success',
+        meta:pendingDocRows.length?'제출 대기 중 자료 요청':'미제출 자료 요청 없음',
+        action:pendingDocRows.length&&firstPendingProjectId
+          ?"openProjModal('"+firstPendingProjectId+"',null,null,'documents')"
+          :"alert('현재 미제출 자료 요청이 없습니다.')"
+      }
+    ];
+
+    el.innerHTML='<div class="home-risk-grid">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>';
+  }catch(e){
+    el.innerHTML='<div class="home-risk-grid"><div class="home-risk-card"><div class="home-risk-label">리스크 요약</div><div class="home-risk-value">—</div><div class="home-risk-meta">상단 요약을 불러오지 못했습니다.</div></div></div>';
+  }
+}
+
 function getHomeNoticeHeadlines(limit=5){
   return [...(notices||[])]
     .sort((a,b)=>{
@@ -10565,6 +10762,7 @@ window.saveProj = async function(){
       if(cid) openClientDetail(cid,'projects');
       else setPage('clients');
     }else if(curPage==='home'){
+      renderHomeRiskSummary();
       renderMyWeek();
       renderHomeDashboardIssues();
       renderTeamWorkload();
