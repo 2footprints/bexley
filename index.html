@@ -1911,6 +1911,112 @@ input,textarea{border-radius:12px!important}
   color:#64748b;
   padding:6px 0 2px;
 }
+#pageTeam .home-focus-summary{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+}
+#pageTeam .home-focus-metric{
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  background:#f8fafc;
+  padding:10px 12px;
+}
+#pageTeam .home-focus-metric-label{
+  font-size:11px;
+  color:#64748b;
+  font-weight:600;
+  margin-bottom:4px;
+}
+#pageTeam .home-focus-metric-value{
+  font-size:18px;
+  color:#1e293b;
+  font-weight:700;
+}
+#pageTeam .home-focus-groups{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+#pageTeam .home-focus-group{
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  background:#fff;
+}
+#pageTeam .home-focus-group-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border-bottom:1px solid #e2e8f0;
+  background:#f8fafc;
+}
+#pageTeam .home-focus-group-title{
+  font-size:13px;
+  font-weight:600;
+  color:#1e293b;
+}
+#pageTeam .home-focus-group-count{
+  font-size:12px;
+  color:#64748b;
+}
+#pageTeam .home-focus-list{
+  display:flex;
+  flex-direction:column;
+}
+#pageTeam .home-focus-item{
+  width:100%;
+  border:none;
+  background:#fff;
+  padding:12px 14px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  border-top:1px solid #e2e8f0;
+  cursor:pointer;
+  font-family:inherit;
+  text-align:left;
+}
+#pageTeam .home-focus-item:first-child{border-top:none}
+#pageTeam .home-focus-item-main{
+  min-width:0;
+  flex:1;
+}
+#pageTeam .home-focus-item-title{
+  font-size:14px;
+  font-weight:600;
+  color:#1e293b;
+  line-height:1.45;
+}
+#pageTeam .home-focus-item-meta{
+  margin-top:4px;
+  font-size:12px;
+  color:#64748b;
+}
+#pageTeam .home-focus-tags{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  flex-shrink:0;
+}
+#pageTeam .home-issue-project-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+@media(max-width:768px){
+  #pageTeam .home-focus-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
 </style>
 
 
@@ -3150,6 +3256,68 @@ function formatRangeShort(start,end){
   const sm=s.getMonth()+1, sd=s.getDate(), em=e.getMonth()+1, ed=e.getDate();
   return sm===em && sd===ed ? `${sm}.${sd}` : `${sm}.${sd} ~ ${em}.${ed}`;
 }
+
+function inferHomeTodayCategory(text=''){
+  const raw=String(text||'');
+  if(/자료|서류|업로드|전달|회신|요청|수집/i.test(raw))return '자료';
+  if(/미팅|회의|콜|인터뷰|미팅|상담/i.test(raw))return '미팅';
+  return '검토';
+}
+
+function buildHomeTodayDashboardRows(){
+  if(!currentMember?.name)return [];
+  const today=getHomeBaseDate();
+  const rows=[];
+  (projects||[])
+    .filter(p=>Array.isArray(p.members)&&p.members.includes(currentMember.name)&&p.status!=='완료')
+    .forEach(p=>{
+      const end=toDate(p.end);
+      const start=toDate(p.start);
+      const activeToday=start<=today&&end>=today;
+      const overdue=end<today;
+      if(!activeToday&&!overdue)return;
+      const client=clients.find(c=>c.id===p.client_id);
+      const category=inferHomeTodayCategory([p.name,p.memo,p.result_summary,p.work_summary,p.issue_note,p.type].filter(Boolean).join(' '));
+      const dueToday=end.getTime()===today.getTime();
+      const priority=p.priority||'medium';
+      const group=overdue||priority==='high'||category==='미팅'?'priority':(dueToday?'due':'backlog');
+      rows.push({
+        id:p.id,
+        kind:'project',
+        title:(client?client.name+' · ':'')+p.name,
+        category,
+        typeLabel:p.type||'프로젝트',
+        dueText:overdue?'지연 '+formatHomeShortDate(p.end):dueToday?'오늘 마감':'',
+        group,
+        priority,
+        overdue,
+        dueToday,
+        action:"openProjModal('"+p.id+"')"
+      });
+    });
+  (schedules||[])
+    .filter(s=>s.member_name===currentMember.name&&s.schedule_type!=='leave'&&toDate(s.start)<=today&&toDate(s.end)>=today)
+    .forEach(s=>{
+      const typeLabel=scheduleLabel(s.schedule_type);
+      const category=inferHomeTodayCategory([s.title,typeLabel,s.location,s.memo].filter(Boolean).join(' '));
+      const group=category==='미팅'?'priority':'backlog';
+      rows.push({
+        id:s.id,
+        kind:'schedule',
+        title:s.title||typeLabel,
+        category,
+        typeLabel,
+        dueText:'',
+        group,
+        priority:'medium',
+        overdue:false,
+        dueToday:false,
+        action:"openScheduleModal('"+s.id+"')"
+      });
+    });
+  return rows;
+}
+
 function getWeeklySchedules(offsetWeeks=0){
   const {start,end}=getWeekBounds(offsetWeeks);
   const inWeek=s=>toDate(s.start)<=end && toDate(s.end)>=start;
@@ -3202,77 +3370,65 @@ function renderWeeklyScheduleSummary(){
 function renderMyWeek(){
   const el=document.getElementById('myWeekWrap');if(!el)return;
   if(!currentMember){el.innerHTML='';return;}
-  const today=new Date();today.setHours(0,0,0,0);
-  const dayOfWeek=today.getDay();
-  const diffToMon=dayOfWeek===0?-6:1-dayOfWeek;
-  const monday=new Date(today);monday.setDate(today.getDate()+diffToMon);
-  const days=Array.from({length:5},(_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);return d;});
-  const dayLabels=['월','화','수','목','금'];
-  const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-  const todayIndex=days.findIndex(d=>d.getTime()===today.getTime());
+  const today=getHomeBaseDate();
   const todayLabel=['일','월','화','수','목','금','토'][today.getDay()];
-  const myProjs=projects.filter(p=>
-    p.members.includes(currentMember.name)&&p.status!=='완료'&&
-    toDate(p.start)<=days[4]&&toDate(p.end)>=days[0]
-  );
-  const mySchs=schedules.filter(s=>
-    s.member_name===currentMember.name&&
-    toDate(s.start)<=days[4]&&toDate(s.end)>=days[0]
-  );
-  const dayEntries=days.map(d=>{
-    const entries=[];
-    myProjs.forEach(p=>{
-      if(toDate(p.start)<=d&&toDate(p.end)>=d){
-        const client=clients.find(c=>c.id===p.client_id);
-        entries.push({
-          kind:'project',
-          id:p.id,
-          title:(client?client.name+' ':'')+p.name,
-          badge:p.type||'기타',
-          priority:p.priority||'medium',
-          color:TYPES[p.type]||'#4e5968',
-          action:"openProjModal('"+p.id+"')"
-        });
-      }
-    });
-    mySchs.forEach(s=>{
-      if(toDate(s.start)<=d&&toDate(s.end)>=d){
-        entries.push({
-          kind:'schedule',
-          id:s.id,
-          title:s.title||SCHEDULE_META[s.schedule_type]?.label||s.schedule_type,
-          badge:scheduleLabel(s.schedule_type),
-          color:SCHEDULE_META[s.schedule_type]?.color||'#8b95a1',
-          action:"openScheduleModal('"+s.id+"')"
-        });
-      }
-    });
-    entries.sort((a,b)=>{
-      const aRank=a.kind==='project'?getProjectPriorityRank(a.priority):99;
-      const bRank=b.kind==='project'?getProjectPriorityRank(b.priority):99;
-      if(aRank!==bRank)return aRank-bRank;
-      if(a.kind!==b.kind)return a.kind==='project'?-1:1;
-      return String(a.title||'').localeCompare(String(b.title||''),'ko');
-    });
-    return entries;
+  const rows=buildHomeTodayDashboardRows().sort((a,b)=>{
+    const groupOrder={priority:0,due:1,backlog:2};
+    if(groupOrder[a.group]!==groupOrder[b.group])return groupOrder[a.group]-groupOrder[b.group];
+    const rankA=a.overdue?0:getProjectPriorityRank(a.priority||'medium');
+    const rankB=b.overdue?0:getProjectPriorityRank(b.priority||'medium');
+    if(rankA!==rankB)return rankA-rankB;
+    if(Number(!!b.dueToday)!==Number(!!a.dueToday))return Number(!!b.dueToday)-Number(!!a.dueToday);
+    return String(a.title||'').localeCompare(String(b.title||''),'ko');
   });
-  const renderEntryRow=item=>'<button type="button" class="myweek-row" onclick="'+item.action+'">'
-    +'<div class="myweek-row-main"><span class="myweek-row-dot" style="background:'+item.color+'"></span><span class="myweek-row-title" title="'+esc(item.title)+'">'+esc(item.title)+'</span></div>'
-    +'<div class="myweek-row-badges"><span class="badge badge-gray myweek-row-badge" style="color:'+item.color+';background:rgba(15,23,42,.06)">'+esc(item.badge)+'</span>'+(item.kind==='project'?getProjectPriorityBadge(item.priority):'')+'</div>'
-    +'</button>';
-  const todayEntries=todayIndex>=0?(dayEntries[todayIndex]||[]):[];
-  const summaryParts=days.map((d,i)=>i===todayIndex?'':('<strong>'+dayLabels[i]+'</strong> '+(dayEntries[i]?.length||0)+'건')).filter(Boolean);
-  const expandedDays=days.map((d,i)=>i===todayIndex?'':('<div class="myweek-expand-day"><div class="myweek-expand-head">'+dayLabels[i]+' '+(d.getMonth()+1)+'/'+d.getDate()+'</div>'+(dayEntries[i]?.length?dayEntries[i].map(renderEntryRow).join(''):'<div class="myweek-empty">일정 없음</div>')+'</div>')).filter(Boolean).join('');
-  const toggleLabel=myWeekExpanded?'접기 ↑':'이번 주 전체 보기 →';
+  const summary={
+    total:rows.length,
+    자료:rows.filter(r=>r.category==='자료').length,
+    미팅:rows.filter(r=>r.category==='미팅').length,
+    검토:rows.filter(r=>r.category==='검토').length,
+    지연:rows.filter(r=>r.overdue).length
+  };
+  const groups=[
+    {key:'priority',label:'우선 확인'},
+    {key:'due',label:'오늘 마감'},
+    {key:'backlog',label:'대기/참고'}
+  ];
+  const renderRow=item=>{
+    const color=item.kind==='project'?(TYPES[item.typeLabel]||'#64748b'):(SCHEDULE_META[item.typeLabel]?.color||'#94a3b8');
+    const typeBadge='<span class="badge badge-gray" style="color:'+(item.kind==='project'?(TYPES[item.typeLabel]||'#334155'):'#334155')+';background:rgba(15,23,42,.06)">'+esc(item.typeLabel)+'</span>';
+    const stateBadge=item.overdue?'<span class="badge badge-red">지연</span>':item.dueToday?'<span class="badge badge-orange">오늘 마감</span>':item.priority==='high'?'<span class="badge badge-red">긴급</span>':'';
+    return '<button type="button" class="home-focus-item" onclick="'+item.action+'">'
+      +'<div class="home-focus-item-main">'
+      +'<div class="home-focus-item-title">'+esc(item.title)+'</div>'
+      +(item.dueText?'<div class="home-focus-item-meta">'+esc(item.dueText)+'</div>':'')
+      +'</div>'
+      +'<div class="home-focus-tags">'+typeBadge+stateBadge+'</div>'
+      +'</button>';
+  };
   const titleLabel='오늘 내 일정 ('+(today.getMonth()+1)+'/'+today.getDate()+' '+todayLabel+')';
   el.innerHTML='<div class="myweek-card home-card">'
     +'<div class="myweek-header home-section-head">'
     +'<span class="home-section-title">'+titleLabel+'</span>'
-    +'<button type="button" class="btn ghost sm" onclick="myWeekExpanded='+(!myWeekExpanded)+';renderMyWeek()">'+toggleLabel+'</button>'
     +'</div>'
-    +'<div class="myweek-today-list">'+(todayEntries.length?todayEntries.map(renderEntryRow).join(''):'<div class="myweek-empty">오늘 등록된 일정이 없습니다.</div>')+'</div>'
-    +'<div class="myweek-summary">'+summaryParts.join(' | ')+'</div>'
-    +(myWeekExpanded?'<div class="myweek-expand">'+expandedDays+'</div>':'')
+    +(rows.length
+      ?'<div class="home-focus-summary">'
+        +'<div class="home-focus-metric"><div class="home-focus-metric-label">총 건수</div><div class="home-focus-metric-value">'+summary.total+'</div></div>'
+        +'<div class="home-focus-metric"><div class="home-focus-metric-label">자료</div><div class="home-focus-metric-value">'+summary.자료+'</div></div>'
+        +'<div class="home-focus-metric"><div class="home-focus-metric-label">미팅</div><div class="home-focus-metric-value">'+summary.미팅+'</div></div>'
+        +'<div class="home-focus-metric"><div class="home-focus-metric-label">검토</div><div class="home-focus-metric-value">'+summary.검토+'</div></div>'
+        +'<div class="home-focus-metric"><div class="home-focus-metric-label">지연</div><div class="home-focus-metric-value">'+summary.지연+'</div></div>'
+      +'</div>'
+      +'<div class="home-focus-groups">'
+        +groups.map(group=>{
+          const items=rows.filter(row=>row.group===group.key);
+          if(!items.length)return '';
+          return '<div class="home-focus-group">'
+            +'<div class="home-focus-group-head"><div class="home-focus-group-title">'+group.label+'</div><div class="home-focus-group-count">'+items.length+'건</div></div>'
+            +'<div class="home-focus-list">'+items.map(renderRow).join('')+'</div>'
+          +'</div>';
+        }).join('')
+      +'</div>'
+      :'<div class="myweek-empty">오늘 바로 확인할 일정이 없습니다.</div>')
     +'</div>';
 }
 
@@ -3290,64 +3446,99 @@ async function renderHomeDashboardIssues(){
   }
   el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div><div class="weekly-empty">불러오는 중...</div></div>';
   try{
-    const assignedProjects=(projects||[])
-      .filter(project=>(project.members||[]).includes(currentMember.name))
-      .map(project=>{
-        const client=clients.find(c=>c.id===project.client_id)||null;
-        return {...project,clientName:client?.name||'기타',clientKey:client?.id||('client-'+(project.client_id||'none'))};
-      });
     const rows=await api('GET','project_issues?status=eq.open&select=*')||[];
-    const issueMap={};
-    (rows||[])
+    const today=getHomeBaseDate();
+    const assignedIssues=(rows||[])
       .filter(issue=>issue.assignee_member_id===currentMember.id||issue.owner_member_id===currentMember.id)
-      .forEach(issue=>{
-        const list=issueMap[issue.project_id]||(issueMap[issue.project_id]=[]);
-        list.push(issue);
+      .map(issue=>{
+        const project=projects.find(p=>p.id===issue.project_id)||null;
+        const client=project?clients.find(c=>c.id===project.client_id):null;
+        const overdue=!!(project&&project.status!=='완료'&&toDate(project.end)<today);
+        const statusLabel=issue.is_pinned?'PINNED':(overdue?'OVERDUE':'OPEN');
+        const statusClass=issue.is_pinned?'badge-orange':(overdue?'badge-red':'badge-blue');
+        const rank=issue.is_pinned?0:(overdue?1:2);
+        return {
+          ...issue,
+          project,
+          client,
+          clientName:client?.name||'기타',
+          clientKey:client?.id||('client-'+(project?.client_id||'none')),
+          projectName:project?.name||'프로젝트 없음',
+          statusLabel,
+          statusClass,
+          rank
+        };
       });
-    Object.values(issueMap).forEach(list=>list.sort((a,b)=>{
-      const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
-      if(pinDiff)return pinDiff;
-      return new Date(b.created_at||0)-new Date(a.created_at||0);
-    }));
-    const clientGroups=Object.values(assignedProjects.reduce((acc,project)=>{
-      const key=project.clientKey;
-      if(!acc[key])acc[key]={key,name:project.clientName,projects:[],count:0};
-      const issues=issueMap[project.id]||[];
-      acc[key].projects.push({id:project.id,name:project.name||'프로젝트 없음',issues});
-      acc[key].count+=issues.length;
+    const groupedClients=Object.values(assignedIssues.reduce((acc,issue)=>{
+      const clientKey=issue.clientKey;
+      if(!acc[clientKey]){
+        acc[clientKey]={key:clientKey,name:issue.clientName,projects:{},count:0};
+      }
+      const projectKey=issue.project_id||('project-'+issue.id);
+      if(!acc[clientKey].projects[projectKey]){
+        acc[clientKey].projects[projectKey]={
+          id:issue.project_id||'',
+          name:issue.projectName,
+          issues:[]
+        };
+      }
+      acc[clientKey].projects[projectKey].issues.push(issue);
+      acc[clientKey].count+=1;
       return acc;
-    },{})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ko'));
-    const totalIssues=clientGroups.reduce((sum,group)=>sum+group.count,0);
+    },{})).map(group=>{
+      const projectsInGroup=Object.values(group.projects)
+        .filter(project=>project.issues.length>0)
+        .map(project=>({
+          ...project,
+          issueCount:project.issues.length,
+          issues:[...project.issues].sort((a,b)=>{
+            if(a.rank!==b.rank)return a.rank-b.rank;
+            return new Date(b.created_at||0)-new Date(a.created_at||0);
+          })
+        }))
+        .sort((a,b)=>{
+          const aTop=a.issues[0]?.rank??99;
+          const bTop=b.issues[0]?.rank??99;
+          if(aTop!==bTop)return aTop-bTop;
+          if(a.issueCount!==b.issueCount)return b.issueCount-a.issueCount;
+          return a.name.localeCompare(b.name,'ko');
+        });
+      return {...group,projects:projectsInGroup};
+    }).filter(group=>group.projects.length>0)
+      .sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ko'));
+    const groupedHtml=groupedClients.map(group=>{
+      const collapsed=!!homeIssueCollapsedClients[group.key];
+      const projectHtml=group.projects.map(project=>{
+        const issueHtml=project.issues.map(issue=>
+          '<button type="button" class="home-issue-item'+(issue.is_pinned?' pinned':'')+'" onclick="openIssueModal(\''+project.id+'\',\''+issue.id+'\')">'
+            +'<div class="home-issue-item-main">'
+              +'<div class="home-issue-item-title">'+esc(issue.title||'제목 없음')+'</div>'
+              +'<div class="home-issue-item-meta">'+esc(group.name)+' - '+esc(project.name)+'</div>'
+            +'</div>'
+            +'<span class="badge '+issue.statusClass+'">'+issue.statusLabel+'</span>'
+          +'</button>'
+        ).join('');
+        return '<div class="home-issue-project">'
+          +'<div class="home-issue-project-head">'
+            +'<div class="home-issue-project-title">'+esc(project.name)+'</div>'
+            +'<span class="home-issue-group-count">'+project.issueCount+'건</span>'
+          +'</div>'
+          +issueHtml
+        +'</div>';
+      }).join('');
+      return '<div class="home-issue-group">'
+        +'<button type="button" class="home-issue-group-toggle" onclick="toggleHomeIssueClient(\''+group.key+'\')">'
+          +'<span style="font-size:13px;color:#64748b">'+(collapsed?'&#9656;':'&#9662;')+'</span>'
+          +'<span class="home-issue-group-name">'+esc(group.name)+'</span>'
+          +'<span class="home-issue-group-count">('+group.count+'건)</span>'
+        +'</button>'
+        +(!collapsed?projectHtml:'')
+      +'</div>';
+    }).join('');
     el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div>'
-      +(assignedProjects.length
-        ?'<div class="home-issue-groups">'+clientGroups.map(group=>{
-          const collapsed=!!homeIssueCollapsedClients[group.key];
-          return '<div class="home-issue-group">'
-            +'<button type="button" class="home-issue-group-toggle" onclick="toggleHomeIssueClient(\''+group.key+'\')">'
-            +'<span style="font-size:13px;color:#64748b">'+(collapsed?'▸':'▾')+'</span>'
-            +'<span class="home-issue-group-name">'+esc(group.name)+'</span>'
-            +'<span class="home-issue-group-count">('+group.count+'건)</span>'
-            +'</button>'
-            +(!collapsed?group.projects.map(project=>
-              '<div class="home-issue-project">'
-                +'<div class="home-issue-project-title">'+esc(project.name)+'</div>'
-                +(project.issues.length
-                  ?project.issues.map(issue=>
-                    '<button type="button" class="home-issue-item'+(issue.is_pinned?' pinned':'')+'" onclick="openIssueModal(\''+project.id+'\',\''+issue.id+'\')">'
-                      +'<div class="home-issue-item-main">'
-                        +'<div class="home-issue-item-title">● '+esc(issue.title||'제목 없음')+'</div>'
-                        +'<div class="home-issue-item-meta">'+esc(group.name)+' - '+esc(project.name)+'</div>'
-                      +'</div>'
-                      +'<span class="badge '+(issue.is_pinned?'badge-orange':'badge-blue')+'">'+(issue.is_pinned?'PINNED':'OPEN')+'</span>'
-                    +'</button>'
-                  ).join('')
-                  :'<div class="home-issue-empty">이슈 없음</div>')
-              +'</div>'
-            ).join(''):'')
-          +'</div>';
-        }).join('')+'</div>'
-        :'<div class="weekly-empty">현재 담당 이슈가 없습니다 ✓</div>')
-      +(assignedProjects.length&&!totalIssues?'<div class="weekly-empty" style="margin-top:12px">현재 담당 이슈가 없습니다 ✓</div>':'')
+      +(groupedClients.length
+        ?'<div class="home-issue-groups">'+groupedHtml+'</div>'
+        :'<div class="weekly-empty">현재 처리할 이슈가 없습니다 ✓</div>')
       +'</div>';
   }catch(e){
     el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div><div class="weekly-empty">이슈 현황을 불러오지 못했습니다.</div></div>';
