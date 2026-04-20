@@ -1749,6 +1749,168 @@ input,textarea{border-radius:12px!important}
 }
 #pageTeam .team-extra-grid > *{min-width:0}
 #pageTeam .team-extra-grid .card-sm{height:100%}
+#pageTeam .home-card{
+  background:#ffffff!important;
+  border:1px solid #e2e8f0!important;
+  border-radius:12px!important;
+  padding:20px 24px!important;
+  margin-bottom:16px!important;
+  box-shadow:0 1px 3px rgba(0,0,0,.06)!important;
+}
+#pageTeam .home-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+#pageTeam .home-section-title{
+  font-size:15px!important;
+  font-weight:600!important;
+  color:#1e293b!important;
+  margin-bottom:12px!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+}
+#pageTeam .home-section-head .home-section-title{margin-bottom:0!important}
+#pageTeam .home-subcard{
+  background:#ffffff;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  padding:16px;
+  height:100%;
+}
+#pageTeam .home-subcard-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+  flex-wrap:wrap;
+}
+#pageTeam .home-subsection-title{
+  font-size:13px;
+  color:#64748b;
+  font-weight:500;
+}
+#pageTeam .home-person-name{
+  font-size:14px;
+  font-weight:600;
+  color:#1e293b;
+}
+#pageTeam .home-meta-text{
+  font-size:13px;
+  color:#64748b;
+  line-height:1.6;
+}
+#pageTeam .home-inline-btn{
+  font-size:12px;
+  padding:4px 12px;
+  border:1px solid #e2e8f0;
+  border-radius:6px;
+  background:#fff;
+  color:#334155;
+  font-family:inherit;
+  cursor:pointer;
+}
+#pageTeam .home-inline-btn:hover{background:#f8fafc}
+#pageTeam .home-avatar{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  font-size:14px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  background:#e2e8f0;
+  color:#1e293b;
+}
+#pageTeam .home-issue-groups{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+#pageTeam .home-issue-group{
+  border-top:1px solid #e2e8f0;
+  padding-top:14px;
+}
+#pageTeam .home-issue-group:first-child{
+  border-top:none;
+  padding-top:0;
+}
+#pageTeam .home-issue-group-toggle{
+  width:100%;
+  border:none;
+  background:none;
+  padding:0;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  font-family:inherit;
+  text-align:left;
+}
+#pageTeam .home-issue-group-name{
+  font-size:14px;
+  font-weight:600;
+  color:#1e293b;
+}
+#pageTeam .home-issue-group-count{
+  font-size:13px;
+  color:#64748b;
+}
+#pageTeam .home-issue-project{
+  padding-left:18px;
+  margin-top:12px;
+}
+#pageTeam .home-issue-project-title{
+  font-size:14px;
+  font-weight:600;
+  color:#1e293b;
+  margin-bottom:8px;
+}
+#pageTeam .home-issue-item{
+  width:100%;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  text-align:left;
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  background:#fff;
+  padding:10px 12px;
+  cursor:pointer;
+  font-family:inherit;
+  margin-bottom:8px;
+}
+#pageTeam .home-issue-item.pinned{
+  border-left:3px solid #fbbf24;
+  padding-left:10px;
+}
+#pageTeam .home-issue-item-main{
+  min-width:0;
+  flex:1;
+}
+#pageTeam .home-issue-item-title{
+  font-size:14px;
+  font-weight:600;
+  color:#1e293b;
+  line-height:1.5;
+}
+#pageTeam .home-issue-item-meta{
+  font-size:13px;
+  color:#64748b;
+  margin-top:4px;
+}
+#pageTeam .home-issue-empty{
+  font-size:13px;
+  color:#64748b;
+  padding:6px 0 2px;
+}
 </style>
 
 
@@ -1947,8 +2109,8 @@ input,textarea{border-radius:12px!important}
       <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
       <div id="teamKudosReviewWrap" style="margin-bottom:16px"></div>
       <div class="team-fun-section">
-        <div class="card" style="margin-bottom:0">
-          <div class="section-label" style="margin-bottom:14px">🎲 팀 소소 기능</div>
+        <div class="card home-card" style="margin-bottom:0">
+          <div class="home-section-title">🎲 팀 소소 기능</div>
           <div class="team-fun-grid">
             <button type="button" class="team-fun-card" onclick="openLunchPicker()">
               <div style="font-size:24px">🍱</div>
@@ -2149,10 +2311,12 @@ const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null,currentRole='',currentRoleRow=null,pendingRequest=null;
 let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
+let projectMemberLinks=[];
 let clientAssignments=[],openIssuesByProject={},accessRequests=[];
 let curPage='home',curGView='project';
 let teamNoticeExpanded=false;
 let myWeekExpanded=false;
+let homeIssueCollapsedClients={};
 function getProjectPriorityRank(priority){
   if(priority==='high')return 0;
   if(priority==='low')return 2;
@@ -2865,6 +3029,7 @@ async function loadAll(){
       api('GET','schedules?select=*&order=start_date')
     ]);
     members=mems||[];
+    projectMemberLinks=pm||[];
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
     clients=cls||[];notices=nts||[];
     schedules=(schs||[]).map(s=>({...s,start:s.start_date,end:s.end_date,member_name:s.member_name||members.find(m=>m.id===s.member_id)?.name||''}));
@@ -3015,8 +3180,8 @@ function renderWeeklyScheduleSummary(){
       +'<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">'+(label==='휴가'?'휴가':'필드웍')+'</div>'
     +(items.length?items.map(sRow).join(''):'<div style="font-size:12px;color:var(--text3);padding:8px 0">없음</div>')
     +'</div>';
-  el.innerHTML='<div class="card" style="margin-bottom:16px">'
-    +'<div class="section-label" style="margin-bottom:16px">팀 일정</div>'
+  el.innerHTML='<div class="card home-card">'
+    +'<div class="home-section-title">팀 일정</div>'
     +'<div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px">'
     +'<span style="font-size:11px;font-weight:800;color:var(--blue)">이번 주</span>'
     +'<span style="font-size:11px;color:var(--text3)">'+fmtWR(ts,tsEnd)+'</span>'
@@ -3100,9 +3265,9 @@ function renderMyWeek(){
   const expandedDays=days.map((d,i)=>i===todayIndex?'':('<div class="myweek-expand-day"><div class="myweek-expand-head">'+dayLabels[i]+' '+(d.getMonth()+1)+'/'+d.getDate()+'</div>'+(dayEntries[i]?.length?dayEntries[i].map(renderEntryRow).join(''):'<div class="myweek-empty">일정 없음</div>')+'</div>')).filter(Boolean).join('');
   const toggleLabel=myWeekExpanded?'접기 ↑':'이번 주 전체 보기 →';
   const titleLabel='오늘 내 일정 ('+(today.getMonth()+1)+'/'+today.getDate()+' '+todayLabel+')';
-  el.innerHTML='<div class="myweek-card">'
-    +'<div class="myweek-header">'
-    +'<span class="myweek-title">'+titleLabel+'</span>'
+  el.innerHTML='<div class="myweek-card home-card">'
+    +'<div class="myweek-header home-section-head">'
+    +'<span class="home-section-title">'+titleLabel+'</span>'
     +'<button type="button" class="btn ghost sm" onclick="myWeekExpanded='+(!myWeekExpanded)+';renderMyWeek()">'+toggleLabel+'</button>'
     +'</div>'
     +'<div class="myweek-today-list">'+(todayEntries.length?todayEntries.map(renderEntryRow).join(''):'<div class="myweek-empty">오늘 등록된 일정이 없습니다.</div>')+'</div>'
@@ -3111,55 +3276,81 @@ function renderMyWeek(){
     +'</div>';
 }
 
+function toggleHomeIssueClient(clientKey){
+  homeIssueCollapsedClients[clientKey]=!homeIssueCollapsedClients[clientKey];
+  renderHomeDashboardIssues();
+}
+
 async function renderHomeDashboardIssues(){
   const el=document.getElementById('homeIssueSummaryWrap');
   if(!el)return;
   if(!currentMember){
-    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">멤버 정보가 없어 담당 이슈를 불러오지 못했습니다.</div></div>';
+    el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div><div class="weekly-empty">멤버 정보가 없어 담당 이슈를 불러오지 못했습니다.</div></div>';
     return;
   }
-  el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">불러오는 중...</div></div>';
+  el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div><div class="weekly-empty">불러오는 중...</div></div>';
   try{
-    const rows=await api('GET','project_issues?status=eq.open&select=*')||[];
-    const items=(rows||[])
-      .filter(issue=>issue.assignee_member_id===currentMember.id||issue.owner_member_id===currentMember.id)
-      .map(issue=>{
-        const project=projects.find(p=>p.id===issue.project_id)||null;
-        const client=project?clients.find(c=>c.id===project.client_id):null;
-        return {
-          id:issue.id,
-          projectId:issue.project_id||'',
-          title:issue.title||'제목 없음',
-          label:(client?client.name+' - ':'')+(project?.name||'프로젝트 없음'),
-          isPinned:!!issue.is_pinned,
-          created_at:issue.created_at||''
-        };
-      })
-      .sort((a,b)=>{
-        const pinDiff=Number(b.isPinned)-Number(a.isPinned);
-        if(pinDiff)return pinDiff;
-        return new Date(b.created_at||0)-new Date(a.created_at||0);
+    const assignedProjects=(projects||[])
+      .filter(project=>(project.members||[]).includes(currentMember.name))
+      .map(project=>{
+        const client=clients.find(c=>c.id===project.client_id)||null;
+        return {...project,clientName:client?.name||'기타',clientKey:client?.id||('client-'+(project.client_id||'none'))};
       });
-    const visibleItems=items.slice(0,5);
-    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div>'
-      +(items.length
-        ?'<div class="weekly-list">'+visibleItems.map(item=>
-          '<button type="button" class="weekly-item" onclick="openIssueModal(\''+item.projectId+'\',\''+item.id+'\')" style="width:100%;background:none;border:none;text-align:left;cursor:pointer;border-left:3px solid '+(item.isPinned?'#FBBF24':'transparent')+'">'
-            +'<div style="min-width:0;display:flex;align-items:center;gap:8px;flex:1">'
-              +'<span style="width:8px;height:8px;border-radius:50%;background:'+(item.isPinned?'#FBBF24':'var(--blue)')+';flex-shrink:0"></span>'
-              +'<div style="min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
-                +'<span class="weekly-name" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px">'+esc(item.title)+'</span>'
-                +'<span class="weekly-sub" style="margin-top:0">| '+esc(item.label)+'</span>'
+    const rows=await api('GET','project_issues?status=eq.open&select=*')||[];
+    const issueMap={};
+    (rows||[])
+      .filter(issue=>issue.assignee_member_id===currentMember.id||issue.owner_member_id===currentMember.id)
+      .forEach(issue=>{
+        const list=issueMap[issue.project_id]||(issueMap[issue.project_id]=[]);
+        list.push(issue);
+      });
+    Object.values(issueMap).forEach(list=>list.sort((a,b)=>{
+      const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
+      if(pinDiff)return pinDiff;
+      return new Date(b.created_at||0)-new Date(a.created_at||0);
+    }));
+    const clientGroups=Object.values(assignedProjects.reduce((acc,project)=>{
+      const key=project.clientKey;
+      if(!acc[key])acc[key]={key,name:project.clientName,projects:[],count:0};
+      const issues=issueMap[project.id]||[];
+      acc[key].projects.push({id:project.id,name:project.name||'프로젝트 없음',issues});
+      acc[key].count+=issues.length;
+      return acc;
+    },{})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ko'));
+    const totalIssues=clientGroups.reduce((sum,group)=>sum+group.count,0);
+    el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div>'
+      +(assignedProjects.length
+        ?'<div class="home-issue-groups">'+clientGroups.map(group=>{
+          const collapsed=!!homeIssueCollapsedClients[group.key];
+          return '<div class="home-issue-group">'
+            +'<button type="button" class="home-issue-group-toggle" onclick="toggleHomeIssueClient(\''+group.key+'\')">'
+            +'<span style="font-size:13px;color:#64748b">'+(collapsed?'▸':'▾')+'</span>'
+            +'<span class="home-issue-group-name">'+esc(group.name)+'</span>'
+            +'<span class="home-issue-group-count">('+group.count+'건)</span>'
+            +'</button>'
+            +(!collapsed?group.projects.map(project=>
+              '<div class="home-issue-project">'
+                +'<div class="home-issue-project-title">'+esc(project.name)+'</div>'
+                +(project.issues.length
+                  ?project.issues.map(issue=>
+                    '<button type="button" class="home-issue-item'+(issue.is_pinned?' pinned':'')+'" onclick="openIssueModal(\''+project.id+'\',\''+issue.id+'\')">'
+                      +'<div class="home-issue-item-main">'
+                        +'<div class="home-issue-item-title">● '+esc(issue.title||'제목 없음')+'</div>'
+                        +'<div class="home-issue-item-meta">'+esc(group.name)+' - '+esc(project.name)+'</div>'
+                      +'</div>'
+                      +'<span class="badge '+(issue.is_pinned?'badge-orange':'badge-blue')+'">'+(issue.is_pinned?'PINNED':'OPEN')+'</span>'
+                    +'</button>'
+                  ).join('')
+                  :'<div class="home-issue-empty">이슈 없음</div>')
               +'</div>'
-            +'</div>'
-            +'<span class="badge '+(item.isPinned?'badge-orange':'badge-blue')+'">'+(item.isPinned?'PINNED':'OPEN')+'</span>'
-          +'</button>'
-        ).join('')+'</div>'
-        +(items.length>5?'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn sm" onclick="setPage(\'issues\')">더보기 →</button></div>':'')
+            ).join(''):'')
+          +'</div>';
+        }).join('')+'</div>'
         :'<div class="weekly-empty">현재 담당 이슈가 없습니다 ✓</div>')
+      +(assignedProjects.length&&!totalIssues?'<div class="weekly-empty" style="margin-top:12px">현재 담당 이슈가 없습니다 ✓</div>':'')
       +'</div>';
   }catch(e){
-    el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">이슈 현황을 불러오지 못했습니다.</div></div>';
+    el.innerHTML='<div class="card home-card"><div class="home-section-title">내 담당 이슈</div><div class="weekly-empty">이슈 현황을 불러오지 못했습니다.</div></div>';
   }
 }
 
@@ -3168,14 +3359,15 @@ function renderTeamWorkload(){
   if(!el)return;
   const activeProjects=(projects||[]).filter(project=>project.status!=='완료');
   const rows=(members||[]).map(member=>{
-    const assignedProjects=activeProjects.filter(project=>(project.members||[]).includes(member.name));
+    const assignedProjectIds=[...new Set((projectMemberLinks||[]).filter(link=>link.member_id===member.id).map(link=>link.project_id))];
+    const assignedProjects=activeProjects.filter(project=>assignedProjectIds.includes(project.id));
     const totalHours=assignedProjects.reduce((sum,project)=>sum+(Number(project.estimated_hours)||0),0);
     const capacity=Math.max(Number(member.weekly_capacity)||40,1);
     const percent=Math.round((totalHours/capacity)*100);
     const color=percent>100?'var(--red)':percent>80?'var(--orange)':'var(--green)';
     return {name:member.name,totalHours,capacity,percent,color};
   }).sort((a,b)=>b.percent-a.percent||a.name.localeCompare(b.name,'ko'));
-  el.innerHTML='<div class="card"><div class="section-label" style="margin-bottom:12px">팀 워크로드</div>'
+  el.innerHTML='<div class="card home-card"><div class="home-section-title">팀 워크로드</div>'
     +(rows.length
       ?'<div class="team-workload-list">'+rows.map(row=>
         '<div class="team-workload-row">'
@@ -3191,7 +3383,7 @@ function renderTeamWorkload(){
 function renderTeamKudosAndReviews(){
   const el=document.getElementById('teamKudosReviewWrap');
   if(!el)return;
-  el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:14px">이번 주 팀 한마디</div><div class="team-extra-grid"><div id="kudosWrap"></div><div id="weeklyReviewWrap"></div></div></div>';
+  el.innerHTML='<div class="card home-card"><div class="home-section-title">이번 주 팀 한마디</div><div class="team-extra-grid"><div id="kudosWrap"></div><div id="weeklyReviewWrap"></div></div></div>';
   renderKudos();
   renderWeeklyReviews();
 }
@@ -5258,9 +5450,9 @@ function renderTeamNotices(){
     return new Date(b.created_at||0)-new Date(a.created_at||0);
   });
   const visible=teamNoticeExpanded?list:list.slice(0,3);
-  el.innerHTML='<div class="card team-notice-panel" style="margin-bottom:0;padding:14px 16px">'
+  el.innerHTML='<div class="card team-notice-panel home-card" style="margin-bottom:0">'
     +'<div class="team-notice-head">'
-    +'<div><div class="section-label" style="margin:0">팀 공지</div><div style="font-size:12px;color:var(--text3);margin-top:4px">운영 공지와 필독 사항을 팀 탭에서 바로 확인하세요.</div></div>'
+    +'<div><div class="home-section-title" style="margin:0">팀 공지</div><div style="font-size:12px;color:var(--text3);margin-top:4px">운영 공지와 필독 사항을 팀 탭에서 바로 확인하세요.</div></div>'
     +(isAdmin?'<button class="btn primary sm" onclick="openNoticeWrite()">+ 공지 작성</button>':'')
     +'</div>'
     +(!list.length
@@ -5609,30 +5801,30 @@ async function renderWeeklyReviews(offset){
   try{
     const reviews=await api('GET','weekly_reviews?week_start=eq.'+ws+'&select=*&order=created_at.desc');
     const myReview=isCurrentWeek?reviews?.find(r=>r.created_by===currentUser?.id):null;
-    el.innerHTML='<div class="card-sm" style="margin-bottom:0;height:100%">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap">'
+    el.innerHTML='<div class="home-subcard">'
+      +'<div class="home-subcard-header">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-      +'<div class="section-label" style="margin:0">업무 후기</div>'
+      +'<div class="home-subsection-title">업무 후기</div>'
       +'<div style="display:flex;align-items:center;gap:6px">'
-      +'<button onclick="renderWeeklyReviews('+(reviewWeekOffset-1)+')" style="background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">‹</button>'
-      +'<span style="font-size:12px;color:#64748B;min-width:62px;text-align:center;font-weight:600">'+weekLabel+'</span>'
-      +(reviewWeekOffset<0?'<button onclick="renderWeeklyReviews('+(reviewWeekOffset+1)+')" style="background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">›</button>':'<div style="width:28px"></div>')
+      +'<button class="home-inline-btn" onclick="renderWeeklyReviews('+(reviewWeekOffset-1)+')">‹</button>'
+      +'<span class="home-meta-text" style="min-width:62px;text-align:center">'+weekLabel+'</span>'
+      +(reviewWeekOffset<0?'<button class="home-inline-btn" onclick="renderWeeklyReviews('+(reviewWeekOffset+1)+')">›</button>':'<div style="width:58px"></div>')
       +'</div></div>'
       +(isCurrentWeek?(myReview
-        ?'<button class="btn sm" data-id="'+myReview.id+'" onclick="openReviewModal(this.dataset.id)">내 후기 수정</button>'
-        :'<button class="btn primary sm" onclick="openReviewModal()">+ 후기 작성</button>')
+        ?'<button class="home-inline-btn" data-id="'+myReview.id+'" onclick="openReviewModal(this.dataset.id)">내 후기 수정</button>'
+        :'<button class="home-inline-btn" onclick="openReviewModal()">+ 후기 작성</button>')
       :'')
       +'</div>'
       +(!reviews||!reviews.length
-        ?'<div style="color:#64748B;font-size:12px;text-align:center;padding:20px 0">'+(isCurrentWeek?'아직 작성된 후기가 없어요.<br><br><button class="btn primary sm" onclick="openReviewModal()">첫 번째로 후기 남기기</button>':'이 주의 후기 기록이 없습니다.')+'</div>'
+        ?'<div class="home-meta-text" style="text-align:center;padding:20px 0">'+(isCurrentWeek?'아직 작성된 후기가 없어요.<br><br><button class="home-inline-btn" onclick="openReviewModal()">첫 번째로 후기 남기기</button>':'이 주의 후기 기록이 없습니다.')+'</div>'
         :'<div style="display:flex;flex-direction:column;gap:10px">'
           +reviews.map(r=>'<div style="display:flex;gap:12px;padding:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">'
-            +'<div style="width:32px;height:32px;border-radius:50%;background:#E2E8F0;color:#0F172A;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc((r.member_name||'?').charAt(0))+'</div>'
+            +'<div class="home-avatar">'+esc((r.member_name||'?').charAt(0))+'</div>'
             +'<div style="flex:1;min-width:0">'
-            +'<div style="font-size:14px;font-weight:600;color:#0F172A;margin-bottom:4px">'+esc(r.member_name||'익명')+'</div>'
-            +'<div style="font-size:14px;color:#334155;line-height:1.6;white-space:pre-wrap;word-break:break-word">'+esc(r.content)+'</div>'
+            +'<div class="home-person-name" style="margin-bottom:4px">'+esc(r.member_name||'익명')+'</div>'
+            +'<div class="home-meta-text" style="color:#334155;white-space:pre-wrap;word-break:break-word">'+esc(r.content)+'</div>'
             +'</div>'
-            +(isCurrentWeek&&r.created_by===currentUser?.id?'<button class="btn ghost sm" style="flex-shrink:0;padding:3px 8px;font-size:11px" data-id="'+r.id+'" onclick="openReviewModal(this.dataset.id)">수정</button>':'')
+            +(isCurrentWeek&&r.created_by===currentUser?.id?'<button class="home-inline-btn" style="flex-shrink:0" data-id="'+r.id+'" onclick="openReviewModal(this.dataset.id)">수정</button>':'')
             +'</div>').join('')
           +'</div>')
       +'</div>';
@@ -9011,51 +9203,49 @@ renderKudos = async function(offset){
       api('GET','kudos_votes?week_start=eq.'+ws+'&voter_id=eq.'+(currentUser?.id||'null')+'&select=*').catch(()=>[])
     ]);
     const tally={};
-    (votes||[]).forEach(v=>{
-      tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;
-    });
+    (votes||[]).forEach(v=>{tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;});
     const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
     const myVote=myVoteArr&&myVoteArr[0];
     const hasVotes=sorted.length>0;
     const isCurrentWeek=kudosWeekOffset===0;
-    const prevBtn=`<button onclick="renderKudos(${kudosWeekOffset-1})" style="background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center">&lt;</button>`;
+    const prevBtn=`<button class="home-inline-btn" onclick="renderKudos(${kudosWeekOffset-1})">&lt;</button>`;
     const nextBtn=kudosWeekOffset<0
-      ? `<button onclick="renderKudos(${kudosWeekOffset+1})" style="background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center">&gt;</button>`
-      : '<div style="width:32px;height:32px"></div>';
+      ? `<button class="home-inline-btn" onclick="renderKudos(${kudosWeekOffset+1})">&gt;</button>`
+      : '<div style="width:58px"></div>';
     const voteBtn=isCurrentWeek
-      ? `<button class="btn sm" style="background:#111827;border:1px solid #111827;color:#FFFFFF;font-size:12px;font-weight:800" onclick="openKudosModal()">${myVote?'\uD22C\uD45C \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30'}</button>`
+      ? `<button class="home-inline-btn" onclick="openKudosModal()">${myVote?'\uD22C\uD45C \uBCC0\uACBD':'\uD22C\uD45C\uD558\uAE30'}</button>`
       : '';
     const summaryCards=sorted.map(([name,cnt])=>`
       <div style="text-align:center;background:#F8FAFC;border:1px solid #E2E8F0;padding:8px 10px;border-radius:8px;min-width:60px">
-        <div style="font-size:11px;color:#64748B;margin-bottom:3px;font-weight:700">${esc(name)}</div>
-        <div style="font-size:18px;font-weight:900;color:#0F172A">${cnt}</div>
+        <div class="home-meta-text" style="font-size:12px;margin-bottom:3px;font-weight:500">${esc(name)}</div>
+        <div class="home-person-name" style="font-size:18px">${cnt}</div>
       </div>
     `).join('');
     const body=hasVotes
       ? `
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-          <div style="width:56px;height:56px;border-radius:14px;background:#E2E8F0;border:1px solid #CBD5E1;color:#111827;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${esc(sorted[0][0].charAt(0))}</div>
+          <div class="home-avatar">${esc(sorted[0][0].charAt(0))}</div>
           <div>
-            <div style="font-size:22px;font-weight:900;color:#0F172A;letter-spacing:-.4px">${esc(sorted[0][0])}</div>
-            <div style="font-size:13px;color:#334155;margin-top:2px;font-weight:800">${sorted[0][1]}\uD45C${myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):''}</div>
+            <div class="home-person-name">${esc(sorted[0][0])}</div>
+            <div class="home-meta-text" style="margin-top:2px">${sorted[0][1]}\uD45C${myVote&&isCurrentWeek?' | \uB0B4 \uD22C\uD45C: '+esc(myVote.target_member_name):''}</div>
           </div>
           <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">${summaryCards}</div>
         </div>
       `
       : `
-        <div style="color:#334155;font-size:14px;font-weight:600;text-align:center;padding:16px 0;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">
+        <div class="home-meta-text" style="text-align:center;padding:16px 0;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">
           ${isCurrentWeek?'\uC544\uC9C1 \uD22C\uD45C\uAC00 \uC5C6\uC5B4\uC694. \uC774\uBC88 \uC8FC \uACE0\uC0DD\uD55C \uB3D9\uB8CC\uB97C \uCE6D\uCC2C\uD574\uBCF4\uC138\uC694.':'\uC774 \uC8FC\uC758 \uD22C\uD45C \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.'}
         </div>
       `;
     el.innerHTML=`
-      <div class="card-sm" style="margin-bottom:0;height:100%">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="home-subcard">
+        <div class="home-subcard-header">
           <div style="display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap">
-            <div class="section-label" style="margin:0">\uCE6D\uCC2C\uC0AC\uC6D0</div>
+            <div class="home-subsection-title">\uCE6D\uCC2C\uC0AC\uC6D0</div>
             <div style="display:flex;align-items:center;gap:8px">
-              ${prevBtn.replace('background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center','background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center')}
-              <span style="font-size:12px;color:#64748B;min-width:72px;text-align:center;font-weight:600">${weekLabel}</span>
-              ${nextBtn.replace('background:#E5E7EB;border:1px solid #CBD5E1;color:#111827;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center','background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center')}
+              ${prevBtn}
+              <span class="home-meta-text" style="min-width:72px;text-align:center">${weekLabel}</span>
+              ${nextBtn}
             </div>
           </div>
           ${voteBtn}
@@ -9670,9 +9860,9 @@ renderTeamNotices = function(){
     return new Date(b.created_at)-new Date(a.created_at);
   });
   const visible=teamNoticeExpanded?list:list.slice(0,3);
-  el.innerHTML='<div class="card team-notice-panel" style="margin-bottom:0">'
+  el.innerHTML='<div class="card team-notice-panel home-card" style="margin-bottom:0">'
     +'<div class="team-notice-head">'
-    +'<div><div class="section-label" style="margin:0">공지사항</div><div style="font-size:12px;color:var(--text3);margin-top:4px">중요한 공지는 제목과 날짜만 먼저 보여주고, 필요하면 펼쳐서 더 확인합니다.</div></div>'
+    +'<div><div class="home-section-title" style="margin:0">공지사항</div><div style="font-size:12px;color:var(--text3);margin-top:4px">중요한 공지는 제목과 날짜만 먼저 보여주고, 필요하면 펼쳐서 더 확인합니다.</div></div>'
     +(isAdmin?'<button class="btn primary sm" onclick="openNoticeWrite()">+ 공지 작성</button>':'')
     +'</div>'
     +(!list.length
@@ -9999,6 +10189,8 @@ window.saveProj = async function(){
   const start=document.getElementById('fStart')?.value||null;
   const end=document.getElementById('fEnd')?.value||null;
   const status=document.getElementById('fStatus')?.value||null;
+  const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseInt(document.getElementById('fEstimatedHours').value,10):null;
+  const priority=document.getElementById('fPriority')?.value||'medium';
   const client_id=document.getElementById('fClient')?.value||null;
   const contract_id=document.getElementById('fContract')?.value||null;
   const is_billable=!!document.getElementById('fBillable')?.checked;
@@ -10032,6 +10224,8 @@ window.saveProj = async function(){
     start_date:start,
     end_date:end,
     status,
+    estimated_hours,
+    priority,
     client_id,
     contract_id,
     is_billable,
