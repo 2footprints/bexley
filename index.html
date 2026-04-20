@@ -128,12 +128,19 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 .myweek-row-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 .myweek-row-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .myweek-row-title{font-size:13px;font-weight:700;color:var(--navy);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.myweek-row-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .myweek-row-badge{flex-shrink:0}
 .myweek-summary{font-size:12px;color:var(--text3);line-height:1.7;padding-top:2px}
 .myweek-summary strong{color:var(--navy);font-weight:800}
 .myweek-expand{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:12px}
 .myweek-expand-day{border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;background:var(--bg)}
 .myweek-expand-head{font-size:12px;font-weight:800;color:var(--navy);margin-bottom:8px}
+.team-workload-list{display:flex;flex-direction:column;gap:12px}
+.team-workload-row{display:grid;grid-template-columns:120px minmax(0,1fr) 92px;align-items:center;gap:12px}
+.team-workload-name{font-size:13px;font-weight:700;color:var(--navy)}
+.team-workload-bar{height:10px;background:var(--bg);border-radius:999px;overflow:hidden}
+.team-workload-fill{height:100%;border-radius:999px}
+.team-workload-meta{font-size:12px;color:var(--text2);font-weight:700;text-align:right}
 .btn.lunch-cat.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .weekly-list{display:flex;flex-direction:column;gap:8px}
 .weekly-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--bg)}
@@ -237,6 +244,8 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
   .myweek-row{padding:12px 0}
   .myweek-row-title{font-size:14px}
   .myweek-summary{font-size:13px}
+  .team-workload-row{grid-template-columns:1fr;gap:8px}
+  .team-workload-meta{text-align:left}
   .weekly-item{padding:12px 0;gap:10px}
   .weekly-name{font-size:14px}
   .weekly-sub{font-size:12px}
@@ -1862,6 +1871,7 @@ input,textarea{border-radius:12px!important}
       </div>
       <div id="myWeekWrap"></div>
       <div id="homeIssueSummaryWrap" style="margin-bottom:16px"></div>
+      <div id="teamWorkloadWrap" style="margin-bottom:16px"></div>
       <div id="memberScheduleWrap"></div>
       <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
       <div id="teamKudosReviewWrap" style="margin-bottom:16px"></div>
@@ -2072,6 +2082,16 @@ let clientAssignments=[],openIssuesByProject={},accessRequests=[];
 let curPage='home',curGView='project';
 let teamNoticeExpanded=false;
 let myWeekExpanded=false;
+function getProjectPriorityRank(priority){
+  if(priority==='high')return 0;
+  if(priority==='low')return 2;
+  return 1;
+}
+function getProjectPriorityBadge(priority){
+  if(priority==='high')return '<span class="badge badge-red myweek-row-badge">긴급</span>';
+  if(priority==='low')return '<span class="badge badge-gray myweek-row-badge">낮음</span>';
+  return '';
+}
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
 let editingProjId=null,formMembers=[],editingClientId=null,editingContractId=null;
@@ -2973,6 +2993,7 @@ function renderMyWeek(){
           id:p.id,
           title:(client?client.name+' ':'')+p.name,
           badge:p.type||'기타',
+          priority:p.priority||'medium',
           color:TYPES[p.type]||'#4e5968',
           action:"openProjModal('"+p.id+"')"
         });
@@ -2990,11 +3011,18 @@ function renderMyWeek(){
         });
       }
     });
+    entries.sort((a,b)=>{
+      const aRank=a.kind==='project'?getProjectPriorityRank(a.priority):99;
+      const bRank=b.kind==='project'?getProjectPriorityRank(b.priority):99;
+      if(aRank!==bRank)return aRank-bRank;
+      if(a.kind!==b.kind)return a.kind==='project'?-1:1;
+      return String(a.title||'').localeCompare(String(b.title||''),'ko');
+    });
     return entries;
   });
   const renderEntryRow=item=>'<button type="button" class="myweek-row" onclick="'+item.action+'">'
     +'<div class="myweek-row-main"><span class="myweek-row-dot" style="background:'+item.color+'"></span><span class="myweek-row-title" title="'+esc(item.title)+'">'+esc(item.title)+'</span></div>'
-    +'<span class="badge badge-gray myweek-row-badge" style="color:'+item.color+';background:rgba(15,23,42,.06)">'+esc(item.badge)+'</span>'
+    +'<div class="myweek-row-badges"><span class="badge badge-gray myweek-row-badge" style="color:'+item.color+';background:rgba(15,23,42,.06)">'+esc(item.badge)+'</span>'+(item.kind==='project'?getProjectPriorityBadge(item.priority):'')+'</div>'
     +'</button>';
   const todayEntries=todayIndex>=0?(dayEntries[todayIndex]||[]):[];
   const summaryParts=days.map((d,i)=>i===todayIndex?'':('<strong>'+dayLabels[i]+'</strong> '+(dayEntries[i]?.length||0)+'건')).filter(Boolean);
@@ -3062,6 +3090,31 @@ async function renderHomeDashboardIssues(){
   }catch(e){
     el.innerHTML='<div class="card" style="margin-bottom:16px"><div class="section-label" style="margin-bottom:12px">내 담당 이슈</div><div class="weekly-empty">이슈 현황을 불러오지 못했습니다.</div></div>';
   }
+}
+
+function renderTeamWorkload(){
+  const el=document.getElementById('teamWorkloadWrap');
+  if(!el)return;
+  const activeProjects=(projects||[]).filter(project=>project.status!=='완료');
+  const rows=(members||[]).map(member=>{
+    const assignedProjects=activeProjects.filter(project=>(project.members||[]).includes(member.name));
+    const totalHours=assignedProjects.reduce((sum,project)=>sum+(Number(project.estimated_hours)||0),0);
+    const capacity=Math.max(Number(member.weekly_capacity)||40,1);
+    const percent=Math.round((totalHours/capacity)*100);
+    const color=percent>100?'var(--red)':percent>80?'var(--orange)':'var(--green)';
+    return {name:member.name,totalHours,capacity,percent,color};
+  }).sort((a,b)=>b.percent-a.percent||a.name.localeCompare(b.name,'ko'));
+  el.innerHTML='<div class="card"><div class="section-label" style="margin-bottom:12px">팀 워크로드</div>'
+    +(rows.length
+      ?'<div class="team-workload-list">'+rows.map(row=>
+        '<div class="team-workload-row">'
+          +'<div class="team-workload-name">'+esc(row.name)+'</div>'
+          +'<div class="team-workload-bar"><div class="team-workload-fill" style="width:'+Math.min(row.percent,100)+'%;background:'+row.color+'"></div></div>'
+          +'<div class="team-workload-meta">'+row.totalHours+'/'+row.capacity+'h '+row.percent+'%</div>'
+        +'</div>'
+      ).join('')+'</div>'
+      :'<div class="weekly-empty">표시할 워크로드 데이터가 없습니다.</div>')
+    +'</div>';
 }
 
 function renderTeamKudosAndReviews(){
@@ -3227,6 +3280,7 @@ function setPage(page, extra) {
     } else if (page === 'home') {
       renderMyWeek();
       renderHomeDashboardIssues();
+      renderTeamWorkload();
       renderWeeklyScheduleSummary();
       renderTeamNotices();
       renderTeamKudosAndReviews();
@@ -4175,6 +4229,10 @@ function renderProjModal(p,editable,preClientId,preContractId){
             <div class="form-row"><label class="form-label">상태</label><select id="fStatus" ${editable?'':'disabled'}><option ${(p&&p.status==='진행중')?'selected':''}>진행중</option><option ${(p&&p.status==='예정')?'selected':''}>예정</option><option ${(p&&p.status==='완료')?'selected':''}>완료</option></select></div>
           </div>
           <div class="form-half">
+            <div class="form-row"><label class="form-label">예상 시간</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="fEstimatedHours" min="0" step="1" value="${p?.estimated_hours??''}" placeholder="예) 40" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">시간</span></div></div>
+            <div class="form-row"><label class="form-label">우선순위</label><select id="fPriority" ${editable?'':'disabled'}><option value="high" ${(p?.priority==='high')?'selected':''}>상</option><option value="medium" ${(!p||!p.priority||p.priority==='medium')?'selected':''}>중</option><option value="low" ${(p?.priority==='low')?'selected':''}>하</option></select></div>
+          </div>
+          <div class="form-half">
             <div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="${p?p.start:curYear+'-'+pad(curMonth)+'-01'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
             <div class="form-row"><label class="form-label">종료일</label><input type="date" id="fEnd" value="${p?p.end:curYear+'-'+pad(curMonth)+'-'+pad(d)}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
           </div>
@@ -4308,6 +4366,8 @@ async function saveProj(){
   const start=document.getElementById('fStart').value;
   const end=document.getElementById('fEnd').value;
   const status=document.getElementById('fStatus').value;
+  const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseInt(document.getElementById('fEstimatedHours').value,10):null;
+  const priority=document.getElementById('fPriority')?.value||'medium';
   const client_id=document.getElementById('fClient').value||null;
   const contract_id=document.getElementById('fContract')?.value||null;
   const is_billable=document.getElementById('fBillable').checked;
@@ -4326,7 +4386,7 @@ async function saveProj(){
   if(!name||!start||!end){alert('프로젝트명, 시작일, 종료일을 입력해주세요.');return;}
   if(start>end){alert('종료일이 시작일보다 빠릅니다.');return;}
   try{
-    const body={name,type,start_date:start,end_date:end,status,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
+    const body={name,type,start_date:start,end_date:end,status,estimated_hours,priority,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
     if(editingProjId){
       await api('PATCH','projects?id=eq.'+editingProjId,body);
       await api('DELETE','project_members?project_id=eq.'+editingProjId);
@@ -9974,6 +10034,7 @@ window.saveProj = async function(){
     }else if(curPage==='home'){
       renderMyWeek();
       renderHomeDashboardIssues();
+      renderTeamWorkload();
       renderWeeklyScheduleSummary();
       renderTeamNotices();
       renderTeamKudosAndReviews();
