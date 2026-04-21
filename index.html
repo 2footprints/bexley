@@ -393,6 +393,10 @@ select{padding:7px 10px;font-size:13px;border:1px solid var(--border);border-rad
 
 /* Gantt */
 .gantt-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.member-filter-tabs{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.member-filter-tab{background:#F1F5F9;color:#475569;border:1px solid #E2E8F0;border-radius:20px;padding:4px 14px;font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s}
+.member-filter-tab:hover{background:#E2E8F0}
+.member-filter-tab.active{background:#0F172A;color:#FFFFFF;border-color:#0F172A;font-weight:600}
 .month-nav{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px}
 .month-label{font-size:14px;font-weight:800;min-width:90px;text-align:center;color:var(--navy);letter-spacing:-.3px}
 .month-nav-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:16px;color:var(--text3);flex-shrink:0}
@@ -872,12 +876,34 @@ body{
   background:linear-gradient(90deg,#C2410C 0%,#E26D2F 100%)!important;
 }
 .g-badge.overdue{
-  background:#FFF6EA!important;
-  color:#B45309!important;
+  background:#FEE2E2!important;
+  color:#991B1B!important;
+  font-size:11px!important;
+  padding:1px 6px!important;
+  border-radius:4px!important;
 }
 .g-badge.mine{
   background:#EDF3FF!important;
   color:#1F4FD1!important;
+}
+.gantt-visibility-toggle{
+  background:transparent!important;
+  border:none!important;
+  padding:0!important;
+}
+.gantt-visibility-toggle .toggle-btn{
+  background:#F1F5F9!important;
+  color:#475569!important;
+  border:1px solid #E2E8F0!important;
+  border-radius:999px!important;
+  padding:8px 14px!important;
+  font-weight:700!important;
+  box-shadow:none!important;
+}
+.gantt-visibility-toggle .toggle-btn.active{
+  background:#0F172A!important;
+  color:#FFFFFF!important;
+  border-color:#0F172A!important;
 }
 .gantt-wrap{
   border-radius:18px!important;
@@ -2555,10 +2581,11 @@ input,textarea{border-radius:12px!important}
         </div>
         <button class="btn sm" id="gvp" onclick="setGView('project')">프로젝트별</button>
         <button class="btn sm" id="gvm" onclick="setGView('member')">인력별</button>
-        <select id="memberFilter" style="font-size:12px"><option value="me">내 일정</option><option value="">전체</option></select>
+        <input type="hidden" id="memberFilter" value="">
         <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()" style="margin-left:auto">+ 개인 일정</button>
         <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
       </div>
+      <div id="memberFilterTabs" class="member-filter-tabs"></div>
       <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">이번 달 우선순위 프로젝트를 왼쪽에서 고르고, 오른쪽에서 바로 이슈 확인과 후속 작업을 이어서 처리할 수 있습니다.</div>
       <div class="gantt-shell">
         <div class="gantt-stage">
@@ -2711,7 +2738,7 @@ const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null,currentRole='',currentRoleRow=null,pendingRequest=null;
 let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
-let projectMemberLinks=[];
+let projectMemberLinks=[],scheduleMemberLinks=[];
 let clientAssignments=[],openIssuesByProject={},accessRequests=[];
 let curPage='home',curGView='project';
 let teamNoticeExpanded=false;
@@ -2729,7 +2756,7 @@ function getProjectPriorityBadge(priority){
 }
 const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
-let editingProjId=null,formMembers=[],editingClientId=null,editingContractId=null;
+let editingProjId=null,formMembers=[],scheduleFormMembers=[],editingClientId=null,editingContractId=null;
 let projectComments=[],activeReplyParentId=null,activeProjectCommentEditId=null,activeIssueCommentEditId=null;
 
 
@@ -3420,19 +3447,31 @@ async function loadAll(){
   setStatus('불러오는 중...');
   try{
     // 핵심 데이터 먼저 (메인화면 렌더에 필요)
-    const[projs,mems,pm,cls,nts,schs]=await Promise.all([
+    const[projs,mems,pm,cls,nts,schs,sm]=await Promise.all([
       api('GET','projects?select=*&order=start_date'),
       api('GET','members?select=*&order=name'),
       api('GET','project_members?select=project_id,member_id,members(name)'),
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
-      api('GET','schedules?select=*&order=start_date')
+      api('GET','schedules?select=*&order=start_date'),
+      api('GET','schedule_members?select=schedule_id,member_id,members(name)').catch(()=>[])
     ]);
     members=mems||[];
     projectMemberLinks=pm||[];
+    scheduleMemberLinks=sm||[];
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
     clients=cls||[];notices=nts||[];
-    schedules=(schs||[]).map(s=>({...s,start:s.start_date,end:s.end_date,member_name:s.member_name||members.find(m=>m.id===s.member_id)?.name||''}));
+    schedules=(schs||[]).map(s=>{
+      const linkedNames=(scheduleMemberLinks||[])
+        .filter(link=>String(link.schedule_id)===String(s.id))
+        .map(link=>link.members?.name||members.find(m=>String(m.id)===String(link.member_id))?.name||'')
+        .filter(Boolean);
+      const fallbackNames=s.member_name
+        ?String(s.member_name).split(',').map(name=>name.trim()).filter(Boolean)
+        :(members.find(m=>String(m.id)===String(s.member_id))?.name?[members.find(m=>String(m.id)===String(s.member_id)).name]:[]);
+      const member_names=[...new Set((linkedNames.length?linkedNames:fallbackNames))];
+      return {...s,start:s.start_date,end:s.end_date,member_name:member_names[0]||'',member_names};
+    });
     populateMemberFilter();
     setStatus('✓ '+clients.length+'개 고객사 · '+projects.length+'개 프로젝트','ok');
     updateNoticeDot();
@@ -3590,7 +3629,7 @@ function buildHomeTodayDashboardRows(){
       });
     });
   (schedules||[])
-    .filter(s=>s.member_name===currentMember.name&&s.schedule_type!=='leave'&&toDate(s.start)<=today&&toDate(s.end)>=today)
+    .filter(s=>scheduleHasMember(s,currentMember.name)&&s.schedule_type!=='leave'&&toDate(s.start)<=today&&toDate(s.end)>=today)
     .forEach(s=>{
       const typeLabel=scheduleLabel(s.schedule_type);
       const category=inferHomeTodayCategory([s.title,typeLabel,s.location,s.memo].filter(Boolean).join(' '));
@@ -3615,7 +3654,7 @@ function buildHomeTodayDashboardRows(){
 function getWeeklySchedules(offsetWeeks=0){
   const {start,end}=getWeekBounds(offsetWeeks);
   const inWeek=s=>toDate(s.start)<=end && toDate(s.end)>=start;
-  const sortFn=(a,b)=>toDate(a.start)-toDate(b.start)||(a.member_name||'').localeCompare(b.member_name||'');
+  const sortFn=(a,b)=>toDate(a.start)-toDate(b.start)||getScheduleMemberLabel(a).localeCompare(getScheduleMemberLabel(b),'ko');
   return {
     leave:schedules.filter(s=>s.schedule_type==='leave'&&inWeek(s)).sort(sortFn),
     fieldwork:schedules.filter(s=>s.schedule_type==='fieldwork'&&inWeek(s)).sort(sortFn)
@@ -3634,7 +3673,7 @@ function renderWeeklyScheduleSummary(){
   const hasNext=nextWeek.leave.length||nextWeek.fieldwork.length;
   const sRow=s=>'<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">'
       +'<div style="width:7px;height:7px;border-radius:50%;background:'+(s.schedule_type==='leave'?'#C8B28A':'#9AA7B6')+';flex-shrink:0"></div>'
-    +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--navy)">'+esc(s.member_name||'미지정')+'</div>'
+    +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--navy)">'+esc(getScheduleMemberLabel(s))+'</div>'
     +'<div style="font-size:11px;color:var(--text3)">'+formatRangeShort(s.start,s.end)+(s.location?' · '+esc(s.location):'')+'</div></div>'
       +'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+(s.schedule_type==='leave'?'#F6F1E8':'#EDF1F5')+';color:'+(s.schedule_type==='leave'?'#8C7351':'#5F6E7E')+'">'+scheduleLabel(s.schedule_type)+'</span>'
     +'</div>';
@@ -4679,19 +4718,42 @@ function daysInMonth(y,m){return new Date(y,m,0).getDate();}
 function toDate(s){if(!s)return new Date(0);const[y,mo,d]=s.split('-').map(Number);return new Date(y,mo-1,d);}
 function isWeekend(y,m,d){const w=new Date(y,m-1,d).getDay();return w===0||w===6;}
 function isToday(y,m,d){const t=new Date();return t.getFullYear()===y&&t.getMonth()+1===m&&t.getDate()===d;}
+function getScheduleMemberNames(s){
+  if(Array.isArray(s?.member_names)&&s.member_names.length)return [...new Set(s.member_names.filter(Boolean))];
+  const linkedNames=(scheduleMemberLinks||[])
+    .filter(link=>String(link.schedule_id)===String(s?.id))
+    .map(link=>link.members?.name||members.find(m=>String(m.id)===String(link.member_id))?.name||'')
+    .filter(Boolean);
+  if(linkedNames.length)return [...new Set(linkedNames)];
+  if(s?.member_name)return [...new Set(String(s.member_name).split(',').map(name=>name.trim()).filter(Boolean))];
+  const singleMember=members.find(m=>String(m.id)===String(s?.member_id));
+  return singleMember?[singleMember.name]:[];
+}
+function getScheduleMemberLabel(s){
+  const names=getScheduleMemberNames(s);
+  return names.join(', ')||'미배정';
+}
+function scheduleHasMember(s,name){
+  if(!name)return false;
+  return getScheduleMemberNames(s).includes(name);
+}
+function scheduleHasAnyProjectMember(s,projectMembers){
+  const membersInSchedule=getScheduleMemberNames(s);
+  return membersInSchedule.some(name=>(projectMembers||[]).includes(name));
+}
 // 충돌: 프로젝트끼리는 충돌 없음. 휴가/필드웍과 프로젝트가 겹칠 때만 충돌
 function hasConflict(p){
   // 프로젝트가 휴가/필드웍 일정과 겹치는지 확인
   return schedules.some(s=>{
     if(s.schedule_type!=='leave'&&s.schedule_type!=='fieldwork')return false;
-    if(!p.members.includes(s.member_name))return false;
+    if(!scheduleHasAnyProjectMember(s,p.members||[]))return false;
     return toDate(p.start)<=toDate(s.end)&&toDate(p.end)>=toDate(s.start);
   });
 }
 function getConflictSchedules(p){
   return schedules.filter(s=>{
     if(s.schedule_type!=='leave'&&s.schedule_type!=='fieldwork')return false;
-    if(!p.members.includes(s.member_name))return false;
+    if(!scheduleHasAnyProjectMember(s,p.members||[]))return false;
     return toDate(p.start)<=toDate(s.end)&&toDate(p.end)>=toDate(s.start);
   });
 }
@@ -4699,9 +4761,9 @@ function getConflictSchedules(p){
 function getConflicts(mems,s,e,xid){
   return schedules.filter(sc=>{
     if(sc.schedule_type!=='leave'&&sc.schedule_type!=='fieldwork')return false;
-    if(!mems.includes(sc.member_name))return false;
+    if(!getScheduleMemberNames(sc).some(name=>mems.includes(name)))return false;
     return toDate(s)<=toDate(sc.end)&&toDate(e)>=toDate(sc.start);
-  }).map(sc=>(sc.member_name||'')+'의 '+(sc.title||scheduleLabel(sc.schedule_type)));
+  }).map(sc=>getScheduleMemberLabel(sc)+'의 '+(sc.title||scheduleLabel(sc.schedule_type)));
 }
 function canEdit(p){return canManageCore()||isAdmin;}
 function canDeleteProject(p){return isAdmin||(currentUser&&p&&p.created_by===currentUser.id);}
@@ -4709,12 +4771,12 @@ function isOverdue(p){return toDate(p.end)<new Date()&&p.status!=='완료';}
 function scheduleLabel(type){return SCHEDULE_META[type]?.label||type||'일정';}
 function scheduleColor(type){return SCHEDULE_META[type]?.color||'#8b95a1';}
 function isScheduleConflict(s){
-  if(!s.member_name)return false;
-  return projects.some(p=>p.members.includes(s.member_name)&&toDate(s.start)<=toDate(p.end)&&toDate(s.end)>=toDate(p.start)&&p.status!=='완료');
+  if(!getScheduleMemberNames(s).length)return false;
+  return projects.some(p=>scheduleHasAnyProjectMember(s,p.members||[])&&toDate(s.start)<=toDate(p.end)&&toDate(s.end)>=toDate(p.start)&&p.status!=='완료');
 }
 function findScheduleProjectConflict(s){
-  if(!s.member_name)return [];
-  return projects.filter(p=>p.members.includes(s.member_name)&&toDate(s.start)<=toDate(p.end)&&toDate(s.end)>=toDate(p.start)&&p.status!=='완료');
+  if(!getScheduleMemberNames(s).length)return [];
+  return projects.filter(p=>scheduleHasAnyProjectMember(s,p.members||[])&&toDate(s.start)<=toDate(p.end)&&toDate(s.end)>=toDate(p.start)&&p.status!=='완료');
 }
 function setGView(v){
   curGView=v;
@@ -4725,10 +4787,50 @@ function setGView(v){
 
 
 function populateMemberFilter(){
-  const sel=document.getElementById('memberFilter');const prev=sel.value;
-  sel.innerHTML='<option value="me">내 일정</option><option value="">전체</option>';
-  members.forEach(m=>{const o=document.createElement('option');o.value=m.name;o.textContent=m.name;sel.appendChild(o);});
-  if(prev&&prev!=='me'&&prev!=='')sel.value=prev;
+  const sel=document.getElementById('memberFilter');
+  if(!sel)return;
+  const prev=sel.value||'';
+  const allowedValues=new Set([''].concat(getAvailableGanttMembers().map(member=>member.name)));
+  sel.value=allowedValues.has(prev)?prev:'';
+  renderMemberFilterTabs();
+}
+
+function getAvailableGanttMembers(){
+  return (members||[])
+    .filter(member=>{
+      const isActive=member?.is_active===undefined?true:!!member.is_active;
+      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
+      const isSystemAccount=/projectschedule|system|test/.test(identity);
+      return isActive&&!isSystemAccount;
+    })
+    .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+}
+
+function renderMemberFilterTabs(){
+  const wrap=document.getElementById('memberFilterTabs');
+  const sel=document.getElementById('memberFilter');
+  if(!wrap||!sel)return;
+  const currentValue=sel.value||'';
+  const options=[{value:'',label:'전체'}].concat(
+    getAvailableGanttMembers().map(member=>({value:member.name,label:member.name}))
+  );
+  wrap.innerHTML='';
+  options.forEach(option=>{
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='member-filter-tab'+(currentValue===option.value?' active':'');
+    btn.textContent=option.label;
+    btn.onclick=()=>setMemberFilter(option.value);
+    wrap.appendChild(btn);
+  });
+}
+
+function setMemberFilter(value){
+  const sel=document.getElementById('memberFilter');
+  if(!sel)return;
+  sel.value=value||'';
+  renderMemberFilterTabs();
+  renderGantt();
 }
 
 function renderGantt(){
@@ -4742,9 +4844,8 @@ function renderGantt(){
     return toDate(p.start)<=mLast&&toDate(p.end)>=mFirst;
   });
   let schs=schedules.filter(s=>{
-    const owner=s.member_name||'';
-    if(mf==='me'&&currentMember&&owner!==currentMember.name)return false;
-    if(mf&&mf!=='me'&&owner!==mf)return false;
+    if(mf==='me'&&currentMember&&!scheduleHasMember(s,currentMember.name))return false;
+    if(mf&&mf!=='me'&&!scheduleHasMember(s,mf))return false;
     return toDate(s.start)<=mLast&&toDate(s.end)>=mFirst;
   });
   if(!projs.length&&!schs.length){document.getElementById('ganttWrap').innerHTML='<div class="empty-state" style="padding:40px">이 달에 프로젝트와 일정이 없습니다.</div>';renderLegend();return;}
@@ -4794,7 +4895,7 @@ function renderGantt(){
     const mems=mf==='me'?[currentMember?.name].filter(Boolean):mf?[mf]:members.map(m=>m.name);
     mems.forEach(name=>{
       const mp=projs.filter(p=>p.members.includes(name));
-      const ms=schs.filter(s=>(s.member_name||'')===name);
+      const ms=schs.filter(s=>scheduleHasMember(s,name));
       if(!mp.length&&!ms.length)return;
       html+='<tr class="sec-row"><td colspan="'+(days+1)+'"><span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(name)+'</span> <span style="color:var(--text3);font-weight:400">프로젝트 '+mp.length+'건 · 일정 '+ms.length+'건</span></td></tr>';
       mp.forEach(p=>{html+=gRow(p,days);});
@@ -4869,14 +4970,15 @@ function scheduleRow(s,days){
   const barS=sS<mFirst?1:sS.getDate();const barE=sE>mLast?days:sE.getDate();const span=barE-barS+1;
   const badges='';
   const rowCls='row-label';
-  const subtitle=[scheduleLabel(s.schedule_type),s.member_name||'미배정',s.location||''].filter(Boolean).join(' · ');
+  const memberLabel=getScheduleMemberLabel(s);
+  const subtitle=[scheduleLabel(s.schedule_type),memberLabel,s.location||''].filter(Boolean).join(' · ');
   const lbl='<div class="rn">'+esc(s.title||scheduleLabel(s.schedule_type))+badges+'</div><div class="rs">'+esc(subtitle)+'</div>';
   let cells='';
   for(let d=1;d<=days;d++){
     const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
     const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
     if(d===barS){
-      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);box-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc(s.title||scheduleLabel(s.schedule_type)):'')+'</div></td>';
+      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);box-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(memberLabel?' ('+memberLabel+')':'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc((s.title||scheduleLabel(s.schedule_type))+(memberLabel?' ('+memberLabel+')':'')):'')+'</div></td>';
     } else cells+='<td class="'+cls+'"></td>';
   }
   return '<tr><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
@@ -4909,9 +5011,8 @@ function getGanttFilteredData(){
     return toDate(p.start)<=mLast&&toDate(p.end)>=mFirst;
   });
   const schs=schedules.filter(s=>{
-    const owner=s.member_name||'';
-    if(mf==='me'&&currentMember&&owner!==currentMember.name)return false;
-    if(mf&&mf!=='me'&&owner!==mf)return false;
+    if(mf==='me'&&currentMember&&!scheduleHasMember(s,currentMember.name))return false;
+    if(mf&&mf!=='me'&&!scheduleHasMember(s,mf))return false;
     return toDate(s.start)<=mLast&&toDate(s.end)>=mFirst;
   });
   return {projs,schs};
@@ -4967,7 +5068,7 @@ function renderGanttDetailPanel(projs,schs){
     return;
   }
   const client=clients.find(c=>c.id===project.client_id)||null;
-  const relatedSchedules=schs.filter(s=>(project.members||[]).includes(s.member_name)&&toDate(s.start)<=toDate(project.end)&&toDate(s.end)>=toDate(project.start)).slice(0,4);
+  const relatedSchedules=schs.filter(s=>scheduleHasAnyProjectMember(s,project.members||[])&&toDate(s.start)<=toDate(project.end)&&toDate(s.end)>=toDate(project.start)).slice(0,4);
   const issueCount=openIssuesByProject[project.id]||0;
   el.innerHTML=
     '<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' · '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='吏꾪뻾以?'?'badge-blue':project.status==='?꾨즺'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div>'
@@ -4980,7 +5081,7 @@ function renderGanttDetailPanel(projs,schs){
     +'<div class="gantt-main-copy">'+esc(project.memo||'Use this panel to review timing, owners, overlapping events, and quick project actions.')+'</div>'
     +'<div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openScheduleModal()">Add Schedule</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div>'
     +'<div class="gantt-detail-section"><div class="gantt-panel-title">Overlapping Events</div><div class="gantt-detail-list">'
-    +(relatedSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' · '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No overlapping events in this project window.</div>')
+    +(relatedSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' · '+getScheduleMemberLabel(s))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No overlapping events in this project window.</div>')
     +'</div></div>';
 }
 const renderGanttTimelineBase = typeof window.renderGantt === 'function' ? window.renderGantt : function(){};
@@ -5604,7 +5705,8 @@ function openScheduleModal(eid){
   if(!eid&&!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   const s=eid?schedules.find(x=>x.id===eid):null;
   const editable=!s||isAdmin||s.created_by===currentUser?.id;
-  const memberOptions=members.map(m=>'<option value="'+esc(m.name)+'" '+(s&&s.member_name===m.name?'selected':'')+'>'+esc(m.name)+'</option>').join('');
+  scheduleFormMembers=s?getScheduleMemberNames(s):(currentMember?.name?[currentMember.name]:[]);
+  const memberOptions=getAvailableGanttMembers().map(m=>'<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>').join('');
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
     +'<div class="modal"><div class="modal-title">'+(s?(editable?'일정 수정':'일정 상세'):'일정 추가')+'</div>'
@@ -5625,16 +5727,26 @@ function openScheduleModal(eid){
     +(s&&editable?'<button class="btn danger" onclick="deleteSchedule(\''+s.id+'\')">삭제</button>':'<div></div>')
     +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" data-id="'+(s?s.id:'')+'" onclick="saveSchedule(this.dataset.id)">저장</button>':'')+'</div>'
     +'</div></div></div>';
-  if(editable){['scType','scMember','scStart','scEnd'].forEach(id=>document.getElementById(id)?.addEventListener('input',refreshScheduleConflict)); refreshScheduleConflict();}
+  const memberField=document.getElementById('scMember');
+  if(memberField){
+    const memberRow=memberField.closest('.form-row');
+    if(memberRow){
+      if(editable){
+        memberRow.innerHTML='<label class="form-label">담당 인력</label><div style="display:flex;gap:8px"><select id="scMemberSel" style="flex:1"><option value="">담당 인력 선택</option>'+memberOptions+'</select><button class="btn sm" type="button" onclick="addScheduleMember()">+ 추가</button></div><div class="member-tags" id="scMemberTags"></div>';
+      }else{
+        memberRow.innerHTML='<label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+esc(getScheduleMemberLabel(s))+'</div>';
+      }
+    }
+  }
+  if(editable){['scType','scStart','scEnd'].forEach(id=>document.getElementById(id)?.addEventListener('input',refreshScheduleConflict)); renderScheduleMemberTags(); refreshScheduleConflict();}
 }
 function refreshScheduleConflict(){
   const type=document.getElementById('scType')?.value;
-  const memberName=document.getElementById('scMember')?.value;
   const start=document.getElementById('scStart')?.value;
   const end=document.getElementById('scEnd')?.value;
   const area=document.getElementById('scheduleConflictArea');
   if(!area)return;
-  if(!memberName||!start||!end||(type!=='leave'&&type!=='fieldwork')){area.innerHTML='';return;}
+  if(!scheduleFormMembers.length||!start||!end||(type!=='leave'&&type!=='fieldwork')){area.innerHTML='';return;}
   const conflicts=projects.filter(p=>p.members.includes(memberName)&&toDate(start)<=toDate(p.end)&&toDate(end)>=toDate(p.start)&&p.status!=='완료');
   area.innerHTML=conflicts.length?'<div class="conflict-warn">⚠ 해당 기간에 배정된 프로젝트: '+conflicts.map(p=>p.name).join(', ')+'</div>':'';
 }
@@ -5663,6 +5775,73 @@ async function saveSchedule(eid){
     }
     closeModal();await loadAll(); if(curPage==='gantt')renderGantt(); else renderClients();
   }catch(e){alert('일정 저장 오류: '+e.message);} 
+}
+function renderScheduleMemberTags(){
+  const el=document.getElementById('scMemberTags');if(!el)return;
+  el.innerHTML=scheduleFormMembers.map(name=>'<div class="member-tag">'+esc(name)+'<button type="button" data-name="'+esc(name)+'" onclick="removeScheduleMember(this.dataset.name)">×</button></div>').join('');
+}
+function addScheduleMember(){
+  const memberName=document.getElementById('scMemberSel')?.value;
+  if(memberName&&!scheduleFormMembers.includes(memberName)){
+    scheduleFormMembers.push(memberName);
+    renderScheduleMemberTags();
+    refreshScheduleConflict();
+  }
+}
+function removeScheduleMember(memberName){
+  scheduleFormMembers=scheduleFormMembers.filter(name=>name!==memberName);
+  renderScheduleMemberTags();
+  refreshScheduleConflict();
+}
+function refreshScheduleConflict(){
+  const type=document.getElementById('scType')?.value;
+  const start=document.getElementById('scStart')?.value;
+  const end=document.getElementById('scEnd')?.value;
+  const area=document.getElementById('scheduleConflictArea');
+  if(!area)return;
+  if(!scheduleFormMembers.length||!start||!end||(type!=='leave'&&type!=='fieldwork')){area.innerHTML='';return;}
+  const conflicts=projects.filter(p=>scheduleFormMembers.some(name=>(p.members||[]).includes(name))&&toDate(start)<=toDate(p.end)&&toDate(end)>=toDate(p.start)&&p.status!=='완료');
+  area.innerHTML=conflicts.length?'<div class="conflict-warn">해당 기간에 배정된 프로젝트: '+conflicts.map(p=>p.name).join(', ')+'</div>':'';
+}
+async function saveSchedule(eid){
+  if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
+  const title=document.getElementById('scTitle').value.trim();
+  const schedule_type=document.getElementById('scType').value;
+  const memberNames=[...new Set(scheduleFormMembers.filter(Boolean))];
+  const primaryMemberName=memberNames[0]||'';
+  const primaryMember=members.find(m=>m.name===primaryMemberName);
+  const start_date=document.getElementById('scStart').value;
+  const end_date=document.getElementById('scEnd').value;
+  const location=document.getElementById('scLocation').value.trim()||null;
+  const memo=document.getElementById('scMemo').value.trim()||null;
+  if(!title||!memberNames.length||!start_date||!end_date){alert('일정명, 담당 인력, 시작일, 종료일을 입력해주세요.');return;}
+  if(start_date>end_date){alert('종료일이 시작일보다 빠릅니다.');return;}
+  const body={title,schedule_type,member_id:primaryMember?.id||null,member_name:primaryMemberName,start_date,end_date,location,memo};
+  try{
+    let scheduleId=eid;
+    if(eid){
+      await api('PATCH','schedules?id=eq.'+eid,body);
+      await logActivity('일정 수정','schedule',eid,title);
+    }else{
+      body.created_by=currentUser?.id||null;
+      const created=await api('POST','schedules',body);
+      scheduleId=Array.isArray(created)?created[0]?.id:created?.id;
+      await logActivity('일정 추가','schedule',scheduleId||null,title);
+    }
+    if(scheduleId){
+      const memberRows=memberNames.map(name=>{
+        const member=members.find(m=>m.name===name);
+        return member?.id?{schedule_id:scheduleId,member_id:member.id}:null;
+      }).filter(Boolean);
+      try{
+        await api('DELETE','schedule_members?schedule_id=eq.'+scheduleId);
+        if(memberRows.length)await api('POST','schedule_members',memberRows);
+      }catch(e){
+        throw new Error('복수 담당자 저장을 위해 schedule_members 테이블이 필요합니다. '+e.message);
+      }
+    }
+    closeModal();await loadAll(); if(curPage==='gantt')renderGantt(); else renderClients();
+  }catch(e){alert('일정 저장 오류: '+e.message);}
 }
 function renderGanttOverviewCards(projs,schs){
   const el=document.getElementById('ganttOverview'); if(!el) return;
@@ -5731,7 +5910,7 @@ function renderGanttDetailPanel(projs,schs){
     +'<div class="gantt-main-copy">'+esc(project.memo||'Use this panel to review project timing, ownership, issue pressure, and next actions.')+'</div>'
     +'<div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div>'
     +'<div class="gantt-detail-section"><div class="gantt-panel-title">Overlapping Events</div><div class="gantt-detail-list">'
-    +(relatedSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' · '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No overlapping leave or fieldwork events in this project window.</div>')
+    +(relatedSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' · '+getScheduleMemberLabel(s))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No overlapping leave or fieldwork events in this project window.</div>')
     +'</div></div>';
 }
 
@@ -5943,7 +6122,7 @@ renderGanttDetailPanel = function(projs,schs){
   }
   const client=clients.find(c=>c.id===project.client_id)||null;
   const projectMembers=project.members||[];
-  const memberSchedules=schs.filter(s=>projectMembers.includes(s.member_name)).sort((a,b)=>toDate(a.start)-toDate(b.start)).slice(0,8);
+  const memberSchedules=schs.filter(s=>scheduleHasAnyProjectMember(s,projectMembers)).sort((a,b)=>toDate(a.start)-toDate(b.start)).slice(0,8);
   const issueCount=openIssuesByProject[project.id]||0;
   const projectIssueIds=[...(issueFeedCache.pinned||[]),...(issueFeedCache.recent||[])].filter(i=>i.project_id===project.id).map(i=>i.id);
   const commentCount=projectIssueIds.reduce((sum,id)=>sum+(issueCommentCountMap[id]||0),0);
@@ -5958,7 +6137,7 @@ renderGanttDetailPanel = function(projs,schs){
     +'<div class="gantt-main-copy">The left side is not an automatic priority board. It is simply the visible project list for this month. Select a project to see team schedules and quick actions here.</div>'
     +'<div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div>'
     +'<div class="gantt-detail-section"><div class="gantt-panel-title">Team Schedule</div><div class="gantt-detail-list">'
-    +(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')
+    +(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+getScheduleMemberLabel(s))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')
     +'</div></div>';
 };
 
@@ -6035,10 +6214,10 @@ function openDashDrilldown(type){
     body=followups.length?followups.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\',null,null,\'completion\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc(p.follow_up_note||'후속 액션 내용 확인 필요')+'</div></div>').join(''):'<div class="notice-empty">후속 액션이 필요한 프로젝트가 없습니다.</div>';
   }else if(type==='leave'){
     title='휴가 일정';
-    body=leaves.length?leaves.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(s.member_name||'미지정')+'</div><div class="notice-meta">'+esc((s.title||'휴가')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc(s.memo||'')+'</div></div>').join(''):'<div class="notice-empty">휴가 일정이 없습니다.</div>';
+body=leaves.length?leaves.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(getScheduleMemberLabel(s))+'</div><div class="notice-meta">'+esc((s.title||'휴가')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc(s.memo||'')+'</div></div>').join(''):'<div class="notice-empty">휴가 일정이 없습니다.</div>';
   }else if(type==='fieldwork'){
     title='필드웍 일정';
-    body=fieldworks.length?fieldworks.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(s.member_name||'미지정')+'</div><div class="notice-meta">'+esc((s.title||'필드웍')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc([s.location,s.memo].filter(Boolean).join(' · '))+'</div></div>').join(''):'<div class="notice-empty">필드웍 일정이 없습니다.</div>';
+body=fieldworks.length?fieldworks.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(getScheduleMemberLabel(s))+'</div><div class="notice-meta">'+esc((s.title||'필드웍')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc([s.location,s.memo].filter(Boolean).join(' · '))+'</div></div>').join(''):'<div class="notice-empty">필드웍 일정이 없습니다.</div>';
   }
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
@@ -10176,11 +10355,11 @@ renderGanttDetailPanel = function(projs,schs){
   }
   const client=clients.find(c=>c.id===project.client_id)||null;
   const projectMembers=project.members||[];
-  const memberSchedules=schs.filter(s=>projectMembers.includes(s.member_name)).sort((a,b)=>toDate(a.start)-toDate(b.start)).slice(0,8);
+  const memberSchedules=schs.filter(s=>scheduleHasAnyProjectMember(s,projectMembers)).sort((a,b)=>toDate(a.start)-toDate(b.start)).slice(0,8);
   const issueCount=openIssuesByProject[project.id]||0;
   const projectIssueIds=[...(issueFeedCache.pinned||[]),...(issueFeedCache.recent||[])].filter(i=>i.project_id===project.id).map(i=>i.id);
   const commentCount=projectIssueIds.reduce((sum,id)=>sum+(issueCommentCountMap[id]||0),0);
-  el.innerHTML='<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' | '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='\uC9C4\uD589\uC911'?'badge-blue':project.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div><div class="gantt-detail-grid"><div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div><div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'Unassigned')+'</div></div><div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div><div><div class="gantt-detail-label">Issue / Comment</div><div class="gantt-detail-value">'+issueCount+' issues | '+commentCount+' comments</div></div></div><div class="gantt-main-copy">The left side is not a priority engine. It is simply the visible project list for this month. Select a project to see team schedules and quick actions here.</div><div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div><div class="gantt-detail-section"><div class="gantt-panel-title">Team Schedule</div><div class="gantt-detail-list">'+(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+(s.member_name||''))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')+'</div></div>';
+  el.innerHTML='<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' | '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='\uC9C4\uD589\uC911'?'badge-blue':project.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div><div class="gantt-detail-grid"><div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div><div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'Unassigned')+'</div></div><div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div><div><div class="gantt-detail-label">Issue / Comment</div><div class="gantt-detail-value">'+issueCount+' issues | '+commentCount+' comments</div></div></div><div class="gantt-main-copy">The left side is not a priority engine. It is simply the visible project list for this month. Select a project to see team schedules and quick actions here.</div><div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div><div class="gantt-detail-section"><div class="gantt-panel-title">Team Schedule</div><div class="gantt-detail-list">'+(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+getScheduleMemberLabel(s))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')+'</div></div>';
 };
 
 renderKudos = async function(offset){
@@ -10341,11 +10520,12 @@ function buildGanttCalendarItemsForDate(cellDate,projs,schs){
   schs.forEach(s=>{
     if(toDate(s.start).getTime()<=ts && toDate(s.end).getTime()>=ts){
       const labelBase=s.title||scheduleLabel(s.schedule_type);
+      const memberLabel=getScheduleMemberLabel(s);
       items.push({
         kind:'schedule',
         id:s.id,
-        label:(s.member_name? s.member_name+' · ':'')+labelBase,
-        title:[labelBase,s.member_name||'',s.location||'',s.memo||''].filter(Boolean).join(' | '),
+        label:(memberLabel? memberLabel+' · ':'')+labelBase,
+        title:[labelBase,memberLabel,s.location||'',s.memo||''].filter(Boolean).join(' | '),
         color:scheduleColor(s.schedule_type)
       });
     }
@@ -10715,12 +10895,12 @@ function getHomeTodayItems(limit=4){
       });
     });
   (schedules||[])
-    .filter(s=>s.member_name===currentMember.name&&toDate(s.start)<=today&&toDate(s.end)>=today)
+    .filter(s=>scheduleHasMember(s,currentMember.name)&&toDate(s.start)<=today&&toDate(s.end)>=today)
     .forEach(s=>{
       const meta=SCHEDULE_META[s.schedule_type]?.label||s.schedule_type||'일정';
       items.push({
         title:s.title||meta,
-        meta:'개인 일정 · '+meta,
+        meta:getScheduleMemberLabel(s)+' · '+meta,
         badges:['<span class="badge badge-gray">'+esc(meta)+'</span>'],
         action:'openScheduleModal(\''+s.id+'\')',
         sortKey:2
@@ -11190,8 +11370,8 @@ renderDash = function(){
     .map(m=>({
       name:m.name,
       activeCount:activeProjects.filter(p=>(p.members||[]).includes(m.name)).length,
-      onLeave:todayLeave.some(s=>s.member_name===m.name),
-      onFieldwork:todayFieldwork.some(s=>s.member_name===m.name)
+    onLeave:todayLeave.some(s=>scheduleHasMember(s,m.name)),
+    onFieldwork:todayFieldwork.some(s=>scheduleHasMember(s,m.name))
     }))
     .filter(item=>item.activeCount||item.onLeave||item.onFieldwork)
     .sort((a,b)=>{
@@ -11672,10 +11852,8 @@ window.doAuth = async function(){
   window.addEventListener('load',bootRecovery);
 })();
 
-const GANTT_HIDE_PAST_COMPLETED_KEY='bexley_gantt_hide_past_completed';
-const GANTT_HIDE_PAST_SCHEDULE_KEY='bexley_gantt_hide_past_schedule';
-let ganttHidePastCompleted=readStoredGanttToggle(GANTT_HIDE_PAST_COMPLETED_KEY,true);
-let ganttHidePastSchedules=readStoredGanttToggle(GANTT_HIDE_PAST_SCHEDULE_KEY,true);
+const GANTT_HIDE_COMPLETED_KEY='bexley_gantt_hide_completed';
+let ganttHideCompleted=readStoredGanttToggle(GANTT_HIDE_COMPLETED_KEY,false);
 
 function readStoredGanttToggle(key,fallback){
   try{
@@ -11696,10 +11874,9 @@ function ensureGanttVisibilityToggles(){
   if(!wrap){
     wrap=document.createElement('div');
     wrap.id='ganttVisibilityToggleWrap';
-    wrap.className='toggle-wrap';
+    wrap.className='toggle-wrap gantt-visibility-toggle';
     wrap.innerHTML=''
-      +'<button class="toggle-btn" id="ganttHidePastCompletedBtn" onclick="setGanttVisibilityToggle(\'completed\',!ganttHidePastCompleted)">지난 완료 숨기기</button>'
-      +'<button class="toggle-btn" id="ganttHidePastScheduleBtn" onclick="setGanttVisibilityToggle(\'schedule\',!ganttHidePastSchedules)">지난 일정 숨기기</button>';
+      +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완료 항목 숨기기</button>';
     const memberFilter=document.getElementById('memberFilter');
     if(memberFilter)toolbar.insertBefore(wrap,memberFilter);
     else toolbar.appendChild(wrap);
@@ -11720,28 +11897,17 @@ function ensureGanttVisibilitySummary(){
   return summary;
 }
 function updateGanttVisibilityToggleButtons(){
-  const completedBtn=document.getElementById('ganttHidePastCompletedBtn');
-  const scheduleBtn=document.getElementById('ganttHidePastScheduleBtn');
-  if(completedBtn)completedBtn.classList.toggle('active',ganttHidePastCompleted);
-  if(scheduleBtn)scheduleBtn.classList.toggle('active',ganttHidePastSchedules);
+  const completedBtn=document.getElementById('ganttHideCompletedBtn');
+  if(completedBtn)completedBtn.classList.toggle('active',ganttHideCompleted);
 }
-function updateGanttVisibilitySummary(hiddenCompletedCount,hiddenScheduleCount){
+function updateGanttVisibilitySummary(hiddenCompletedCount){
   const summary=ensureGanttVisibilitySummary();
   if(!summary)return;
-  const parts=[
-    ganttHidePastCompleted?'지난 완료 '+hiddenCompletedCount+'건 숨김':'지난 완료 표시중',
-    ganttHidePastSchedules?'지난 일정 '+hiddenScheduleCount+'건 숨김':'지난 일정 표시중'
-  ];
-  summary.textContent=parts.join(' · ');
+  summary.textContent=ganttHideCompleted?'완료 항목 '+hiddenCompletedCount+'건 숨김':'완료 항목 표시중';
 }
-function setGanttVisibilityToggle(type,value){
-  if(type==='completed'){
-    ganttHidePastCompleted=!!value;
-    writeStoredGanttToggle(GANTT_HIDE_PAST_COMPLETED_KEY,ganttHidePastCompleted);
-  }else if(type==='schedule'){
-    ganttHidePastSchedules=!!value;
-    writeStoredGanttToggle(GANTT_HIDE_PAST_SCHEDULE_KEY,ganttHidePastSchedules);
-  }
+function setGanttVisibilityToggle(value){
+  ganttHideCompleted=!!value;
+  writeStoredGanttToggle(GANTT_HIDE_COMPLETED_KEY,ganttHideCompleted);
   updateGanttVisibilityToggleButtons();
   renderGantt();
 }
@@ -11766,26 +11932,9 @@ function getScheduleEndDateTime(item){
   const mergedDate=new Date(text);
   return Number.isNaN(mergedDate.getTime())?null:mergedDate;
 }
-function isCompletedProjectStatus(status){
+function isCompletedGanttStatus(status){
   const normalized=String(status||'').trim().toLowerCase();
   return status==='완료'||normalized==='completed';
-}
-function isPastCompletedGanttProject(project,todayStart){
-  if(!isCompletedProjectStatus(project?.status))return false;
-  const endValue=project?.end||project?.end_date;
-  if(!endValue)return false;
-  const endDate=toDate(endValue);
-  endDate.setHours(0,0,0,0);
-  return endDate<todayStart;
-}
-function isPastEndedSchedule(schedule,now,todayStart){
-  const endDateTime=getScheduleEndDateTime(schedule);
-  if(endDateTime)return endDateTime<now;
-  const endValue=schedule?.end||schedule?.end_date;
-  if(!endValue)return false;
-  const endDate=toDate(endValue);
-  endDate.setHours(0,0,0,0);
-  return endDate<todayStart;
 }
 function getBaseGanttMonthData(){
   const days=daysInMonth(curYear,curMonth);
@@ -11798,30 +11947,26 @@ function getBaseGanttMonthData(){
     return toDate(project.start)<=monthLast&&toDate(project.end)>=monthFirst;
   });
   const schs=schedules.filter(schedule=>{
-    const owner=schedule.member_name||'';
-    if(memberFilter==='me'&&currentMember&&owner!==currentMember.name)return false;
-    if(memberFilter&&memberFilter!=='me'&&owner!==memberFilter)return false;
+    if(memberFilter==='me'&&currentMember&&!scheduleHasMember(schedule,currentMember.name))return false;
+    if(memberFilter&&memberFilter!=='me'&&!scheduleHasMember(schedule,memberFilter))return false;
     return toDate(schedule.start)<=monthLast&&toDate(schedule.end)>=monthFirst;
   });
   return {projs,schs};
 }
 function getGanttVisibleData(){
-  const now=new Date();
-  const todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const {projs:baseProjs,schs:baseSchedules}=getBaseGanttMonthData();
   let hiddenCompletedCount=0;
-  let hiddenScheduleCount=0;
   const projs=baseProjs.filter(project=>{
-    const hidden=ganttHidePastCompleted&&isPastCompletedGanttProject(project,todayStart);
+    const hidden=ganttHideCompleted&&isCompletedGanttStatus(project?.status);
     if(hidden)hiddenCompletedCount+=1;
     return !hidden;
   });
   const schs=baseSchedules.filter(schedule=>{
-    const hidden=ganttHidePastSchedules&&isPastEndedSchedule(schedule,now,todayStart);
-    if(hidden)hiddenScheduleCount+=1;
+    const hidden=ganttHideCompleted&&isCompletedGanttStatus(schedule?.status);
+    if(hidden)hiddenCompletedCount+=1;
     return !hidden;
   });
-  return {projs,schs,hiddenCompletedCount,hiddenScheduleCount};
+  return {projs,schs,hiddenCompletedCount};
 }
 window.getGanttFilteredData=function(){
   const {projs,schs}=getGanttVisibleData();
@@ -11831,8 +11976,8 @@ getGanttFilteredData=window.getGanttFilteredData;
 
 window.gRow=function(p,days){
   const activeSchedules=window.__ganttVisibleSchedulesForRender||schedules;
-  const od=isOverdue(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const color=TYPES[p.type]||'#4e5968';
+  const od=toDate(p.end)<new Date()&&!isCompletedGanttStatus(p.status),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
+  const color=od?'#FCA5A5':(TYPES[p.type]||'#4e5968');
   const opacity=ST_OP[p.status]||1;
   const pS=toDate(p.start),pE=toDate(p.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
@@ -11842,7 +11987,7 @@ window.gRow=function(p,days){
   const overlaysByDay={};
   activeSchedules.forEach(schedule=>{
     if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return;
-    if(!p.members.includes(schedule.member_name))return;
+    if(!scheduleHasAnyProjectMember(schedule,p.members||[]))return;
     const sS=toDate(schedule.start),sE=toDate(schedule.end);
     if(sS>mLast||sE<mFirst)return;
     const oS=Math.max(barS,sS<mFirst?1:sS.getDate());
@@ -11851,7 +11996,7 @@ window.gRow=function(p,days){
       if(!overlaysByDay[day])overlaysByDay[day]=[];
       overlaysByDay[day].push({
         type:schedule.schedule_type,
-        member:schedule.member_name,
+        member:getScheduleMemberLabel(schedule),
         title:schedule.title||scheduleLabel(schedule.schedule_type)
       });
     }
@@ -11957,10 +12102,10 @@ function renderFilteredGanttTimeline(projs,schs){
         ?[currentMember?.name].filter(Boolean)
         :memberFilter
         ?[memberFilter]
-        :members.map(member=>member.name);
+        :getAvailableGanttMembers().map(member=>member.name);
       memberNames.forEach(name=>{
         const memberProjects=projs.filter(project=>project.members.includes(name));
-        const memberSchedules=schs.filter(schedule=>(schedule.member_name||'')===name);
+        const memberSchedules=schs.filter(schedule=>scheduleHasMember(schedule,name));
         if(!memberProjects.length&&!memberSchedules.length)return;
         html+='<tr class="sec-row"><td colspan="'+(days+1)+'"><span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(name)+'</span> <span style="color:var(--text3);font-weight:400">프로젝트 '+memberProjects.length+'건 · 일정 '+memberSchedules.length+'건</span></td></tr>';
         memberProjects.sort((a,b)=>toDate(a.end)-toDate(b.end)).forEach(project=>{html+=gRow(project,days);});
@@ -11984,8 +12129,8 @@ window.renderGantt=function(){
   updateGanttVisibilityToggleButtons();
   const shell=document.querySelector('.gantt-shell');
   if(shell)shell.classList.add('is-reverted');
-  const {projs,schs,hiddenCompletedCount,hiddenScheduleCount}=getGanttVisibleData();
-  updateGanttVisibilitySummary(hiddenCompletedCount,hiddenScheduleCount);
+  const {projs,schs,hiddenCompletedCount}=getGanttVisibleData();
+  updateGanttVisibilitySummary(hiddenCompletedCount);
   renderGanttOverviewCards(projs,schs);
   renderGanttSidebarList(projs);
   renderGanttDetailPanel(projs,schs);
