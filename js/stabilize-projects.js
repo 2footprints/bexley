@@ -48,6 +48,28 @@
     };
   }
 
+  function normalizeSchedule(schedule, scheduleMemberRows){
+    const rows = (scheduleMemberRows || []).filter(function(row){
+      return row?.schedule_id === schedule.id;
+    });
+    const names = rows
+      .map(function(row){
+        return getMemberById(row?.member_id)?.name || '';
+      })
+      .filter(Boolean);
+    const fallbackNames = schedule?.member_name
+      ? String(schedule.member_name).split(',').map(function(name){ return name.trim(); }).filter(Boolean)
+      : (getMemberById(schedule?.member_id)?.name ? [getMemberById(schedule.member_id).name] : []);
+    const memberNames = [...new Set(names.length ? names : fallbackNames)];
+    return {
+      ...schedule,
+      start: schedule.start_date,
+      end: schedule.end_date,
+      member_name: memberNames[0] || '',
+      member_names: memberNames
+    };
+  }
+
   async function loadProjectMembersForProject(projectId){
     return api('GET', 'project_members?project_id=eq.' + projectId + '&select=member_id,members(id,name,email)').catch(function(){
       return [];
@@ -195,17 +217,19 @@
   window.loadAll = async function(){
     setStatus('\uBD88\uB7EC\uC624\uB294 \uC911...');
     try{
-      const [projectRows, memberRows, projectMemberRows, clientRows, noticeRows, scheduleRows, knowledgeRows] = await Promise.all([
+      const [projectRows, memberRows, projectMemberRows, clientRows, noticeRows, scheduleRows, scheduleMemberRows, knowledgeRows] = await Promise.all([
         api('GET', 'projects?select=*&order=start_date'),
         api('GET', 'members?select=*&order=name'),
         api('GET', 'project_members?select=project_id,member_id,members(id,name,email)'),
         api('GET', 'clients?select=*&order=name'),
         api('GET', 'notices?select=*&order=is_pinned.desc,created_at.desc'),
-        api('GET', 'schedules?select=*,schedule_members(member_id,members(id,name))&order=start_date'),
+        api('GET', 'schedules?select=*&order=start_date'),
+        api('GET', 'schedule_members?select=schedule_id,member_id').catch(function(){ return []; }),
         api('GET', 'knowledge_posts?select=*&order=is_pinned.desc,created_at.desc').catch(function(){ return []; })
       ]);
 
       members = memberRows || [];
+      scheduleMemberLinks = scheduleMemberRows || [];
       projects = (projectRows || []).map(function(project){
         return normalizeProject(project, projectMemberRows || []);
       });
@@ -213,12 +237,7 @@
       notices = noticeRows || [];
       knowledgePosts = knowledgeRows || [];
       schedules = (scheduleRows || []).map(function(schedule){
-        return {
-          ...schedule,
-          start: schedule.start_date,
-          end: schedule.end_date,
-          member_name: schedule.member_name || getMemberById(schedule.member_id)?.name || ''
-        };
+        return normalizeSchedule(schedule, scheduleMemberLinks);
       });
 
       if(typeof populateMemberFilter === 'function') populateMemberFilter();

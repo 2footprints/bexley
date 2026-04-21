@@ -3454,7 +3454,7 @@ async function loadAll(){
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
       api('GET','schedules?select=*&order=start_date'),
-      api('GET','schedule_members?select=schedule_id,member_id,members(name)').catch(()=>[])
+      api('GET','schedule_members?select=schedule_id,member_id').catch(()=>[])
     ]);
     members=mems||[];
     projectMemberLinks=pm||[];
