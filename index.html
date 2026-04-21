@@ -2378,6 +2378,91 @@ input,textarea{border-radius:12px!important}
   gap:12px;
   margin-bottom:8px;
 }
+#pageWeeklyReview .weekly-review-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:var(--spacing-md);
+}
+#pageWeeklyReview .weekly-review-head > *{
+  min-width:0;
+}
+#pageWeeklyReview .weekly-review-title-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+#pageWeeklyReview .weekly-review-range{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:fit-content;
+  padding:8px 12px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--bg);
+  font-size:12px;
+  font-weight:700;
+  color:var(--navy);
+}
+#pageWeeklyReview .weekly-review-nav{
+  flex-shrink:0;
+}
+#pageWeeklyReview .weekly-review-nav-label{
+  min-width:170px;
+  padding:0 12px;
+  text-align:center;
+  font-size:13px;
+  font-weight:700;
+  color:var(--navy);
+}
+#pageWeeklyReview .weekly-review-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--spacing-md);
+}
+#pageWeeklyReview .weekly-review-card{
+  min-height:220px;
+  display:flex;
+  flex-direction:column;
+}
+#pageWeeklyReview .weekly-review-card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+#pageWeeklyReview .weekly-review-card-title{
+  font-size:14px;
+  font-weight:700;
+  color:var(--navy);
+}
+#pageWeeklyReview .weekly-review-card-badge{
+  flex-shrink:0;
+  padding:4px 8px;
+  border-radius:999px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  font-size:11px;
+  font-weight:700;
+  color:var(--text3);
+}
+#pageWeeklyReview .weekly-review-empty{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  border:1px dashed var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  text-align:center;
+  font-size:13px;
+  color:var(--text3);
+  line-height:1.6;
+}
 
 @media(max-width:768px){
   #pageTeam .home-risk-grid{
@@ -2416,6 +2501,28 @@ input,textarea{border-radius:12px!important}
   }
   #pageTeam .home-daily-work-due{
     padding-left:8px;
+  }
+  #pageWeeklyReview .weekly-review-head{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  #pageWeeklyReview .weekly-review-range{
+    width:100%;
+    justify-content:center;
+  }
+  #pageWeeklyReview .weekly-review-nav{
+    width:100%;
+    justify-content:space-between;
+  }
+  #pageWeeklyReview .weekly-review-nav-label{
+    min-width:0;
+    flex:1;
+  }
+  #pageWeeklyReview .weekly-review-grid{
+    grid-template-columns:1fr;
+  }
+  #pageWeeklyReview .weekly-review-card{
+    min-height:0;
   }
 }
 </style>
@@ -2517,6 +2624,7 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navIssues" onclick="setPage('issues')">이슈</button>
       <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
+      <button class="nav-btn" id="navWeeklyReview" onclick="setPage('weeklyReview')">&#51452;&#44036; &#47532;&#48424;</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
     </nav>
 
@@ -2554,6 +2662,7 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavIssues" onclick="setPage('issues');closeMobileMenu()">이슈</button>
     <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">거래처</button>
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">계약</button>
+    <button class="nav-btn" id="mNavWeeklyReview" onclick="setPage('weeklyReview');closeMobileMenu()">&#51452;&#44036; &#47532;&#48424;</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">고객사 페이지</button>
@@ -2701,6 +2810,8 @@ input,textarea{border-radius:12px!important}
       </div>
     </div>
 
+    <div id="pageWeeklyReview" style="display:none"></div>
+
     <!-- 관리자 페이지 -->
     <div id="pageAdmin" style="display:none"></div>
 
@@ -2832,6 +2943,7 @@ let curPage='home',curGView='project';
 let teamNoticeExpanded=false;
 let myWeekExpanded=false;
 let homeIssueCollapsedClients={};
+let weeklyReviewWeekOffset=0;
 function getProjectPriorityRank(priority){
   if(priority==='high')return 0;
   if(priority==='low')return 2;
@@ -3677,6 +3789,55 @@ function formatRangeShort(start,end){
   const sm=s.getMonth()+1, sd=s.getDate(), em=e.getMonth()+1, ed=e.getDate();
   return sm===em && sd===ed ? `${sm}.${sd}` : `${sm}.${sd} ~ ${em}.${ed}`;
 }
+function getWeeklyReviewWeekRangeLabel(offsetWeeks=weeklyReviewWeekOffset){
+  const {start}=getWeekBounds(offsetWeeks);
+  const end=new Date(start);
+  end.setDate(start.getDate()+4);
+  const weekdayLabels=['\uC77C','\uC6D4','\uD654','\uC218','\uBAA9','\uAE08','\uD1A0'];
+  const startLabel=`${start.getFullYear()}.${pad(start.getMonth()+1)}.${pad(start.getDate())} (${weekdayLabels[start.getDay()]})`;
+  const endLabel=`${end.getFullYear()}.${pad(end.getMonth()+1)}.${pad(end.getDate())} (${weekdayLabels[end.getDay()]})`;
+  return `${startLabel} ~ ${endLabel}`;
+}
+function renderWeeklyReviewPage(offset){
+  if(offset!==undefined)weeklyReviewWeekOffset=offset;
+  const el=document.getElementById('pageWeeklyReview');
+  if(!el)return;
+  const rangeLabel=getWeeklyReviewWeekRangeLabel();
+  const navLabel=weeklyReviewWeekOffset===0
+    ? '\uC774\uBC88 \uC8FC'
+    : weeklyReviewWeekOffset>0
+      ? `${weeklyReviewWeekOffset}\uC8FC \uD6C4`
+      : `${Math.abs(weeklyReviewWeekOffset)}\uC8FC \uC804`;
+  const sections=[
+    '\uC774\uBC88 \uC8FC \uC2E4\uC801',
+    'Pending',
+    '\uCC28\uC8FC \uD560 \uC77C',
+    '\uBE4C\uB9C1 \uCCB4\uD06C'
+  ];
+  el.innerHTML=
+    '<div class="weekly-review-head">'
+      +'<div class="weekly-review-title-wrap">'
+        +'<h2 class="section-title">\uC8FC\uAC04 \uB9AC\uBDF0</h2>'
+        +'<div class="weekly-review-range">'+esc(rangeLabel)+'</div>'
+      +'</div>'
+      +'<div class="month-nav weekly-review-nav">'
+        +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset-1)+')">‹</button>'
+        +'<div class="weekly-review-nav-label">'+esc(navLabel)+'</div>'
+        +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset+1)+')">›</button>'
+      +'</div>'
+    +'</div>'
+    +'<div class="weekly-review-grid">'
+      +sections.map(title=>
+        '<section class="card weekly-review-card">'
+          +'<div class="weekly-review-card-head">'
+            +'<div class="weekly-review-card-title">'+esc(title)+'</div>'
+            +'<span class="weekly-review-card-badge">\uC900\uBE44 \uC911</span>'
+          +'</div>'
+          +'<div class="weekly-review-empty">\uB2E4\uC74C \uB2E8\uACC4\uC5D0\uC11C \uB370\uC774\uD130\uB97C \uC5F0\uACB0\uD560 \uC608\uC815\uC785\uB2C8\uB2E4.</div>'
+        +'</section>'
+      ).join('')
+    +'</div>';
+}
 
 function inferHomeTodayCategory(text=''){
   const raw=String(text||'');
@@ -4390,20 +4551,21 @@ function setPage(page, extra) {
   if (page === 'dash') page = 'admin';
   if (page === 'projects') page = 'gantt';
   if (page === 'team') page = 'home';
+  if (page === 'weekly') page = 'weeklyReview';
   if (page === 'fun') page = 'home';
   curPage = page;
 
   [
     'pageClients','pageDetail','pageContract','pageContracts',
-    'pageIssues','pageTeam','pageGantt','pageAdmin','pageFun'
+    'pageIssues','pageTeam','pageGantt','pageWeeklyReview','pageAdmin','pageFun'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
   [
-    'navHome','navGantt','navIssues','navClients','navContracts','navAdmin',
-    'mNavHome','mNavGantt','mNavIssues','mNavClients','mNavContracts','mNavAdmin'
+    'navHome','navGantt','navIssues','navClients','navContracts','navWeeklyReview','navAdmin',
+    'mNavHome','mNavGantt','mNavIssues','mNavClients','mNavContracts','mNavWeeklyReview','mNavAdmin'
   ].forEach(id => document.getElementById(id)?.classList.remove('active'));
 
   const headerLogo=document.querySelector('.header-logo');
@@ -4416,6 +4578,7 @@ function setPage(page, extra) {
     contract:'pageContract',
     contracts:'pageContracts',
     gantt:'pageGantt',
+    weeklyReview:'pageWeeklyReview',
     admin:'pageAdmin',
     issues:'pageIssues'
   };
@@ -4426,6 +4589,7 @@ function setPage(page, extra) {
     clients:['navClients','mNavClients'],
     contracts:['navContracts','mNavContracts'],
     gantt:['navGantt','mNavGantt'],
+    weeklyReview:['navWeeklyReview','mNavWeeklyReview'],
     admin:['navAdmin','mNavAdmin']
   };
 
@@ -4453,6 +4617,8 @@ function setPage(page, extra) {
       renderIssuesPage();
     } else if (page === 'gantt') {
       renderGantt();
+    } else if (page === 'weeklyReview') {
+      renderWeeklyReviewPage();
     } else if (page === 'admin') {
       renderAdminPage();
     }
