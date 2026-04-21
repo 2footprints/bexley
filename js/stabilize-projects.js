@@ -107,6 +107,10 @@
     const issue_note = document.getElementById('fIssueNote')?.value?.trim() || null;
     const follow_up_needed = !!document.getElementById('fFollowUp')?.checked;
     const follow_up_note = document.getElementById('fFollowUpNote')?.value?.trim() || null;
+    const estimated_hours = document.getElementById('fEstimatedHours')?.value
+      ? parseFloat(document.getElementById('fEstimatedHours').value)
+      : null;
+    const priority = document.getElementById('fPriority')?.value || 'medium';
 
     return {
       valid: !!(name && start && end && start <= end),
@@ -120,6 +124,8 @@
         start_date:start,
         end_date:end,
         status,
+        estimated_hours,
+        priority,
         client_id,
         contract_id,
         is_billable,
