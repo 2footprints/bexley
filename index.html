@@ -1828,7 +1828,7 @@ input,textarea{border-radius:12px!important}
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding:10px 0;
+  padding:8px 0;
   border-top:1px solid var(--color-border);
   cursor:pointer;
 }
@@ -2292,19 +2292,37 @@ input,textarea{border-radius:12px!important}
 }
 #pageTeam .home-main-grid{
   display:grid;
-  grid-template-columns:3fr 2fr;
+  grid-template-columns:minmax(0,2fr) minmax(0,1fr);
   gap:var(--spacing-md);
   margin-bottom:var(--spacing-md);
+  align-items:start;
+}
+#pageTeam .home-main-col{
+  display:grid;
+  gap:var(--spacing-md);
+  align-content:start;
 }
 #pageTeam .home-main-col,
-#pageTeam .home-bottom-grid > *{
+#pageTeam .home-main-col > *{
   min-width:0;
 }
-#pageTeam .home-bottom-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:var(--spacing-md);
-  margin-bottom:var(--spacing-md);
+#pageTeam .home-main-col > * > .home-card{
+  margin-bottom:0!important;
+}
+#pageTeam .home-main-col--side > * > .home-card{
+  min-height:220px;
+}
+#pageTeam .team-notice-panel.home-card{
+  padding:16px var(--spacing-lg)!important;
+}
+#pageTeam .team-notice-head{
+  margin-bottom:10px;
+}
+#pageTeam #teamNoticeWrap .team-notice-row-date{
+  flex-shrink:0;
+}
+#pageTeam #teamNoticeWrap .notice-empty{
+  padding:22px 16px!important;
 }
 #pageTeam .home-issue-project-head{
   display:flex;
@@ -2318,9 +2336,11 @@ input,textarea{border-radius:12px!important}
   #pageTeam .home-risk-grid{
     grid-template-columns:repeat(2,1fr);
   }
-  #pageTeam .home-main-grid,
-  #pageTeam .home-bottom-grid{
+  #pageTeam .home-main-grid{
     grid-template-columns:1fr;
+  }
+  #pageTeam .home-main-col--side > * > .home-card{
+    min-height:0;
   }
   #pageTeam .home-focus-summary{
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -2541,19 +2561,17 @@ input,textarea{border-radius:12px!important}
       </div>
       <div id="homeRiskWrap"></div>
       <div class="home-main-grid">
-        <div class="home-main-col">
+        <div class="home-main-col home-main-col--main">
           <div id="myWeekWrap"></div>
-          <div id="homeIssueSummaryWrap" style="margin-bottom:16px"></div>
+          <div id="teamNoticeWrap"></div>
         </div>
-        <div class="home-main-col">
-          <div id="teamWorkloadWrap" style="margin-bottom:16px"></div>
+        <div class="home-main-col home-main-col--side">
+          <div id="teamWorkloadWrap"></div>
           <div id="memberScheduleWrap"></div>
+          <div id="teamKudosReviewWrap"></div>
         </div>
       </div>
-      <div class="home-bottom-grid">
-        <div id="teamNoticeWrap" style="margin-bottom:16px"></div>
-        <div id="teamKudosReviewWrap" style="margin-bottom:16px"></div>
-      </div>
+      <div id="homeIssueSummaryWrap" style="display:none"></div>
       <div class="team-fun-section">
         <div class="card home-card" style="margin-bottom:0">
           <div class="home-section-title">🎲 팀 소소 기능</div>
@@ -11938,7 +11956,7 @@ function updateGanttVisibilityToggleButtons(){
 function updateGanttVisibilitySummary(hiddenCompletedCount){
   const summary=ensureGanttVisibilitySummary();
   if(!summary)return;
-  summary.textContent=ganttHideCompleted?'완료 항목 '+hiddenCompletedCount+'건 숨김':'완료 항목 표시중';
+  summary.textContent=ganttHideCompleted?'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 '+hiddenCompletedCount+'\uAC74 \uC228\uAE40':'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 \uD45C\uC2DC \uC911';
 }
 function setGanttVisibilityToggle(value){
   ganttHideCompleted=!!value;
@@ -11946,12 +11964,105 @@ function setGanttVisibilityToggle(value){
   updateGanttVisibilityToggleButtons();
   renderGantt();
 }
+const GANTT_SCHEDULE_LIKE_KEYWORDS=[
+  '\uD734\uAC00',
+  '\uC5F0\uCC28',
+  '\uD544\uB4DC\uC6CD',
+  '\uD544\uB4DC\uC6CC\uD06C',
+  '\uCD9C\uC7A5',
+  '\uC678\uADFC',
+  '\uBBF8\uD305',
+  '\uD68C\uC758',
+  '\uB0B4\uBD80\uC5C5\uBB34',
+  '\uAC1C\uC778 \uC77C\uC815',
+  '\uAC1C\uC778\uC77C\uC815',
+  'leave',
+  'vacation',
+  'pto',
+  'fieldwork',
+  'onsite',
+  'meeting',
+  'internal',
+  'internaltask',
+  'personalschedule',
+  'businesstrip'
+];
 function getScheduleFieldValue(item,keys){
   for(const key of keys){
     const value=item?.[key];
     if(value!==undefined&&value!==null&&value!=='')return value;
   }
   return '';
+}
+function normalizeGanttScheduleText(value){
+  return String(value||'').trim().toLowerCase().replace(/[\s_-]+/g,'');
+}
+function hasGanttDateTimeInfo(value){
+  if(value instanceof Date){
+    return !Number.isNaN(value.getTime())&&!!(value.getHours()||value.getMinutes()||value.getSeconds()||value.getMilliseconds());
+  }
+  const text=String(value||'').trim();
+  if(!text)return false;
+  return /[t\s]\d{1,2}:\d{2}/i.test(text)||/:\d{2}/.test(text.slice(10));
+}
+function parseGanttDateTimeValue(value){
+  if(value===undefined||value===null||value==='')return null;
+  const parsed=value instanceof Date?new Date(value.getTime()):new Date(value);
+  return Number.isNaN(parsed.getTime())?null:parsed;
+}
+function getGanttItemDateTime(item,keys){
+  for(const key of keys){
+    const value=item?.[key];
+    if(value===undefined||value===null||value==='')continue;
+    if(!hasGanttDateTimeInfo(value))continue;
+    const parsed=parseGanttDateTimeValue(value);
+    if(parsed)return parsed;
+  }
+  return null;
+}
+function getGanttItemDate(item,keys){
+  const value=getScheduleFieldValue(item,keys);
+  if(!value)return null;
+  const parsed=toDate(value);
+  if(Number.isNaN(parsed.getTime()))return null;
+  parsed.setHours(0,0,0,0);
+  return parsed;
+}
+function isTruthyGanttFlag(value){
+  if(value===true||value===1)return true;
+  const normalized=String(value||'').trim().toLowerCase();
+  return normalized==='true'||normalized==='1'||normalized==='y'||normalized==='yes';
+}
+function isGanttScheduleLikeItem(item){
+  const primaryFields=['schedule_type','category','type','project_type'];
+  const fallbackFields=['title','name'];
+  const matches=value=>{
+    const normalized=normalizeGanttScheduleText(value);
+    if(!normalized)return false;
+    return GANTT_SCHEDULE_LIKE_KEYWORDS.some(keyword=>normalized.includes(normalizeGanttScheduleText(keyword)));
+  };
+  const primaryMatch=primaryFields.some(field=>matches(item?.[field]));
+  if(primaryMatch)return true;
+  return fallbackFields.some(field=>matches(item?.[field]));
+}
+function isGanttAllDayItem(item){
+  const explicitFlag=getScheduleFieldValue(item,['all_day','is_all_day','allDay']);
+  if(explicitFlag!=='')return isTruthyGanttFlag(explicitFlag);
+  if(getGanttItemDateTime(item,['start_at','start_datetime','starts_at','started_at','start']))return false;
+  if(getGanttItemDateTime(item,['end_at','end_datetime','ends_at','ended_at','end']))return false;
+  const hasTimeField=!!getScheduleFieldValue(item,['start_time','begin_time','from_time','end_time','finish_time','to_time']);
+  return !hasTimeField;
+}
+function getGanttItemEndDateTime(item){
+  const directValue=getGanttItemDateTime(item,['end_at','end_datetime','ends_at','ended_at','end']);
+  if(directValue)return directValue;
+  const endDateValue=getScheduleFieldValue(item,['end','end_date']);
+  if(!endDateValue)return null;
+  const endTimeValue=getScheduleFieldValue(item,['end_time','finish_time','to_time']);
+  if(!endTimeValue)return null;
+  const text=String(endDateValue).slice(0,10)+'T'+String(endTimeValue).slice(0,5)+':00';
+  const mergedDate=new Date(text);
+  return Number.isNaN(mergedDate.getTime())?null:mergedDate;
 }
 function getScheduleEndDateTime(item){
   const directValue=getScheduleFieldValue(item,['end_at','end_datetime','ends_at','ended_at']);
@@ -11969,7 +12080,28 @@ function getScheduleEndDateTime(item){
 }
 function isCompletedGanttStatus(status){
   const normalized=String(status||'').trim().toLowerCase();
-  return status==='완료'||normalized==='completed';
+  return status==='완료'||normalized==='completed'||normalized==='done';
+}
+function getGanttCompletedLikeMeta(item){
+  const isCompleted=isCompletedGanttStatus(item?.status);
+  const isScheduleLike=isGanttScheduleLikeItem(item);
+  if(isCompleted){
+    return {isCompleted,isScheduleLike,isCompletedLike:true};
+  }
+  if(!isScheduleLike){
+    return {isCompleted,isScheduleLike,isCompletedLike:false};
+  }
+  const now=new Date();
+  if(!isGanttAllDayItem(item)){
+    const endDateTime=getGanttItemEndDateTime(item);
+    const isCompletedLike=!!endDateTime&&endDateTime.getTime()<now.getTime();
+    return {isCompleted,isScheduleLike,isCompletedLike};
+  }
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const endDate=getGanttItemDate(item,['end','end_date']);
+  const isCompletedLike=!!endDate&&endDate.getTime()<today.getTime();
+  return {isCompleted,isScheduleLike,isCompletedLike};
 }
 function getGanttProjectActionButtons(project,isCompleted){
   const canUpdate=typeof canEdit==='function'?canEdit(project):true;
@@ -12026,7 +12158,7 @@ window.deleteGanttProject=async function(projectId){
 };
 isCompletedGanttStatus=function(status){
   const normalized=String(status||'').trim().toLowerCase();
-  return status==='\uC644\uB8CC'||normalized==='completed';
+  return status==='\uC644\uB8CC'||normalized==='completed'||normalized==='done';
 };
 function getBaseGanttMonthData(){
   const days=daysInMonth(curYear,curMonth);
@@ -12048,13 +12180,19 @@ function getBaseGanttMonthData(){
 function getGanttVisibleData(){
   const {projs:baseProjs,schs:baseSchedules}=getBaseGanttMonthData();
   let hiddenCompletedCount=0;
-  const projs=baseProjs.filter(project=>{
-    const hidden=ganttHideCompleted&&isCompletedGanttStatus(project?.status);
+  const projs=baseProjs.map(project=>{
+    const meta=getGanttCompletedLikeMeta(project);
+    return {...project,isCompletedLike:meta.isCompletedLike,ganttIsScheduleLike:meta.isScheduleLike};
+  }).filter(project=>{
+    const hidden=ganttHideCompleted&&project.isCompletedLike;
     if(hidden)hiddenCompletedCount+=1;
     return !hidden;
   });
-  const schs=baseSchedules.filter(schedule=>{
-    const hidden=ganttHideCompleted&&isCompletedGanttStatus(schedule?.status);
+  const schs=baseSchedules.map(schedule=>{
+    const meta=getGanttCompletedLikeMeta(schedule);
+    return {...schedule,isCompletedLike:meta.isCompletedLike,ganttIsScheduleLike:meta.isScheduleLike};
+  }).filter(schedule=>{
+    const hidden=ganttHideCompleted&&schedule.isCompletedLike;
     if(hidden)hiddenCompletedCount+=1;
     return !hidden;
   });
