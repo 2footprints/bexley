@@ -414,15 +414,31 @@ table{border-collapse:collapse;min-width:100%}
 .sec-row td{background:var(--blue-light);font-size:11px;font-weight:700;color:var(--navy);padding:7px 14px;border-top:2px solid var(--border);letter-spacing:-.1px}
 .row-label{position:sticky;left:0;z-index:2;background:#fff;font-size:12px;color:var(--text);padding:10px 14px;white-space:nowrap;border-right:1px solid #dbe2ea;vertical-align:middle;cursor:pointer;min-width:180px}
 .row-label:hover{background:var(--blue-light)}
-.row-label .rn{font-weight:700;color:var(--navy);letter-spacing:-.3px;font-size:12px}
-.row-label .rs{font-size:10px;color:var(--text3);margin-top:3px;font-weight:500}
+.gantt-row-main{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
+.gantt-row-copy{flex:1;min-width:0}
+.row-label .rn{display:flex;align-items:center;gap:6px;min-width:0;font-weight:700;color:var(--navy);letter-spacing:-.3px;font-size:12px}
+.row-label .rs{font-size:10px;color:var(--text3);margin-top:3px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gantt-row-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gantt-row-name.is-completed{text-decoration:line-through;color:#94A3B8}
+.gantt-row-badges{display:inline-flex;align-items:center;gap:4px;flex-shrink:0}
+.gantt-row-actions{display:inline-flex;align-items:center;flex-shrink:0;opacity:0;transition:opacity .15s}
+.row-label:hover .gantt-row-actions,
+.row-label:focus-within .gantt-row-actions{opacity:1}
+.row-label.row-warn .gantt-row-actions{opacity:.6}
+.gantt-action-btn{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;border:none;cursor:pointer;font-size:13px;margin-left:4px;background:transparent;padding:0;line-height:1;flex-shrink:0}
+.gantt-action-btn.complete-action:hover{background:#D1FAE5}
+.gantt-action-btn.edit-action:hover{background:#DBEAFE}
+.gantt-action-btn.delete-action:hover{background:#FEE2E2}
+.row-label.row-warn .gantt-action-btn.complete-action{background:#FEE2E2}
+.gantt-complete-badge{display:inline-flex;align-items:center;background:#D1FAE5;color:#065F46;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600}
 .row-label.row-warn{background:#fff8f2}
+.row-label.row-completed{background:#fff}
 .cell{min-width:28px;height:42px;padding:0;position:relative;border-right:1px solid #f0f2f4}
 .cell.weekend{background:#fafafa;min-width:20px;max-width:20px}
 .th-day.weekend{min-width:20px;max-width:20px;font-size:9px;opacity:.5}
 .cell.today-c{background:rgba(99,102,241,.06)}
-.bar{position:absolute;top:7px;bottom:7px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1;letter-spacing:-.2px}
-.bar:hover{filter:brightness(.9)}
+.bar{position:absolute;top:7px;bottom:7px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1;letter-spacing:-.2px;transform-origin:center;transition:all .15s;box-shadow:var(--gantt-bar-shadow,inset 0 -2px 0 rgba(0,0,0,.15));outline:var(--gantt-bar-outline,none);outline-offset:var(--gantt-bar-outline-offset,0)}
+.bar:hover{cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15),var(--gantt-bar-shadow,inset 0 -2px 0 rgba(0,0,0,.15));transform:scaleY(1.1)}
 .leave-marker{position:absolute;top:4px;bottom:4px;border-radius:6px;z-index:2;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;pointer-events:auto;opacity:.56}
 .leave-marker:hover{opacity:.8;z-index:3}
 .leave-marker:hover::after{content:attr(title);position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;white-space:nowrap;z-index:100;pointer-events:none;font-weight:600}
@@ -1561,6 +1577,10 @@ select{
 .gantt-shell.is-reverted .cell.weekend{
   min-width:26px!important;
   max-width:none!important;
+}
+@media (max-width:768px){
+  .gantt-row-actions{opacity:1}
+  .gantt-action-btn{width:28px;height:28px;min-width:44px}
 }
 .gantt-layout-toggle{
   display:inline-flex!important;
@@ -4908,6 +4928,7 @@ function renderGantt(){
 }
 
 function gRow(p,days){
+  const isCompleted=isCompletedGanttStatus(p.status);
   const od=isOverdue(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
   const color=TYPES[p.type]||'#4e5968';const opacity=ST_OP[p.status]||1;
   const pS=toDate(p.start),pE=toDate(p.end);
@@ -4930,11 +4951,27 @@ function gRow(p,days){
   });
 
   const issueCount=openIssuesByProject[p.id]||0;
+  /*
   const badges=(od?'<span class="g-badge overdue">⏰초과</span>':'')
     +(mine?'<span class="g-badge mine">내 것</span>':'')
     +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">🚨'+issueCount+'</span>':'');
   const rowCls='row-label'+(od?' row-warn':'')+(issueCount?' row-issue':'');
   const lbl='<div class="rn">'+esc(p.name)+badges+'</div><div class="rs">'+(p.members.join(' · ')||'미배정')+'</div>';
+  const finalBadges=(isCompleted?'<span class="gantt-complete-badge">완료</span>':'')
+    +(od?'<span class="g-badge overdue">지연</span>':'')
+    +(mine?'<span class="g-badge mine">내 담당</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">이슈 '+issueCount+'</span>':'');
+  const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'');
+  const memberText=(p.members||[]).join(' · ')||'담당자 미배정';
+  const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div></div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
+  */
+  const finalBadges=(isCompleted?'<span class="gantt-complete-badge">\uC644\uB8CC</span>':'')
+    +(od?'<span class="g-badge overdue">\uC9C0\uC5F0</span>':'')
+    +(mine?'<span class="g-badge mine">\uB0B4 \uB2F4\uB2F9</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">\uC774\uC288 '+issueCount+'</span>':'');
+  const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'');
+  const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
+  const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div></div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
   let cells='';
   for(let d=1;d<=days;d++){
     const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
@@ -4963,22 +5000,20 @@ function gRow(p,days){
   return '<tr><td class="'+rowCls+'" onclick="openProjModal(\''+p.id+'\')">'+ lbl+'</td>'+cells+'</tr>';
 }
 function scheduleRow(s,days){
-  const conflict=s.schedule_type==='leave'||s.schedule_type==='fieldwork'?findScheduleProjectConflict(s):[];
   const color=scheduleColor(s.schedule_type);
   const sS=toDate(s.start),sE=toDate(s.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=sS<mFirst?1:sS.getDate();const barE=sE>mLast?days:sE.getDate();const span=barE-barS+1;
-  const badges='';
   const rowCls='row-label';
   const memberLabel=getScheduleMemberLabel(s);
   const subtitle=[scheduleLabel(s.schedule_type),memberLabel,s.location||''].filter(Boolean).join(' · ');
-  const lbl='<div class="rn">'+esc(s.title||scheduleLabel(s.schedule_type))+badges+'</div><div class="rs">'+esc(subtitle)+'</div>';
+  const lbl='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name">'+esc(s.title||scheduleLabel(s.schedule_type))+'</span></div><div class="rs">'+esc(subtitle)+'</div></div></div>';
   let cells='';
   for(let d=1;d<=days;d++){
     const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
     const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
     if(d===barS){
-      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);box-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(memberLabel?' ('+memberLabel+')':'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc((s.title||scheduleLabel(s.schedule_type))+(memberLabel?' ('+memberLabel+')':'')):'')+'</div></td>';
+      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(memberLabel?' ('+memberLabel+')':'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc((s.title||scheduleLabel(s.schedule_type))+(memberLabel?' ('+memberLabel+')':'')):'')+'</div></td>';
     } else cells+='<td class="'+cls+'"></td>';
   }
   return '<tr><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
@@ -11936,6 +11971,63 @@ function isCompletedGanttStatus(status){
   const normalized=String(status||'').trim().toLowerCase();
   return status==='완료'||normalized==='completed';
 }
+function getGanttProjectActionButtons(project,isCompleted){
+  const canUpdate=typeof canEdit==='function'?canEdit(project):true;
+  const canRemove=typeof canDeleteProject==='function'?canDeleteProject(project):true;
+  const buttons=[];
+  if(!isCompleted&&canUpdate){
+    buttons.push('<button class="gantt-action-btn complete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();markGanttProjectComplete(this.dataset.pid)" title="\uC644\uB8CC \uCC98\uB9AC">\u2705</button>');
+  }
+  buttons.push('<button class="gantt-action-btn edit-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();openProjModal(this.dataset.pid)" title="\uC218\uC815">\u270F\uFE0F</button>');
+  if(canRemove){
+    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid)" title="\uC0AD\uC81C">\uD83D\uDDD1\uFE0F</button>');
+  }
+  return buttons.length?'<div class="gantt-row-actions">'+buttons.join('')+'</div>':'';
+}
+window.markGanttProjectComplete=async function(projectId){
+  const project=(projects||[]).find(item=>String(item.id)===String(projectId));
+  if(!project||isCompletedGanttStatus(project.status))return;
+  if(typeof canEdit==='function'&&!canEdit(project)){
+    alert('\uC218\uC815 \uAD8C\uD55C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.');
+    return;
+  }
+  try{
+    await api('PATCH','projects?id=eq.'+projectId,{
+      status:'\uC644\uB8CC',
+      actual_end_date:project.actual_end_date||new Date().toISOString().slice(0,10)
+    });
+    if(typeof logActivity==='function'){
+      await logActivity('\uD504\uB85C\uC81D\uD2B8 \uC644\uB8CC \uCC98\uB9AC','project',projectId,project.name||'');
+    }
+    await loadAll();
+    renderGantt();
+  }catch(e){
+    alert('\uC644\uB8CC \uCC98\uB9AC \uC624\uB958: '+e.message);
+  }
+};
+window.deleteGanttProject=async function(projectId){
+  const project=(projects||[]).find(item=>String(item.id)===String(projectId));
+  if(!project)return;
+  if(typeof canDeleteProject==='function'&&!canDeleteProject(project)){
+    alert('\uC0AD\uC81C \uAD8C\uD55C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.');
+    return;
+  }
+  if(!confirm('\uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?'))return;
+  try{
+    await api('DELETE','projects?id=eq.'+projectId);
+    if(typeof logActivity==='function'){
+      await logActivity('\uD504\uB85C\uC81D\uD2B8 \uC0AD\uC81C','project',projectId,project.name||'');
+    }
+    await loadAll();
+    renderGantt();
+  }catch(e){
+    alert('\uC0AD\uC81C \uC624\uB958: '+e.message);
+  }
+};
+isCompletedGanttStatus=function(status){
+  const normalized=String(status||'').trim().toLowerCase();
+  return status==='\uC644\uB8CC'||normalized==='completed';
+};
 function getBaseGanttMonthData(){
   const days=daysInMonth(curYear,curMonth);
   const memberFilter=document.getElementById('memberFilter')?.value||'';
@@ -11974,11 +12066,15 @@ window.getGanttFilteredData=function(){
 };
 getGanttFilteredData=window.getGanttFilteredData;
 
+/*
 window.gRow=function(p,days){
   const activeSchedules=window.__ganttVisibleSchedulesForRender||schedules;
-  const od=toDate(p.end)<new Date()&&!isCompletedGanttStatus(p.status),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const isCompleted=isCompletedGanttStatus(p.status);
+  const od=toDate(p.end)<today&&!isCompleted,mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
   const color=od?'#FCA5A5':(TYPES[p.type]||'#4e5968');
-  const opacity=ST_OP[p.status]||1;
+  const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
   const pS=toDate(p.start),pE=toDate(p.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=pS<mFirst?1:pS.getDate();
@@ -12005,7 +12101,13 @@ window.gRow=function(p,days){
   const badges=(od?'<span class="g-badge overdue">지연</span>':'')
     +(mine?'<span class="g-badge mine">내 담당</span>':'')
     +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">이슈 '+issueCount+'</span>':'');
-  const rowCls='row-label'+(od?' row-warn':'');
+  const rowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'');
+  const finalBadges=(isCompleted?'<span class="gantt-complete-badge">완료</span>':'')
+    +(od?'<span class="g-badge overdue">지연</span>':'')
+    +(mine?'<span class="g-badge mine">내 담당</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">이슈 '+issueCount+'</span>':'');
+  const memberText=(p.members||[]).join(' · ')||'담당자 미배정';
+  const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div></div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
   const labelHtml='<div class="rn">'+esc(p.name)+badges+'</div><div class="rs">'+esc(p.members.join(' · ')||'미배정')+'</div>';
   let cells='';
   for(let day=1;day<=days;day++){
@@ -12027,13 +12129,83 @@ window.gRow=function(p,days){
     if(day===barS){
       const barText=span>=6?esc(p.name)+(p.members.length?' ('+esc(p.members.join(', '))+')':''):span>=3?esc(p.name):'';
       cells+='<td class="'+cellCls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+(issueCount?' | 열린 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+(issueCount?' | 열린 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
         +overlayHtml+'</td>';
     }else{
       cells+='<td class="'+cellCls+'" style="position:relative">'+overlayHtml+'</td>';
     }
   }
-  return '<tr><td class="'+rowCls+'" onclick="openProjModal(\''+p.id+'\')">'+labelHtml+'</td>'+cells+'</tr>';
+  return '<tr><td class="'+finalRowCls+'" onclick="openProjModal(\''+p.id+'\')">'+finalLabelHtml+'</td>'+cells+'</tr>';
+};
+gRow=window.gRow;
+*/
+
+window.gRow=function(p,days){
+  const activeSchedules=window.__ganttVisibleSchedulesForRender||schedules;
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const isCompleted=isCompletedGanttStatus(p.status);
+  const od=toDate(p.end)<today&&!isCompleted;
+  const mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
+  const color=od?'#FCA5A5':(TYPES[p.type]||'#4e5968');
+  const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
+  const pS=toDate(p.start),pE=toDate(p.end);
+  const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
+  const barS=pS<mFirst?1:pS.getDate();
+  const barE=pE>mLast?days:pE.getDate();
+  const span=barE-barS+1;
+  const overlaysByDay={};
+  activeSchedules.forEach(schedule=>{
+    if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return;
+    if(!scheduleHasAnyProjectMember(schedule,p.members||[]))return;
+    const sS=toDate(schedule.start),sE=toDate(schedule.end);
+    if(sS>mLast||sE<mFirst)return;
+    const oS=Math.max(barS,sS<mFirst?1:sS.getDate());
+    const oE=Math.min(barE,sE>mLast?days:sE.getDate());
+    for(let day=oS;day<=oE;day++){
+      if(!overlaysByDay[day])overlaysByDay[day]=[];
+      overlaysByDay[day].push({
+        type:schedule.schedule_type,
+        member:getScheduleMemberLabel(schedule),
+        title:schedule.title||scheduleLabel(schedule.schedule_type)
+      });
+    }
+  });
+  const issueCount=openIssuesByProject[p.id]||0;
+  const finalBadges=(isCompleted?'<span class="gantt-complete-badge">\uC644\uB8CC</span>':'')
+    +(od?'<span class="g-badge overdue">\uC9C0\uC5F0</span>':'')
+    +(mine?'<span class="g-badge mine">\uB0B4 \uB2F4\uB2F9</span>':'')
+    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">\uC774\uC288 '+issueCount+'</span>':'');
+  const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'');
+  const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
+  const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div></div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
+  let cells='';
+  for(let day=1;day<=days;day++){
+    const weekend=isWeekend(curYear,curMonth,day);
+    const todayCell=isToday(curYear,curMonth,day);
+    const cellCls='cell '+(weekend?'weekend ':'')+(todayCell?'today-c':'');
+    const overlays=overlaysByDay[day]||[];
+    let overlayHtml='';
+    if(overlays.length&&day>=barS&&day<=barE){
+      const icons=overlays.map(overlay=>overlay.type==='leave'?'L':'F').join(' ');
+      const tooltip=overlays.map(overlay=>overlay.member+' '+overlay.title).join(', ');
+      const hasLeave=overlays.some(overlay=>overlay.type==='leave');
+      const hasFieldwork=overlays.some(overlay=>overlay.type==='fieldwork');
+      const markerStyle=hasLeave&&!hasFieldwork
+        ?'left:1px;right:1px;background:repeating-linear-gradient(45deg, #e2e8f0, #e2e8f0 4px, #f1f5f9 4px, #f1f5f9 8px);border-left:3px solid var(--color-text-muted);color:var(--color-text-secondary)'
+        :'left:1px;right:1px;background:repeating-linear-gradient(45deg, #fef3c7, #fef3c7 4px, #fefce8 4px, #fefce8 8px);border-left:3px solid var(--color-warning);color:#92400e';
+      overlayHtml='<div class="leave-marker" style="'+markerStyle+'" title="'+esc(tooltip)+'">'+icons+'</div>';
+    }
+    if(day===barS){
+      const barText=span>=6?esc(p.name)+(p.members.length?' ('+esc(p.members.join(', '))+')':''):span>=3?esc(p.name):'';
+      cells+='<td class="'+cellCls+'" style="position:relative">'
+        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +overlayHtml+'</td>';
+    }else{
+      cells+='<td class="'+cellCls+'" style="position:relative">'+overlayHtml+'</td>';
+    }
+  }
+  return '<tr><td class="'+finalRowCls+'" onclick="openProjModal(\''+p.id+'\')">'+finalLabelHtml+'</td>'+cells+'</tr>';
 };
 gRow=window.gRow;
 
