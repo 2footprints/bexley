@@ -2319,27 +2319,25 @@ input,textarea{border-radius:12px!important}
   color:var(--color-text-secondary);
   line-height:1.5;
 }
-#pageTeam .home-main-grid,
-#pageTeam .home-secondary-grid{
+#pageTeam .home-dashboard-grid{
   display:grid;
   grid-template-columns:minmax(0,2fr) minmax(0,1fr);
   gap:var(--spacing-md);
   margin-bottom:var(--spacing-md);
   align-items:start;
 }
-#pageTeam .home-main-grid > *,
-#pageTeam .home-secondary-grid > *,
+#pageTeam .home-dashboard-col{
+  display:flex;
+  flex-direction:column;
+  gap:var(--spacing-md);
+}
+#pageTeam .home-dashboard-col > *,
 #pageTeam .home-kudos-section > *{
   min-width:0;
 }
-#pageTeam .home-main-grid > * > .home-card,
-#pageTeam .home-secondary-grid > * > .home-card,
+#pageTeam .home-dashboard-col > * > .home-card,
 #pageTeam .home-kudos-section > * > .home-card{
   margin-bottom:0!important;
-}
-#pageTeam #teamWorkloadWrap > .home-card,
-#pageTeam #memberScheduleWrap > .home-card{
-  min-height:220px;
 }
 #pageTeam .home-kudos-section{
   margin-bottom:var(--spacing-md);
@@ -2449,17 +2447,28 @@ input,textarea{border-radius:12px!important}
   font-weight:700;
   color:var(--text3);
 }
-#pageWeeklyReview .weekly-review-empty{
-  flex:1;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:24px;
-  border:1px dashed var(--border);
-  border-radius:var(--radius-sm);
-  background:var(--bg);
-  text-align:center;
-  font-size:13px;
+#pageWeeklyReview .weekly-review-card-value{
+  font-size:34px;
+  line-height:1.05;
+  font-weight:900;
+  letter-spacing:-.05em;
+  color:var(--navy);
+  margin-bottom:10px;
+}
+#pageWeeklyReview .weekly-review-card-value.is-success{
+  color:var(--green);
+}
+#pageWeeklyReview .weekly-review-card-value.is-warning{
+  color:var(--orange);
+}
+#pageWeeklyReview .weekly-review-card-value.is-danger{
+  color:var(--red);
+}
+#pageWeeklyReview .weekly-review-card-meta{
+  margin-top:auto;
+  padding-top:14px;
+  border-top:1px dashed var(--border);
+  font-size:12px;
   color:var(--text3);
   line-height:1.6;
 }
@@ -2468,14 +2477,9 @@ input,textarea{border-radius:12px!important}
   #pageTeam .home-risk-grid{
     grid-template-columns:repeat(2,1fr);
   }
-  #pageTeam .home-main-grid,
-  #pageTeam .home-secondary-grid,
+  #pageTeam .home-dashboard-grid,
   #pageTeam .home-kudos-section .team-extra-grid{
     grid-template-columns:1fr;
-  }
-  #pageTeam #teamWorkloadWrap > .home-card,
-  #pageTeam #memberScheduleWrap > .home-card{
-    min-height:0;
   }
   #pageTeam .home-focus-summary{
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -2719,18 +2723,19 @@ input,textarea{border-radius:12px!important}
         <h2 class="section-title">팀</h2>
       </div>
       <div id="homeRiskWrap"></div>
-      <div class="home-main-grid">
-        <div id="myWeekWrap"></div>
-        <div id="teamWorkloadWrap"></div>
-      </div>
-      <div class="home-secondary-grid">
-        <div id="teamNoticeWrap"></div>
-        <div id="memberScheduleWrap"></div>
+      <div class="home-dashboard-grid">
+        <div class="home-dashboard-col home-dashboard-col--main">
+          <div id="myWeekWrap"></div>
+          <div id="teamNoticeWrap"></div>
+        </div>
+        <div class="home-dashboard-col home-dashboard-col--side">
+          <div id="teamWorkloadWrap"></div>
+          <div id="memberScheduleWrap"></div>
+        </div>
       </div>
       <div class="home-kudos-section">
         <div id="teamKudosReviewWrap"></div>
       </div>
-      <div id="homeIssueSummaryWrap" style="display:none"></div>
       <div class="team-fun-section">
         <div class="card home-card" style="margin-bottom:0">
           <div class="home-section-title">🎲 팀 소소 기능</div>
@@ -3790,32 +3795,81 @@ function formatRangeShort(start,end){
   return sm===em && sd===ed ? `${sm}.${sd}` : `${sm}.${sd} ~ ${em}.${ed}`;
 }
 function getWeeklyReviewWeekRangeLabel(offsetWeeks=weeklyReviewWeekOffset){
-  const {start}=getWeekBounds(offsetWeeks);
-  const end=new Date(start);
-  end.setDate(start.getDate()+4);
+  const {start,end}=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
   const weekdayLabels=['\uC77C','\uC6D4','\uD654','\uC218','\uBAA9','\uAE08','\uD1A0'];
   const startLabel=`${start.getFullYear()}.${pad(start.getMonth()+1)}.${pad(start.getDate())} (${weekdayLabels[start.getDay()]})`;
   const endLabel=`${end.getFullYear()}.${pad(end.getMonth()+1)}.${pad(end.getDate())} (${weekdayLabels[end.getDay()]})`;
   return `${startLabel} ~ ${endLabel}`;
 }
-function renderWeeklyReviewPage(offset){
-  if(offset!==undefined)weeklyReviewWeekOffset=offset;
-  const el=document.getElementById('pageWeeklyReview');
-  if(!el)return;
-  const rangeLabel=getWeeklyReviewWeekRangeLabel();
-  const navLabel=weeklyReviewWeekOffset===0
-    ? '\uC774\uBC88 \uC8FC'
-    : weeklyReviewWeekOffset>0
-      ? `${weeklyReviewWeekOffset}\uC8FC \uD6C4`
-      : `${Math.abs(weeklyReviewWeekOffset)}\uC8FC \uC804`;
-  const sections=[
-    '\uC774\uBC88 \uC8FC \uC2E4\uC801',
-    'Pending',
-    '\uCC28\uC8FC \uD560 \uC77C',
-    '\uBE4C\uB9C1 \uCCB4\uD06C'
-  ];
-  el.innerHTML=
-    '<div class="weekly-review-head">'
+function getWeeklyReviewBusinessWeekBounds(offsetWeeks=0){
+  const {start}=getWeekBounds(offsetWeeks);
+  const end=new Date(start);
+  end.setDate(start.getDate()+4);
+  end.setHours(23,59,59,999);
+  return {start,end};
+}
+function getWeeklyReviewDate(value){
+  if(!value)return null;
+  if(value instanceof Date)return new Date(value.getTime());
+  const raw=String(value||'').trim();
+  if(!raw)return null;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return toDate(raw);
+  const parsed=new Date(raw);
+  return Number.isNaN(parsed.getTime())?null:parsed;
+}
+function isWeeklyReviewDateInRange(value,start,end){
+  const date=getWeeklyReviewDate(value);
+  return !!date&&date>=start&&date<=end;
+}
+function normalizeWeeklyReviewProjectStatus(status){
+  return String(status||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
+}
+function isWeeklyReviewCompletedProject(project){
+  const statusRaw=String(project?.status||'').trim();
+  const statusKey=normalizeWeeklyReviewProjectStatus(statusRaw);
+  return statusRaw==='\uC644\uB8CC'||statusKey==='completed'||statusKey==='done';
+}
+function isWeeklyReviewActiveProject(project){
+  const statusRaw=String(project?.status||'').trim();
+  const statusKey=normalizeWeeklyReviewProjectStatus(statusRaw);
+  return statusRaw==='\uC9C4\uD589\uC911'||statusKey==='in_progress'||statusKey==='active'||statusKey==='\uC9C4\uD589_\uC911';
+}
+function getWeeklyReviewProjectStartDate(project){
+  return project?.start||project?.start_date||null;
+}
+function getWeeklyReviewProjectEndDate(project){
+  return project?.end||project?.end_date||getWeeklyReviewProjectStartDate(project);
+}
+function getWeeklyReviewProjectCompletionDate(project){
+  return project?.actual_end_date||getWeeklyReviewProjectEndDate(project);
+}
+function getWeeklyReviewProjectBillingAmount(project){
+  const directAmount=Number(project?.billing_amount||0);
+  if(directAmount>0)return directAmount;
+  const linkedContract=(contracts||[]).find(contract=>String(contract.id)===String(project?.contract_id||''));
+  const contractAmount=Number(linkedContract?.contract_amount||0);
+  return contractAmount>0?contractAmount:0;
+}
+function formatWeeklyReviewCount(value){
+  return `${Number(value||0).toLocaleString()}\uAC74`;
+}
+function formatWeeklyReviewCurrency(value){
+  return `${Math.round(Number(value)||0).toLocaleString()}\uC6D0`;
+}
+function renderWeeklyReviewCardMarkup(card){
+  const toneClass=card?.tone?` is-${card.tone}`:'';
+  const badgeText=card?.badge||'';
+  return '<section class="card weekly-review-card">'
+    +'<div class="weekly-review-card-head">'
+      +'<div class="weekly-review-card-title">'+esc(card?.title||'')+'</div>'
+      +(badgeText?'<span class="weekly-review-card-badge">'+esc(badgeText)+'</span>':'')
+    +'</div>'
+    +'<div class="weekly-review-card-value'+toneClass+'">'+esc(card?.value||'-')+'</div>'
+    +'<div class="weekly-review-card-meta">'+esc(card?.meta||'')+'</div>'
+  +'</section>';
+}
+function renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards){
+  return '<div class="weekly-review-head">'
       +'<div class="weekly-review-title-wrap">'
         +'<h2 class="section-title">\uC8FC\uAC04 \uB9AC\uBDF0</h2>'
         +'<div class="weekly-review-range">'+esc(rangeLabel)+'</div>'
@@ -3827,16 +3881,116 @@ function renderWeeklyReviewPage(offset){
       +'</div>'
     +'</div>'
     +'<div class="weekly-review-grid">'
-      +sections.map(title=>
-        '<section class="card weekly-review-card">'
-          +'<div class="weekly-review-card-head">'
-            +'<div class="weekly-review-card-title">'+esc(title)+'</div>'
-            +'<span class="weekly-review-card-badge">\uC900\uBE44 \uC911</span>'
-          +'</div>'
-          +'<div class="weekly-review-empty">\uB2E4\uC74C \uB2E8\uACC4\uC5D0\uC11C \uB370\uC774\uD130\uB97C \uC5F0\uACB0\uD560 \uC608\uC815\uC785\uB2C8\uB2E4.</div>'
-        +'</section>'
-      ).join('')
+      +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
     +'</div>';
+}
+async function getWeeklyReviewSummaryCards(offsetWeeks=weeklyReviewWeekOffset){
+  const reviewBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
+  const nextBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks+1);
+  const today=getHomeBaseDate();
+  await loadContracts();
+  const issueRows=await api('GET','project_issues?select=id,status,resolved_at,updated_at,created_at').catch(()=>[]);
+  const completedProjects=(projects||[]).filter(project=>
+    isWeeklyReviewCompletedProject(project)
+    &&isWeeklyReviewDateInRange(getWeeklyReviewProjectCompletionDate(project),reviewBounds.start,reviewBounds.end)
+  );
+  const resolvedIssues=(issueRows||[]).filter(issue=>
+    String(issue?.status||'').trim()==='resolved'
+    &&isWeeklyReviewDateInRange(issue?.resolved_at||issue?.updated_at||issue?.created_at,reviewBounds.start,reviewBounds.end)
+  );
+  const pendingProjectMap=new Map();
+  (projects||[]).forEach(project=>{
+    if(!project)return;
+    const endDate=getWeeklyReviewDate(getWeeklyReviewProjectEndDate(project));
+    const isOverdue=!!endDate&&endDate<today&&!isWeeklyReviewCompletedProject(project);
+    if(isWeeklyReviewActiveProject(project)||isOverdue){
+      pendingProjectMap.set(String(project.id),project);
+    }
+  });
+  const openIssues=(issueRows||[]).filter(issue=>String(issue?.status||'').trim()==='open');
+  const nextWeekStarts=(projects||[]).filter(project=>
+    !isWeeklyReviewCompletedProject(project)
+    &&isWeeklyReviewDateInRange(getWeeklyReviewProjectStartDate(project),nextBounds.start,nextBounds.end)
+  );
+  const nextWeekEnds=(projects||[]).filter(project=>
+    !isWeeklyReviewCompletedProject(project)
+    &&isWeeklyReviewDateInRange(getWeeklyReviewProjectEndDate(project),nextBounds.start,nextBounds.end)
+  );
+  const nextWeekSchedules=(schedules||[]).filter(schedule=>{
+    const scheduleType=String(schedule?.schedule_type||'').trim();
+    if(!scheduleType||scheduleType==='project'||!SCHEDULE_META[scheduleType])return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=nextBounds.end&&endDate>=nextBounds.start;
+  });
+  const nextWeekItemCount=new Set([
+    ...nextWeekStarts.map(project=>'start:'+project.id),
+    ...nextWeekEnds.map(project=>'end:'+project.id),
+    ...nextWeekSchedules.map(schedule=>'schedule:'+schedule.id)
+  ]).size;
+  const unbilledProjects=(projects||[]).filter(project=>
+    isWeeklyReviewCompletedProject(project)
+    &&project?.is_billable
+    &&String(project?.billing_status||'').trim()==='\uBBF8\uCCAD\uAD6C'
+  );
+  const unbilledAmount=unbilledProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
+  return [
+    {
+      title:'\uC774\uBC88 \uC8FC \uC2E4\uC801',
+      badge:'\uC774\uBC88 \uC8FC',
+      value:formatWeeklyReviewCount(completedProjects.length),
+      meta:`\uD574\uACB0 \uC774\uC288 ${resolvedIssues.length}\uAC74`,
+      tone:completedProjects.length?'success':''
+    },
+    {
+      title:'Pending',
+      badge:'\uD604\uC7AC',
+      value:formatWeeklyReviewCount(pendingProjectMap.size),
+      meta:`\uBBF8\uD574\uACB0 \uC774\uC288 ${openIssues.length}\uAC74`,
+      tone:pendingProjectMap.size?'warning':'success'
+    },
+    {
+      title:'\uCC28\uC8FC \uD560 \uC77C',
+      badge:'\uB2E4\uC74C \uC8FC',
+      value:formatWeeklyReviewCount(nextWeekItemCount),
+      meta:`\uC2DC\uC791 ${nextWeekStarts.length}\uAC74 \u00B7 \uB9C8\uAC10 ${nextWeekEnds.length}\uAC74 \u00B7 \uC77C\uC815 ${nextWeekSchedules.length}\uAC74`,
+      tone:nextWeekItemCount?'':'success'
+    },
+    {
+      title:'\uCCAD\uAD6C \uB300\uAE30',
+      badge:'\uC2E4\uC2DC\uAC04',
+      value:formatWeeklyReviewCurrency(unbilledAmount),
+      meta:`\uC644\uB8CC \uD6C4 \uBBF8\uCCAD\uAD6C ${unbilledProjects.length}\uAC74`,
+      tone:unbilledAmount?'danger':'success'
+    }
+  ];
+}
+async function renderWeeklyReviewPage(offset){
+  if(offset!==undefined)weeklyReviewWeekOffset=offset;
+  const el=document.getElementById('pageWeeklyReview');
+  if(!el)return;
+  const requestedOffset=weeklyReviewWeekOffset;
+  const rangeLabel=getWeeklyReviewWeekRangeLabel();
+  const navLabel=weeklyReviewWeekOffset===0
+    ? '\uC774\uBC88 \uC8FC'
+    : weeklyReviewWeekOffset>0
+      ? `${weeklyReviewWeekOffset}\uC8FC \uD6C4`
+      : `${Math.abs(weeklyReviewWeekOffset)}\uC8FC \uC804`;
+  const loadingCards=[
+    {title:'\uC774\uBC88 \uC8FC \uC2E4\uC801',badge:'\uC774\uBC88 \uC8FC',value:'...',meta:'\uBD88\uB7EC\uC624\uB294 \uC911...'},
+    {title:'Pending',badge:'\uD604\uC7AC',value:'...',meta:'\uBD88\uB7EC\uC624\uB294 \uC911...'},
+    {title:'\uCC28\uC8FC \uD560 \uC77C',badge:'\uB2E4\uC74C \uC8FC',value:'...',meta:'\uBD88\uB7EC\uC624\uB294 \uC911...'},
+    {title:'\uCCAD\uAD6C \uB300\uAE30',badge:'\uC2E4\uC2DC\uAC04',value:'...',meta:'\uBD88\uB7EC\uC624\uB294 \uC911...'}
+  ];
+  el.innerHTML=renderWeeklyReviewPageMarkup(rangeLabel,navLabel,loadingCards);
+  const cards=await getWeeklyReviewSummaryCards(requestedOffset).catch(()=>[
+    {title:'\uC774\uBC88 \uC8FC \uC2E4\uC801',badge:'\uC774\uBC88 \uC8FC',value:'-',meta:'\uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.'},
+    {title:'Pending',badge:'\uD604\uC7AC',value:'-',meta:'\uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.'},
+    {title:'\uCC28\uC8FC \uD560 \uC77C',badge:'\uB2E4\uC74C \uC8FC',value:'-',meta:'\uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.'},
+    {title:'\uCCAD\uAD6C \uB300\uAE30',badge:'\uC2E4\uC2DC\uAC04',value:'-',meta:'\uB370\uC774\uD130\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.'}
+  ]);
+  if(curPage!=='weeklyReview'||weeklyReviewWeekOffset!==requestedOffset)return;
+  el.innerHTML=renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards);
 }
 
 function inferHomeTodayCategory(text=''){
@@ -4250,11 +4404,6 @@ function renderHomeDailyWorkCard(item){
 function renderHomeDailyWorkSection(payload,options={}){
   const el=document.getElementById('myWeekWrap');
   if(!el)return;
-  const issueWrap=document.getElementById('homeIssueSummaryWrap');
-  if(issueWrap){
-    issueWrap.style.display='none';
-    issueWrap.innerHTML='';
-  }
   const today=getHomeBaseDate();
   const todayItems=Array.isArray(payload)?payload:(payload?.todayItems||[]);
   const attentionItems=Array.isArray(payload)?[]:(payload?.attentionItems||[]);
