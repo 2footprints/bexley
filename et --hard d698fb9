@@ -1,0 +1,20 @@
+[33m9f4a6f9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: load schedule_members join so multi-member schedules display correctly
+[33md698fb9[m Refine home work sections and gantt schedule sync
+[33m95a8959[m Add team tabs and multi-member schedules
+[33m5fee7ca[m Refine home daily work and workload fallback
+[33m36d1221[m fix: include estimated_hours and priority in project save payload
+[33m64afc0c[m Refine gantt filters and team dashboard fixes
+[33m15734c9[m Group issues by client and align kudos cards
+[33m33c503c[m Unify home dashboard card styling and issue priority badges
+[33m98c1e95[m Refine issue tab, home states, and gantt markers
+[33mc6e3892[m Rework home layout and localize project KPIs
+[33m27ca90e[m Add document request modal tab and gantt markers
+[33ma07de65[m Refine home dashboard focus layout
+[33m06475a2[m Refine home cards and grouped issue summary
+[33m5e92dc1[m Remove duplicate home notice banner and localize KPI cards
+[33mba1e76e[m Unify home cards and gantt KPI visibility
+[33mb9229f8[m Add workload and priority planning to home
+[33m420e736[m Show individual assigned issues on home
+[33m23088f8[m Add portal document request updates and alerts
+[33mf9093f2[m Refine home week schedule layout
+[33m867738e[m Add team utility cards to home tab
