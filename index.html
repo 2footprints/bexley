@@ -2043,27 +2043,6 @@ input,textarea{border-radius:12px!important}
   display:flex;
   flex-direction:column;
 }
-#pageTeam .home-daily-work-section-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:8px;
-}
-#pageTeam .home-daily-work-section-title{
-  font-size:14px;
-  font-weight:600;
-  color:#0F172A;
-}
-#pageTeam .home-daily-work-section-count{
-  font-size:12px;
-  color:#94A3B8;
-  font-weight:400;
-}
-#pageTeam .home-daily-work-section-divider{
-  border-top:1px dashed #E2E8F0;
-  margin:16px 0;
-}
 #pageTeam .home-daily-work-card{
   width:100%;
   display:grid;
@@ -2155,14 +2134,6 @@ input,textarea{border-radius:12px!important}
   color:#94A3B8;
   padding:40px;
   font-size:13px;
-}
-#pageTeam .home-daily-work-empty.attention{
-  color:#10B981;
-  padding:16px 0;
-}
-#pageTeam .home-daily-work-empty.compact{
-  text-align:left;
-  padding:16px 0;
 }
 #pageTeam .home-focus-summary{
   display:grid;
@@ -3482,7 +3453,7 @@ async function loadAll(){
       api('GET','project_members?select=project_id,member_id,members(name)'),
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
-      api('GET','schedules?select=*,schedule_members(member_id,members(name))&order=start_date'),
+      api('GET','schedules?select=*&order=start_date'),
       api('GET','schedule_members?select=schedule_id,member_id,members(name)').catch(()=>[])
     ]);
     members=mems||[];
@@ -3491,9 +3462,6 @@ async function loadAll(){
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
     clients=cls||[];notices=nts||[];
     schedules=(schs||[]).map(s=>{
-      const nestedNames=(s.schedule_members||[])
-        .map(link=>link.members?.name||members.find(m=>String(m.id)===String(link.member_id))?.name||'')
-        .filter(Boolean);
       const linkedNames=(scheduleMemberLinks||[])
         .filter(link=>String(link.schedule_id)===String(s.id))
         .map(link=>link.members?.name||members.find(m=>String(m.id)===String(link.member_id))?.name||'')
@@ -3501,7 +3469,7 @@ async function loadAll(){
       const fallbackNames=s.member_name
         ?String(s.member_name).split(',').map(name=>name.trim()).filter(Boolean)
         :(members.find(m=>String(m.id)===String(s.member_id))?.name?[members.find(m=>String(m.id)===String(s.member_id)).name]:[]);
-      const member_names=[...new Set((nestedNames.length?nestedNames:(linkedNames.length?linkedNames:fallbackNames)))];
+      const member_names=[...new Set((linkedNames.length?linkedNames:fallbackNames))];
       return {...s,start:s.start_date,end:s.end_date,member_name:member_names[0]||'',member_names};
     });
     populateMemberFilter();
@@ -3733,10 +3701,7 @@ function renderWeeklyScheduleSummary(){
     +'</div>';
 }
 function renderMyWeek(){
-  renderHomeDailyWorkSection({
-    todayItems:[],
-    attentionItems:[]
-  },{
+  renderHomeDailyWorkSection([],{
     loading:!!currentMember
   });
 }
@@ -3867,39 +3832,16 @@ function buildHomeDailyIssueItem(issue,today){
   };
 }
 
-function buildHomeDailyScheduleItem(schedule,today){
-  const typeLabel=scheduleLabel(schedule.schedule_type);
-  const summary=[schedule.title,schedule.location,schedule.memo].filter(Boolean).join(' · ')||typeLabel;
-  const dueMeta=getHomeDailyWorkDueMeta(schedule.end||schedule.end_date||'',today);
-  const urgencyMeta=getHomeDailyWorkUrgency('schedule','',schedule.end||schedule.end_date||'',today);
-  return {
-    key:'schedule:'+schedule.id,
-    kind:'schedule',
-    context:'개인 일정 — '+typeLabel,
-    summary,
-    dueMeta,
-    dueSortTime:dueMeta.sortTime,
-    hasDue:dueMeta.hasDue,
-    createdTime:new Date(schedule.created_at||schedule.start||0).getTime()||0,
-    urgencyRank:urgencyMeta.rank,
-    urgencyColor:urgencyMeta.color,
-    action:"openScheduleModal('"+schedule.id+"')"
-  };
-}
-
 function buildHomeDailyWorkProjectItems(today){
   const dueLimit=new Date(today);
   dueLimit.setDate(today.getDate()+3);
   const assignedProjects=(projects||[]).filter(project=>isHomeProjectAssignedToCurrentMember(project)&&!isHomeCompletedProject(project));
-  const todayProjects=assignedProjects.filter(project=>{
+  const scheduleProjects=assignedProjects.filter(project=>{
     const startValue=project.start||project.start_date;
-    const endValue=project.end||project.end_date||startValue;
-    if(!startValue||!endValue)return false;
+    if(!startValue)return false;
     const startDate=toDate(startValue);
-    const endDate=toDate(endValue);
     startDate.setHours(0,0,0,0);
-    endDate.setHours(0,0,0,0);
-    return startDate<=today&&endDate>=today;
+    return startDate<=today;
   });
   const deadlineProjects=assignedProjects.filter(project=>{
     const endValue=project.end||project.end_date;
@@ -3908,18 +3850,12 @@ function buildHomeDailyWorkProjectItems(today){
     endDate.setHours(0,0,0,0);
     return endDate>=today&&endDate<=dueLimit;
   });
-  const todayProjectIds=new Set(todayProjects.map(project=>String(project.id)));
-  const todayProjectItems=todayProjects.map(project=>buildHomeDailyProjectItem(project,'schedule',today));
-  const todayScheduleItems=(schedules||[])
-    .filter(schedule=>currentMember&&scheduleHasMember(schedule,currentMember.name)&&toDate(schedule.start)<=today&&toDate(schedule.end)>=today)
-    .map(schedule=>buildHomeDailyScheduleItem(schedule,today));
-  const deadlineItems=deadlineProjects
-    .filter(project=>!todayProjectIds.has(String(project.id)))
-    .map(project=>buildHomeDailyProjectItem(project,'deadline',today));
-  return {
-    todayItems:[...todayProjectItems,...todayScheduleItems],
-    attentionProjectItems:deadlineItems
-  };
+  const deadlineProjectIds=new Set(deadlineProjects.map(project=>String(project.id)));
+  const scheduleItems=scheduleProjects
+    .filter(project=>!deadlineProjectIds.has(String(project.id)))
+    .map(project=>buildHomeDailyProjectItem(project,'schedule',today));
+  const deadlineItems=deadlineProjects.map(project=>buildHomeDailyProjectItem(project,'deadline',today));
+  return [...scheduleItems,...deadlineItems];
 }
 
 function sortHomeDailyWorkItems(items){
@@ -3944,7 +3880,7 @@ function renderHomeDailyWorkCard(item){
     +'</button>';
 }
 
-function renderHomeDailyWorkSection(sections,options={}){
+function renderHomeDailyWorkSection(items,options={}){
   const el=document.getElementById('myWeekWrap');
   if(!el)return;
   const issueWrap=document.getElementById('homeIssueSummaryWrap');
@@ -3953,44 +3889,25 @@ function renderHomeDailyWorkSection(sections,options={}){
     issueWrap.innerHTML='';
   }
   const today=getHomeBaseDate();
-  const todayItems=sections?.todayItems||[];
-  const attentionItems=sections?.attentionItems||[];
-  const todayHtml=options.loading
+  const contentHtml=options.loading
     ?'<div class="weekly-empty">불러오는 중...</div>'
-    :(todayItems.length
-      ?'<div class="home-daily-work-list">'+todayItems.map(renderHomeDailyWorkCard).join('')+'</div>'
-      :'<div class="home-daily-work-empty compact">오늘 예정된 일정이 없습니다</div>');
-  const attentionHtml=options.loading
-    ?'<div class="weekly-empty">불러오는 중...</div>'
-    :(attentionItems.length
-      ?'<div class="home-daily-work-list">'+attentionItems.map(renderHomeDailyWorkCard).join('')+'</div>'
-      :'<div class="home-daily-work-empty compact attention">주의가 필요한 항목이 없습니다 ✓</div>');
+    :(items.length
+      ?'<div class="home-daily-work-list">'+items.map(renderHomeDailyWorkCard).join('')+'</div>'
+      :'<div class="home-daily-work-empty">오늘 예정된 업무가 없습니다 ✓</div>');
   el.innerHTML='<div class="card home-card">'
     +'<div class="home-daily-work-head">'
       +'<div class="home-daily-work-title">오늘의 내 업무</div>'
       +'<div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div>'
     +'</div>'
-    +'<div class="home-daily-work-section-head">'
-      +'<div class="home-daily-work-section-title">오늘 일정</div>'
-    +'</div>'
-    +todayHtml
-    +'<div class="home-daily-work-section-divider"></div>'
-    +'<div class="home-daily-work-section-head">'
-      +'<div class="home-daily-work-section-title">주의 필요</div>'
-      +'<div class="home-daily-work-section-count">'+attentionItems.length+'건</div>'
-    +'</div>'
-    +attentionHtml
+    +contentHtml
   +'</div>';
 }
 
 async function renderHomeDashboardIssues(){
   const today=getHomeBaseDate();
-  const {todayItems,attentionProjectItems}=buildHomeDailyWorkProjectItems(today);
+  const projectItems=buildHomeDailyWorkProjectItems(today);
   if(!currentMember){
-    renderHomeDailyWorkSection({
-      todayItems:sortHomeDailyWorkItems(todayItems),
-      attentionItems:sortHomeDailyWorkItems(attentionProjectItems)
-    });
+    renderHomeDailyWorkSection(sortHomeDailyWorkItems(projectItems));
     return;
   }
   try{
@@ -3998,15 +3915,9 @@ async function renderHomeDashboardIssues(){
     const issueItems=(rows||[])
       .filter(issue=>issue.assignee_member_id===currentMember.id||issue.owner_member_id===currentMember.id)
       .map(issue=>buildHomeDailyIssueItem(issue,today));
-    renderHomeDailyWorkSection({
-      todayItems:sortHomeDailyWorkItems(todayItems),
-      attentionItems:sortHomeDailyWorkItems([...attentionProjectItems,...issueItems])
-    });
+    renderHomeDailyWorkSection(sortHomeDailyWorkItems([...projectItems,...issueItems]));
   }catch(e){
-    renderHomeDailyWorkSection({
-      todayItems:sortHomeDailyWorkItems(todayItems),
-      attentionItems:sortHomeDailyWorkItems(attentionProjectItems)
-    });
+    renderHomeDailyWorkSection(sortHomeDailyWorkItems(projectItems));
   }
 }
 
@@ -4809,10 +4720,6 @@ function isWeekend(y,m,d){const w=new Date(y,m-1,d).getDay();return w===0||w===6
 function isToday(y,m,d){const t=new Date();return t.getFullYear()===y&&t.getMonth()+1===m&&t.getDate()===d;}
 function getScheduleMemberNames(s){
   if(Array.isArray(s?.member_names)&&s.member_names.length)return [...new Set(s.member_names.filter(Boolean))];
-  const nestedNames=(s?.schedule_members||[])
-    .map(link=>link.members?.name||members.find(m=>String(m.id)===String(link.member_id))?.name||'')
-    .filter(Boolean);
-  if(nestedNames.length)return [...new Set(nestedNames)];
   const linkedNames=(scheduleMemberLinks||[])
     .filter(link=>String(link.schedule_id)===String(s?.id))
     .map(link=>link.members?.name||members.find(m=>String(m.id)===String(link.member_id))?.name||'')
@@ -5928,7 +5835,7 @@ async function saveSchedule(eid){
       }).filter(Boolean);
       try{
         await api('DELETE','schedule_members?schedule_id=eq.'+scheduleId);
-        if(memberRows.length)await apiEx('POST','schedule_members?on_conflict=schedule_id,member_id',memberRows,'resolution=merge-duplicates,return=representation');
+        if(memberRows.length)await api('POST','schedule_members',memberRows);
       }catch(e){
         throw new Error('복수 담당자 저장을 위해 schedule_members 테이블이 필요합니다. '+e.message);
       }
@@ -5954,37 +5861,6 @@ function renderGanttOverviewCards(projs,schs){
   el.innerHTML=stats.map(([label,value,sub])=>'<div class="gantt-kpi"><div class="gantt-kpi-label">'+label+'</div><div class="gantt-kpi-value">'+value+'</div><div class="gantt-kpi-sub">'+sub+'</div></div>').join('');
 }
 
-function getGanttProjectSortName(project){
-  return String(project?.name||'');
-}
-function getGanttProjectStartSortTime(project){
-  const startValue=project?.start||project?.start_date||'';
-  return startValue?toDate(startValue).getTime():Number.MAX_SAFE_INTEGER;
-}
-function compareGanttProjects(a,b){
-  return getGanttProjectSortName(a).localeCompare(getGanttProjectSortName(b),'ko')
-    || getGanttProjectStartSortTime(a)-getGanttProjectStartSortTime(b);
-}
-function getGanttClientSortName(clientId){
-  if(!clientId||clientId==='__none__')return '거래처 미지정';
-  return String(clients.find(client=>client.id===clientId)?.name||'거래처 미지정');
-}
-function compareGanttClientIds(a,b){
-  const aUnassigned=!a||a==='__none__';
-  const bUnassigned=!b||b==='__none__';
-  if(aUnassigned&&bUnassigned)return 0;
-  if(aUnassigned)return 1;
-  if(bUnassigned)return -1;
-  return getGanttClientSortName(a).localeCompare(getGanttClientSortName(b),'ko');
-}
-function getGanttScheduleSortName(schedule){
-  return String(schedule?.title||scheduleLabel(schedule?.schedule_type)||'');
-}
-function compareGanttSchedules(a,b){
-  return getGanttScheduleSortName(a).localeCompare(getGanttScheduleSortName(b),'ko')
-    || toDate(a?.start||a?.start_date||'').getTime()-toDate(b?.start||b?.start_date||'').getTime();
-}
-
 function renderGanttSidebarList(projs){
   const el=document.getElementById('ganttProjectList'); if(!el) return;
   if(!projs.length){
@@ -5993,10 +5869,7 @@ function renderGanttSidebarList(projs){
   }
   if(!ganttFocusProjectId || !projs.some(p=>p.id===ganttFocusProjectId)) ganttFocusProjectId=projs[0].id;
   const today=new Date();
-  const sorted=[...projs].sort((a,b)=>
-    compareGanttClientIds(a.client_id||'__none__',b.client_id||'__none__')
-    || compareGanttProjects(a,b)
-  );
+  const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
   el.innerHTML=sorted.map(p=>{
     const client=clients.find(c=>c.id===p.client_id);
     const issueCount=openIssuesByProject[p.id]||0;
@@ -12194,11 +12067,15 @@ function renderFilteredGanttTimeline(projs,schs){
         if(!clientGroups[clientId])clientGroups[clientId]=[];
         clientGroups[clientId].push(project);
       });
-      const sortedClientIds=Object.keys(clientGroups).sort(compareGanttClientIds);
+      const sortedClientIds=Object.keys(clientGroups).sort((a,b)=>{
+        const nameA=clients.find(client=>client.id===a)?.name||'기타';
+        const nameB=clients.find(client=>client.id===b)?.name||'기타';
+        return nameA.localeCompare(nameB,'ko');
+      });
       sortedClientIds.forEach(clientId=>{
         const client=clients.find(item=>item.id===clientId);
         const clientName=client?client.name:'거래처 미지정';
-        const clientProjects=[...clientGroups[clientId]].sort(compareGanttProjects);
+        const clientProjects=clientGroups[clientId].sort((a,b)=>toDate(a.end)-toDate(b.end));
         const isCollapsed=!!ganttCollapsed[clientId];
         html+='<tr class="sec-row" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
           +'<td colspan="'+(days+1)+'" style="padding-left:10px;user-select:none">'
@@ -12217,7 +12094,7 @@ function renderFilteredGanttTimeline(projs,schs){
         });
         Object.entries(scheduleGroups).forEach(([type,items])=>{
           html+='<tr class="sec-row"><td colspan="'+(days+1)+'">일정 · '+scheduleLabel(type)+' · '+items.length+'건</td></tr>';
-          [...items].sort(compareGanttSchedules).forEach(schedule=>{html+=scheduleRow(schedule,days);});
+          items.sort((a,b)=>toDate(a.start)-toDate(b.start)).forEach(schedule=>{html+=scheduleRow(schedule,days);});
         });
       }
     }else{
@@ -12231,8 +12108,8 @@ function renderFilteredGanttTimeline(projs,schs){
         const memberSchedules=schs.filter(schedule=>scheduleHasMember(schedule,name));
         if(!memberProjects.length&&!memberSchedules.length)return;
         html+='<tr class="sec-row"><td colspan="'+(days+1)+'"><span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(name)+'</span> <span style="color:var(--text3);font-weight:400">프로젝트 '+memberProjects.length+'건 · 일정 '+memberSchedules.length+'건</span></td></tr>';
-        [...memberProjects].sort(compareGanttProjects).forEach(project=>{html+=gRow(project,days);});
-        [...memberSchedules].sort(compareGanttSchedules).forEach(schedule=>{html+=scheduleRow(schedule,days);});
+        memberProjects.sort((a,b)=>toDate(a.end)-toDate(b.end)).forEach(project=>{html+=gRow(project,days);});
+        memberSchedules.sort((a,b)=>toDate(a.start)-toDate(b.start)).forEach(schedule=>{html+=scheduleRow(schedule,days);});
       });
     }
   }finally{
