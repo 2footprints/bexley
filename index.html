@@ -2063,6 +2063,28 @@ input,textarea{border-radius:12px!important}
   display:flex;
   flex-direction:column;
 }
+#pageTeam .home-daily-work-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+#pageTeam .home-daily-work-section-title{
+  font-size:14px;
+  font-weight:600;
+  color:#0F172A;
+}
+#pageTeam .home-daily-work-section-count{
+  font-size:12px;
+  color:#94A3B8;
+  font-weight:400;
+  white-space:nowrap;
+}
+#pageTeam .home-daily-work-section-divider{
+  border-top:1px dashed #E2E8F0;
+  margin:16px 0;
+}
 #pageTeam .home-daily-work-card{
   width:100%;
   display:grid;
@@ -2154,6 +2176,13 @@ input,textarea{border-radius:12px!important}
   color:#94A3B8;
   padding:40px;
   font-size:13px;
+}
+#pageTeam .home-daily-work-empty.is-compact{
+  text-align:left;
+  padding:16px 0;
+}
+#pageTeam .home-daily-work-empty.is-success{
+  color:#10B981;
 }
 #pageTeam .home-focus-summary{
   display:grid;
@@ -3836,6 +3865,8 @@ function buildHomeDailyProjectItem(project,kind,today){
     :(project.work_summary||project.memo||project.type||'오늘 확인할 프로젝트입니다');
   return {
     key:kind+':'+project.id,
+    sourceType:'project',
+    sourceId:String(project.id),
     kind,
     context:(client?.name||'거래처 없음')+' — '+(project.name||'프로젝트 없음'),
     summary,
@@ -3843,6 +3874,7 @@ function buildHomeDailyProjectItem(project,kind,today){
     dueSortTime:dueMeta.sortTime,
     hasDue:dueMeta.hasDue,
     createdTime:new Date(project.created_at||project.updated_at||project.start||0).getTime()||0,
+    priorityRaw:String(project.priority||'').trim().toLowerCase(),
     urgencyRank:urgencyMeta.rank,
     urgencyColor:urgencyMeta.color,
     action:"openProjModal('"+project.id+"')"
@@ -3857,6 +3889,8 @@ function buildHomeDailyIssueItem(issue,today){
   const urgencyMeta=getHomeDailyWorkUrgency('issue',issue.priority,endValue,today);
   return {
     key:'issue:'+issue.id,
+    sourceType:'issue',
+    sourceId:String(issue.id),
     kind:'issue',
     context:(client?.name||'거래처 없음')+' — '+(project?.name||'프로젝트 없음'),
     summary:[issue.title,issue.content].filter(Boolean).join(' · ')||'미해결 이슈',
@@ -3864,9 +3898,34 @@ function buildHomeDailyIssueItem(issue,today){
     dueSortTime:dueMeta.sortTime,
     hasDue:dueMeta.hasDue,
     createdTime:new Date(issue.created_at||0).getTime()||0,
+    priorityRaw:String(issue.priority||'').trim().toLowerCase(),
     urgencyRank:urgencyMeta.rank,
     urgencyColor:urgencyMeta.color,
     action:"openIssueModal('"+(issue.project_id||'')+"','"+issue.id+"')"
+  };
+}
+
+function buildHomeDailyScheduleItem(schedule,today){
+  const endValue=schedule.end||schedule.end_date||schedule.start||schedule.start_date||'';
+  const dueMeta=getHomeDailyWorkDueMeta(endValue,today);
+  const urgencyMeta=getHomeDailyWorkUrgency('schedule','',endValue,today);
+  const typeLabel=scheduleLabel(schedule.schedule_type);
+  const memberLabel=getScheduleMemberLabel(schedule);
+  return {
+    key:'schedule:'+schedule.id,
+    sourceType:'schedule',
+    sourceId:String(schedule.id),
+    kind:'schedule',
+    context:[memberLabel,typeLabel].filter(Boolean).join(' \u00B7 ')||(typeLabel||'\uC77C\uC815'),
+    summary:schedule.title||schedule.memo||typeLabel||'\uC624\uB298 \uD655\uC778\uD560 \uC77C\uC815\uC785\uB2C8\uB2E4.',
+    dueMeta,
+    dueSortTime:dueMeta.sortTime,
+    hasDue:dueMeta.hasDue,
+    createdTime:new Date(schedule.created_at||schedule.updated_at||schedule.start||0).getTime()||0,
+    priorityRaw:'',
+    urgencyRank:urgencyMeta.rank,
+    urgencyColor:urgencyMeta.color,
+    action:"openScheduleModal('"+schedule.id+"')"
   };
 }
 
@@ -3905,6 +3964,94 @@ function sortHomeDailyWorkItems(items){
   });
 }
 
+function isHomeDateInRange(startValue,endValue,today){
+  if(!startValue||!endValue)return false;
+  const startDate=toDate(startValue);
+  const endDate=toDate(endValue);
+  startDate.setHours(0,0,0,0);
+  endDate.setHours(0,0,0,0);
+  return startDate<=today&&endDate>=today;
+}
+
+function getHomeTodayScheduleItems(today){
+  if(!currentMember?.name)return [];
+  const projectItems=(projects||[])
+    .filter(project=>isHomeProjectAssignedToCurrentMember(project)&&!isHomeCompletedProject(project))
+    .filter(project=>isHomeDateInRange(project.start||project.start_date,project.end||project.end_date,today))
+    .map(project=>{
+      const item=buildHomeDailyProjectItem(project,'schedule',today);
+      return {...item,todaySortGroup:item.dueMeta?.diff===0?0:1};
+    });
+  const scheduleItems=(schedules||[])
+    .filter(schedule=>scheduleHasMember(schedule,currentMember.name))
+    .filter(schedule=>isHomeDateInRange(schedule.start||schedule.start_date,schedule.end||schedule.end_date,today))
+    .map(schedule=>({...buildHomeDailyScheduleItem(schedule,today),todaySortGroup:2}));
+  return [...projectItems,...scheduleItems];
+}
+
+function sortHomeTodayScheduleItems(items){
+  return [...items].sort((a,b)=>{
+    if((a.todaySortGroup||0)!==(b.todaySortGroup||0))return (a.todaySortGroup||0)-(b.todaySortGroup||0);
+    if(a.hasDue&&b.hasDue&&a.dueSortTime!==b.dueSortTime)return a.dueSortTime-b.dueSortTime;
+    if(a.hasDue!==b.hasDue)return a.hasDue?-1:1;
+    return (b.createdTime||0)-(a.createdTime||0);
+  });
+}
+
+function getHomeAttentionMeta(item){
+  if(item.kind==='deadline'){
+    const diff=item.dueMeta?.diff;
+    if(diff===0||diff===1)return {group:0,color:'#EF4444'};
+    if(diff===2||diff===3)return {group:2,color:'#F59E0B'};
+    return {group:4,color:'#94A3B8'};
+  }
+  const priority=String(item.priorityRaw||'').trim().toLowerCase();
+  if(priority==='high'||priority==='urgent')return {group:1,color:'#EF4444'};
+  if(priority==='medium')return {group:3,color:'#F59E0B'};
+  return {group:4,color:'#94A3B8'};
+}
+
+function sortHomeAttentionItems(items){
+  return [...items].sort((a,b)=>{
+    if((a.attentionGroup||4)!==(b.attentionGroup||4))return (a.attentionGroup||4)-(b.attentionGroup||4);
+    if(a.kind==='deadline'&&b.kind==='deadline'&&a.dueSortTime!==b.dueSortTime)return a.dueSortTime-b.dueSortTime;
+    if(a.kind==='issue'&&b.kind==='issue')return (b.createdTime||0)-(a.createdTime||0);
+    if(a.hasDue&&b.hasDue&&a.dueSortTime!==b.dueSortTime)return a.dueSortTime-b.dueSortTime;
+    return (b.createdTime||0)-(a.createdTime||0);
+  });
+}
+
+function getHomeAttentionItems(today,todayScheduleItems,issueRows){
+  const dueLimit=new Date(today);
+  dueLimit.setDate(today.getDate()+3);
+  const todayProjectIds=new Set(
+    (todayScheduleItems||[])
+      .filter(item=>item.sourceType==='project')
+      .map(item=>String(item.sourceId))
+  );
+  const deadlineItems=(projects||[])
+    .filter(project=>isHomeProjectAssignedToCurrentMember(project)&&!isHomeCompletedProject(project))
+    .filter(project=>!todayProjectIds.has(String(project.id)))
+    .filter(project=>{
+      const endValue=project.end||project.end_date;
+      if(!endValue)return false;
+      const endDate=toDate(endValue);
+      endDate.setHours(0,0,0,0);
+      return endDate>=today&&endDate<=dueLimit;
+    })
+    .map(project=>{
+      const item=buildHomeDailyProjectItem(project,'deadline',today);
+      const meta=getHomeAttentionMeta(item);
+      return {...item,attentionGroup:meta.group,urgencyColor:meta.color};
+    });
+  const issueItems=(issueRows||[]).map(issue=>{
+    const item=buildHomeDailyIssueItem(issue,today);
+    const meta=getHomeAttentionMeta(item);
+    return {...item,attentionGroup:meta.group,urgencyColor:meta.color};
+  });
+  return sortHomeAttentionItems([...deadlineItems,...issueItems]);
+}
+
 function renderHomeDailyWorkCard(item){
   const badgeLabel=item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정');
   const badgeClass=item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule');
@@ -3918,7 +4065,7 @@ function renderHomeDailyWorkCard(item){
     +'</button>';
 }
 
-function renderHomeDailyWorkSection(items,options={}){
+function renderHomeDailyWorkSection(payload,options={}){
   const el=document.getElementById('myWeekWrap');
   if(!el)return;
   const issueWrap=document.getElementById('homeIssueSummaryWrap');
@@ -3927,6 +4074,36 @@ function renderHomeDailyWorkSection(items,options={}){
     issueWrap.innerHTML='';
   }
   const today=getHomeBaseDate();
+  const todayItems=Array.isArray(payload)?payload:(payload?.todayItems||[]);
+  const attentionItems=Array.isArray(payload)?[]:(payload?.attentionItems||[]);
+  const nextContentHtml=options.loading
+    ?'<div class="weekly-empty">\uBD88\uB7EC\uC624\uB294 \uC911..</div>'
+    :'<div class="home-daily-work-section">'
+      +'<div class="home-daily-work-section-head">'
+        +'<div class="home-daily-work-section-title">\uC624\uB298 \uC77C\uC815</div>'
+      +'</div>'
+      +(todayItems.length
+        ?'<div class="home-daily-work-list">'+todayItems.map(renderHomeDailyWorkCard).join('')+'</div>'
+        :'<div class="home-daily-work-empty is-compact">\uC624\uB298 \uC608\uC815\uB41C \uC77C\uC815\uC774 \uC5C6\uC2B5\uB2C8\uB2E4</div>')
+      +'</div>'
+      +'<div class="home-daily-work-section-divider"></div>'
+      +'<div class="home-daily-work-section">'
+        +'<div class="home-daily-work-section-head">'
+          +'<div class="home-daily-work-section-title">\uC8FC\uC758 \uD544\uC694</div>'
+          +'<div class="home-daily-work-section-count">'+attentionItems.length+'\uAC74</div>'
+        +'</div>'
+        +(attentionItems.length
+          ?'<div class="home-daily-work-list">'+attentionItems.map(renderHomeDailyWorkCard).join('')+'</div>'
+          :'<div class="home-daily-work-empty is-compact is-success">\uC8FC\uC758\uAC00 \uD544\uC694\uD55C \uD56D\uBAA9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4 \u2713</div>')
+      +'</div>';
+  el.innerHTML='<div class="card home-card">'
+    +'<div class="home-daily-work-head">'
+      +'<div class="home-daily-work-title">\uC624\uB298 \uD655\uC778\uD560 \uD56D\uBAA9</div>'
+      +'<div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div>'
+    +'</div>'
+    +nextContentHtml
+  +'</div>';
+  return;
   const contentHtml=options.loading
     ?'<div class="weekly-empty">불러오는 중...</div>'
     :(items.length
@@ -3943,6 +4120,27 @@ function renderHomeDailyWorkSection(items,options={}){
 
 async function renderHomeDashboardIssues(){
   const today=getHomeBaseDate();
+  const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
+  if(!currentMember){
+    renderHomeDailyWorkSection({todayItems:todayScheduleItems,attentionItems:[]});
+    return;
+  }
+  try{
+    const rows=await api('GET','project_issues?status=eq.open&select=*')||[];
+    const issueRows=(rows||[]).filter(issue=>
+      String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')
+    );
+    renderHomeDailyWorkSection({
+      todayItems:todayScheduleItems,
+      attentionItems:getHomeAttentionItems(today,todayScheduleItems,issueRows)
+    });
+  }catch(e){
+    renderHomeDailyWorkSection({
+      todayItems:todayScheduleItems,
+      attentionItems:getHomeAttentionItems(today,todayScheduleItems,[])
+    });
+  }
+  return;
   const projectItems=buildHomeDailyWorkProjectItems(today);
   if(!currentMember){
     renderHomeDailyWorkSection(sortHomeDailyWorkItems(projectItems));
@@ -12064,6 +12262,15 @@ function getGanttItemEndDateTime(item){
   const mergedDate=new Date(text);
   return Number.isNaN(mergedDate.getTime())?null:mergedDate;
 }
+function getGanttItemCompletionDateTime(item){
+  const endDateTime=getGanttItemEndDateTime(item);
+  if(endDateTime)return endDateTime;
+  const endDate=getGanttItemDate(item,['end','end_date']);
+  if(!endDate)return null;
+  const completionDateTime=new Date(endDate.getTime());
+  completionDateTime.setHours(23,59,59,999);
+  return completionDateTime;
+}
 function getScheduleEndDateTime(item){
   const directValue=getScheduleFieldValue(item,['end_at','end_datetime','ends_at','ended_at']);
   if(directValue){
@@ -12092,15 +12299,8 @@ function getGanttCompletedLikeMeta(item){
     return {isCompleted,isScheduleLike,isCompletedLike:false};
   }
   const now=new Date();
-  if(!isGanttAllDayItem(item)){
-    const endDateTime=getGanttItemEndDateTime(item);
-    const isCompletedLike=!!endDateTime&&endDateTime.getTime()<now.getTime();
-    return {isCompleted,isScheduleLike,isCompletedLike};
-  }
-  const today=new Date();
-  today.setHours(0,0,0,0);
-  const endDate=getGanttItemDate(item,['end','end_date']);
-  const isCompletedLike=!!endDate&&endDate.getTime()<today.getTime();
+  const completionDateTime=getGanttItemCompletionDateTime(item);
+  const isCompletedLike=!!completionDateTime&&completionDateTime.getTime()<now.getTime();
   return {isCompleted,isScheduleLike,isCompletedLike};
 }
 function getGanttProjectActionButtons(project,isCompleted){
