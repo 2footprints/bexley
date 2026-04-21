@@ -2319,27 +2319,45 @@ input,textarea{border-radius:12px!important}
   color:var(--color-text-secondary);
   line-height:1.5;
 }
-#pageTeam .home-main-grid{
+#pageTeam .home-main-grid,
+#pageTeam .home-secondary-grid{
   display:grid;
   grid-template-columns:minmax(0,2fr) minmax(0,1fr);
   gap:var(--spacing-md);
   margin-bottom:var(--spacing-md);
   align-items:start;
 }
-#pageTeam .home-main-col{
-  display:grid;
-  gap:var(--spacing-md);
-  align-content:start;
-}
-#pageTeam .home-main-col,
-#pageTeam .home-main-col > *{
+#pageTeam .home-main-grid > *,
+#pageTeam .home-secondary-grid > *,
+#pageTeam .home-kudos-section > *{
   min-width:0;
 }
-#pageTeam .home-main-col > * > .home-card{
+#pageTeam .home-main-grid > * > .home-card,
+#pageTeam .home-secondary-grid > * > .home-card,
+#pageTeam .home-kudos-section > * > .home-card{
   margin-bottom:0!important;
 }
-#pageTeam .home-main-col--side > * > .home-card{
+#pageTeam #teamWorkloadWrap > .home-card,
+#pageTeam #memberScheduleWrap > .home-card{
   min-height:220px;
+}
+#pageTeam .home-kudos-section{
+  margin-bottom:var(--spacing-md);
+}
+#pageTeam .home-kudos-section > #teamKudosReviewWrap > .home-card{
+  padding:22px var(--spacing-lg)!important;
+}
+#pageTeam .home-kudos-section .team-extra-grid{
+  grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
+  gap:20px;
+}
+#pageTeam .home-kudos-section #kudosWrap > .card,
+#pageTeam .home-kudos-section #weeklyReviewWrap > .home-subcard{
+  margin-bottom:0!important;
+  height:100%;
+}
+#pageTeam .home-kudos-section #weeklyReviewWrap > .home-subcard{
+  padding:18px;
 }
 #pageTeam .team-notice-panel.home-card{
   padding:16px var(--spacing-lg)!important;
@@ -2365,10 +2383,13 @@ input,textarea{border-radius:12px!important}
   #pageTeam .home-risk-grid{
     grid-template-columns:repeat(2,1fr);
   }
-  #pageTeam .home-main-grid{
+  #pageTeam .home-main-grid,
+  #pageTeam .home-secondary-grid,
+  #pageTeam .home-kudos-section .team-extra-grid{
     grid-template-columns:1fr;
   }
-  #pageTeam .home-main-col--side > * > .home-card{
+  #pageTeam #teamWorkloadWrap > .home-card,
+  #pageTeam #memberScheduleWrap > .home-card{
     min-height:0;
   }
   #pageTeam .home-focus-summary{
@@ -2590,15 +2611,15 @@ input,textarea{border-radius:12px!important}
       </div>
       <div id="homeRiskWrap"></div>
       <div class="home-main-grid">
-        <div class="home-main-col home-main-col--main">
-          <div id="myWeekWrap"></div>
-          <div id="teamNoticeWrap"></div>
-        </div>
-        <div class="home-main-col home-main-col--side">
-          <div id="teamWorkloadWrap"></div>
-          <div id="memberScheduleWrap"></div>
-          <div id="teamKudosReviewWrap"></div>
-        </div>
+        <div id="myWeekWrap"></div>
+        <div id="teamWorkloadWrap"></div>
+      </div>
+      <div class="home-secondary-grid">
+        <div id="teamNoticeWrap"></div>
+        <div id="memberScheduleWrap"></div>
+      </div>
+      <div class="home-kudos-section">
+        <div id="teamKudosReviewWrap"></div>
       </div>
       <div id="homeIssueSummaryWrap" style="display:none"></div>
       <div class="team-fun-section">
