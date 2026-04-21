@@ -201,7 +201,7 @@
         api('GET', 'project_members?select=project_id,member_id,members(id,name,email)'),
         api('GET', 'clients?select=*&order=name'),
         api('GET', 'notices?select=*&order=is_pinned.desc,created_at.desc'),
-        api('GET', 'schedules?select=*&order=start_date'),
+        api('GET', 'schedules?select=*,schedule_members(member_id,members(id,name))&order=start_date'),
         api('GET', 'knowledge_posts?select=*&order=is_pinned.desc,created_at.desc').catch(function(){ return []; })
       ]);
 
