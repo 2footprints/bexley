@@ -9729,6 +9729,127 @@ window.getGanttFilteredData=function(){
 };
 getGanttFilteredData=window.getGanttFilteredData;
 
+function ensureGanttLayoutToggle(){
+  const toolbar=document.querySelector('#pageGantt .gantt-toolbar');
+  if(!toolbar || document.getElementById('ganttLayoutToggle')) return;
+  const wrap=document.createElement('div');
+  wrap.id='ganttLayoutToggle';
+  wrap.className='toggle-wrap gantt-layout-toggle';
+  wrap.innerHTML='<button class="toggle-btn active" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button>';
+  const memberFilter=document.getElementById('memberFilter');
+  if(memberFilter){
+    toolbar.insertBefore(wrap, memberFilter);
+  }else{
+    toolbar.appendChild(wrap);
+  }
+  document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
+  document.getElementById('glc').onclick=()=>setGanttLayout('calendar');
+  updateGanttLayoutButtons();
+}
+
+function updateGanttLayoutButtons(){
+  [['glt','timeline'],['glc','calendar']].forEach(([id,mode])=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.classList.toggle('active',curGanttLayout===mode);
+  });
+  ['gvp','gvm'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    const disabled=curGanttLayout==='calendar';
+    btn.style.opacity=disabled?'.45':'';
+    btn.style.pointerEvents=disabled?'none':'';
+  });
+}
+
+function buildGanttCalendarItemHtml(item){
+  const itemClass=item.kind==='project'?'project':'schedule';
+  const bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
+  const text=item.kind==='project'?'#FFFFFF':'#243241';
+  const border=item.kind==='project'?'transparent':withAlpha(item.color,'55');
+  const action=item.kind==='project'
+    ?`openProjModal('${item.id}')`
+    :`openScheduleModal('${item.id}')`;
+  return '<button class="gantt-calendar-item '+itemClass+'" type="button" onclick="'+action+'" style="background:'+bg+';color:'+text+';border:1px solid '+border+(item.dueToday?';box-shadow:inset 0 0 0 1px rgba(146,64,14,.24)':'')+'" title="'+esc(item.title)+'">'+esc(item.label)+'</button>';
+}
+
+function buildGanttCalendarItemsForDate(cellDate,projs,schs){
+  const ts=cellDate.getTime();
+  const items=[];
+  projs.forEach(p=>{
+    if(toDate(p.start).getTime()<=ts && toDate(p.end).getTime()>=ts){
+      items.push({
+        kind:'project',
+        id:p.id,
+        label:p.name,
+        title:[p.name,p.type||'',(p.members||[]).join(', ')].filter(Boolean).join(' | '),
+        color:TYPES[p.type]||'#4e5968',
+        dueToday:isDueToday(p) && toDate(p.end).getTime()===ts
+      });
+    }
+  });
+  schs.forEach(s=>{
+    if(toDate(s.start).getTime()<=ts && toDate(s.end).getTime()>=ts){
+      const labelBase=s.title||scheduleLabel(s.schedule_type);
+      items.push({
+        kind:'schedule',
+        id:s.id,
+        label:(s.member_name? s.member_name+' · ':'')+labelBase,
+        title:[labelBase,s.member_name||'',s.location||'',s.memo||''].filter(Boolean).join(' | '),
+        color:scheduleColor(s.schedule_type)
+      });
+    }
+  });
+  return items.sort((a,b)=>{
+    if(a.kind!==b.kind) return a.kind==='project' ? -1 : 1;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+function renderGanttCalendarGrid(projs,schs){
+  const wrap=document.getElementById('ganttWrap');
+  if(!wrap) return;
+  const weekdayLabels=['일','월','화','수','목','금','토'];
+  const totalDays=daysInMonth(curYear,curMonth);
+  const firstDay=new Date(curYear,curMonth-1,1);
+  const startOffset=firstDay.getDay();
+  const totalCells=Math.ceil((startOffset+totalDays)/7)*7;
+  if(!projs.length && !schs.length){
+    wrap.innerHTML='<div class="empty-state" style="padding:40px">이 달에 표시할 프로젝트와 일정이 없습니다.</div>';
+    renderLegend();
+    return;
+  }
+  const weekdayHead=weekdayLabels.map(label=>'<div class="gantt-calendar-weekday">'+label+'</div>').join('');
+  let cells='';
+  for(let i=0;i<totalCells;i++){
+    const dayNumber=i-startOffset+1;
+    if(dayNumber<1 || dayNumber>totalDays){
+      cells+='<div class="gantt-calendar-day is-empty"></div>';
+      continue;
+    }
+    const cellDate=new Date(curYear,curMonth-1,dayNumber);
+    cellDate.setHours(0,0,0,0);
+    const items=buildGanttCalendarItemsForDate(cellDate,projs,schs);
+    const preview=items.slice(0,4).map(buildGanttCalendarItemHtml).join('');
+    const overflow=items.length>4?'<div class="gantt-calendar-item more">+'+(items.length-4)+'개 더</div>':'';
+    const isWeekendCell=cellDate.getDay()===0 || cellDate.getDay()===6;
+    const todayClass=isToday(curYear,curMonth,dayNumber)?' is-today':'';
+    const weekendClass=isWeekendCell?' is-weekend':'';
+    cells+='<div class="gantt-calendar-day'+todayClass+weekendClass+'">'
+      +'<div class="gantt-calendar-date-row"><div class="gantt-calendar-date">'+dayNumber+'</div>'+(items.length?'<div class="gantt-calendar-count">'+items.length+'건</div>':'')+'</div>'
+      +'<div class="gantt-calendar-items">'+preview+overflow+'</div>'
+      +'</div>';
+  }
+  wrap.innerHTML='<div class="gantt-calendar-wrap"><div class="gantt-calendar-board"><div class="gantt-calendar-weekdays">'+weekdayHead+'</div><div class="gantt-calendar-grid">'+cells+'</div></div></div>';
+  renderLegend();
+}
+
+function setGanttLayout(mode){
+  curGanttLayout=mode;
+  updateGanttLayoutButtons();
+  renderGantt();
+}
+
 /*
 window.gRow=function(p,days){
   const activeSchedules=window.__ganttVisibleSchedulesForRender||schedules;
