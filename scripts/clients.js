@@ -84,6 +84,7 @@ function renderClients(){
 
 function openClientDetail(id, tab='projects'){
   const c=clients.find(x=>x.id===id);if(!c)return;
+  currentDetailClientId=id;
   const cp=projects.filter(p=>p.client_id===id);
   const cc=contracts.filter(ct=>ct.client_id===id);
   const mems=[...new Set(cp.flatMap(p=>p.members))];

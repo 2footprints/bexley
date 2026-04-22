@@ -1261,7 +1261,7 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navIssues" onclick="setPage('issues')">이슈</button>
       <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
-      <button class="nav-btn" id="navWeeklyReview" onclick="setPage('weeklyReview')">&#51452;&#44036; &#47532;&#48424;</button>
+      <button class="nav-btn" id="navWeeklyReview" onclick="setPage('weeklyReview')">주간리뷰</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
     </nav>
 
@@ -1299,7 +1299,7 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavIssues" onclick="setPage('issues');closeMobileMenu()">이슈</button>
     <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">거래처</button>
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">계약</button>
-    <button class="nav-btn" id="mNavWeeklyReview" onclick="setPage('weeklyReview');closeMobileMenu()">&#51452;&#44036; &#47532;&#48424;</button>
+    <button class="nav-btn" id="mNavWeeklyReview" onclick="setPage('weeklyReview');closeMobileMenu()">주간리뷰</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">고객사 페이지</button>
@@ -1563,6 +1563,9 @@ window.switchTab = window.switchTab || function(mode){
   if(authBtn) authBtn.textContent=mode==='login'?'로그인':'회원가입';
   if(authMsg) authMsg.textContent='';
   window.__loginAuthMode=mode;
+};
+window.getInputModalOverlayHtml = window.getInputModalOverlayHtml || function(){
+  return '<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
 };
 window.addEventListener('DOMContentLoaded',function(){
   window.switchLoginType('staff');
@@ -2243,15 +2246,54 @@ async function loadAll(){
     ]).then(([ctrs,blogs,assigns,openIssues])=>{
       contracts=ctrs||[];billingLogs=blogs||[];
       clientAssignments=assigns||[];
-      openIssuesByProject={};
-      (openIssues||[]).forEach(i=>{if(!openIssuesByProject[i.project_id])openIssuesByProject[i.project_id]=0;openIssuesByProject[i.project_id]++;});
+      applyOpenIssueCounts(openIssues);
     }).catch(()=>{});
   }catch(e){setStatus('오류: '+e.message,'err');}
 }
 
-async function loadContracts(){
-  if(!contracts.length){
+function applyOpenIssueCounts(openIssues){
+  openIssuesByProject={};
+  (openIssues||[]).forEach(i=>{
+    if(!i?.project_id)return;
+    if(!openIssuesByProject[i.project_id])openIssuesByProject[i.project_id]=0;
+    openIssuesByProject[i.project_id]++;
+  });
+}
+
+async function loadContracts(force=false){
+  if(force||!contracts.length){
     try{contracts=await api('GET','contracts?select=*&order=created_at.desc')||[];}catch(e){}
+  }
+}
+
+async function loadOpenIssueCounts(force=false){
+  if(force||!Object.keys(openIssuesByProject||{}).length){
+    try{
+      const openIssues=await api('GET','project_issues?status=eq.open&select=id,project_id');
+      applyOpenIssueCounts(openIssues);
+    }catch(e){}
+  }
+}
+
+function getCurrentClientDetailTab(){
+  const activeTab=document.querySelector('#pageDetail .detail-tab.active');
+  const onclick=activeTab?.getAttribute('onclick')||'';
+  const match=onclick.match(/,'([^']+)'\)/);
+  return match?.[1]||'projects';
+}
+
+async function refreshIssueDependentViews(){
+  await loadOpenIssueCounts(true);
+  if(curPage==='issues'){
+    await renderIssuesPage();
+    return;
+  }
+  if(curPage==='gantt'){
+    renderGantt();
+    return;
+  }
+  if(curPage==='detail'&&currentDetailClientId){
+    openClientDetail(currentDetailClientId,getCurrentClientDetailTab());
   }
 }
 
@@ -2460,7 +2502,7 @@ function openContractModal(eid, preClientId){
   const statusOpts=['검토중','진행중','완료','해지'].map(s=>'<option '+(ct&&ct.contract_status===s?'selected':'')+'>'+s+'</option>').join('');
   const isManaged=ct?ct.is_managed===true:true;
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +(editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
     +'<div class="modal" style="width:560px"><div class="modal-title">'+(ct?(editable?'계약 수정':'계약 상세'):'계약 추가')+'</div>'
     +'<div class="checkbox-row" style="margin-bottom:16px;padding:10px 14px;background:var(--blue-light);border-radius:var(--radius-sm)">'
     +'<input type="checkbox" id="ctManaged" '+(isManaged?'checked':'')+' '+(editable?'':'disabled')+'/>'
@@ -2515,18 +2557,24 @@ async function saveContract(){
     memo:document.getElementById('ctMemo').value.trim()||null,
     is_managed:document.getElementById('ctManaged')?.checked||false
   };
+  const wasPage=curPage;
   try{
+    let savedId=editingContractId||'';
     if(editingContractId){
       await api('PATCH','contracts?id=eq.'+editingContractId,{...body,updated_at:new Date().toISOString()});
       await logActivity('계약 수정','contract',editingContractId,contract_name);
     }else{
       body.created_by=currentUser.id;
       const res=await api('POST','contracts',body);
+      savedId=res?.[0]?.id||'';
       await logActivity('계약 추가','contract',res?.[0]?.id,contract_name);
     }
     closeModal();
     await loadAll();
-    if(client_id)openClientDetail(client_id,'contracts');
+    await loadContracts(true);
+    if(wasPage==='contract'&&savedId)await openContractDetail(savedId);
+    else if(wasPage==='contracts')renderContractsPage();
+    else if(client_id)openClientDetail(client_id,'contracts');
     else renderClients();
   }catch(e){alert('저장 오류: '+e.message);}
 }
@@ -2534,12 +2582,15 @@ async function saveContract(){
 async function deleteContract(id){
   const ct=contracts.find(x=>x.id===id);
   if(!confirm('"'+(ct?.contract_name||'이 계약')+'"을 삭제할까요?'))return;
+  const wasPage=curPage;
   try{
     await api('DELETE','contracts?id=eq.'+id);
     await logActivity('계약 삭제','contract',id,ct?.contract_name||'');
     closeModal();
     await loadAll();
-    if(ct?.client_id)openClientDetail(ct.client_id,'contracts');
+    await loadContracts(true);
+    if(wasPage==='contracts')renderContractsPage();
+    else if(ct?.client_id)openClientDetail(ct.client_id,'contracts');
     else renderClients();
   }catch(e){alert('오류: '+e.message);}
 }
@@ -2663,7 +2714,7 @@ async function openContractDetail(id){
 function openBillingRecordModal(contractId, editId){
   const today=new Date().toISOString().slice(0,10);
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    getInputModalOverlayHtml()
     +'<div class="modal" style="width:420px"><div class="modal-title">'+(editId?'청구 내역 수정':'청구 추가')+'</div>'
     +'<div class="form-half">'
     +'<div class="form-row"><label class="form-label">청구 금액 (원)</label><input id="brAmt" type="number" placeholder="예) 5000000" autofocus/></div>'
@@ -2752,7 +2803,7 @@ function openClientModal(eid){
       +(c&&c.portal_email?'현재 포털이 활성화되어 있습니다. 설정 수정은 관리자만 가능합니다.':'포털은 아직 설정되지 않았습니다. 설정/수정은 관리자만 가능합니다.')
       +'</div>';
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    getInputModalOverlayHtml()
     +'<div class="modal"><div class="modal-title">'+(c?'고객사 수정':'고객사 추가')+'</div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">고객사명</label><input id="cName" value="'+(c?c.name:'')+'"/></div>'
     +'<div class="form-row"><label class="form-label">업종</label><input id="cInd" value="'+(c?c.industry||'':'')+'" placeholder="예) 제조업"/></div></div>'
@@ -3086,7 +3137,7 @@ async function loadDocumentRequests(projectId){
 
 function openDocumentRequestModal(projectId){
   document.getElementById('modalArea').innerHTML=''
-    +'<div class="overlay" onclick="if(event.target===this)openProjModal(\''+projectId+'\',null,null,\'documents\')">'
+    +getInputModalOverlayHtml()
       +'<div class="modal" style="width:460px">'
         +'<div class="modal-title">자료 요청 추가</div>'
         +'<div class="form-row"><label class="form-label">자료명</label><input id="docReqTitle" placeholder="예: 2024년 재무제표" autofocus/></div>'
@@ -3198,7 +3249,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
     :'<div class="readonly-notice" style="margin-bottom:12px">프로젝트 상태가 완료가 아니어도 미리 작성할 수 있습니다. 완료 처리 시 실제 완료일과 후속 액션을 함께 점검해보세요.</div>';
 
   document.getElementById('modalArea').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    ${editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">'}
       <div class="modal" style="width:560px">
         <div class="modal-title">${p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가'}</div>
         ${p?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn primary sm" type="button" onclick="handleProjectOutlookEvent(\''+p.id+'\')">Outlook에 바로 추가</button></div>':''}
@@ -3625,7 +3676,7 @@ function openScheduleModal(eid){
   scheduleFormMembers=s?getScheduleMemberNames(s):(currentMember?.name?[currentMember.name]:[]);
   const memberOptions=getAvailableGanttMembers().map(m=>'<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>').join('');
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    +(editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
     +'<div class="modal"><div class="modal-title">'+(s?(editable?'일정 수정':'일정 상세'):'일정 추가')+'</div>'
     +'<div class="form-row"><label class="form-label">일정명</label><input id="scTitle" value="'+esc(s?s.title:'')+'" placeholder="예) 연차, 부산 필드웍, 내부 회의" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="scType" '+(editable?'':'disabled')+'>'
@@ -4129,7 +4180,7 @@ async function deleteNoticeComment(id,noticeId){
 function openNoticeWrite(eid){
   const n=eid?notices.find(x=>x.id===eid):null;
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    getInputModalOverlayHtml()
     +'<div class="modal" style="width:540px"><div class="modal-title">'+(n?'공지 수정':'공지 작성')+'</div>'
     +'<div class="form-row"><label class="form-label">제목</label><input id="nTitle" value="'+(n?n.title:'')+'"/></div>'
     +'<div class="form-row"><label class="form-label">내용</label><textarea id="nContent" rows="7" style="resize:vertical">'+(n?n.content:'')+'</textarea></div>'
@@ -4212,7 +4263,7 @@ function openUpdateModal(editId,clientId){
   // editId가 있으면 현재 피드에서 찾기
   const feedEl=document.getElementById('updateFeed');
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    getInputModalOverlayHtml()
     +'<div class="modal" style="width:520px"><div class="modal-title">'+(editId?'레포트 수정':'레포트 작성')+'</div>'
     +'<div class="form-row"><label class="form-label">제목</label><input id="uTitle" placeholder="예) 1분기 감사 중간 보고" autofocus/></div>'
     +'<div class="form-row"><label class="form-label">내용</label><textarea id="uContent" rows="5" style="resize:vertical" placeholder="진행 상황, 주요 내용, 전달 사항 등을 작성하세요"></textarea></div>'
@@ -4674,7 +4725,7 @@ async function openIssueModal(projId='',issueId=''){
   const assigneeSelected=issue?.assignee_member_id||'';
   const memberOptions=(selectedId)=>members.map(m=>'<option value="'+m.id+'"'+(selectedId===m.id?' selected':'')+'>'+esc(m.name)+'</option>').join('');
   document.getElementById('modalArea').innerHTML=`
-    <div class="overlay" onclick="if(event.target===this)closeModal()">
+    ${editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">'}
       <div class="modal ui-modal-540">
         <div class="modal-title">${issue?(editable?'🚨 이슈 수정':'🚨 이슈 상세'):'🚨 이슈 등록'}</div>
         <div class="form-row"><label class="form-label">관련 프로젝트</label><select id="issueProj" ${editable?'':'disabled'}><option value="">선택 (선택사항)</option>${projOpts}</select></div>
@@ -4766,7 +4817,7 @@ async function saveIssue(issueId=''){
     await logActivity(issueId ? '이슈 수정' : '이슈 추가', 'issue', createdId, truncateText(title, 40));
     closeModal();
     await loadIssueFeed();
-    if(curPage==='issues')await renderIssuesPage();
+    await refreshIssueDependentViews();
     if(createdId)focusTargetElement('issue-card-'+createdId);
   }catch(e){alert('저장 오류: '+e.message);}
 }
@@ -4780,7 +4831,7 @@ async function deleteIssue(issueId){
     await logActivity('이슈 삭제', 'issue', issueId, issueMeta?.title||'');
     closeModal();
     await loadIssueFeed();
-    if(curPage==='issues')await renderIssuesPage();
+    await refreshIssueDependentViews();
   }catch(e){alert('삭제 오류: '+e.message);}
 }
 
@@ -4793,7 +4844,7 @@ async function resolveIssue(id){
     });
     await logActivity('이슈 해결', 'issue', id, '');
     await loadIssueFeed();
-    if(curPage==='issues')await renderIssuesPage();
+    await refreshIssueDependentViews();
   }catch(e){alert('오류: '+e.message);}
 }
 
@@ -4803,7 +4854,7 @@ async function reopenIssue(id){
     await api('PATCH','project_issues?id=eq.'+id,{status:'open',resolved_at:null,resolved_by:null});
     await logActivity('이슈 재오픈', 'issue', id, '');
     await loadIssueFeed();
-    if(curPage==='issues')await renderIssuesPage();
+    await refreshIssueDependentViews();
   }catch(e){alert('오류: '+e.message);}
 }
 
@@ -5150,7 +5201,7 @@ function renderFinanceTable(items){
 async function openFinanceUploadModal(clientId){
   await loadSheetJS();
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    getInputModalOverlayHtml()
     +'<div class="modal ui-modal-480">'
     +'<div class="modal-title">📊 재무제표 업로드</div>'
     +'<div class="ui-info-banner">'
@@ -5223,7 +5274,7 @@ async function deleteFinanceReport(repId, clientId, period){
 
 function openFinanceMemoModal(clientId, period){
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    getInputModalOverlayHtml()
     +'<div class="modal" style="width:460px">'
     +'<div class="modal-title">이슈 / 코멘트 작성</div>'
     +'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">'+period+' 기간 메모</div>'

@@ -268,7 +268,7 @@ function openPortalAccountEdit(clientId){
   if(!canManagePortalSettings())return;
   const c=clients.find(x=>x.id===clientId);if(!c)return;
   document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
+    getInputModalOverlayHtml()
     +'<div class="modal" style="width:440px">'
     +'<div class="modal-title">고객사 페이지 설정 — '+esc(c.name)+'</div>'
     +'<div class="form-row"><label class="form-label">로그인 이메일</label><input id="peEmail" type="email" value="'+esc(c.portal_email||'')+'" placeholder="고객사 담당자 이메일"/></div>'
