@@ -25,10 +25,8 @@ function toggleIssuesPageAccordion(issueId){
 }
 
 function getIssuesPageStatusMeta(issue,project){
-  if(issue?.status==='resolved')return {label:'해결',cls:'badge-gray'};
-  const projectEnd=project?.end||project?.end_date||'';
-  if(projectEnd&&toDate(projectEnd)<getHomeBaseDate())return {label:'지연',cls:'badge-red'};
-  return {label:'오픈',cls:'badge-blue'};
+  const statusMeta=getIssueStatusMeta(issue?.status);
+  return {label:statusMeta.label,cls:statusMeta.badgeCls};
 }
 
 function getIssuesPagePriorityMeta(issue,project){
@@ -66,8 +64,8 @@ function getIssuesPageRows(){
       if(!memberMatch)return false;
     }
     if(issuesPageFilters.status==='pinned')return !!issue.is_pinned;
-    if(issuesPageFilters.status==='resolved')return issue.status==='resolved';
-    return issue.status==='open';
+    if(issuesPageFilters.status==='resolved')return isIssueResolvedStatus(issue.status);
+    return isIssueActiveStatus(issue.status);
   }).map(issue=>{
     const project=projects.find(p=>p.id===issue.project_id)||null;
     const client=project?clients.find(c=>c.id===project.client_id):null;
@@ -144,7 +142,7 @@ function renderIssuesPageFromCache(){
                 const priorityMeta=getIssuesPagePriorityMeta(issue,issue._project);
                 const assigneeMeta=getIssuesPageAssigneeMeta(issue);
                 const isExpanded=expandedIssuesPageIds.has(issue.id);
-                const isOpen=issue.status==='open';
+                const isOpen=isIssueActiveStatus(issue.status);
                 const editable=canEditIssue(issue);
                 return '<div id="issue-card-'+issue.id+'" class="issues-page-row'+(assigneeMeta.isMine?' mine':'')+'" onclick="toggleIssuesPageAccordion(\''+issue.id+'\')">'
                   +'<div class="issues-page-row-head">'
