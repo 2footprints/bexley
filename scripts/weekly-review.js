@@ -1,4 +1,5 @@
 let weeklyReviewWeekOffset=0;
+let weeklyReviewMemberScope='me';
 
 function getWeeklyReviewWeekRangeLabel(offsetWeeks=weeklyReviewWeekOffset){
   const {start,end}=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
@@ -119,6 +120,41 @@ function formatWeeklyReviewDocumentElapsed(dueDate,baseDate){
   if(diff>0)return `경과 ${diff}일`;
   if(diff===0)return '오늘';
   return `D-${Math.abs(diff)}`;
+}
+function getWeeklyReviewDateKey(value){
+  const date=getWeeklyReviewDate(value);
+  if(!date)return '';
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
+}
+function getWeeklyReviewOverlapDateKeys(rangeStart,rangeEnd,startValue,endValue){
+  const startDate=getWeeklyReviewDate(startValue);
+  const endDate=getWeeklyReviewDate(endValue||startValue);
+  const fromDate=getWeeklyReviewDate(rangeStart);
+  const toDateValue=getWeeklyReviewDate(rangeEnd);
+  if(!startDate||!endDate||!fromDate||!toDateValue)return [];
+  const start=Math.max(new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate()).getTime(),new Date(fromDate.getFullYear(),fromDate.getMonth(),fromDate.getDate()).getTime());
+  const end=Math.min(new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate()).getTime(),new Date(toDateValue.getFullYear(),toDateValue.getMonth(),toDateValue.getDate()).getTime());
+  if(start>end)return [];
+  const cursor=new Date(start);
+  const keys=[];
+  while(cursor.getTime()<=end){
+    keys.push(getWeeklyReviewDateKey(cursor));
+    cursor.setDate(cursor.getDate()+1);
+  }
+  return keys;
+}
+function getWeeklyReviewScheduleDayCountForMember(scheduleRows,memberName,rangeStart,rangeEnd){
+  const days=new Set();
+  (scheduleRows||[]).forEach(schedule=>{
+    if(!getScheduleMemberNames(schedule).includes(memberName))return;
+    getWeeklyReviewOverlapDateKeys(
+      rangeStart,
+      rangeEnd,
+      schedule?.start||schedule?.start_date,
+      schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date
+    ).forEach(key=>days.add(key));
+  });
+  return days.size;
 }
 function formatWeeklyReviewPriorityLabel(priority){
   const raw=String(priority||'medium').trim().toLowerCase();
@@ -265,6 +301,97 @@ function createWeeklyReviewDocumentRequestTableItem(request,baseDate){
     ]
   };
 }
+function createWeeklyReviewMemberSummary(member,context){
+  const memberName=String(member?.name||'').trim();
+  const completedProjects=(context?.completedProjects||[]).filter(project=>(project?.members||[]).includes(memberName));
+  const completedAmount=completedProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
+  const resolvedIssues=(context?.resolvedIssues||[]).filter(issue=>issue?.assignee_name===memberName||issue?.owner_name===memberName);
+  const activeProjects=(context?.activeProjects||[]).filter(project=>(project?.members||[]).includes(memberName));
+  const nextWeekEnds=(context?.nextWeekEnds||[]).filter(project=>(project?.members||[]).includes(memberName));
+  const leaveDays=getWeeklyReviewScheduleDayCountForMember(context?.leaveSchedules||[],memberName,context?.reviewStart,context?.reviewEnd);
+  const fieldworkDays=getWeeklyReviewScheduleDayCountForMember(context?.fieldworkSchedules||[],memberName,context?.reviewStart,context?.reviewEnd);
+  const workloadScore=(activeProjects.length*2)+(nextWeekEnds.length)+(leaveDays+fieldworkDays);
+  return {
+    name:memberName||'이름 없음',
+    completedCount:completedProjects.length,
+    completedAmount,
+    resolvedIssueCount:resolvedIssues.length,
+    activeProjectCount:activeProjects.length,
+    nextWeekDeadlineCount:nextWeekEnds.length,
+    leaveDays,
+    fieldworkDays,
+    workloadScore
+  };
+}
+function renderWeeklyReviewMemberSummaryCardMarkup(summary,maxScore){
+  const pct=maxScore>0?Math.max(12,Math.round((summary.workloadScore/maxScore)*100)):0;
+  const toneColor=pct>=80?'var(--red)':pct>=50?'var(--orange)':'var(--blue)';
+  return '<div class="card-sm" style="padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--bg)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">'
+      +'<div style="font-size:14px;font-weight:800;color:var(--navy)">'+esc(summary.name)+'</div>'
+      +'<span class="badge badge-gray">워크로드 '+summary.workloadScore+'</span>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px">'
+      +'<div><div style="font-size:11px;color:var(--text3)">완료 프로젝트</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+summary.completedCount+'건</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3)">완료 금액</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+esc(formatWeeklyReviewCurrency(summary.completedAmount))+'</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3)">해결 이슈</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+summary.resolvedIssueCount+'건</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3)">진행중 프로젝트</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+summary.activeProjectCount+'건</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3)">다음 주 마감</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+summary.nextWeekDeadlineCount+'건</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3)">휴가/필드웍</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+summary.leaveDays+'일 / '+summary.fieldworkDays+'일</div></div>'
+    +'</div>'
+    +'<div style="margin-top:14px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--text3);margin-bottom:6px"><span>워크로드 바</span><span>'+pct+'%</span></div><div style="height:8px;background:#E5EDF6;border-radius:999px;overflow:hidden"><div style="width:'+pct+'%;height:100%;border-radius:999px;background:'+toneColor+'"></div></div></div>'
+  +'</div>';
+}
+function renderWeeklyReviewMemberSummaryGridMarkup(summaries){
+  const maxScore=Math.max(0,...(summaries||[]).map(summary=>summary.workloadScore||0));
+  if(!(summaries||[]).length)return '<div class="weekly-review-empty">표시할 멤버 요약이 없습니다.</div>';
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">'
+    +(summaries||[]).map(summary=>renderWeeklyReviewMemberSummaryCardMarkup(summary,maxScore)).join('')
+  +'</div>';
+}
+function renderWeeklyReviewKudosSummaryMarkup(votes){
+  const tally={};
+  (votes||[]).forEach(vote=>{
+    const name=String(vote?.target_member_name||'').trim();
+    if(!name)return;
+    tally[name]=(tally[name]||0)+1;
+  });
+  const sorted=Object.entries(tally).sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]),'ko'));
+  if(!sorted.length){
+    return '<div style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg);font-size:12px;color:var(--text3)">칭찬사원 투표 결과가 아직 없습니다.</div>';
+  }
+  return '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">'
+    +sorted.slice(0,3).map(([name,count],index)=>{
+      const tone=index===0?'badge-orange':'badge-gray';
+      const label=index===0?'칭찬사원':'득표';
+      return '<div style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg);display:flex;align-items:center;gap:8px">'
+        +'<span class="badge '+tone+'">'+label+'</span>'
+        +'<span style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(name)+'</span>'
+        +'<span style="font-size:12px;color:var(--text3)">'+count+'표</span>'
+      +'</div>';
+    }).join('')
+  +'</div>';
+}
+function renderWeeklyReviewCommentsMarkup(reviews,isCurrentWeek){
+  if(!(reviews||[]).length){
+    return '<div class="weekly-review-empty">'+(isCurrentWeek?'아직 등록된 주간 코멘트가 없습니다.':'이 주차의 주간 코멘트가 없습니다.')+'</div>';
+  }
+  return '<div style="display:flex;flex-direction:column;gap:10px">'
+    +(reviews||[]).map(review=>
+      '<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
+        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
+          +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(review?.member_name||'익명')+'</div><div style="font-size:11px;color:var(--text3)">'+esc(formatCommentDate(review?.updated_at||review?.created_at||''))+'</div></div>'
+          +(isCurrentWeek&&review?.created_by===currentUser?.id?'<button class="btn sm" data-id="'+review.id+'" onclick="openReviewModal(this.dataset.id)">수정</button>':'')
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-word">'+esc(review?.content||'')+'</div>'
+      +'</div>'
+    ).join('')
+  +'</div>';
+}
+function setWeeklyReviewMemberScope(scope){
+  weeklyReviewMemberScope=scope==='all'?'all':'me';
+  renderWeeklyReviewPage();
+}
 function renderWeeklyReviewCardMarkup(card){
   const toneClass=card?.tone?` is-${card.tone}`:'';
   const badgeText=card?.badge||'';
@@ -307,6 +434,16 @@ function renderWeeklyReviewTableItemMarkup(item,templateColumns,appendBadge=true
 function renderWeeklyReviewGroupMarkup(group){
   const items=Array.isArray(group?.items)?group.items:[];
   const summaryHtml=group?.summary?'<div class="weekly-review-card-meta" style="padding-top:10px">'+esc(group.summary)+'</div>':'';
+  if(group?.variant==='html'){
+    return '<div class="weekly-review-section-group">'
+      +'<div class="weekly-review-section-group-title">'
+        +'<span>'+esc(group?.title||'')+'</span>'
+        +'<span class="weekly-review-section-group-count">'+formatWeeklyReviewCount(items.length)+'</span>'
+      +'</div>'
+      +(group?.html||'<div class="weekly-review-empty">해당 항목이 없습니다.</div>')
+      +summaryHtml
+    +'</div>';
+  }
   if(group?.variant==='table'){
     const template=group?.tableTemplate||'1.1fr 1.6fr .9fr 1.1fr 1fr .9fr';
     const appendBadge=group?.tableAppendBadge!==false;
@@ -345,6 +482,7 @@ function renderWeeklyReviewSectionMarkup(section){
         +'<div class="weekly-review-section-title">'+esc(section?.title||'')+'</div>'
         +(section?.sub?'<div class="weekly-review-section-sub">'+esc(section.sub)+'</div>':'')
       +'</div>'
+      +(section?.actionsHtml||'')
     +'</div>'
     +groups.map(renderWeeklyReviewGroupMarkup).join('')
   +'</section>';
@@ -376,10 +514,13 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const previousBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks-1);
   const today=getHomeBaseDate();
   await loadContracts();
-  const [issueRows,billingRows,pendingDocumentRequests]=await Promise.all([
+  const ws=getWeekStart(offsetWeeks);
+  const [issueRows,billingRows,pendingDocumentRequests,weeklyReviews,kudosVotes]=await Promise.all([
     api('GET','project_issues?select=id,project_id,title,priority,status,resolved_at,updated_at,created_at,assignee_name,owner_name,is_pinned,status_changed_at').catch(()=>[]),
     api('GET','billing_records?select=id,contract_id,amount,status,billing_date,memo').catch(()=>[]),
-    api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date,created_at').catch(()=>[])
+    api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date,created_at').catch(()=>[]),
+    api('GET','weekly_reviews?week_start=eq.'+ws+'&select=*&order=created_at.desc').catch(()=>[]),
+    api('GET','kudos_votes?week_start=eq.'+ws+'&select=*').catch(()=>[])
   ]);
   const completedProjects=(projects||[]).filter(project=>
     isWeeklyReviewCompletedProject(project)
@@ -542,6 +683,35 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const followUpProjects=completedProjects
     .filter(project=>!!project?.follow_up_needed)
     .sort(sortWeeklyReviewProjectsByCompletion);
+  const activeProjectsNow=(projects||[]).filter(project=>isWeeklyReviewActiveProject(project));
+  const adminCanViewAll=roleIsAdmin();
+  const currentMemberName=String(currentMember?.name||'').trim();
+  const visibleMembers=(adminCanViewAll&&(weeklyReviewMemberScope==='all'||!currentMemberName)
+    ? [...(members||[])].filter(member=>String(member?.name||'').trim())
+    : currentMemberName
+      ? [{id:currentMember?.id||currentMemberName,name:currentMemberName}]
+      : []
+  ).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  const memberSummaries=visibleMembers.map(member=>createWeeklyReviewMemberSummary(member,{
+    completedProjects,
+    resolvedIssues,
+    activeProjects:activeProjectsNow,
+    nextWeekEnds,
+    leaveSchedules:currentWeekLeaves,
+    fieldworkSchedules:currentWeekFieldwork,
+    reviewStart:reviewBounds.start,
+    reviewEnd:reviewBounds.end
+  }));
+  const myWeeklyReview=(weeklyReviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
+  const commentsActionHtml=offsetWeeks===0
+    ? '<button class="btn sm" onclick="openReviewModal('+(myWeeklyReview?'\''+myWeeklyReview.id+'\'':'')+')">'+(myWeeklyReview?'내 후기 수정':'+ 후기 작성')+'</button>'
+    : '';
+  const memberActionsHtml=adminCanViewAll
+    ? '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      +'<button class="btn sm '+(weeklyReviewMemberScope==='me'?'primary':'')+'" onclick="setWeeklyReviewMemberScope(\'me\')">내 기준</button>'
+      +'<button class="btn sm '+(weeklyReviewMemberScope==='all'?'primary':'')+'" onclick="setWeeklyReviewMemberScope(\'all\')">전체 멤버</button>'
+    +'</div>'
+    : '';
   const cards=[
     {
       title:'이번 주 매출',
@@ -701,6 +871,32 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
           tableHeaders:['고객사','프로젝트명','자료명','회수 희망일','경과일'],
           tableAppendBadge:false,
           items:pendingDocumentRows.map(request=>createWeeklyReviewDocumentRequestTableItem(request,today))
+        }
+      ]
+    },
+    {
+      title:'인력별 주간 요약',
+      sub:'기본은 내 기준이며, 관리자는 전체 멤버 기준으로 확장해서 볼 수 있습니다.',
+      actionsHtml:memberActionsHtml,
+      groups:[
+        {
+          title:adminCanViewAll&&weeklyReviewMemberScope==='all'?'전체 멤버 요약':'내 주간 요약',
+          variant:'html',
+          items:memberSummaries,
+          html:renderWeeklyReviewMemberSummaryGridMarkup(memberSummaries)
+        }
+      ]
+    },
+    {
+      title:'주간 코멘트',
+      sub:'weekly_reviews와 칭찬사원 결과를 함께 확인합니다.',
+      actionsHtml:commentsActionHtml,
+      groups:[
+        {
+          title:'이번 주 팀 한마디',
+          variant:'html',
+          items:weeklyReviews,
+          html:renderWeeklyReviewKudosSummaryMarkup(kudosVotes)+renderWeeklyReviewCommentsMarkup(weeklyReviews,offsetWeeks===0)
         }
       ]
     }
