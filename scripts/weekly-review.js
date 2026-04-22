@@ -187,6 +187,30 @@ function createWeeklyReviewScheduleItem(schedule,options={}){
     action:options.action||("openScheduleModal('"+schedule.id+"')")
   };
 }
+function getWeeklyReviewBillingStatusMeta(project){
+  const rawStatus=String(project?.billing_status||'').trim();
+  if(!project?.is_billable)return {label:'비청구',badgeClass:'badge-gray'};
+  if(rawStatus==='수금완료')return {label:'수금완료',badgeClass:'badge-green'};
+  if(rawStatus==='청구완료')return {label:'청구완료',badgeClass:'badge-blue'};
+  return {label:'미청구',badgeClass:'badge-red'};
+}
+function createWeeklyReviewCompletedProjectTableItem(project){
+  const client=getWeeklyReviewProjectClient(project);
+  const memberLabel=(Array.isArray(project?.members)?project.members.filter(Boolean):[]).join(', ')||'-';
+  const billingMeta=getWeeklyReviewBillingStatusMeta(project);
+  return {
+    action:"openProjModal('"+project.id+"',null,null,'completion')",
+    columns:[
+      client?.name||'-',
+      project?.name||'이름 없는 프로젝트',
+      project?.type||'-',
+      memberLabel,
+      formatWeeklyReviewCurrency(getWeeklyReviewProjectBillingAmount(project))
+    ],
+    badgeLabel:billingMeta.label,
+    badgeClass:billingMeta.badgeClass
+  };
+}
 function renderWeeklyReviewCardMarkup(card){
   const toneClass=card?.tone?` is-${card.tone}`:'';
   const badgeText=card?.badge||'';
@@ -214,8 +238,39 @@ function renderWeeklyReviewItemMarkup(item){
     +'</div>'
   +'</button>';
 }
+function renderWeeklyReviewTableItemMarkup(item,templateColumns){
+  const columns=Array.isArray(item?.columns)?item.columns:[];
+  const onclickAttr=item?.action?' onclick="'+item.action+'"':'';
+  const template=templateColumns||'1.1fr 1.6fr .9fr 1.1fr 1fr .9fr';
+  return '<button type="button" class="weekly-review-item"'+onclickAttr+' style="display:grid;grid-template-columns:'+template+';align-items:center">'
+    +columns.map((columnValue,index)=>{
+      const align=index===4?'text-align:right;':'';
+      return '<div style="min-width:0;font-size:12px;color:var(--text2);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+align+'">'+esc(columnValue||'-')+'</div>';
+    }).join('')
+    +'<div style="display:flex;justify-content:flex-end">'+(item?.badgeLabel?'<span class="badge '+esc(item?.badgeClass||'badge-gray')+'">'+esc(item.badgeLabel)+'</span>':'-')+'</div>'
+  +'</button>';
+}
 function renderWeeklyReviewGroupMarkup(group){
   const items=Array.isArray(group?.items)?group.items:[];
+  const summaryHtml=group?.summary?'<div class="weekly-review-card-meta" style="padding-top:10px">'+esc(group.summary)+'</div>':'';
+  if(group?.variant==='table'){
+    const template=group?.tableTemplate||'1.1fr 1.6fr .9fr 1.1fr 1fr .9fr';
+    const headerHtml=Array.isArray(group?.tableHeaders)&&group.tableHeaders.length
+      ?'<div style="display:grid;grid-template-columns:'+template+';gap:12px;padding:7px 2px 9px;border-bottom:1px solid var(--border);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:.08em;text-transform:uppercase">'
+        +group.tableHeaders.map((header,index)=>'<div style="'+(index===4?'text-align:right;':'')+'">'+esc(header)+'</div>').join('')
+      +'</div>'
+      :'';
+    return '<div class="weekly-review-section-group">'
+      +'<div class="weekly-review-section-group-title">'
+        +'<span>'+esc(group?.title||'')+'</span>'
+        +'<span class="weekly-review-section-group-count">'+formatWeeklyReviewCount(items.length)+'</span>'
+      +'</div>'
+      +(items.length
+        ? headerHtml+'<div class="weekly-review-list" style="margin-top:8px">'+items.map(item=>renderWeeklyReviewTableItemMarkup(item,template)).join('')+'</div>'
+        : '<div class="weekly-review-empty">해당 항목이 없습니다.</div>')
+      +summaryHtml
+    +'</div>';
+  }
   return '<div class="weekly-review-section-group">'
     +'<div class="weekly-review-section-group-title">'
       +'<span>'+esc(group?.title||'')+'</span>'
@@ -224,6 +279,7 @@ function renderWeeklyReviewGroupMarkup(group){
     +(items.length
       ? '<div class="weekly-review-list">'+items.map(renderWeeklyReviewItemMarkup).join('')+'</div>'
       : '<div class="weekly-review-empty">해당 항목이 없습니다.</div>')
+    +summaryHtml
   +'</div>';
 }
 function renderWeeklyReviewSectionMarkup(section){
@@ -392,6 +448,29 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   });
   const topIssueClient=clientIssueSummary[0]||null;
   const hasPinnedActiveIssue=activeIssues.some(issue=>!!issue?.is_pinned);
+  const completedProjectsByBilling=[...completedProjects].sort((a,b)=>{
+    const amountDiff=getWeeklyReviewProjectBillingAmount(b)-getWeeklyReviewProjectBillingAmount(a);
+    if(amountDiff)return amountDiff;
+    return sortWeeklyReviewProjectsByCompletion(a,b);
+  });
+  const completedAverageAmount=completedProjectsByBilling.length
+    ? Math.round(weeklyRevenue/completedProjectsByBilling.length)
+    : 0;
+  const completedUnbilledCount=completedProjectsByBilling.filter(project=>
+    project?.is_billable&&String(project?.billing_status||'').trim()==='미청구'
+  ).length;
+  const urgentIssues=[...activeIssues]
+    .filter(issue=>!!issue?.is_pinned||String(issue?.priority||'').trim().toLowerCase()==='high')
+    .sort((a,b)=>{
+      const pinnedDiff=Number(!!b?.is_pinned)-Number(!!a?.is_pinned);
+      if(pinnedDiff)return pinnedDiff;
+      const highDiff=Number(String(b?.priority||'').trim().toLowerCase()==='high')-Number(String(a?.priority||'').trim().toLowerCase()==='high');
+      if(highDiff)return highDiff;
+      return sortWeeklyReviewIssues(a,b);
+    });
+  const followUpProjects=completedProjects
+    .filter(project=>!!project?.follow_up_needed)
+    .sort(sortWeeklyReviewProjectsByCompletion);
   const cards=[
     {
       title:'이번 주 매출',
@@ -446,55 +525,59 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   ];
   const sections=[
     {
-      title:'A. 이번 주 실적',
-      sub:'선택한 주차에 완료되거나 해결된 항목입니다.',
+      title:'이번 주 완료 프로젝트',
+      sub:'완료 처리된 프로젝트를 빌링 금액 기준으로 확인합니다.',
       groups:[
         {
-          title:'이번 주 완료된 프로젝트/업무',
-          items:completedProjects.map(project=>createWeeklyReviewProjectItem(project,{
-            badgeLabel:'완료',
-            badgeClass:'badge-green',
-            sideText:`완료 ${getWeeklyReviewShortDate(getWeeklyReviewProjectCompletionDate(project))}`
+          title:'이번 주 완료 프로젝트',
+          variant:'table',
+          tableTemplate:'1.1fr 1.6fr .9fr 1.2fr 1fr .9fr',
+          tableHeaders:['고객사명','프로젝트명','유형','담당자','빌링 금액','빌링 상태'],
+          items:completedProjectsByBilling.map(createWeeklyReviewCompletedProjectTableItem),
+          summary:`합계 ${formatWeeklyReviewCurrency(weeklyRevenue)} · 평균 ${formatWeeklyReviewCurrency(completedAverageAmount)} · 비청구 프로젝트 ${completedUnbilledCount}건`
+        }
+      ]
+    },
+    {
+      title:'지연 및 리스크',
+      sub:'즉시 확인이 필요한 지연, 긴급 이슈, 후속 조치 항목입니다.',
+      groups:[
+        {
+          title:'A. 지연 프로젝트',
+          items:overdueProjects.map(project=>createWeeklyReviewProjectItem(project,{
+            badgeLabel:'지연',
+            badgeClass:'badge-red',
+            sideText:`종료 ${getWeeklyReviewShortDate(getWeeklyReviewProjectEndDate(project))}`,
+            action:"openProjModal('"+project.id+"')"
           }))
         },
         {
-          title:'이번 주 해결된 이슈',
-          items:resolvedIssues.map(issue=>createWeeklyReviewIssueItem(issue,{
-            sideText:`해결 ${getWeeklyReviewShortDate(issue?.resolved_at||issue?.updated_at||issue?.created_at)}`
+          title:'B. 긴급 이슈',
+          items:urgentIssues.map(issue=>createWeeklyReviewIssueItem(issue,{
+            badgeLabel:issue?.is_pinned?'고정':formatWeeklyReviewPriorityLabel(issue?.priority),
+            badgeClass:issue?.is_pinned?'badge-red':getWeeklyReviewPriorityBadgeClass(issue?.priority),
+            sideText:`변경 ${getWeeklyReviewShortDate(getIssueStatusChangedAt(issue))}`
+          }))
+        },
+        {
+          title:'C. 후속 조치 필요',
+          items:followUpProjects.map(project=>createWeeklyReviewProjectItem(project,{
+            badgeLabel:'후속조치',
+            badgeClass:'badge-orange',
+            sideText:project?.follow_up_note
+              ? truncateText(project.follow_up_note,18)
+              : `완료 ${getWeeklyReviewShortDate(getWeeklyReviewProjectCompletionDate(project))}`,
+            action:"openProjModal('"+project.id+"',null,null,'completion')"
           }))
         }
       ]
     },
     {
-      title:'B. Pending',
-      sub:'현재 기준으로 남아 있는 일정 및 업무와 미해결 이슈입니다.',
+      title:'다음 주 예정',
+      sub:'다음 영업주 기준 마감, 신규 착수, 일정성 항목입니다.',
       groups:[
         {
-          title:'진행중 / 지연 일정 및 업무',
-          items:pendingWorkItems
-        },
-        {
-          title:'미해결 이슈',
-          items:openIssues.map(issue=>createWeeklyReviewIssueItem(issue,{
-            sideText:`등록 ${getWeeklyReviewShortDate(issue?.created_at)}`
-          }))
-        }
-      ]
-    },
-    {
-      title:'C. 차주 할 일',
-      sub:'다음 영업주에 예정된 시작, 마감, 일정성 항목입니다.',
-      groups:[
-        {
-          title:'다음 주 시작 예정',
-          items:nextWeekStarts.map(project=>createWeeklyReviewProjectItem(project,{
-            badgeLabel:'시작 예정',
-            badgeClass:'badge-blue',
-            sideText:`시작 ${getWeeklyReviewShortDate(getWeeklyReviewProjectStartDate(project))}`
-          }))
-        },
-        {
-          title:'다음 주 마감 예정',
+          title:'A. 마감 예정',
           items:nextWeekEnds.map(project=>createWeeklyReviewProjectItem(project,{
             badgeLabel:'마감 예정',
             badgeClass:'badge-orange',
@@ -502,25 +585,16 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
           }))
         },
         {
-          title:'다음 주 필드웍/휴가/출장/외근 등 일정성 항목',
-          items:nextWeekSchedules.map(schedule=>createWeeklyReviewScheduleItem(schedule))
-        }
-      ]
-    },
-    {
-      title:'D. 빌링 체크',
-      sub:'완료 처리되었지만 아직 청구되지 않은 항목입니다.',
-      groups:[
-        {
-          title:'완료됐으나 미청구인 항목',
-          items:unbilledProjects.map(project=>createWeeklyReviewProjectItem(project,{
-            badgeLabel:'미청구',
-            badgeClass:'badge-red',
-            sideText:getWeeklyReviewProjectBillingAmount(project)
-              ? formatWeeklyReviewCurrency(getWeeklyReviewProjectBillingAmount(project))
-              : '금액 미입력',
-            action:"openProjModal('"+project.id+"',null,null,'completion')"
+          title:'B. 신규 착수',
+          items:nextWeekStarts.map(project=>createWeeklyReviewProjectItem(project,{
+            badgeLabel:'시작 예정',
+            badgeClass:'badge-blue',
+            sideText:`시작 ${getWeeklyReviewShortDate(getWeeklyReviewProjectStartDate(project))}`
           }))
+        },
+        {
+          title:'C. 일정(휴가/필드웍/내부업무)',
+          items:nextWeekSchedules.map(schedule=>createWeeklyReviewScheduleItem(schedule))
         }
       ]
     }
