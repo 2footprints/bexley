@@ -1607,6 +1607,7 @@ const NOW=new Date();
 let curYear=NOW.getFullYear(),curMonth=NOW.getMonth()+1;
 let editingProjId=null,formMembers=[],scheduleFormMembers=[],editingClientId=null,editingContractId=null;
 let projectComments=[],activeReplyParentId=null,activeProjectCommentEditId=null,activeIssueCommentEditId=null;
+let projectChecklistDraft=[],projectModalEditable=false;
 
 
 function getRoleLabel(role){
@@ -3111,6 +3112,130 @@ window.renderGantt = function(){
 renderGantt = window.renderGantt;
 
 let projModalTab='basic';
+function createProjectChecklistDraftItem(label='',is_checked=false,id=''){
+  return {
+    id:id||('check-'+Date.now()+'-'+Math.random().toString(36).slice(2,7)),
+    label:String(label||''),
+    is_checked:!!is_checked
+  };
+}
+function renderProjectChecklistDraft(loading=false,errorText=''){
+  const wrap=document.getElementById('projectChecklistWrap');
+  if(!wrap)return;
+  if(loading){
+    wrap.innerHTML='<div class="comment-system">체크리스트를 불러오는 중입니다.</div>';
+    return;
+  }
+  const items=(projectChecklistDraft||[]).map((item,idx)=>{
+    const label=esc(item?.label||'');
+    if(projectModalEditable){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border)">'
+        +'<input type="checkbox" '+(item?.is_checked?'checked':'')+' onchange="toggleProjectChecklistItem('+idx+')"/>'
+        +'<input value="'+label+'" placeholder="예) 착수 미팅 정리" oninput="updateProjectChecklistItemLabel('+idx+',this.value)" style="flex:1"/>'
+        +'<button type="button" class="btn ghost sm" onclick="removeProjectChecklistItem('+idx+')">삭제</button>'
+        +'</div>';
+    }
+    return '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px solid var(--border)">'
+      +'<span style="font-size:14px;line-height:1.4">'+(item?.is_checked?'✓':'○')+'</span>'
+      +'<div style="font-size:13px;color:var(--text2);line-height:1.6">'+(label||'항목 미입력')+'</div>'
+      +'</div>';
+  }).join('');
+  wrap.innerHTML=''
+    +(errorText?'<div class="readonly-notice" style="margin-bottom:10px">'+esc(errorText)+'</div>':'')
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:8px">프로젝트 진행 체크리스트를 간단히 정리할 수 있습니다.</div>'
+    +'<div style="border:1px solid var(--border);border-radius:12px;background:var(--card);padding:0 12px">'
+      +(items||'<div style="padding:12px 0;font-size:12px;color:var(--text3)">아직 등록된 체크리스트가 없습니다.</div>')
+    +'</div>'
+    +(projectModalEditable?'<div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn sm" onclick="addProjectChecklistItem()">+ 항목 추가</button></div>':'');
+}
+async function loadProjectChecklistItems(projectId){
+  if(!projectId){
+    projectChecklistDraft=[];
+    renderProjectChecklistDraft();
+    return;
+  }
+  renderProjectChecklistDraft(true);
+  try{
+    const rows=await api('GET','project_checklist_items?project_id=eq.'+projectId+'&select=id,label,is_checked,sort_order&order=sort_order.asc').catch(()=>[])||[];
+    projectChecklistDraft=rows.map(row=>createProjectChecklistDraftItem(row.label,row.is_checked,row.id));
+    renderProjectChecklistDraft();
+  }catch(e){
+    console.warn('project checklist load failed',e);
+    projectChecklistDraft=[];
+    renderProjectChecklistDraft(false,'체크리스트를 불러오지 못했습니다. 스키마 반영 전이면 아직 저장되지 않을 수 있습니다.');
+  }
+}
+function addProjectChecklistItem(){
+  if(!projectModalEditable)return;
+  projectChecklistDraft.push(createProjectChecklistDraftItem());
+  renderProjectChecklistDraft();
+}
+function updateProjectChecklistItemLabel(index,value){
+  if(!projectChecklistDraft[index])return;
+  projectChecklistDraft[index].label=String(value||'');
+}
+function toggleProjectChecklistItem(index){
+  if(!projectChecklistDraft[index])return;
+  projectChecklistDraft[index].is_checked=!projectChecklistDraft[index].is_checked;
+  renderProjectChecklistDraft();
+}
+function removeProjectChecklistItem(index){
+  projectChecklistDraft=projectChecklistDraft.filter((_,idx)=>idx!==index);
+  renderProjectChecklistDraft();
+}
+async function syncProjectChecklistItems(projectId){
+  if(!projectId)return;
+  const rows=(projectChecklistDraft||[])
+    .map((item,idx)=>({
+      project_id:projectId,
+      label:String(item?.label||'').trim(),
+      is_checked:!!item?.is_checked,
+      sort_order:idx+1,
+      created_by:currentUser?.id||null
+    }))
+    .filter(item=>item.label);
+  await api('DELETE','project_checklist_items?project_id=eq.'+projectId);
+  for(const row of rows){
+    await api('POST','project_checklist_items',row);
+  }
+}
+function buildDocumentReminderDraft(project,pendingDocs){
+  const client=clients.find(c=>c.id===project?.client_id)||{};
+  const greeting=client?.contact_name?client.contact_name+'님,':'안녕하세요.';
+  const docLines=(pendingDocs||[]).map((doc,idx)=>{
+    return (idx+1)+'. '+(doc.title||'자료 요청')
+      +(doc.due_date?' (회수 희망일: '+doc.due_date+')':'');
+  }).join('\n');
+  return greeting+'\n\n'
+    +(client?.name||'고객사')+' / '+(project?.name||'프로젝트')+' 관련 요청드린 자료를 다시 안내드립니다.\n'
+    +((pendingDocs||[]).length?'\n'+docLines+'\n':'\n요청드린 자료 목록을 확인 부탁드립니다.\n')
+    +'\n가능하신 전달 일정 회신 부탁드립니다.\n감사합니다.';
+}
+async function openDocumentReminderModal(projectId){
+  const project=projects.find(p=>p.id===projectId);
+  if(!project){alert('프로젝트 정보를 찾을 수 없습니다.');return;}
+  let pendingDocs=[];
+  try{
+    pendingDocs=await api('GET','document_requests?project_id=eq.'+projectId+'&status=eq.pending&select=id,title,due_date&order=sort_order.asc').catch(()=>[])||[];
+  }catch(e){
+    pendingDocs=[];
+  }
+  const draft=buildDocumentReminderDraft(project,pendingDocs);
+  document.getElementById('modalArea').innerHTML=''
+    +'<div class="overlay" onclick="if(event.target===this)closeModal()">'
+      +'<div class="modal" style="width:560px">'
+        +'<div class="modal-title">자료 요청 리마인드 메일 문안</div>'
+        +'<div class="helper-box" style="margin-bottom:12px"><div class="helper-title">대상 자료</div><div class="helper-text">'+((pendingDocs||[]).length?(pendingDocs.map(doc=>esc(doc.title||'자료 요청')+(doc.due_date?' · '+esc(doc.due_date):'')).join('<br>')):'현재 pending 자료 요청이 없습니다.')+'</div></div>'
+        +'<div class="form-row"><label class="form-label">메일 문안</label><textarea id="docReminderPreview" class="copy-area" readonly>'+esc(draft)+'</textarea></div>'
+        +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="openProjModal(\''+projectId+'\',null,null,\'documents\')">닫기</button><button class="btn primary" onclick="copyDocumentReminder()">문안 복사</button></div></div>'
+      +'</div>'
+    +'</div>';
+}
+async function copyDocumentReminder(){
+  const text=document.getElementById('docReminderPreview')?.value||'';
+  if(!text)return;
+  await copyText(text);
+}
 function openProjModal(eid,preClientId,preContractId,initialTab){
   if(!eid&&!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   editingProjId=eid||null;
@@ -3118,7 +3243,11 @@ function openProjModal(eid,preClientId,preContractId,initialTab){
   const p=eid?projects.find(x=>x.id===eid):null;
   formMembers=p?[...p.members]:(currentMember?[currentMember.name]:[]);
   const editable=!p||canEdit(p);
+  projectModalEditable=editable;
+  projectChecklistDraft=[];
   renderProjModal(p,editable,preClientId,preContractId);
+  renderProjectChecklistDraft();
+  if(p) loadProjectChecklistItems(p.id);
   if(p){
     loadProjectComments(p.id);
     if(projModalTab==='issue') setTimeout(()=>loadProjIssues(p.id),50);
@@ -3248,9 +3377,12 @@ async function loadProjIssues(projId){
       const isOpen=isIssueActiveStatus(issue.status);
       const statusMeta=getIssueStatusMeta(issue.status);
       const editable=canEditIssue(issue);
+      const estimatedHours=issue?.estimated_hours!=null&&issue?.estimated_hours!==''
+        ?'<span class="badge badge-orange">예상 '+Number(issue.estimated_hours).toLocaleString()+'h</span>'
+        :'';
       return '<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">'
         +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:13px;font-weight:600;color:'+(isOpen?'var(--navy)':'var(--text3)')+';">'+(issue.is_pinned?'📌 ':'')+esc(issue.title)+'</div>'
+        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div style="font-size:13px;font-weight:600;color:'+(isOpen?'var(--navy)':'var(--text3)')+';">'+(issue.is_pinned?'📌 ':'')+esc(issue.title)+'</div>'+(estimatedHours?'<div style="flex-shrink:0">'+estimatedHours+'</div>':'')+'</div>'
         +renderIssuePeopleBadges(issue)
         +(issue.content?'<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
         +'<div style="font-size:10px;color:var(--text3);margin-top:6px">'+esc(issue.author_name||'익명')+' · '+formatCommentDate(issue.created_at)
@@ -3321,7 +3453,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
             <div class="form-row"><label class="form-label">상태</label><select id="fStatus" ${editable?'':'disabled'}><option ${(p&&p.status==='진행중')?'selected':''}>진행중</option><option ${(p&&p.status==='예정')?'selected':''}>예정</option><option ${(p&&p.status==='완료')?'selected':''}>완료</option></select></div>
           </div>
           <div class="form-half">
-            <div class="form-row"><label class="form-label">예상 시간</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="fEstimatedHours" min="0" step="1" value="${p?.estimated_hours??''}" placeholder="예) 40" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">시간</span></div></div>
+            <div class="form-row"><label class="form-label">예상 / 실제 투입 시간</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="display:flex;align-items:center;gap:8px"><input type="number" id="fEstimatedHours" min="0" step="1" value="${p?.estimated_hours??''}" placeholder="예상 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">h</span></div><div style="display:flex;align-items:center;gap:8px"><input type="number" id="fActualHours" min="0" step="1" value="${p?.actual_hours??''}" placeholder="실제 투입 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">h</span></div></div></div>
             <div class="form-row"><label class="form-label">우선순위</label><select id="fPriority" ${editable?'':'disabled'}><option value="high" ${(p?.priority==='high')?'selected':''}>상</option><option value="medium" ${(!p||!p.priority||p.priority==='medium')?'selected':''}>중</option><option value="low" ${(p?.priority==='low')?'selected':''}>하</option></select></div>
           </div>
           <div class="form-half">
@@ -3333,18 +3465,19 @@ function renderProjModal(p,editable,preClientId,preContractId){
             :'<div class="form-row"><label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+(p?p.members.join(', ')||'미배정':'')+'</div></div>'}
           <div id="conflictArea"></div>
           <div class="form-row"><label class="form-label">메모</label><textarea id="fMemo" rows="2" style="resize:vertical" placeholder="간단한 메모, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p&&p.memo?p.memo:'')}</textarea></div>
+          <div class="form-row"><label class="form-label">체크리스트</label><div id="projectChecklistWrap"></div></div>
           ${!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':''}
         </div>
 
         <div class="modal-tab-content${projModalTab==='issue'?' active':''}" data-tab="issue">
           ${p
-            ?'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:12px;color:var(--text3)">이 프로젝트의 이슈 및 댓글</div><button class="btn primary sm" onclick="closeModal();openIssueModal(\''+p.id+'\')">+ 이슈 등록</button></div><div id="projIssueList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div><div class="divider">댓글</div><div id="projectCommentSection"><div style="color:var(--text3);font-size:12px;padding:8px 0">불러오는 중...</div></div>'
+            ?'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:12px;color:var(--text3)">프로젝트 이슈와 프로젝트 댓글을 분리해서 확인합니다.</div><button class="btn primary sm" onclick="closeModal();openIssueModal(\''+p.id+'\')">+ 이슈 등록</button></div><div class="helper-box" style="margin-bottom:12px"><div class="helper-title">프로젝트 이슈</div><div class="helper-text">이슈별 예상 시간과 상태를 함께 확인할 수 있습니다.</div></div><div id="projIssueList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div><div class="divider">프로젝트 댓글</div><div id="projectCommentSection"><div style="color:var(--text3);font-size:12px;padding:8px 0">불러오는 중...</div></div>'
             :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 이슈를 등록할 수 있습니다.</div>'}
         </div>
 
         <div class="modal-tab-content${projModalTab==='documents'?' active':''}" data-tab="documents">
           ${p
-            ?'<div style="font-size:12px;color:var(--text3);margin-bottom:12px">고객사 자료 요청과 확인 상태를 한 곳에서 관리합니다.</div><div id="projDocumentRequestList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
+            ?'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font-size:12px;color:var(--text3)">고객사 자료 요청과 확인 상태를 한 곳에서 관리합니다.</div><button class="btn sm" type="button" onclick="openDocumentReminderModal(\''+p.id+'\')">일괄 리마인드 메일 문안</button></div><div id="projDocumentRequestList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
             :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 자료 요청을 등록할 수 있습니다.</div>'}
         </div>
 
@@ -3367,10 +3500,13 @@ function renderProjModal(p,editable,preClientId,preContractId){
             <div class="form-row"><label class="form-label">프로젝트 코드</label><input id="fProjCode" value="${esc(p?.project_code||'')}" placeholder="내부 관리 코드" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
             <div class="form-row"><label class="form-label">실제 완료일</label><input type="date" id="fActualEnd" value="${p?.actual_end_date||''}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
           </div>
+          <div class="form-half">
+            <div class="form-row"><label class="form-label">고객 만족도</label><select id="fCustomerSatisfaction" ${editable?'':'disabled'}><option value="">미입력</option>${[1,2,3,4,5].map(score=>'<option value="'+score+'" '+(String(p?.customer_satisfaction||'')===String(score)?'selected':'')+'>'+score+'점</option>').join('')}</select></div>
+            <div class="form-row"><label class="form-label">후속 액션 여부</label><div style="padding-top:10px" class="checkbox-row"><input type="checkbox" id="fFollowUp" ${p?.follow_up_needed?'checked':''} ${editable?'':'disabled'}/><label for="fFollowUp">후속 액션 필요</label></div></div>
+          </div>
           <div class="form-row"><label class="form-label">결과 요약</label><textarea id="fResultSummary" rows="3" style="resize:vertical" placeholder="고객사 전달 결과, 주요 산출물, 완료 기준 등을 요약" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.result_summary||'')}</textarea></div>
           <div class="form-row"><label class="form-label">내부 작업 메모</label><textarea id="fWorkSummary" rows="3" style="resize:vertical" placeholder="실무상 배운 점, 다음 번 참고할 포인트" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.work_summary||'')}</textarea></div>
           <div class="form-row"><label class="form-label">이슈 / 리스크 메모</label><textarea id="fIssueNote" rows="2" style="resize:vertical" placeholder="잔여 리스크, 고객사 커뮤니케이션 메모" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.issue_note||'')}</textarea></div>
-          <div class="checkbox-row"><input type="checkbox" id="fFollowUp" ${p?.follow_up_needed?'checked':''} ${editable?'':'disabled'}/><label for="fFollowUp">후속 액션 필요</label></div>
           <div id="followUpFields" style="${p?.follow_up_needed?'':'display:none'}">
             <div class="form-row"><label class="form-label">후속 액션 내용</label><textarea id="fFollowUpNote" rows="3" style="resize:vertical" placeholder="예) 재계약 제안, 후속 세무 검토, 고객사 피드백 회수" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.follow_up_note||'')}</textarea></div>
           </div>
@@ -7216,6 +7352,7 @@ window.saveProj = async function(){
   const end=document.getElementById('fEnd')?.value||null;
   const status=document.getElementById('fStatus')?.value||null;
   const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseFloat(document.getElementById('fEstimatedHours').value):null;
+  const actual_hours=document.getElementById('fActualHours')?.value?parseFloat(document.getElementById('fActualHours').value):null;
   const priority=document.getElementById('fPriority')?.value||'medium';
   const client_id=document.getElementById('fClient')?.value||null;
   const contract_id=document.getElementById('fContract')?.value||null;
@@ -7234,6 +7371,14 @@ window.saveProj = async function(){
   const issue_note=document.getElementById('fIssueNote')?.value?.trim()||null;
   const follow_up_needed=!!document.getElementById('fFollowUp')?.checked;
   const follow_up_note=document.getElementById('fFollowUpNote')?.value?.trim()||null;
+  const customer_satisfaction=document.getElementById('fCustomerSatisfaction')?.value?parseInt(document.getElementById('fCustomerSatisfaction').value,10):null;
+  const billing_status_changed_at=(
+    is_billable && (
+      !existing ||
+      existing?.billing_status!==billing_status ||
+      !!existing?.is_billable!==!!is_billable
+    )
+  )?new Date().toISOString():null;
 
   if(!name||!start||!end){
     alert('프로젝트명, 시작일, 종료일을 입력해주세요.');
@@ -7267,6 +7412,12 @@ window.saveProj = async function(){
     follow_up_needed,
     follow_up_note
   };
+  const extensionBody={};
+  if(actual_hours!==null)extensionBody.actual_hours=actual_hours;
+  else extensionBody.actual_hours=null;
+  if(customer_satisfaction!==null)extensionBody.customer_satisfaction=customer_satisfaction;
+  else extensionBody.customer_satisfaction=null;
+  if(billing_status_changed_at)extensionBody.billing_status_changed_at=billing_status_changed_at;
 
   const canSyncMembers=!existing || (typeof canManageProjectMembers==='function'
     ?canManageProjectMembers(existing)
@@ -7279,6 +7430,13 @@ window.saveProj = async function(){
     }else{
       const created=await api('POST','projects',{...body,created_by:currentUser.id});
       editingProjId=created?.[0]?.id;
+    }
+    if(editingProjId && Object.keys(extensionBody).length){
+      try{
+        await api('PATCH','projects?id=eq.'+editingProjId,extensionBody);
+      }catch(extErr){
+        console.warn('project extension fields save skipped',extErr);
+      }
     }
 
     if(canSyncMembers && editingProjId){
@@ -7301,6 +7459,13 @@ window.saveProj = async function(){
         if(!currentSet.has(memberId)){
           await apiEx('POST','project_members?on_conflict=project_id,member_id',{project_id:editingProjId,member_id:memberId},'resolution=merge-duplicates,return=representation');
         }
+      }
+    }
+    if(editingProjId){
+      try{
+        await syncProjectChecklistItems(editingProjId);
+      }catch(checkErr){
+        console.warn('project checklist sync skipped',checkErr);
       }
     }
 
