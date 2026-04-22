@@ -65,39 +65,44 @@
 .home-team-schedule-week-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
 .home-team-schedule-week-label{font-size:12px;font-weight:800;color:var(--navy)}
 .home-team-schedule-week-range{font-size:12px;color:var(--text3)}
-.home-team-schedule-group{min-width:0;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.72);padding:12px 14px}
+.home-team-schedule-group{min-width:0}
+.home-team-schedule-group.is-type-view{border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.72);padding:12px 14px}
 .home-team-schedule-group-title{font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px}
-.home-team-schedule-item{width:100%;display:grid;grid-template-columns:minmax(96px,112px) minmax(0,1fr) auto;align-items:flex-start;gap:12px;padding:10px 0;border:none;border-top:1px solid var(--border);background:transparent;cursor:pointer;font-family:inherit;text-align:left}
-.home-team-schedule-item.is-compact{grid-template-columns:minmax(0,1fr) auto}
+.home-team-schedule-item{width:100%;border:none;border-top:1px solid var(--border);background:transparent;cursor:pointer;font-family:inherit;text-align:left}
+.home-team-schedule-item.is-type-view{display:grid;grid-template-columns:minmax(96px,112px) minmax(0,1fr) auto;align-items:flex-start;gap:12px;padding:10px 0}
+.home-team-schedule-item.is-type-view.is-compact{grid-template-columns:minmax(0,1fr) auto}
 .home-team-schedule-item:first-of-type{border-top:none}
 .home-team-schedule-item-dot{width:8px;height:8px;border-radius:999px;margin-top:6px;flex-shrink:0;background:#CBD5E1}
 .home-team-schedule-item-dot.leave{background:#C8B28A}
 .home-team-schedule-item-dot.fieldwork{background:#94A3B8}
 .home-team-schedule-item-dot.internal{background:#38BDF8}
 .home-team-schedule-item-main{display:flex;flex-direction:column;gap:4px;min-width:0}
-.home-team-schedule-item-name{min-width:96px;font-size:13px;font-weight:700;color:var(--navy);word-break:keep-all;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:2px}
-.home-team-schedule-item-title{font-size:13px;font-weight:700;color:var(--navy);line-height:1.45;word-break:keep-all;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.home-team-schedule-item-meta{font-size:11px;color:var(--text3);line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
-.home-team-schedule-item-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;align-self:flex-start;margin-top:1px}
+.home-team-schedule-item-name{font-size:13px;font-weight:700;color:var(--navy)}
+.home-team-schedule-item.is-type-view .home-team-schedule-item-name{min-width:96px;word-break:keep-all;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:2px}
+.home-team-schedule-item-title{font-size:13px;font-weight:700;color:var(--navy);line-height:1.45}
+.home-team-schedule-item.is-type-view .home-team-schedule-item-title{word-break:keep-all;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.home-team-schedule-item-meta{font-size:11px;color:var(--text3);line-height:1.5}
+.home-team-schedule-item.is-type-view .home-team-schedule-item-meta{word-break:keep-all;overflow-wrap:anywhere}
+.home-team-schedule-item-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.home-team-schedule-item.is-type-view .home-team-schedule-item-tag{flex-shrink:0;align-self:flex-start;margin-top:1px}
 .home-team-schedule-item-tag.leave{background:#F6F1E8;color:#8C7351}
 .home-team-schedule-item-tag.fieldwork{background:#EDF1F5;color:#5F6E7E}
 .home-team-schedule-item-tag.internal{background:#E0F2FE;color:#0369A1}
 .home-team-schedule-item-tag.default{background:#F1F5F9;color:#475569}
 .home-team-member-list{display:flex;flex-direction:column;gap:10px}
-.home-team-member-row{display:grid;grid-template-columns:minmax(96px,112px) minmax(0,1fr);gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--border)}
+.home-team-member-row{display:grid;grid-template-columns:90px minmax(0,1fr);gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--border)}
 .home-team-member-row:first-child{border-top:none}
-.home-team-member-row.is-double{grid-template-columns:minmax(96px,112px) minmax(0,1fr) minmax(0,1fr)}
-.home-team-member-name{font-size:13px;font-weight:700;color:var(--navy);word-break:keep-all;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:8px}
-.home-team-member-week-block{display:flex;flex-direction:column;gap:8px;min-width:0;border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:10px 12px}
+.home-team-member-row.is-double{grid-template-columns:90px minmax(0,1fr) minmax(0,1fr)}
+.home-team-member-name{font-size:13px;font-weight:700;color:var(--navy)}
+.home-team-member-week-block{display:flex;flex-direction:column;gap:6px}
 .home-team-member-week-label{font-size:11px;font-weight:700;color:var(--text3)}
-.home-team-member-schedule-list{display:flex;flex-direction:column;gap:0}
-.home-team-member-schedule-list .home-team-schedule-item{padding:10px 0}
+.home-team-member-tags{display:flex;gap:6px;flex-wrap:wrap}
 .home-team-member-tag{font-size:11px;font-weight:700;padding:4px 9px;border:none;border-radius:999px;cursor:pointer;font-family:inherit}
 .home-team-member-tag.leave{background:#F6F1E8;color:#8C7351}
 .home-team-member-tag.fieldwork{background:#EDF1F5;color:#5F6E7E}
 .home-team-member-tag.internal{background:#E0F2FE;color:#0369A1}
 .home-team-member-tag.default{background:#F1F5F9;color:#475569}
-.home-team-member-empty{font-size:12px;color:var(--text3);padding:6px 0}
+.home-team-member-empty{font-size:12px;color:var(--text3);padding:4px 0}
 .team-page-header .btn,.team-notice-head .btn{display:inline-flex;align-items:center;justify-content:center}
 .team-notice-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .team-notice-list{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding-right:2px}

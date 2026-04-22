@@ -735,8 +735,8 @@ function getHomeScheduleTone(type){
 }
 
 function renderHomeScheduleGroupByType(type,items){
-  const renderScheduleRow=schedule=>renderHomeScheduleRow(schedule,{memberLabel:getScheduleMemberLabel(schedule)});
-  return '<div class="home-team-schedule-group">'
+  const renderScheduleRow=schedule=>renderHomeScheduleRow(schedule,{memberLabel:getScheduleMemberLabel(schedule),typeView:true});
+  return '<div class="home-team-schedule-group is-type-view">'
     +'<div class="home-team-schedule-group-title">'+esc(scheduleLabel(type))+'</div>'
     +(items.length
       ?items.map(renderScheduleRow).join('')
@@ -749,8 +749,10 @@ function renderHomeScheduleRow(schedule,options={}){
   const title=String(schedule?.title||scheduleLabel(schedule?.schedule_type)||'일정').trim();
   const metaParts=[formatRangeShort(schedule.start,schedule.end)];
   if(schedule?.location)metaParts.push(schedule.location);
-  const itemClass='home-team-schedule-item'+(memberLabel?'':' is-compact');
-  return '<button type="button" class="'+itemClass+'" onclick="openScheduleModal(\''+schedule.id+'\')">'
+  const classNames=['home-team-schedule-item'];
+  if(options.typeView)classNames.push('is-type-view');
+  if(!memberLabel)classNames.push('is-compact');
+  return '<button type="button" class="'+classNames.join(' ')+'" onclick="openScheduleModal(\''+schedule.id+'\')">'
     +(memberLabel?'<span class="home-team-schedule-item-name" title="'+esc(memberLabel)+'">'+esc(memberLabel)+'</span>':'')
     +'<span class="home-team-schedule-item-main"><span class="home-team-schedule-item-title">'+esc(title)+'</span><span class="home-team-schedule-item-meta">'+esc(metaParts.filter(Boolean).join(' · '))+'</span></span>'
     +'<span class="home-team-schedule-item-tag '+getHomeScheduleTone(schedule.schedule_type)+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span>'
@@ -759,7 +761,7 @@ function renderHomeScheduleRow(schedule,options={}){
 
 function renderHomeMemberScheduleTagList(items){
   return items.length
-    ?'<div class="home-team-member-schedule-list">'+items.map(schedule=>renderHomeScheduleRow(schedule)).join('')+'</div>'
+    ?'<div class="home-team-member-tags">'+items.map(schedule=>'<button type="button" class="home-team-member-tag '+getHomeScheduleTone(schedule.schedule_type)+'" onclick="openScheduleModal(\''+schedule.id+'\')">'+esc(scheduleLabel(schedule.schedule_type))+' · '+esc(formatRangeShort(schedule.start,schedule.end))+'</button>').join('')+'</div>'
     :'<div class="home-team-member-empty">일정 없음</div>';
 }
 
