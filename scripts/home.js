@@ -1684,6 +1684,100 @@ renderTeamNotices = function(){
     +'</div>';
 };
 
+function confirmHomeRequiredNotice(id){
+  markNoticeRead(id);
+  updateNoticeDot();
+  checkPopup();
+  renderTeamNotices();
+}
+
+renderTeamNotices = function(){
+  const el=document.getElementById('teamNoticeWrap');
+  if(!el)return;
+  const list=[...(notices||[])].sort((a,b)=>{
+    const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
+    if(pinDiff)return pinDiff;
+    return new Date(b.created_at)-new Date(a.created_at);
+  });
+  const unreadRequired=getUnreadRequiredNotices();
+  const topRequired=unreadRequired[0]||null;
+  const visible=list.slice(0,5);
+  el.innerHTML='<div class="card team-notice-panel home-card" style="margin-bottom:0">'
+    +'<div class="team-notice-head">'
+      +'<div><div class="home-section-title" style="margin:0">공지사항</div><div style="font-size:12px;color:var(--text3);margin-top:4px">필독 공지와 최근 공지를 빠르게 확인합니다.</div></div>'
+      +(isAdmin?'<button class="btn primary sm" onclick="openNoticeWrite()">+ 공지 작성</button>':'')
+    +'</div>'
+    +(topRequired
+      ?'<div class="home-notice-alert">'
+        +'<div class="home-notice-alert-main" onclick="openNoticeDetail(\''+topRequired.id+'\')">'
+          +'<div class="home-notice-alert-kicker">필독 미확인 공지'+(unreadRequired.length>1?' · '+unreadRequired.length+'건':'')+'</div>'
+          +'<div class="home-notice-alert-title">'+esc(topRequired.title)+'</div>'
+          +'<div class="home-notice-alert-meta">'+formatDate(topRequired.created_at)+'</div>'
+        +'</div>'
+        +'<button class="btn sm" onclick="confirmHomeRequiredNotice(\''+topRequired.id+'\')">확인</button>'
+      +'</div>'
+      :'')
+    +(!visible.length
+      ?'<div class="notice-empty" style="padding:22px 16px">등록된 공지가 없습니다.</div>'
+      :'<div class="team-notice-list home-notice-list-compact" style="display:flex;flex-direction:column;gap:0;max-height:none;overflow:visible;padding-right:0">'
+        +visible.map(n=>'<div class="team-notice-row" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
+          +'<div style="min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden">'
+            +(n.is_pinned?'<span class="home-notice-pin">📌</span>':'')
+            +'<span class="team-notice-row-title">'+esc(n.title)+'</span>'
+          +'</div>'
+          +'<div class="team-notice-row-date">'+formatDate(n.created_at)+'</div>'
+        +'</div>').join('')
+      +'</div>')
+  +'</div>';
+};
+
+renderTeamKudosAndReviews = async function(){
+  const el=document.getElementById('teamKudosReviewWrap');
+  if(!el)return;
+  el.innerHTML='<div class="card home-card"><div class="home-section-title">팀 한마디</div><div class="weekly-empty">불러오는 중...</div></div>';
+  try{
+    const ws=getWeekStart(0);
+    const [votes,myVoteArr,reviews]=await Promise.all([
+      api('GET','kudos_votes?week_start=eq.'+ws+'&select=*').catch(()=>[]),
+      api('GET','kudos_votes?week_start=eq.'+ws+'&voter_id=eq.'+(currentUser?.id||'null')+'&select=*').catch(()=>[]),
+      api('GET','weekly_reviews?select=*&order=created_at.desc&limit=2').catch(()=>[])
+    ]);
+    const tally={};
+    (votes||[]).forEach(v=>{tally[v.target_member_name]=(tally[v.target_member_name]||0)+1;});
+    const ranking=Object.entries(tally).sort((a,b)=>b[1]-a[1]||String(a[0]||'').localeCompare(String(b[0]||''),'ko'));
+    const topEntry=ranking[0]||null;
+    const myVote=myVoteArr?.[0]||null;
+    const reviewsHtml=(reviews||[]).length
+      ?reviews.map(review=>'<div class="home-team-talk-review'+(review.created_by===currentUser?.id?' is-mine':'')+'">'
+        +'<div class="home-team-talk-review-head"><span class="home-team-talk-review-name">'+esc(review.member_name||'익명')+'</span><span class="home-team-talk-review-date">'+formatDate(review.created_at)+'</span></div>'
+        +'<div class="home-team-talk-review-body">'+esc(truncateText(review.content||'',90))+'</div>'
+      +'</div>').join('')
+      :'<div class="home-team-talk-empty">아직 등록된 후기가 없습니다.</div>';
+    el.innerHTML='<div class="card home-card">'
+      +'<div class="home-section-head">'
+        +'<div class="home-section-title">팀 한마디</div>'
+        +'<button class="home-inline-btn" onclick="setPage(\'weeklyReview\')">주간 리뷰에서 더 보기</button>'
+      +'</div>'
+      +'<div class="home-team-talk-grid">'
+        +'<div class="home-team-talk-kudos">'
+          +'<div class="home-team-talk-kicker">이번 주 칭찬사원</div>'
+          +(topEntry
+            ?'<div class="home-team-talk-top-name">'+esc(topEntry[0])+'</div><div class="home-team-talk-top-votes">'+topEntry[1]+'표'+(myVote&&myVote.target_member_name===topEntry[0]?' · 내 투표':'')+'</div>'
+            :'<div class="home-team-talk-empty">아직 투표가 없습니다.</div>')
+          +'<div class="home-team-talk-actions"><button class="btn sm" onclick="openKudosModal()">'+(myVote?'투표 변경':'투표하기')+'</button></div>'
+        +'</div>'
+        +'<div class="home-team-talk-reviews">'
+          +'<div class="home-team-talk-kicker">업무 후기 미리보기</div>'
+          +reviewsHtml
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }catch(e){
+    console.error('renderTeamKudosAndReviews failed',e);
+    el.innerHTML='<div class="card home-card"><div class="home-section-title">팀 한마디</div><div class="home-team-talk-empty">팀 한마디를 불러오지 못했습니다.</div></div>';
+  }
+};
+
 function getTeamDashboardAvailabilityItemsFinal(){
   const today=getHomeBaseDate();
   const todayLeave=(schedules||[]).filter(s=>s.schedule_type==='leave'&&toDate(s.start)<=today&&toDate(s.end)>=today).length;
