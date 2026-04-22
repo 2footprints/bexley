@@ -1660,11 +1660,12 @@ function canEditIssue(issue){
 }
 const ISSUE_ACTIVE_STATUSES=['open','in_progress','waiting'];
 const ISSUE_STATUS_META={
-  open:{label:'오픈',badgeCls:'badge-blue'},
+  open:{label:'열림',badgeCls:'badge-blue'},
   in_progress:{label:'진행중',badgeCls:'badge-orange'},
   waiting:{label:'대기',badgeCls:'badge-gray'},
   resolved:{label:'해결',badgeCls:'badge-green'}
 };
+const ISSUE_CATEGORY_OPTIONS=['자료','고객 커뮤니케이션','시스템','내부 프로세스','기타'];
 function normalizeIssueStatus(status){
   const value=(status||'').trim();
   return ISSUE_STATUS_META[value]?value:'open';
@@ -1683,6 +1684,12 @@ function getIssueStatusChangedAt(issue){
 }
 function getIssueActiveStatusFilter(){
   return 'status=in.(open,in_progress,waiting)';
+}
+function buildIssueCategoryOptions(selectedValue=''){
+  const normalized=(selectedValue||'').trim();
+  const options=[...ISSUE_CATEGORY_OPTIONS];
+  if(normalized&&!options.includes(normalized))options.push(normalized);
+  return options.map(option=>'<option value="'+esc(option)+'"'+(normalized===option?' selected':'')+'>'+esc(option)+'</option>').join('');
 }
 function syncIssueWaitingReasonVisibility(){
   const statusEl=document.getElementById('issueStatus');
@@ -4759,6 +4766,7 @@ async function openIssueModal(projId='',issueId=''){
   const editable=!issue||canEditIssue(issue);
   const canDelete=!!(issue&&(isAdmin||issue.created_by===currentUser?.id));
   const statusValue=normalizeIssueStatus(issue?.status);
+  const categoryValue=(issue?.category||'').trim();
   const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);const selected=(issue?issue.project_id===p.id:p.id===projId);return '<option value="'+p.id+'"'+(selected?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
   const ownerSelected=issue?.owner_member_id||(currentMember?.id||'');
   const assigneeSelected=issue?.assignee_member_id||'';
@@ -4779,8 +4787,8 @@ async function openIssueModal(projId='',issueId=''){
           <div class="form-row"><label class="form-label">담당자</label><select id="issueAssignee" ${editable?'':'disabled'}><option value="">선택 안 함</option>${memberOptions(assigneeSelected)}</select></div>
         </div>
         <div class="form-half">
-          <div class="form-row"><label class="form-label">상태</label><select id="issueStatus" ${editable?'onchange="syncIssueWaitingReasonVisibility()"':'disabled'}><option value="open" ${statusValue==='open'?'selected':''}>open</option><option value="in_progress" ${statusValue==='in_progress'?'selected':''}>in_progress</option><option value="waiting" ${statusValue==='waiting'?'selected':''}>waiting</option><option value="resolved" ${statusValue==='resolved'?'selected':''}>resolved</option></select></div>
-          <div class="form-row"><label class="form-label">카테고리</label><input id="issueCategory" value="${esc(issue?.category||'')}" placeholder="예) 세무, 감사, 개발" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+          <div class="form-row"><label class="form-label">상태</label><select id="issueStatus" ${editable?'onchange="syncIssueWaitingReasonVisibility()"':'disabled'}><option value="open" ${statusValue==='open'?'selected':''}>열림</option><option value="in_progress" ${statusValue==='in_progress'?'selected':''}>진행중</option><option value="waiting" ${statusValue==='waiting'?'selected':''}>대기</option><option value="resolved" ${statusValue==='resolved'?'selected':''}>해결</option></select></div>
+          <div class="form-row"><label class="form-label">카테고리</label><select id="issueCategory" ${editable?'':'disabled'}><option value="">선택 안 함</option>${buildIssueCategoryOptions(categoryValue)}</select></div>
         </div>
         <div class="form-half">
           <div class="form-row"><label class="form-label">기한</label><input type="date" id="issueDueDate" value="${esc(issue?.due_date||'')}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
