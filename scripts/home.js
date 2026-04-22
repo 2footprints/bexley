@@ -735,21 +735,31 @@ function getHomeScheduleTone(type){
 }
 
 function renderHomeScheduleGroupByType(type,items){
+  const renderScheduleRow=schedule=>renderHomeScheduleRow(schedule,{memberLabel:getScheduleMemberLabel(schedule)});
   return '<div class="home-team-schedule-group">'
     +'<div class="home-team-schedule-group-title">'+esc(scheduleLabel(type))+'</div>'
     +(items.length
-      ?items.map(schedule=>'<button type="button" class="home-team-schedule-item" onclick="openScheduleModal(\''+schedule.id+'\')">'
-        +'<span class="home-team-schedule-item-dot '+getHomeScheduleTone(schedule.schedule_type)+'"></span>'
-        +'<span class="home-team-schedule-item-main"><span class="home-team-schedule-item-name">'+esc(getScheduleMemberLabel(schedule))+'</span><span class="home-team-schedule-item-meta">'+esc(formatRangeShort(schedule.start,schedule.end)+(schedule.location?' · '+schedule.location:''))+'</span></span>'
-        +'<span class="home-team-schedule-item-tag '+getHomeScheduleTone(schedule.schedule_type)+'">'+esc(schedule.title||scheduleLabel(schedule.schedule_type))+'</span>'
-      +'</button>').join('')
+      ?items.map(renderScheduleRow).join('')
       :'<div class="weekly-empty">일정 없음</div>')
     +'</div>';
 }
 
+function renderHomeScheduleRow(schedule,options={}){
+  const memberLabel=String(options.memberLabel||'').trim();
+  const title=String(schedule?.title||scheduleLabel(schedule?.schedule_type)||'일정').trim();
+  const metaParts=[formatRangeShort(schedule.start,schedule.end)];
+  if(schedule?.location)metaParts.push(schedule.location);
+  const itemClass='home-team-schedule-item'+(memberLabel?'':' is-compact');
+  return '<button type="button" class="'+itemClass+'" onclick="openScheduleModal(\''+schedule.id+'\')">'
+    +(memberLabel?'<span class="home-team-schedule-item-name" title="'+esc(memberLabel)+'">'+esc(memberLabel)+'</span>':'')
+    +'<span class="home-team-schedule-item-main"><span class="home-team-schedule-item-title">'+esc(title)+'</span><span class="home-team-schedule-item-meta">'+esc(metaParts.filter(Boolean).join(' · '))+'</span></span>'
+    +'<span class="home-team-schedule-item-tag '+getHomeScheduleTone(schedule.schedule_type)+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span>'
+  +'</button>';
+}
+
 function renderHomeMemberScheduleTagList(items){
   return items.length
-    ?'<div class="home-team-member-tags">'+items.map(schedule=>'<button type="button" class="home-team-member-tag '+getHomeScheduleTone(schedule.schedule_type)+'" onclick="openScheduleModal(\''+schedule.id+'\')">'+esc(scheduleLabel(schedule.schedule_type))+' · '+esc(formatRangeShort(schedule.start,schedule.end))+'</button>').join('')+'</div>'
+    ?'<div class="home-team-member-schedule-list">'+items.map(schedule=>renderHomeScheduleRow(schedule)).join('')+'</div>'
     :'<div class="home-team-member-empty">일정 없음</div>';
 }
 
