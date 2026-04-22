@@ -1044,12 +1044,19 @@ function renderHomeRiskSummaryCard(card){
     +(card.meta?'<div class="home-risk-meta">'+esc(card.meta)+'</div>':'')
     +'</button>';
 }
+function getHomeProjectBillingAmount(project){
+  const directAmount=Number(project?.billing_amount||0);
+  if(directAmount>0)return directAmount;
+  const linkedContract=(contracts||[]).find(contract=>String(contract.id)===String(project?.contract_id||''));
+  const contractAmount=Number(linkedContract?.contract_amount||0);
+  return contractAmount>0?contractAmount:0;
+}
 
 async function renderHomeRiskSummary(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
   el.innerHTML='<div class="home-risk-grid">'
-    +['마감 임박','미해결 이슈','청구 대기','자료 미제출'].map(label=>
+    +['오늘 마감','지연중','내 이슈','미청구','자료 대기','팀 가용성'].map(label=>
       '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">—</div><div class="home-risk-meta">불러오는 중...</div></div>'
     ).join('')
     +'</div>';
@@ -1057,76 +1064,139 @@ async function renderHomeRiskSummary(){
     const today=getHomeBaseDate();
     const dueLimit=new Date(today);
     dueLimit.setDate(today.getDate()+3);
-    const urgentProjects=(projects||[]).filter(project=>{
+    const isCompletedProject=project=>{
+      const statusRaw=String(project?.status||'').trim();
+      const statusKey=statusRaw.toLowerCase().replace(/[\s-]+/g,'_');
+      return statusRaw==='완료'||statusKey==='completed'||statusKey==='done';
+    };
+    const todayDueProjects=(projects||[]).filter(project=>{
       const endDateRaw=project.end||project.end_date;
       if(!endDateRaw)return false;
-      const status=project.status||'';
-      if(status==='완료'||status==='completed')return false;
+      if(isCompletedProject(project))return false;
       const endDate=toDate(endDateRaw);
-      return endDate>=today&&endDate<=dueLimit;
+      return endDate.getTime()===today.getTime();
+    }).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+    const overdueProjects=(projects||[]).filter(project=>{
+      const endDateRaw=project.end||project.end_date;
+      if(!endDateRaw)return false;
+      if(isCompletedProject(project))return false;
+      const endDate=toDate(endDateRaw);
+      return endDate<today;
+    }).sort((a,b)=>{
+      const diff=toDate(a.end||a.end_date)-toDate(b.end||b.end_date);
+      if(diff)return diff;
+      return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
     });
 
-    const [issueRows,billingRows,pendingDocs]=await Promise.all([
-      currentMember?.id
-        ?api('GET','project_issues?select=id,status,is_pinned,assignee_member_id').catch(()=>[])
+    const [issueRows,pendingDocs]=await Promise.all([
+      (currentMember?.id||currentMember?.name)
+        ?api('GET','project_issues?select=id,status,is_pinned,priority,assignee_member_id,assignee_name').catch(()=>[])
         :Promise.resolve([]),
-      api('GET','billing_records?select=contract_id,amount,status').catch(()=>[]),
-      api('GET','document_requests?status=eq.pending&select=id,project_id,title').catch(()=>[])
+      api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
 
-    const myOpenIssueCount=(issueRows||[]).filter(issue=>
-      issue?.assignee_member_id===currentMember?.id &&
-      (issue.status==='open'||issue.is_pinned===true)
-    ).length;
-
-    const completedProjects=(projects||[]).filter(project=>{
-      const status=project.status||'';
-      return (status==='완료'||status==='completed')&&project.contract_id;
+    const myOpenIssues=(issueRows||[]).filter(issue=>{
+      const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
+        ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
+      return matchesAssignee&&isIssueActiveStatus(issue?.status);
     });
-    const completedContractIds=new Set(completedProjects.map(project=>project.contract_id).filter(Boolean));
-    const pendingBillingAmount=(billingRows||[])
-      .filter(row=>completedContractIds.has(row.contract_id)&&row.status!=='수금완료')
-      .reduce((sum,row)=>sum+Number(row.amount||0),0);
+    const myHighPriorityIssues=myOpenIssues.filter(issue=>String(issue?.priority||'').trim().toLowerCase()==='high');
 
-    const pendingDocRows=(pendingDocs||[]).filter(Boolean);
-    const firstPendingProjectId=pendingDocRows.find(row=>row.project_id)?.project_id||'';
+    const unbilledProjects=(projects||[]).filter(project=>
+      isCompletedProject(project)
+      &&project?.is_billable
+      &&String(project?.billing_status||'').trim()==='미청구'
+    );
+    const pendingBillingAmount=unbilledProjects.reduce((sum,project)=>sum+getHomeProjectBillingAmount(project),0);
+
+    const pendingDocRows=(pendingDocs||[]).filter(row=>{
+      if(!row?.due_date)return false;
+      const dueDate=toDate(row.due_date);
+      return dueDate<=dueLimit;
+    }).sort((a,b)=>{
+      const diff=toDate(a.due_date)-toDate(b.due_date);
+      if(diff)return diff;
+      return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
+    });
+    const firstPendingDoc=pendingDocRows[0]||null;
+    const firstPendingProjectId=firstPendingDoc?.project_id||'';
+
+    const activeMembers=(members||[]).filter(member=>{
+      const isActive=member?.is_active===undefined?true:!!member.is_active;
+      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
+      const isSystemAccount=/projectschedule|system|test/.test(identity);
+      return isActive&&!isSystemAccount;
+    });
+    const todayLeaveNames=[...new Set((schedules||[])
+      .filter(schedule=>{
+        const type=String(schedule?.schedule_type||'').trim();
+        if(type!=='leave')return false;
+        const startDate=toDate(schedule.start||schedule.start_date);
+        const endDate=toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date);
+        return startDate<=today&&endDate>=today;
+      })
+      .flatMap(schedule=>getScheduleMemberNames(schedule))
+      .filter(Boolean))];
+    const todayLeaveCount=todayLeaveNames.length;
+    const activeMemberCount=activeMembers.length;
+    const leaveRatio=activeMemberCount?todayLeaveCount/activeMemberCount:0;
+    const oldestOverdue=overdueProjects[0]||null;
+    const oldestOverdueDiff=oldestOverdue?Math.max(1,Math.round((today.getTime()-toDate(oldestOverdue.end||oldestOverdue.end_date).getTime())/86400000)):0;
 
     const cards=[
       {
-        label:'마감 임박',
-        value:urgentProjects.length?urgentProjects.length+'건':'없음 ✓',
-        tone:urgentProjects.length?'danger':'success',
-        meta:urgentProjects.length?'3일 내 마감 예정 프로젝트':'오늘 기준 3일 내 마감 없음',
+        label:'오늘 마감',
+        value:todayDueProjects.length?todayDueProjects.length+'건':'없음 ✓',
+        tone:todayDueProjects.length?'warning':'success',
+        meta:todayDueProjects.length?(todayDueProjects[0]?.name||'프로젝트명 없음'):'오늘 마감 프로젝트 없음',
         action:"setPage('projects')"
       },
       {
-        label:'미해결 이슈',
-        value:myOpenIssueCount?myOpenIssueCount+'건':'없음 ✓',
-        tone:myOpenIssueCount?'warning':'success',
-        meta:currentMember?.name?'내 담당 기준 열린 이슈':'담당자 정보 없음',
+        label:'지연중',
+        value:overdueProjects.length?overdueProjects.length+'건':'없음 ✓',
+        tone:overdueProjects.length?'danger':'success',
+        meta:oldestOverdue?(oldestOverdue.name+' · D+'+oldestOverdueDiff):'지연 프로젝트 없음',
+        action:"setPage('projects')"
+      },
+      {
+        label:'내 이슈',
+        value:myOpenIssues.length?myOpenIssues.length+'건':'없음 ✓',
+        tone:myOpenIssues.length?'warning':'success',
+        meta:myOpenIssues.length?(myHighPriorityIssues.length?('긴급 '+myHighPriorityIssues.length+'건 포함'):'열린 이슈 진행중'):(currentMember?.name?'내 담당 열린 이슈 없음':'담당자 정보 없음'),
         action:"setPage('issues')"
       },
       {
-        label:'청구 대기',
+        label:'미청구',
         value:pendingBillingAmount?pendingBillingAmount.toLocaleString()+'원':'없음 ✓',
         tone:pendingBillingAmount?'danger':'success',
-        meta:pendingBillingAmount?'수금완료 전 청구 누적 금액':'완료 프로젝트 미수금 없음',
+        meta:unbilledProjects.length?('완료 후 미청구 '+unbilledProjects.length+'건'):'미청구 프로젝트 없음',
         action:"setPage('contracts')"
       },
       {
-        label:'자료 미제출',
+        label:'자료 대기',
         value:pendingDocRows.length?pendingDocRows.length+'건':'없음 ✓',
         tone:pendingDocRows.length?'warning':'success',
-        meta:pendingDocRows.length?'제출 대기 중 자료 요청':'모든 자료가 제출되었습니다 ✓',
+        meta:pendingDocRows.length?((firstPendingDoc?.title||'자료 요청')+(firstPendingDoc?.due_date?' · '+firstPendingDoc.due_date:'')):'급한 자료 요청 없음',
         action:pendingDocRows.length&&firstPendingProjectId
           ?"openProjModal('"+firstPendingProjectId+"',null,null,'documents')"
-          :"alert('모든 자료가 제출되었습니다 ✓')"
+          :"alert('급한 자료 요청이 없습니다 ✓')"
+      },
+      {
+        label:'팀 가용성',
+        value:activeMemberCount?(todayLeaveCount+'/'+activeMemberCount+'명'):'0명',
+        tone:leaveRatio>=0.3?'warning':'success',
+        meta:todayLeaveCount?(formatHomeShortDate(today)+' 휴가 '+todayLeaveNames[0]+(todayLeaveNames.length>1?' 외 '+(todayLeaveNames.length-1)+'명':'')):'오늘 휴가 없음',
+        action:"openDashDrilldown('leave')"
       }
     ];
 
     el.innerHTML='<div class="home-risk-grid">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>';
   }catch(e){
-    el.innerHTML='<div class="home-risk-grid"><div class="home-risk-card"><div class="home-risk-label">리스크 요약</div><div class="home-risk-value">—</div><div class="home-risk-meta">상단 요약을 불러오지 못했습니다.</div></div></div>';
+    el.innerHTML='<div class="home-risk-grid">'
+      +['오늘 마감','지연중','내 이슈','미청구','자료 대기','팀 가용성'].map(label=>
+        '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">—</div><div class="home-risk-meta">상단 요약을 불러오지 못했습니다.</div></div>'
+      ).join('')
+      +'</div>';
   }
 }
 
