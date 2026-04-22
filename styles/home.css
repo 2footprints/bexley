@@ -431,6 +431,22 @@
   background:#E0E7FF;
   color:#3730A3;
 }
+#pageTeam .home-daily-work-badge.project{
+  background:#DBEAFE;
+  color:#1D4ED8;
+}
+#pageTeam .home-daily-work-badge.fieldwork{
+  background:#E2E8F0;
+  color:#475569;
+}
+#pageTeam .home-daily-work-badge.internal{
+  background:#E0F2FE;
+  color:#0369A1;
+}
+#pageTeam .home-daily-work-badge.leave{
+  background:#F6F1E8;
+  color:#8C7351;
+}
 #pageTeam .home-daily-work-badge.issue{
   background:#FEF3C7;
   color:#92400E;
@@ -490,6 +506,20 @@
 }
 #pageTeam .home-daily-work-empty.is-success{
   color:#10B981;
+}
+#pageTeam .home-daily-work-more{
+  margin-top:10px;
+  padding:0;
+  border:none;
+  background:none;
+  color:var(--blue);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  font-family:inherit;
+}
+#pageTeam .home-daily-work-more:hover{
+  text-decoration:underline;
 }
 #pageTeam .home-focus-summary{
   display:grid;

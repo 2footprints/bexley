@@ -4,6 +4,8 @@ function getHomeBaseDate(){
   return today;
 }
 
+let homeTodayScheduleExpanded=false;
+
 function formatHomeShortDate(dateLike){
   const d=typeof dateLike==='string'?toDate(dateLike):new Date(dateLike);
   return (d.getMonth()+1)+'/'+d.getDate();
@@ -209,6 +211,11 @@ function getHomeDailyWorkUrgency(kind,priority,endValue,today){
   return {rank:2,color:'#94A3B8'};
 }
 
+function toggleHomeTodayScheduleExpanded(){
+  homeTodayScheduleExpanded=!homeTodayScheduleExpanded;
+  renderHomeDashboardIssues();
+}
+
 function buildHomeDailyProjectItem(project,kind,today){
   const client=clients.find(item=>item.id===project.client_id)||null;
   const endValue=project.end||project.end_date||'';
@@ -222,6 +229,8 @@ function buildHomeDailyProjectItem(project,kind,today){
     sourceType:'project',
     sourceId:String(project.id),
     kind,
+    badgeLabel:'프로젝트',
+    badgeClass:'project',
     context:(client?.name||'거래처 없음')+' — '+(project.name||'프로젝트 없음'),
     summary,
     dueMeta,
@@ -246,6 +255,8 @@ function buildHomeDailyIssueItem(issue,today){
     sourceType:'issue',
     sourceId:String(issue.id),
     kind:'issue',
+    badgeLabel:'이슈',
+    badgeClass:'issue',
     context:(client?.name||'거래처 없음')+' — '+(project?.name||'프로젝트 없음'),
     summary:[issue.title,issue.content].filter(Boolean).join(' · ')||'미해결 이슈',
     dueMeta,
@@ -265,11 +276,19 @@ function buildHomeDailyScheduleItem(schedule,today){
   const urgencyMeta=getHomeDailyWorkUrgency('schedule','',endValue,today);
   const typeLabel=scheduleLabel(schedule.schedule_type);
   const memberLabel=getScheduleMemberLabel(schedule);
+  const normalizedType=String(schedule.schedule_type||'').trim().toLowerCase();
+  const badgeClass=normalizedType==='leave'
+    ?'leave'
+    :(normalizedType==='fieldwork'
+      ?'fieldwork'
+      :(normalizedType==='internal'?'internal':'schedule'));
   return {
     key:'schedule:'+schedule.id,
     sourceType:'schedule',
     sourceId:String(schedule.id),
     kind:'schedule',
+    badgeLabel:typeLabel||'일정',
+    badgeClass,
     context:[memberLabel,typeLabel].filter(Boolean).join(' \u00B7 ')||(typeLabel||'\uC77C\uC815'),
     summary:schedule.title||schedule.memo||typeLabel||'\uC624\uB298 \uD655\uC778\uD560 \uC77C\uC815\uC785\uB2C8\uB2E4.',
     dueMeta,
@@ -467,6 +486,60 @@ function renderHomeDailyWorkSection(payload,options={}){
   +'</div>';
 }
 
+function renderHomeDailyWorkCard(item){
+  const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
+  const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
+  const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
+  const dueLabel=item.dueMeta?.diff===0?'오늘 마감':(item.dueMeta?.label||'');
+  return '<button type="button" class="home-daily-work-card" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+    +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
+    +'<span class="home-daily-work-context">'+esc(item.context)+'</span>'
+    +'<span class="home-daily-work-divider">·</span>'
+    +'<span class="home-daily-work-summary">'+esc(item.summary)+'</span>'
+    +'<span class="home-daily-work-due'+dueClass+'">'+esc(dueLabel)+'</span>'
+    +'</button>';
+}
+
+function renderHomeDailyWorkSection(payload,options={}){
+  const el=document.getElementById('myWeekWrap');
+  if(!el)return;
+  const today=getHomeBaseDate();
+  const todayItems=Array.isArray(payload)?payload:(payload?.todayItems||[]);
+  const attentionItems=Array.isArray(payload)?[]:(payload?.attentionItems||[]);
+  const hiddenTodayCount=Math.max(todayItems.length-8,0);
+  const visibleTodayItems=homeTodayScheduleExpanded?todayItems:todayItems.slice(0,8);
+  const nextContentHtml=options.loading
+    ?'<div class="weekly-empty">불러오는 중..</div>'
+    :'<div class="home-daily-work-section">'
+      +'<div class="home-daily-work-section-head">'
+        +'<div class="home-daily-work-section-title">오늘 일정</div>'
+      +'</div>'
+      +(todayItems.length
+        ?'<div class="home-daily-work-list">'+visibleTodayItems.map(renderHomeDailyWorkCard).join('')+'</div>'
+        :'<div class="home-daily-work-empty is-compact">오늘 예정된 일정이 없습니다</div>')
+      +(hiddenTodayCount
+        ?'<button type="button" class="home-daily-work-more" onclick="toggleHomeTodayScheduleExpanded()">'+(homeTodayScheduleExpanded?'접기':hiddenTodayCount+'건 더 보기')+'</button>'
+        :'')
+      +'</div>'
+      +'<div class="home-daily-work-section-divider"></div>'
+      +'<div class="home-daily-work-section">'
+        +'<div class="home-daily-work-section-head">'
+          +'<div class="home-daily-work-section-title">주의 필요</div>'
+          +'<div class="home-daily-work-section-count">'+attentionItems.length+'건</div>'
+        +'</div>'
+        +(attentionItems.length
+          ?'<div class="home-daily-work-list">'+attentionItems.map(renderHomeDailyWorkCard).join('')+'</div>'
+          :'<div class="home-daily-work-empty is-compact is-success">주의가 필요한 항목이 없습니다 ✓</div>')
+      +'</div>';
+  el.innerHTML='<div class="card home-card">'
+    +'<div class="home-daily-work-head">'
+      +'<div class="home-daily-work-title">오늘 확인할 항목</div>'
+      +'<div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div>'
+    +'</div>'
+    +nextContentHtml
+  +'</div>';
+}
+
 async function renderHomeDashboardIssues(){
   const today=getHomeBaseDate();
   const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
@@ -475,9 +548,10 @@ async function renderHomeDashboardIssues(){
     return;
   }
   try{
-    const rows=await api('GET','project_issues?status=eq.open&select=*')||[];
+    const rows=await api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=*')||[];
     const issueRows=(rows||[]).filter(issue=>
       String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')
+      || (!!currentMember.name&&issue.assignee_name===currentMember.name)
     );
     renderHomeDailyWorkSection({
       todayItems:todayScheduleItems,
