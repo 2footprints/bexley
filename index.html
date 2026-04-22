@@ -90,17 +90,6 @@
 }
 
 /* Board */
-.board-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.client-card{background:var(--card);border-radius:var(--radius);padding:20px;cursor:pointer;border:1px solid var(--border);transition:all .2s;position:relative}
-.client-card:hover{border-color:var(--blue);box-shadow:var(--shadow);transform:translateY(-2px)}
-.client-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
-.client-avatar{width:44px;height:44px;border-radius:12px;background:var(--navy);color:#fff;font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;letter-spacing:-.5px}
-.client-warn{background:var(--red-bg);color:var(--red);font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
-.client-name{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:3px;letter-spacing:-.3px}
-.client-industry{font-size:12px;color:var(--text3);margin-bottom:12px}
-.client-footer{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border)}
-.client-members{font-size:11px;color:var(--text3)}
-.client-active{font-size:12px;color:var(--blue);font-weight:700}
 
 /* Detail */
 .detail-back{display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;cursor:pointer;color:var(--text3);font-size:13px;font-weight:500;padding:6px 0}
@@ -340,20 +329,19 @@ body{
 .header-nav + .header-search-wrap{}
 #navFun,#mNavFun{order:7}
 #navAdmin,#mNavAdmin{order:8}
-#pageClients .section-title,
 #pageContracts .section-title,
 #pageFun .section-title,
 #pageAdmin .section-title{display:none!important}
 #pageFun .section-header,
 #pageAdmin .section-header{align-items:center!important}
 .filter-row{gap:10px!important}
-.card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.pending-box,.access-request-card{
+.card,.card-sm,.notice-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.pending-box,.access-request-card{
   background:var(--color-surface)!important;
   border:1px solid var(--color-border)!important;
   border-radius:var(--radius-lg)!important;
   box-shadow:var(--shadow-md)!important;
 }
-.client-card:hover,.notice-card:hover,.stat-card.clickable:hover,.portal-proj-card:hover{transform:translateY(-2px)!important;box-shadow:0 18px 34px rgba(10,37,64,.07)!important;border-color:rgba(10,37,64,.10)!important}
+.notice-card:hover,.stat-card.clickable:hover,.portal-proj-card:hover{transform:translateY(-2px)!important;box-shadow:0 18px 34px rgba(10,37,64,.07)!important;border-color:rgba(10,37,64,.10)!important}
 .detail-hero,.portal-hero,.pinned-card{
   background:#ffffff!important;
   border:1px solid var(--border)!important;
@@ -363,7 +351,7 @@ body{
 .pinned-card:hover{background:#FBFCFE!important}
 .pinned-card-title,.detail-hero-text h2,.portal-hero-text h2{color:var(--navy)!important}
 .pinned-card-preview,.detail-hero-text p,.portal-hero-text p{color:var(--text3)!important}
-.detail-avatar,.portal-hero-avatar,.client-avatar,.login-logo-mark{background:var(--navy)!important;box-shadow:0 10px 20px rgba(10,37,64,.12)!important}
+.detail-avatar,.portal-hero-avatar,.login-logo-mark{background:var(--navy)!important;box-shadow:0 10px 20px rgba(10,37,64,.12)!important}
 .gantt-wrap,.myweek-day,.comment-item,.comment-item.reply,.helper-box,.issue-card,.weekly-item,.contract-item,.proj-item{background:rgba(255,255,255,.94)!important;border:1px solid var(--border)!important;box-shadow:none!important}
 .issue-card{border-radius:18px!important;padding:14px!important}
 .issue-card:hover{box-shadow:var(--shadow)!important;border-color:rgba(10,37,64,.12)!important}
@@ -373,7 +361,6 @@ body{
 .issue-action-btn:hover{border-color:rgba(10,37,64,.14)!important;background:#F7F9FC!important}
 .issue-action-icon{display:none!important}
 .issue-action-btn .issue-action-label{display:inline!important}
-.client-warn,
 .proj-warn{
   border-radius:999px!important;
   padding:3px 8px!important;
@@ -402,13 +389,12 @@ body{
   box-shadow:0 0 0 2px rgba(255,255,255,.92)!important;
 }
 .detail-avatar,
-.portal-hero-avatar,
-.client-avatar{
+.portal-hero-avatar{
   font-size:15px!important;
   letter-spacing:.02em!important;
 }
 .notice-card.pinned{border-left:4px solid var(--blue)!important}
-.stat-label,.section-label,.myweek-title,.portal-section-label,.client-industry,.notice-meta,.notice-preview,.weekly-sub,.proj-sub,.contract-sub,.info-label{color:var(--text3)!important}
+.stat-label,.section-label,.myweek-title,.portal-section-label,.notice-meta,.notice-preview,.weekly-sub,.proj-sub,.contract-sub,.info-label{color:var(--text3)!important}
 .stat-num{font-size:36px!important;color:var(--navy)!important}
 .section-label,.portal-section-label,.stat-label{
   font-size:11px!important;
@@ -492,10 +478,10 @@ body{
   padding-left:6px!important;
   padding-right:6px!important;
 }
-.notice-card,.client-card,.portal-proj-card,.stat-card{
+.notice-card,.portal-proj-card,.stat-card{
   position:relative!important;
 }
-.notice-card::after,.client-card::after,.portal-proj-card::after,.stat-card::after{
+.notice-card::after,.portal-proj-card::after,.stat-card::after{
   content:''!important;
   position:absolute!important;
   inset:0!important;
@@ -549,7 +535,6 @@ body{
 .notice-title,
 .weekly-name,
 .issue-card-title,
-.client-name,
 .portal-proj-name{
   font-size:15px!important;
   font-weight:720!important;
@@ -665,7 +650,6 @@ select{
 }
 .card,
 .notice-card,
-.client-card,
 .portal-proj-card,
 .myweek-card,
 .pending-box,
@@ -682,7 +666,6 @@ select{
   padding:16px!important;
 }
 .notice-card,
-.client-card,
 .portal-proj-card,
 .stat-card,
 .issue-card,
@@ -949,9 +932,9 @@ input,textarea{border-radius:12px!important}
   .header,.portal-header{height:60px!important;padding:0 14px!important}
   .app{padding:18px 12px calc(32px + env(safe-area-inset-bottom))!important}
   .app::before{margin-left:4px;margin-bottom:8px}
-  .card,.card-sm,.notice-card,.client-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.issue-card{border-radius:18px!important}
+  .card,.card-sm,.notice-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.issue-card{border-radius:18px!important}
   .section-title{font-size:var(--font-size-md)!important}
-  .card,.notice-card,.client-card,.portal-proj-card,.myweek-card,.stat-card,.modal,.login-box{padding:18px!important}
+  .card,.notice-card,.portal-proj-card,.myweek-card,.stat-card,.modal,.login-box{padding:18px!important}
   .card-sm,.helper-box,.weekly-item,.contract-item,.proj-item,.comment-item,.comment-item.reply{padding:14px!important}
   .modal-footer{gap:10px!important}
 }
@@ -1210,6 +1193,7 @@ input,textarea{border-radius:12px!important}
 <link rel="stylesheet" href="styles/home.css">
 <link rel="stylesheet" href="styles/projects.css">
 <link rel="stylesheet" href="styles/issues.css">
+<link rel="stylesheet" href="styles/clients.css">
 </head>
 
 
