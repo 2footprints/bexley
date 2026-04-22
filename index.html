@@ -3078,14 +3078,20 @@ function scheduleRow(s,days){
   const barS=sS<mFirst?1:sS.getDate();const barE=sE>mLast?days:sE.getDate();const span=barE-barS+1;
   const rowCls='row-label';
   const memberLabel=getScheduleMemberLabel(s);
-  const subtitle=[scheduleLabel(s.schedule_type),memberLabel,s.location||''].filter(Boolean).join(' · ');
-  const lbl='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name">'+esc(s.title||scheduleLabel(s.schedule_type))+'</span></div><div class="rs">'+esc(subtitle)+'</div></div></div>';
+  const scheduleMemberNames=getScheduleMemberNames(s);
+  const inProgressCount=typeof countInProgressProjectsForMembers==='function'
+    ?countInProgressProjectsForMembers(scheduleMemberNames)
+    :0;
+  const titleBase=memberLabel?(memberLabel+' '+scheduleLabel(s.schedule_type)):(s.title||scheduleLabel(s.schedule_type));
+  const subtitle=[scheduleLabel(s.schedule_type),s.title&&s.title!==scheduleLabel(s.schedule_type)?s.title:'',s.location||''].filter(Boolean).join(' · ');
+  const displayTitle=titleBase+(memberLabel?' (진행중 프로젝트 '+inProgressCount+'건)':'');
+  const lbl='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name">'+esc(displayTitle)+'</span></div><div class="rs">'+esc(subtitle||'일정 정보 없음')+'</div></div></div>';
   let cells='';
   for(let d=1;d<=days;d++){
     const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
     const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
     if(d===barS){
-      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc((s.title||'')+(memberLabel?' ('+memberLabel+')':'')+(s.memo?' / '+s.memo:''))+'">'+(span>=3?esc((s.title||scheduleLabel(s.schedule_type))+(memberLabel?' ('+memberLabel+')':'')):'')+'</div></td>';
+      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(displayTitle+(subtitle?' | '+subtitle:'')+(s.memo?' | '+s.memo:''))+'">'+(span>=3?esc(displayTitle):'')+'</div></td>';
     } else cells+='<td class="'+cls+'"></td>';
   }
   return '<tr><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
@@ -8017,9 +8023,12 @@ window.gRow=function(p,days){
   today.setHours(0,0,0,0);
   const isCompleted=isCompletedGanttStatus(p.status);
   const od=toDate(p.end)<today&&!isCompleted;
+  const dueToday=isDueToday(p)&&!isCompleted;
   const mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
   const color=od?'#FCA5A5':(TYPES[p.type]||'#4e5968');
   const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
+  const progress=typeof getGanttProjectProgress==='function'?getGanttProjectProgress(p,today):0;
+  const progressColor=od?'#EA580C':(dueToday?'#D97706':(TYPES[p.type]||'#4e5968'));
   const pS=toDate(p.start),pE=toDate(p.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=pS<mFirst?1:pS.getDate();
@@ -8038,18 +8047,23 @@ window.gRow=function(p,days){
       overlaysByDay[day].push({
         type:schedule.schedule_type,
         member:getScheduleMemberLabel(schedule),
-        title:schedule.title||scheduleLabel(schedule.schedule_type)
+        title:schedule.title||scheduleLabel(schedule.schedule_type),
+        start:schedule.start,
+        end:schedule.end,
+        hint:schedule.schedule_type==='leave'?'이 기간 프로젝트 커버 필요':'이 기간 프로젝트 일정 조정 확인 필요'
       });
     }
   });
   const issueCount=openIssuesByProject[p.id]||0;
   const finalBadges=(isCompleted?'<span class="gantt-complete-badge">\uC644\uB8CC</span>':'')
     +(od?'<span class="g-badge overdue">\uC9C0\uC5F0</span>':'')
+    +(dueToday?'<span class="g-badge" style="background:#FED7AA;color:#9A3412">오늘 마감</span>':'')
     +(mine?'<span class="g-badge mine">\uB0B4 \uB2F4\uB2F9</span>':'')
     +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">\uC774\uC288 '+issueCount+'</span>':'');
-  const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'');
+  const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'');
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
-  const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div></div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
+  const progressHtml='<div class="gantt-row-progress"><span class="gantt-row-progress-text">진행률 '+progress+'%</span><div class="gantt-row-progress-track"><div class="gantt-row-progress-fill" style="width:'+progress+'%;background:'+progressColor+'"></div></div></div>';
+  const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div>'+progressHtml+'</div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
   let cells='';
   for(let day=1;day<=days;day++){
     const weekend=isWeekend(curYear,curMonth,day);
@@ -8059,7 +8073,7 @@ window.gRow=function(p,days){
     let overlayHtml='';
     if(overlays.length&&day>=barS&&day<=barE){
       const icons=overlays.map(overlay=>overlay.type==='leave'?'L':'F').join(' ');
-      const tooltip=overlays.map(overlay=>overlay.member+' '+overlay.title).join(', ');
+      const tooltip=overlays.map(overlay=>overlay.member+' '+overlay.title+' '+overlay.start+'~'+overlay.end+', '+overlay.hint).join(' / ');
       const hasLeave=overlays.some(overlay=>overlay.type==='leave');
       const hasFieldwork=overlays.some(overlay=>overlay.type==='fieldwork');
       const markerStyle=hasLeave&&!hasFieldwork
@@ -8076,7 +8090,7 @@ window.gRow=function(p,days){
       cells+='<td class="'+cellCls+'" style="position:relative">'+overlayHtml+'</td>';
     }
   }
-  return '<tr><td class="'+finalRowCls+'" onclick="openProjModal(\''+p.id+'\')">'+finalLabelHtml+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+'"><td class="'+finalRowCls+'" onclick="openProjModal(\''+p.id+'\')">'+finalLabelHtml+'</td>'+cells+'</tr>';
 };
 gRow=window.gRow;
 
@@ -8119,12 +8133,15 @@ function renderFilteredGanttTimeline(projs,schs){
         const client=clients.find(item=>item.id===clientId);
         const clientName=client?client.name:'거래처 미지정';
         const clientProjects=clientGroups[clientId].sort((a,b)=>toDate(a.end)-toDate(b.end));
+        const groupCounts=typeof getGanttClientGroupCounts==='function'
+          ?getGanttClientGroupCounts(clientProjects)
+          :{active:0,overdue:0,completed:0};
         const isCollapsed=!!ganttCollapsed[clientId];
-        html+='<tr class="sec-row" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
+        html+='<tr class="sec-row'+(groupCounts.overdue?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
           +'<td colspan="'+(days+1)+'" style="padding-left:10px;user-select:none">'
           +'<span style="font-size:13px;color:var(--text3);margin-right:6px">'+(isCollapsed?'▸':'▾')+'</span>'
-          +'<span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(clientName)+'</span>'
-          +' <span style="color:var(--text3);font-weight:400">'+clientProjects.length+'건</span>'
+          +'<span class="gantt-group-name">'+esc(clientName)+'</span>'
+          +'<span class="gantt-group-summary">— 진행 '+groupCounts.active+' · 지연 <span class="'+(groupCounts.overdue?'gantt-group-stat is-overdue':'gantt-group-stat')+'">'+groupCounts.overdue+'</span> · 완료 '+groupCounts.completed+'</span>'
           +'</td></tr>';
         if(!isCollapsed)clientProjects.forEach(project=>{html+=gRow(project,days);});
       });

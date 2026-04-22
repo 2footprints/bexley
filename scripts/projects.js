@@ -105,6 +105,37 @@ function getGanttProjectCompletionDate(project){
   return project?.actual_end_date||project?.end||project?.end_date||null;
 }
 
+function getGanttProjectProgress(project,baseDate=getHomeBaseDate()){
+  const startDate=toDate(project?.start||project?.start_date||'');
+  const endDate=toDate(project?.end||project?.end_date||'');
+  if(Number.isNaN(startDate.getTime())||Number.isNaN(endDate.getTime())){
+    return isGanttProjectCompleted(project)?100:0;
+  }
+  const start=new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate());
+  const end=new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate());
+  const today=new Date(baseDate.getFullYear(),baseDate.getMonth(),baseDate.getDate());
+  const totalDays=Math.max(1,Math.round((end-start)/86400000)+1);
+  if(today<start)return 0;
+  if(today>=end)return 100;
+  const elapsedDays=Math.max(1,Math.round((today-start)/86400000)+1);
+  return Math.max(0,Math.min(100,Math.round((elapsedDays/totalDays)*100)));
+}
+
+function getGanttClientGroupCounts(projectRows){
+  return (projectRows||[]).reduce((acc,project)=>{
+    if(isGanttProjectCompleted(project))acc.completed+=1;
+    else if(isGanttProjectOverdue(project))acc.overdue+=1;
+    else acc.active+=1;
+    return acc;
+  },{active:0,overdue:0,completed:0});
+}
+
+function countInProgressProjectsForMembers(memberNames){
+  const names=[...new Set((Array.isArray(memberNames)?memberNames:[]).map(name=>String(name||'').trim()).filter(Boolean))];
+  if(!names.length)return 0;
+  return (projects||[]).filter(project=>isGanttProjectInProgress(project)&&names.some(name=>(project.members||[]).includes(name))).length;
+}
+
 function isGanttProjectCompletedThisMonth(project,year=curYear,month=curMonth){
   if(!isGanttProjectCompleted(project))return false;
   const completionDate=toDate(getGanttProjectCompletionDate(project)||'');
