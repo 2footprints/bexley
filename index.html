@@ -1567,6 +1567,21 @@ window.switchTab = window.switchTab || function(mode){
 window.getInputModalOverlayHtml = window.getInputModalOverlayHtml || function(){
   return '<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
 };
+window.lockBodyScroll = window.lockBodyScroll || function(){document.body.style.overflow='hidden';};
+window.unlockBodyScroll = window.unlockBodyScroll || function(){document.body.style.overflow='';};
+window.bindModalEscapeHandler = window.bindModalEscapeHandler || function(){
+  if(window.__modalEscapeHandler)document.removeEventListener('keydown',window.__modalEscapeHandler);
+  window.__modalEscapeHandler=function(event){
+    if(event.key==='Escape'&&document.getElementById('modalArea')?.innerHTML.trim())closeModal();
+  };
+  document.addEventListener('keydown',window.__modalEscapeHandler);
+};
+window.clearModalEscapeHandler = window.clearModalEscapeHandler || function(){
+  if(window.__modalEscapeHandler){
+    document.removeEventListener('keydown',window.__modalEscapeHandler);
+    window.__modalEscapeHandler=null;
+  }
+};
 window.addEventListener('DOMContentLoaded',function(){
   window.switchLoginType('staff');
   window.switchTab('login');
@@ -3860,7 +3875,7 @@ function openScheduleModal(eid){
   scheduleFormMembers=s?getScheduleMemberNames(s):(currentMember?.name?[currentMember.name]:[]);
   const memberOptions=getAvailableGanttMembers().map(m=>'<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>').join('');
   document.getElementById('modalArea').innerHTML=
-    +(editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
+    (editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
     +'<div class="modal"><div class="modal-title">'+(s?(editable?'일정 수정':'일정 상세'):'일정 추가')+'</div>'
     +'<div class="form-row"><label class="form-label">일정명</label><input id="scTitle" value="'+esc(s?s.title:'')+'" placeholder="예) 연차, 부산 필드웍, 내부 회의" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="scType" '+(editable?'':'disabled')+'>'
@@ -3879,6 +3894,8 @@ function openScheduleModal(eid){
     +(s&&editable?'<button class="btn danger" onclick="deleteSchedule(\''+s.id+'\')">삭제</button>':'<div></div>')
     +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" data-id="'+(s?s.id:'')+'" onclick="saveSchedule(this.dataset.id)">저장</button>':'')+'</div>'
     +'</div></div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
   const memberField=document.getElementById('scMember');
   if(memberField){
     const memberRow=memberField.closest('.form-row');
@@ -5791,7 +5808,11 @@ deleteProj = async function(){
   }
 }
 
-function closeModal(){document.getElementById('modalArea').innerHTML='';}
+function closeModal(){
+  clearModalEscapeHandler();
+  unlockBodyScroll();
+  document.getElementById('modalArea').innerHTML='';
+}
 
 // ── Init ──
 document.getElementById('prevM').onclick=()=>{if(curMonth===1){curMonth=12;curYear--;}else curMonth--;renderGantt();};
