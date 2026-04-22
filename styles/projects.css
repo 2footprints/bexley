@@ -8,6 +8,21 @@
 }
 
 .gantt-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.gantt-today-btn{margin-left:6px}
+.gantt-top-filter-bar{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 10px}
+.gantt-top-filter-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gantt-top-filter-label{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
+.gantt-top-filter-group select,
+.gantt-client-search{min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:12px;background:#fff;color:var(--text);font-size:13px;font-family:inherit}
+.gantt-client-search{min-width:220px}
+.gantt-type-group{flex:1 1 420px}
+.gantt-type-chip-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gantt-type-chip{border:1px solid var(--border);background:#fff;color:var(--text2);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.gantt-type-chip:hover{border-color:rgba(15,23,42,.14);background:#F8FAFC}
+.gantt-type-chip.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.gantt-active-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.gantt-filter-tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--text2);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.gantt-filter-tag span{font-size:13px;line-height:1}
 .member-filter-tabs{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
 .member-filter-tab{background:#F1F5F9;color:#475569;border:1px solid #E2E8F0;border-radius:20px;padding:4px 14px;font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s}
 .member-filter-tab:hover{background:#E2E8F0}
@@ -131,6 +146,9 @@ td{
   color:var(--text3)!important;
   margin-top:6px!important;
 }
+.gantt-kpi.is-good .gantt-kpi-value{color:var(--green)!important}
+.gantt-kpi.is-danger .gantt-kpi-value{color:var(--red)!important}
+.gantt-kpi.is-warn .gantt-kpi-value{color:var(--orange)!important}
 .gantt-stage{
   display:grid!important;
   grid-template-columns:minmax(280px,320px) minmax(0,1fr)!important;
@@ -286,6 +304,52 @@ td{
   color:var(--text3)!important;
   margin-top:3px!important;
 }
+.gantt-list-view{
+  display:grid!important;
+  gap:12px!important;
+  padding:4px!important;
+}
+.gantt-list-card{
+  width:100%!important;
+  border:1px solid var(--border)!important;
+  border-radius:18px!important;
+  background:#fff!important;
+  padding:16px 18px!important;
+  text-align:left!important;
+  cursor:pointer!important;
+  font-family:inherit!important;
+  transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease!important;
+}
+.gantt-list-card:hover{
+  border-color:rgba(15,23,42,.12)!important;
+  box-shadow:0 12px 24px rgba(15,23,42,.06)!important;
+  transform:translateY(-1px)!important;
+}
+.gantt-list-card-head{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+.gantt-list-card-title{
+  font-size:14px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+}
+.gantt-list-card-sub{
+  margin-top:4px!important;
+  font-size:12px!important;
+  color:var(--text3)!important;
+}
+.gantt-list-card-meta{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+  flex-wrap:wrap!important;
+  margin-top:10px!important;
+  font-size:12px!important;
+  color:var(--text2)!important;
+}
 
 @media (max-width: 1100px){
   .gantt-overview{
@@ -301,6 +365,9 @@ td{
   .gantt-detail-grid{
     grid-template-columns:1fr!important;
   }
+  .gantt-top-filter-bar{flex-direction:column!important;align-items:stretch!important}
+  .gantt-top-filter-group{align-items:flex-start!important}
+  .gantt-client-search{min-width:0!important;width:100%!important}
 }
 
 .gantt-shell.is-reverted{

@@ -7903,7 +7903,7 @@ function ensureGanttLayoutToggle(){
   const wrap=document.createElement('div');
   wrap.id='ganttLayoutToggle';
   wrap.className='toggle-wrap gantt-layout-toggle';
-  wrap.innerHTML='<button class="toggle-btn active" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button>';
+  wrap.innerHTML='<button class="toggle-btn active" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button><button class="toggle-btn" id="gll" type="button">리스트</button>';
   const memberFilter=document.getElementById('memberFilter');
   if(memberFilter){
     toolbar.insertBefore(wrap, memberFilter);
@@ -7912,11 +7912,12 @@ function ensureGanttLayoutToggle(){
   }
   document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
   document.getElementById('glc').onclick=()=>setGanttLayout('calendar');
+  document.getElementById('gll').onclick=()=>setGanttLayout('list');
   updateGanttLayoutButtons();
 }
 
 function updateGanttLayoutButtons(){
-  [['glt','timeline'],['glc','calendar']].forEach(([id,mode])=>{
+  [['glt','timeline'],['glc','calendar'],['gll','list']].forEach(([id,mode])=>{
     const btn=document.getElementById(id);
     if(!btn) return;
     btn.classList.toggle('active',curGanttLayout===mode);
@@ -7924,7 +7925,7 @@ function updateGanttLayoutButtons(){
   ['gvp','gvm'].forEach(id=>{
     const btn=document.getElementById(id);
     if(!btn) return;
-    const disabled=curGanttLayout==='calendar';
+    const disabled=curGanttLayout!=='timeline';
     btn.style.opacity=disabled?'.45':'';
     btn.style.pointerEvents=disabled?'none':'';
   });
@@ -8171,7 +8172,12 @@ window.renderGantt=function(){
   updateGanttVisibilityToggleButtons();
   const shell=document.querySelector('.gantt-shell');
   if(shell)shell.classList.add('is-reverted');
-  const {projs,schs,hiddenCompletedCount}=getGanttVisibleData();
+  let {projs,schs,hiddenCompletedCount}=getGanttVisibleData();
+  if(typeof applyProjectTopFilters==='function'){
+    const filtered=applyProjectTopFilters(projs,schs);
+    projs=filtered.projs||[];
+    schs=filtered.schs||[];
+  }
   updateGanttVisibilitySummary(hiddenCompletedCount);
   renderGanttOverviewCards(projs,schs);
   renderGanttSidebarList(projs);
@@ -8181,6 +8187,14 @@ window.renderGantt=function(){
     if(monthLabel)monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
     renderGanttCalendarGrid(projs,schs);
     return;
+  }
+  if(curGanttLayout==='list'){
+    const monthLabel=document.getElementById('monthLabel');
+    if(monthLabel)monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
+    if(typeof renderGanttListView==='function'){
+      renderGanttListView(projs,schs);
+      return;
+    }
   }
   renderFilteredGanttTimeline(projs,schs);
 };
