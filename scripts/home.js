@@ -597,8 +597,8 @@ function renderTeamWorkload(){
     const statusRaw=String(project?.status||'').trim();
     const statusKey=normalizeStatus(statusRaw);
     if(!(activeStatuses.has(statusRaw)||activeStatuses.has(statusKey)))return false;
-    const startDate=project?.start?toDate(project.start):null;
-    const endDate=project?.end?toDate(project.end):null;
+    const startDate=(project?.start||project?.start_date)?toDate(project.start||project.start_date):null;
+    const endDate=(project?.end||project?.end_date)?toDate(project.end||project.end_date):null;
     if(startDate&&startDate>weekEnd)return false;
     if(endDate&&endDate<weekStart)return false;
     return true;
@@ -681,6 +681,266 @@ function renderTeamWorkload(){
       ).join('')+'</div>'
       :'<div class="weekly-empty">표시할 워크로드 데이터가 없습니다.</div>'))
     +'</div>';
+}
+
+let homeTeamScheduleViewMode='type';
+
+function getHomePanelActiveMembers(){
+  return (members||[]).filter(member=>{
+    const isActive=member?.is_active===undefined?true:!!member.is_active;
+    const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
+    return isActive&&!/projectschedule|system|test/.test(identity);
+  });
+}
+
+function getHomeWeekdayShortLabel(date){
+  const labels=['일','월','화','수','목','금','토'];
+  return labels[date.getDay()];
+}
+
+function formatHomeWeekRangeLabel(start,end){
+  return (start.getMonth()+1)+'/'+start.getDate()+'('+getHomeWeekdayShortLabel(start)+') ~ '+(end.getMonth()+1)+'/'+end.getDate()+'('+getHomeWeekdayShortLabel(end)+')';
+}
+
+function setHomeTeamScheduleViewMode(mode){
+  homeTeamScheduleViewMode=mode==='member'?'member':'type';
+  renderWeeklyScheduleSummary();
+}
+
+function getHomeScheduleWeekData(offsetWeeks=0){
+  const {start,end}=getWeekBounds(offsetWeeks);
+  const items=(schedules||[])
+    .filter(schedule=>toDate(schedule.start)<=end&&toDate(schedule.end)>=start)
+    .sort((a,b)=>toDate(a.start)-toDate(b.start)||getScheduleMemberLabel(a).localeCompare(getScheduleMemberLabel(b),'ko'));
+  const grouped={};
+  items.forEach(schedule=>{
+    const key=String(schedule.schedule_type||'other').trim().toLowerCase()||'other';
+    if(!grouped[key])grouped[key]=[];
+    grouped[key].push(schedule);
+  });
+  const preferredOrder=['leave','fieldwork','internal'];
+  const typeKeys=[
+    ...preferredOrder.filter(key=>grouped[key]?.length),
+    ...Object.keys(grouped).filter(key=>!preferredOrder.includes(key))
+  ];
+  return {start,end,items,grouped,typeKeys};
+}
+
+function getHomeScheduleTone(type){
+  const normalized=String(type||'').trim().toLowerCase();
+  if(normalized==='leave')return 'leave';
+  if(normalized==='fieldwork')return 'fieldwork';
+  if(normalized==='internal')return 'internal';
+  return 'default';
+}
+
+function renderHomeScheduleGroupByType(type,items){
+  return '<div class="home-team-schedule-group">'
+    +'<div class="home-team-schedule-group-title">'+esc(scheduleLabel(type))+'</div>'
+    +(items.length
+      ?items.map(schedule=>'<button type="button" class="home-team-schedule-item" onclick="openScheduleModal(\''+schedule.id+'\')">'
+        +'<span class="home-team-schedule-item-dot '+getHomeScheduleTone(schedule.schedule_type)+'"></span>'
+        +'<span class="home-team-schedule-item-main"><span class="home-team-schedule-item-name">'+esc(getScheduleMemberLabel(schedule))+'</span><span class="home-team-schedule-item-meta">'+esc(formatRangeShort(schedule.start,schedule.end)+(schedule.location?' · '+schedule.location:''))+'</span></span>'
+        +'<span class="home-team-schedule-item-tag '+getHomeScheduleTone(schedule.schedule_type)+'">'+esc(schedule.title||scheduleLabel(schedule.schedule_type))+'</span>'
+      +'</button>').join('')
+      :'<div class="weekly-empty">일정 없음</div>')
+    +'</div>';
+}
+
+function renderHomeMemberScheduleTagList(items){
+  return items.length
+    ?'<div class="home-team-member-tags">'+items.map(schedule=>'<button type="button" class="home-team-member-tag '+getHomeScheduleTone(schedule.schedule_type)+'" onclick="openScheduleModal(\''+schedule.id+'\')">'+esc(scheduleLabel(schedule.schedule_type))+' · '+esc(formatRangeShort(schedule.start,schedule.end))+'</button>').join('')+'</div>'
+    :'<div class="home-team-member-empty">일정 없음</div>';
+}
+
+async function renderTeamWorkload(){
+  const el=document.getElementById('teamWorkloadWrap');
+  if(!el)return;
+  el.innerHTML='<div class="card home-card"><div class="home-section-title">팀 상황판</div><div class="weekly-empty">불러오는 중...</div></div>';
+  const capacity=40;
+  const today=getHomeBaseDate();
+  const {start:weekStart,end:weekEnd}=getWeekBounds(0);
+  const normalizeStatus=value=>String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
+  const activeStatuses=new Set(['in_progress','active','진행중','진행_중']);
+  const activeMembers=getHomePanelActiveMembers();
+  const activeProjects=(projects||[]).filter(project=>{
+    const statusRaw=String(project?.status||'').trim();
+    const statusKey=normalizeStatus(statusRaw);
+    if(!(activeStatuses.has(statusRaw)||activeStatuses.has(statusKey)))return false;
+    const startDate=(project?.start||project?.start_date)?toDate(project.start||project.start_date):null;
+    const endDate=(project?.end||project?.end_date)?toDate(project.end||project.end_date):null;
+    if(startDate&&startDate>weekEnd)return false;
+    if(endDate&&endDate<weekStart)return false;
+    return true;
+  });
+  const getProjectAssignedMembers=project=>{
+    const linkedMembers=(projectMemberLinks||[])
+      .filter(link=>String(link.project_id)===String(project.id))
+      .map(link=>{
+        if(link.member_id!=null){
+          return activeMembers.find(member=>String(member.id)===String(link.member_id))||null;
+        }
+        if(link.members?.name){
+          return activeMembers.find(member=>member.name===link.members.name)||null;
+        }
+        return null;
+      })
+      .filter(Boolean);
+    if(linkedMembers.length)return linkedMembers;
+    const namedMembers=(project.members||[]).map(name=>activeMembers.find(member=>member.name===name)).filter(Boolean);
+    if(namedMembers.length)return [...new Set(namedMembers)];
+    const directIds=[project.assignee_id,project.assignee_member_id,project.member_id].filter(Boolean);
+    if(directIds.length){
+      return [...new Set(directIds.map(id=>activeMembers.find(member=>String(member.id)===String(id))).filter(Boolean))];
+    }
+    return [];
+  };
+  const getProjectBaseHours=project=>{
+    const explicitHours=Number(project?.estimated_hours);
+    if(explicitHours>0)return explicitHours;
+    const startValue=project?.start||project?.start_date;
+    const endValue=project?.end||project?.end_date||startValue;
+    if(!startValue||!endValue)return 0;
+    const startDate=toDate(startValue);
+    const endDate=toDate(endValue);
+    startDate.setHours(0,0,0,0);
+    endDate.setHours(0,0,0,0);
+    const durationDays=Math.max(1,Math.round((endDate.getTime()-startDate.getTime())/86400000)+1);
+    return durationDays*8;
+  };
+  const todayLeave=(schedules||[]).filter(schedule=>String(schedule.schedule_type||'').trim().toLowerCase()==='leave'&&toDate(schedule.start)<=today&&toDate(schedule.end)>=today);
+  const todayFieldwork=(schedules||[]).filter(schedule=>String(schedule.schedule_type||'').trim().toLowerCase()==='fieldwork'&&toDate(schedule.start)<=today&&toDate(schedule.end)>=today);
+  const rows=activeMembers.map(member=>{
+    const totalHours=activeProjects.reduce((sum,project)=>{
+      const assignedMembers=getProjectAssignedMembers(project);
+      if(!assignedMembers.some(assigned=>String(assigned.id)===String(member.id)||assigned.name===member.name))return sum;
+      const projectHours=getProjectBaseHours(project);
+      if(projectHours<=0)return sum;
+      const individualHours=Number(project?.individual_hours);
+      if(individualHours>0)return sum+individualHours;
+      const assignedCount=Math.max(assignedMembers.length,1);
+      return sum+(projectHours/assignedCount);
+    },0);
+    const percent=Math.round((totalHours/capacity)*100);
+    const color=percent>=86?'#EF4444':percent>=61?'#F59E0B':'#10B981';
+    return {
+      name:member.name,
+      totalHours:Math.round(totalHours*10)/10,
+      capacity,
+      percent,
+      color,
+      onLeave:todayLeave.some(schedule=>scheduleHasMember(schedule,member.name)),
+      onFieldwork:todayFieldwork.some(schedule=>scheduleHasMember(schedule,member.name))
+    };
+  }).sort((a,b)=>b.percent-a.percent||b.totalHours-a.totalHours||a.name.localeCompare(b.name,'ko'));
+  const issueActiveRows=await api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=id,status').catch(()=>[])||[];
+  const issueResolvedRows=await api('GET','project_issues?status=eq.resolved&select=id,status,resolved_at,updated_at,created_at').catch(()=>[])||[];
+  const weekCompletedCount=(projects||[]).filter(project=>{
+    if(typeof isWeeklyReviewCompletedProject==='function'){
+      return isWeeklyReviewCompletedProject(project)&&typeof isWeeklyReviewDateInRange==='function'&&isWeeklyReviewDateInRange(project.actual_end_date||project.end||project.end_date,weekStart,weekEnd);
+    }
+    return String(project?.status||'').trim()==='완료';
+  }).length;
+  const weekResolvedCount=(issueResolvedRows||[]).filter(issue=>{
+    const ref=issue?.resolved_at||issue?.updated_at||issue?.created_at;
+    if(!ref)return false;
+    const date=toDate(ref);
+    return date>=weekStart&&date<=weekEnd;
+  }).length;
+  const summaryCards=[
+    {label:'진행중 프로젝트',value:activeProjects.length,action:"setPage('gantt')"},
+    {label:'이번 주 완료',value:weekCompletedCount,action:"setPage('weeklyReview')"},
+    {label:'열린 이슈',value:(issueActiveRows||[]).length,action:"setPage('issues')"},
+    {label:'이번 주 해결 이슈',value:weekResolvedCount,action:"setPage('weeklyReview')"}
+  ];
+  const formatHours=value=>{
+    const rounded=Math.round((Number(value)||0)*10)/10;
+    return Number.isInteger(rounded)?String(rounded):rounded.toFixed(1);
+  };
+  const allZero=rows.length&&rows.every(row=>row.totalHours===0);
+  const workloadHtml=allZero
+    ?'<div class="weekly-empty" style="font-size:var(--font-size-sm);color:var(--color-text-muted)">이번 주 진행중 프로젝트의 예상 시간이 아직 배정되지 않았습니다.</div>'
+    :(rows.length
+      ?'<div class="team-workload-list">'+rows.map(row=>{
+        const iconHtml=(row.onLeave?'<span class="home-team-member-state leave" title="오늘 휴가">🌴</span>':'')+(row.onFieldwork?'<span class="home-team-member-state fieldwork" title="오늘 필드웍">🏢</span>':'');
+        return '<div class="team-workload-row">'
+          +'<div class="team-workload-name"><span>'+esc(row.name)+'</span>'+iconHtml+'</div>'
+          +'<div class="team-workload-bar"><div class="team-workload-fill" style="width:'+Math.min(row.percent,100)+'%;background:'+row.color+'"></div></div>'
+          +'<div class="team-workload-meta">'+formatHours(row.totalHours)+'/'+row.capacity+'h ('+row.percent+'%)</div>'
+        +'</div>';
+      }).join('')+'</div>'
+      :'<div class="weekly-empty">표시할 팀 워크로드 데이터가 없습니다.</div>');
+  const actionButtons=[
+    canManageCore()?'<button class="btn primary sm" onclick="openProjModal()">+ 프로젝트</button>':'',
+    canCreateIssueRole()?'<button class="btn sm" onclick="openIssueModal()">+ 이슈</button>':'',
+    canManageCore()?'<button class="btn sm" onclick="openScheduleModal()">+ 일정</button>':''
+  ].filter(Boolean).join('');
+  el.innerHTML='<div class="card home-card">'
+    +'<div class="home-section-head"><div class="home-section-title">팀 상황판</div></div>'
+    +'<div class="home-team-summary-grid">'+summaryCards.map(card=>'<button type="button" class="home-team-summary-card" onclick="'+card.action+'"><span class="home-team-summary-label">'+card.label+'</span><span class="home-team-summary-value">'+card.value+'</span></button>').join('')+'</div>'
+    +'<div class="home-team-actions">'+actionButtons+'</div>'
+    +'<div class="home-team-workload-head"><div class="home-subsection-title">팀 워크로드</div><div class="home-meta-text">가장 과부하인 멤버 순으로 정렬</div></div>'
+    +workloadHtml
+  +'</div>';
+}
+
+function renderWeeklyScheduleSummary(){
+  const el=document.getElementById('memberScheduleWrap');
+  if(!el)return;
+  const thisWeek=getHomeScheduleWeekData(0);
+  const nextWeek=getHomeScheduleWeekData(1);
+  const activeMembers=getHomePanelActiveMembers().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const renderWeekBlock=(label,weekData,tone='current')=>'<div class="home-team-schedule-week '+tone+'">'
+    +'<div class="home-team-schedule-week-head"><span class="home-team-schedule-week-label">'+label+'</span><span class="home-team-schedule-week-range">'+formatHomeWeekRangeLabel(weekData.start,weekData.end)+'</span></div>'
+    +(homeTeamScheduleViewMode==='type'
+      ?'<div class="team-schedule-grid">'+(weekData.typeKeys.length?weekData.typeKeys.map(type=>renderHomeScheduleGroupByType(type,weekData.grouped[type]||[])).join(''):'<div class="weekly-empty">일정이 없습니다</div>')+'</div>'
+      :'<div class="home-team-member-list">'+activeMembers.map(member=>{
+        const memberItems=(weekData.items||[]).filter(schedule=>scheduleHasMember(schedule,member.name));
+        return '<div class="home-team-member-row"><div class="home-team-member-name">'+esc(member.name)+'</div>'+renderHomeMemberScheduleTagList(memberItems)+'</div>';
+      }).join('')+'</div>')
+    +'</div>';
+  el.innerHTML='<div class="card home-card">'
+    +'<div class="home-section-head">'
+      +'<div class="home-section-title">팀 일정</div>'
+      +'<div class="home-inline-toggle"><button type="button" class="home-inline-btn'+(homeTeamScheduleViewMode==='type'?' active':'')+'" onclick="setHomeTeamScheduleViewMode(\'type\')">유형별</button><button type="button" class="home-inline-btn'+(homeTeamScheduleViewMode==='member'?' active':'')+'" onclick="setHomeTeamScheduleViewMode(\'member\')">멤버별</button></div>'
+    +'</div>'
+    +'<div class="home-team-schedule-stack">'
+      +renderWeekBlock('이번 주',thisWeek,'current')
+      +renderWeekBlock('다음 주',nextWeek,'next')
+    +'</div>'
+  +'</div>';
+}
+
+function renderWeeklyScheduleSummary(){
+  const el=document.getElementById('memberScheduleWrap');
+  if(!el)return;
+  const thisWeek=getHomeScheduleWeekData(0);
+  const nextWeek=getHomeScheduleWeekData(1);
+  const activeMembers=getHomePanelActiveMembers().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const renderWeekBlock=(label,weekData,tone='current')=>'<div class="home-team-schedule-week '+tone+'">'
+    +'<div class="home-team-schedule-week-head"><span class="home-team-schedule-week-label">'+label+'</span><span class="home-team-schedule-week-range">'+formatHomeWeekRangeLabel(weekData.start,weekData.end)+'</span></div>'
+    +'<div class="team-schedule-grid">'+(weekData.typeKeys.length?weekData.typeKeys.map(type=>renderHomeScheduleGroupByType(type,weekData.grouped[type]||[])).join(''):'<div class="weekly-empty">일정이 없습니다</div>')+'</div>'
+    +'</div>';
+  const memberViewHtml='<div class="home-team-member-list">'+activeMembers.map(member=>{
+    const thisWeekItems=(thisWeek.items||[]).filter(schedule=>scheduleHasMember(schedule,member.name));
+    const nextWeekItems=(nextWeek.items||[]).filter(schedule=>scheduleHasMember(schedule,member.name));
+    return '<div class="home-team-member-row is-double">'
+      +'<div class="home-team-member-name">'+esc(member.name)+'</div>'
+      +'<div class="home-team-member-week-block"><div class="home-team-member-week-label">이번 주</div>'+renderHomeMemberScheduleTagList(thisWeekItems)+'</div>'
+      +'<div class="home-team-member-week-block"><div class="home-team-member-week-label">다음 주</div>'+renderHomeMemberScheduleTagList(nextWeekItems)+'</div>'
+    +'</div>';
+  }).join('')+'</div>';
+  el.innerHTML='<div class="card home-card">'
+    +'<div class="home-section-head">'
+      +'<div class="home-section-title">팀 일정</div>'
+      +'<div class="home-inline-toggle"><button type="button" class="home-inline-btn'+(homeTeamScheduleViewMode==='type'?' active':'')+'" onclick="setHomeTeamScheduleViewMode(\'type\')">유형별</button><button type="button" class="home-inline-btn'+(homeTeamScheduleViewMode==='member'?' active':'')+'" onclick="setHomeTeamScheduleViewMode(\'member\')">멤버별</button></div>'
+    +'</div>'
+    +'<div class="home-team-schedule-stack">'
+      +(homeTeamScheduleViewMode==='type'
+        ?renderWeekBlock('이번 주',thisWeek,'current')+renderWeekBlock('다음 주',nextWeek,'next')
+        :memberViewHtml)
+    +'</div>'
+  +'</div>';
 }
 
 function toggleLadderMember(el){

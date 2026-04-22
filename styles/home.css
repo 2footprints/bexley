@@ -35,6 +35,16 @@
 .team-workload-bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
 .team-workload-fill{height:100%;border-radius:4px}
 .team-workload-meta{font-size:12px;color:var(--text2);font-weight:700;text-align:right}
+.home-team-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.home-team-summary-card{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);cursor:pointer;font-family:inherit;text-align:left}
+.home-team-summary-card:hover{border-color:var(--blue);box-shadow:var(--shadow-sm)}
+.home-team-summary-label{font-size:11px;font-weight:700;color:var(--text3)}
+.home-team-summary-value{font-size:22px;line-height:1;font-weight:800;color:var(--navy)}
+.home-team-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.home-team-workload-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
+.home-team-member-state{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:999px;font-size:11px;background:var(--bg);margin-left:6px}
+.home-team-member-state.leave{background:#F6F1E8}
+.home-team-member-state.fieldwork{background:#EDF1F5}
 
 .weekly-list{display:flex;flex-direction:column;gap:8px}
 .weekly-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--bg)}
@@ -47,6 +57,43 @@
 .team-issue-col,.team-schedule-col{min-width:0}
 .team-extra-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .team-schedule-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.home-inline-toggle{display:flex;gap:6px;flex-wrap:wrap}
+.home-inline-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.home-team-schedule-stack{display:flex;flex-direction:column;gap:14px}
+.home-team-schedule-week{border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--bg)}
+.home-team-schedule-week.next{background:#FBFCFE}
+.home-team-schedule-week-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.home-team-schedule-week-label{font-size:12px;font-weight:800;color:var(--navy)}
+.home-team-schedule-week-range{font-size:12px;color:var(--text3)}
+.home-team-schedule-group{min-width:0}
+.home-team-schedule-group-title{font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px}
+.home-team-schedule-item{width:100%;display:flex;align-items:flex-start;gap:10px;padding:9px 0;border:none;border-top:1px solid var(--border);background:transparent;cursor:pointer;font-family:inherit;text-align:left}
+.home-team-schedule-item:first-of-type{border-top:none}
+.home-team-schedule-item-dot{width:8px;height:8px;border-radius:999px;margin-top:6px;flex-shrink:0;background:#CBD5E1}
+.home-team-schedule-item-dot.leave{background:#C8B28A}
+.home-team-schedule-item-dot.fieldwork{background:#94A3B8}
+.home-team-schedule-item-dot.internal{background:#38BDF8}
+.home-team-schedule-item-main{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.home-team-schedule-item-name{font-size:13px;font-weight:700;color:var(--navy)}
+.home-team-schedule-item-meta{font-size:11px;color:var(--text3)}
+.home-team-schedule-item-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.home-team-schedule-item-tag.leave{background:#F6F1E8;color:#8C7351}
+.home-team-schedule-item-tag.fieldwork{background:#EDF1F5;color:#5F6E7E}
+.home-team-schedule-item-tag.internal{background:#E0F2FE;color:#0369A1}
+.home-team-schedule-item-tag.default{background:#F1F5F9;color:#475569}
+.home-team-member-list{display:flex;flex-direction:column;gap:10px}
+.home-team-member-row{display:grid;grid-template-columns:90px minmax(0,1fr);gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--border)}
+.home-team-member-row:first-child{border-top:none}
+.home-team-member-row.is-double{grid-template-columns:90px minmax(0,1fr) minmax(0,1fr)}
+.home-team-member-week-block{display:flex;flex-direction:column;gap:6px}
+.home-team-member-week-label{font-size:11px;font-weight:700;color:var(--text3)}
+.home-team-member-tags{display:flex;gap:6px;flex-wrap:wrap}
+.home-team-member-tag{font-size:11px;font-weight:700;padding:4px 9px;border:none;border-radius:999px;cursor:pointer;font-family:inherit}
+.home-team-member-tag.leave{background:#F6F1E8;color:#8C7351}
+.home-team-member-tag.fieldwork{background:#EDF1F5;color:#5F6E7E}
+.home-team-member-tag.internal{background:#E0F2FE;color:#0369A1}
+.home-team-member-tag.default{background:#F1F5F9;color:#475569}
+.home-team-member-empty{font-size:12px;color:var(--text3);padding:4px 0}
 .team-page-header .btn,.team-notice-head .btn{display:inline-flex;align-items:center;justify-content:center}
 .team-notice-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .team-notice-list{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding-right:2px}
@@ -722,6 +769,10 @@
   .team-issue-col{order:2}
   .team-extra-grid{grid-template-columns:1fr!important}
   .team-schedule-grid{grid-template-columns:1fr!important;gap:12px}
+  .home-team-summary-grid{grid-template-columns:1fr 1fr}
+  .home-team-workload-head{flex-direction:column;align-items:flex-start}
+  .home-team-member-row,
+  .home-team-member-row.is-double{grid-template-columns:1fr}
   .team-notice-head{flex-direction:column;align-items:stretch;gap:10px}
   .team-notice-list{max-height:none;padding-right:0}
   .myweek-card{padding:16px}
