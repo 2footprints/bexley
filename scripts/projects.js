@@ -204,8 +204,25 @@ function getGanttFilteredData(){
   return applyProjectTopFilters(projs,schs);
 }
 
-function setGanttFocusProject(projectId){
+function scrollGanttDetailIntoView(){
+  const detail=document.getElementById('ganttDetail');
+  if(detail)detail.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function openGanttProjectDetail(projectId,scrollIntoPanel=true){
   ganttFocusProjectId=projectId||null;
+  renderGantt();
+  if(scrollIntoPanel&&projectId){
+    requestAnimationFrame(()=>requestAnimationFrame(scrollGanttDetailIntoView));
+  }
+}
+
+function setGanttFocusProject(projectId){
+  openGanttProjectDetail(projectId,true);
+}
+
+function closeGanttProjectDetail(){
+  ganttFocusProjectId=null;
   renderGantt();
 }
 
@@ -430,7 +447,7 @@ renderGanttSidebarList=function(projs){
     el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
     return;
   }
-  if(!ganttFocusProjectId||!projs.some(p=>p.id===ganttFocusProjectId))ganttFocusProjectId=projs[0].id;
+  if(ganttFocusProjectId&&!projs.some(p=>p.id===ganttFocusProjectId))ganttFocusProjectId=null;
   const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
   el.innerHTML=sorted.map(p=>{
     const client=clients.find(c=>c.id===p.client_id);
@@ -447,7 +464,7 @@ renderGanttSidebarList=function(projs){
       :'정상 진행';
     const memoMeta=hasMemo?'<div class="gantt-project-meta" style="color:#334155;font-weight:700">메모 있음</div>':'';
     const badgeClass=p.status===activeStatus?'badge-blue':p.status===doneStatus?'badge-green':'badge-orange';
-    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="setGanttFocusProject(\''+p.id+'\')">'
+    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="openGanttProjectDetail(\''+p.id+'\')">'
       +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+badgeClass+'">'+esc(p.status||'No status')+'</span></div>'
       +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
       +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
@@ -865,7 +882,7 @@ function renderGanttListView(projs,schs){
         const project=row.project;
         const selected=selectedSet.has(String(project.id));
         const canManage=canManageGanttListProject(project);
-        return '<tr class="gantt-list-row'+(selected?' is-selected':'')+(isGanttProjectOverdue(project)?' is-overdue':'')+(isDueToday(project)?' is-due-today':'')+'" onclick="openProjModal(\''+project.id+'\')">'
+        return '<tr class="gantt-list-row'+(selected?' is-selected':'')+(isGanttProjectOverdue(project)?' is-overdue':'')+(isDueToday(project)?' is-due-today':'')+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
           +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+project.id+'\')" /></td>'
           +'<td>'+esc(row.clientName)+'</td>'
           +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div>'+(project.memo?'<div class="gantt-list-project-sub">'+esc(truncateText(project.memo,48))+'</div>':'')+'</td>'
@@ -884,4 +901,134 @@ function renderGanttListView(projs,schs){
     +'</div>';
   const searchInput=document.getElementById('ganttListSearchInput');
   if(searchInput)searchInput.oninput=e=>setGanttListSearchQuery(e.target.value);
+}
+
+function getGanttDetailStatusBadgeClass(status){
+  return status==='진행중'?'badge-blue':status==='완료'?'badge-green':'badge-orange';
+}
+
+function getGanttDetailTypeBadgeClass(type){
+  return type==='감사'?'badge-blue':type==='세무'?'badge-green':type==='밸류에이션'?'badge-orange':'badge-gray';
+}
+
+function getGanttProjectConflictSchedules(project){
+  const projectMembers=project?.members||[];
+  return (schedules||[])
+    .filter(schedule=>{
+      if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return false;
+      if(!scheduleHasAnyProjectMember(schedule,projectMembers))return false;
+      return toDate(schedule.start)<=toDate(project.end||project.end_date||'')&&toDate(schedule.end)>=toDate(project.start||project.start_date||'');
+    })
+    .sort((a,b)=>toDate(a.start)-toDate(b.start))
+    .slice(0,6);
+}
+
+function renderGanttDetailIssuePreview(projectId,issues){
+  const container=document.getElementById('ganttDetailIssueList');
+  if(!container||String(ganttFocusProjectId||'')!==String(projectId||''))return;
+  if(!(issues||[]).length){
+    container.innerHTML='<div class="gantt-detail-empty">열린 이슈가 없습니다.</div>';
+    return;
+  }
+  container.innerHTML=issues.map(issue=>{
+    const statusMeta=typeof getIssueStatusMeta==='function'?getIssueStatusMeta(issue.status):{label:'열림',badgeCls:'badge-blue'};
+    const editable=typeof canEditIssue==='function'?canEditIssue(issue):false;
+    const canResolve=editable&&typeof isIssueResolvedStatus==='function'?!isIssueResolvedStatus(issue.status):false;
+    return '<div class="gantt-detail-item is-clickable" onclick="openIssueModal(\''+(issue.project_id||projectId||'')+'\',\''+issue.id+'\')">'
+      +'<div><div class="gantt-detail-item-title">'+(issue.is_pinned?'📌 ':'')+esc(issue.title||'제목 없음')+'</div><div class="gantt-detail-item-sub">'+esc(issue.assignee_name||issue.owner_name||'담당자 미지정')+(issue.priority==='high'?' · 긴급':'')+'</div></div>'
+      +'<div class="gantt-detail-item-side"><span class="badge '+statusMeta.badgeCls+'">'+statusMeta.label+'</span>'+(canResolve?'<button type="button" class="btn sm" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')">해결</button>':'')+'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function renderGanttDetailDocumentPreview(projectId,documents){
+  const container=document.getElementById('ganttDetailDocumentList');
+  if(!container||String(ganttFocusProjectId||'')!==String(projectId||''))return;
+  if(!(documents||[]).length){
+    container.innerHTML='<div class="gantt-detail-empty">대기 중인 자료 요청이 없습니다.</div>';
+    return;
+  }
+  container.innerHTML=documents.map(doc=>{
+    return '<div class="gantt-detail-item is-clickable" onclick="openProjModal(\''+projectId+'\',null,null,\'documents\')">'
+      +'<div><div class="gantt-detail-item-title">'+esc(doc.title||'자료명 없음')+'</div><div class="gantt-detail-item-sub">'+esc(doc.due_date?('회수 희망일 '+doc.due_date):'회수 희망일 미지정')+'</div></div>'
+      +'<span class="badge badge-orange">대기</span>'
+    +'</div>';
+  }).join('');
+}
+
+async function loadGanttDetailAsync(project){
+  const projectId=project?.id||'';
+  if(!projectId)return;
+  try{
+    const [issueRows,documentRows]=await Promise.all([
+      api('GET','project_issues?project_id=eq.'+projectId+'&'+(typeof getIssueActiveStatusFilter==='function'?getIssueActiveStatusFilter():'status=neq.resolved')+'&select=id,project_id,title,status,priority,is_pinned,assignee_name,assignee_member_id,owner_name,created_at').catch(()=>[]),
+      api('GET','document_requests?project_id=eq.'+projectId+'&status=eq.pending&select=id,project_id,title,due_date,sort_order&order=sort_order.asc').catch(()=>[])
+    ]);
+    if(String(ganttFocusProjectId||'')!==String(projectId))return;
+    const sortedIssues=[...(issueRows||[])].sort((a,b)=>{
+      const pinDiff=Number(!!b.is_pinned)-Number(!!a.is_pinned);
+      if(pinDiff)return pinDiff;
+      const highDiff=Number(String(b.priority||'')==='high')-Number(String(a.priority||'')==='high');
+      if(highDiff)return highDiff;
+      return toDate(b.created_at)-toDate(a.created_at);
+    }).slice(0,3);
+    renderGanttDetailIssuePreview(projectId,sortedIssues);
+    renderGanttDetailDocumentPreview(projectId,(documentRows||[]).slice(0,3));
+  }catch(e){
+    const issueContainer=document.getElementById('ganttDetailIssueList');
+    const docContainer=document.getElementById('ganttDetailDocumentList');
+    if(issueContainer)issueContainer.innerHTML='<div class="gantt-detail-empty">이슈를 불러오지 못했습니다.</div>';
+    if(docContainer)docContainer.innerHTML='<div class="gantt-detail-empty">자료 요청을 불러오지 못했습니다.</div>';
+  }
+}
+
+renderGanttDetailPanel=function(projs,schs){
+  const el=document.getElementById('ganttDetail');
+  if(!el)return;
+  const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  if(!project){
+    el.innerHTML='<div class="gantt-panel-title">프로젝트 상세</div><div class="gantt-panel-sub">간트, 달력, 리스트에서 프로젝트를 클릭하면 여기서 같은 상세 정보를 확인할 수 있습니다.</div>';
+    return;
+  }
+  const client=clients.find(c=>c.id===project.client_id)||null;
+  const projectMembers=project.members||[];
+  const memberSchedules=getGanttProjectConflictSchedules(project);
+  const billingStatus=project.is_billable!==false?(project.billing_status||'미청구'):'비청구대상';
+  const billingAmount=getGanttProjectBillingAmount(project);
+  const priorityBadge=typeof getProjectPriorityBadge==='function'?getProjectPriorityBadge(project.priority):'<span class="badge '+getGanttListPriorityBadgeClass(project.priority)+'">'+getGanttListPriorityLabel(project.priority)+'</span>';
+  el.innerHTML=''
+    +'<div class="gantt-detail-header">'
+      +'<div class="gantt-detail-head-copy">'
+        +'<div class="gantt-panel-title">'+esc(project.name)+'</div>'
+        +'<div class="gantt-panel-sub">'+esc(client?.name||'고객사 미지정')+'</div>'
+        +'<div class="gantt-detail-badges"><span class="badge '+getGanttDetailTypeBadgeClass(project.type)+'">'+esc(project.type||'기타')+'</span><span class="badge '+getGanttDetailStatusBadgeClass(project.status)+'">'+esc(project.status||'예정')+'</span>'+priorityBadge+'</div>'
+      +'</div>'
+      +'<div class="gantt-detail-actions">'
+        +'<button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">수정</button>'
+        +'<button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
+        +'<button class="btn ghost sm" onclick="closeGanttProjectDetail()">닫기</button>'
+      +'</div>'
+    +'</div>'
+    +'<div class="gantt-detail-grid">'
+      +'<div><div class="gantt-detail-label">기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div>'
+      +'<div><div class="gantt-detail-label">담당자</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'담당자 미지정')+'</div></div>'
+      +'<div><div class="gantt-detail-label">빌링 상태</div><div class="gantt-detail-value">'+esc(billingStatus)+'</div></div>'
+      +'<div><div class="gantt-detail-label">빌링 금액</div><div class="gantt-detail-value">'+formatGanttCurrency(billingAmount)+'</div></div>'
+    +'</div>'
+    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">이슈 미리보기</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">전체 이슈 보기</button></div><div class="gantt-detail-list" id="ganttDetailIssueList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청 미리보기</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'documents\')">자료요청 관리</button></div><div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">팀 일정 충돌</div></div><div class="gantt-detail-list">'+(memberSchedules.map(schedule=>'<div class="gantt-detail-item is-clickable" onclick="openScheduleModal(\''+schedule.id+'\')"><div><div class="gantt-detail-item-title">'+esc(getScheduleMemberLabel(schedule))+' '+esc(scheduleLabel(schedule.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((schedule.start||'')+' ~ '+(schedule.end||'')+(schedule.location?' · '+schedule.location:''))+'</div></div><span class="badge '+(schedule.schedule_type==='leave'?'badge-orange':'badge-blue')+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span></div>').join('')||'<div class="gantt-detail-empty">담당자 휴가/필드웍 일정이 없습니다.</div>')+'</div></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">메모 미리보기</div></div>'+(project.memo?'<button type="button" class="gantt-detail-memo" onclick="openProjModal(\''+project.id+'\')">'+esc(project.memo)+'</button>':'<div class="gantt-detail-empty">등록된 메모가 없습니다.</div>')+'</div>';
+  loadGanttDetailAsync(project);
+};
+
+function buildGanttCalendarItemHtml(item){
+  const itemClass=item.kind==='project'?'project':'schedule';
+  const bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
+  const text=item.kind==='project'?'#FFFFFF':'#243241';
+  const border=item.kind==='project'?'transparent':withAlpha(item.color,'55');
+  const action=item.kind==='project'
+    ?`openGanttProjectDetail('${item.id}')`
+    :`openScheduleModal('${item.id}')`;
+  return '<button class="gantt-calendar-item '+itemClass+'" type="button" onclick="'+action+'" style="background:'+bg+';color:'+text+';border:1px solid '+border+(item.dueToday?';box-shadow:inset 0 0 0 1px rgba(146,64,14,.24)':'')+'" title="'+esc(item.title)+'">'+esc(item.label)+'</button>';
 }
