@@ -62,6 +62,18 @@ function formatWeeklyReviewCount(value){
 function formatWeeklyReviewCurrency(value){
   return `${Math.round(Number(value)||0).toLocaleString()}원`;
 }
+function formatWeeklyReviewCurrencyDelta(value){
+  const amount=Math.round(Number(value)||0);
+  if(!amount)return '전주 대비 변화 없음';
+  return `전주 대비 ${amount>0?'+':''}${amount.toLocaleString()}원`;
+}
+function formatWeeklyReviewNameSummary(names){
+  const unique=[...new Set((Array.isArray(names)?names:[]).map(name=>String(name||'').trim()).filter(Boolean))];
+  if(!unique.length)return '없음';
+  if(unique.length===1)return unique[0];
+  if(unique.length===2)return unique.join(', ');
+  return `${unique[0]} 외 ${unique.length-1}명`;
+}
 function getWeeklyReviewShortDate(value){
   const date=getWeeklyReviewDate(value);
   if(!date)return '-';
@@ -250,13 +262,21 @@ function renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards,sections){
 async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const reviewBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
   const nextBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks+1);
+  const previousBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks-1);
   const today=getHomeBaseDate();
   await loadContracts();
-  const issueRows=await api('GET','project_issues?select=id,project_id,title,priority,status,resolved_at,updated_at,created_at,assignee_name,owner_name').catch(()=>[]);
+  const [issueRows,billingRows]=await Promise.all([
+    api('GET','project_issues?select=id,project_id,title,priority,status,resolved_at,updated_at,created_at,assignee_name,owner_name,is_pinned,status_changed_at').catch(()=>[]),
+    api('GET','billing_records?select=contract_id,amount,status').catch(()=>[])
+  ]);
   const completedProjects=(projects||[]).filter(project=>
     isWeeklyReviewCompletedProject(project)
     &&isWeeklyReviewDateInRange(getWeeklyReviewProjectCompletionDate(project),reviewBounds.start,reviewBounds.end)
   ).sort(sortWeeklyReviewProjectsByCompletion);
+  const previousCompletedProjects=(projects||[]).filter(project=>
+    isWeeklyReviewCompletedProject(project)
+    &&isWeeklyReviewDateInRange(getWeeklyReviewProjectCompletionDate(project),previousBounds.start,previousBounds.end)
+  );
   const resolvedIssues=(issueRows||[]).filter(issue=>
     String(issue?.status||'').trim()==='resolved'
     &&isWeeklyReviewDateInRange(issue?.resolved_at||issue?.updated_at||issue?.created_at,reviewBounds.start,reviewBounds.end)
@@ -305,34 +325,115 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     &&String(project?.billing_status||'').trim()==='미청구'
   ).sort(sortWeeklyReviewProjectsByCompletion);
   const unbilledAmount=unbilledProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
+  const weeklyRevenue=completedProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
+  const previousRevenue=previousCompletedProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
+  const revenueDelta=weeklyRevenue-previousRevenue;
+  const activeIssues=(issueRows||[]).filter(issue=>isIssueActiveStatus(issue?.status)).sort(sortWeeklyReviewIssues);
+  const highPriorityActiveIssues=activeIssues.filter(issue=>String(issue?.priority||'').trim().toLowerCase()==='high');
+  const overdueProjects=pendingProjects.filter(project=>isWeeklyReviewProjectOverdue(project,today)).sort((a,b)=>{
+    const diff=getWeeklyReviewTimestamp(getWeeklyReviewProjectEndDate(a))-getWeeklyReviewTimestamp(getWeeklyReviewProjectEndDate(b));
+    if(diff)return diff;
+    return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+  });
+  const oldestOverdueProject=overdueProjects[0]||null;
+  const billedOutstandingAmount=(billingRows||[])
+    .filter(row=>String(row?.status||'').trim()!=='수금완료')
+    .reduce((sum,row)=>sum+Math.round(Number(row?.amount)||0),0);
+  const nextWeekPriorityProjects=[...new Map(
+    [...nextWeekStarts,...nextWeekEnds]
+      .filter(Boolean)
+      .map(project=>[String(project.id),project])
+  ).values()].sort((a,b)=>{
+    const amountDiff=getWeeklyReviewProjectBillingAmount(b)-getWeeklyReviewProjectBillingAmount(a);
+    if(amountDiff)return amountDiff;
+    return sortWeeklyReviewProjectsByEnd(a,b);
+  });
+  const leadNextWeekProject=nextWeekPriorityProjects[0]||null;
+  const currentWeekLeaves=(schedules||[]).filter(schedule=>{
+    const type=String(schedule?.schedule_type||'').trim();
+    if(type!=='leave')return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start;
+  });
+  const currentWeekFieldwork=(schedules||[]).filter(schedule=>{
+    const type=String(schedule?.schedule_type||'').trim();
+    if(type!=='fieldwork')return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start;
+  });
+  const nextWeekLeaves=(schedules||[]).filter(schedule=>{
+    const type=String(schedule?.schedule_type||'').trim();
+    if(type!=='leave')return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=nextBounds.end&&endDate>=nextBounds.start;
+  });
+  const currentLeaveNames=[...new Set(currentWeekLeaves.flatMap(schedule=>getScheduleMemberNames(schedule)))];
+  const currentFieldworkNames=[...new Set(currentWeekFieldwork.flatMap(schedule=>getScheduleMemberNames(schedule)))];
+  const nextLeaveNames=[...new Set(nextWeekLeaves.flatMap(schedule=>getScheduleMemberNames(schedule)))];
+  const unavailableMemberNames=new Set([...currentLeaveNames,...currentFieldworkNames]);
+  const availableMemberCount=Math.max(0,(members||[]).length-unavailableMemberNames.size);
+  const clientIssueMap=new Map();
+  activeIssues.forEach(issue=>{
+    const project=getWeeklyReviewIssueProject(issue);
+    const client=getWeeklyReviewProjectClient(project);
+    if(!client?.id)return;
+    const key=String(client.id);
+    const current=clientIssueMap.get(key)||{client,count:0};
+    current.count+=1;
+    clientIssueMap.set(key,current);
+  });
+  const clientIssueSummary=[...clientIssueMap.values()].sort((a,b)=>{
+    const diff=b.count-a.count;
+    if(diff)return diff;
+    return String(a?.client?.name||'').localeCompare(String(b?.client?.name||''),'ko');
+  });
+  const topIssueClient=clientIssueSummary[0]||null;
+  const hasPinnedActiveIssue=activeIssues.some(issue=>!!issue?.is_pinned);
   const cards=[
     {
-      title:'이번 주 실적',
+      title:'이번 주 매출',
       badge:'이번 주',
-      value:formatWeeklyReviewCount(completedProjects.length),
-      meta:`해결 이슈 ${resolvedIssues.length}건`,
-      tone:completedProjects.length?'success':''
+      value:formatWeeklyReviewCurrency(weeklyRevenue),
+      meta:`완료 ${completedProjects.length}건 · 해결 이슈 ${resolvedIssues.length}건 · ${formatWeeklyReviewCurrencyDelta(revenueDelta)}`,
+      tone:weeklyRevenue?'success':''
     },
     {
-      title:'Pending',
+      title:'리스크',
       badge:'현재',
-      value:formatWeeklyReviewCount(pendingProjects.length),
-      meta:`미해결 이슈 ${openIssues.length}건`,
-      tone:pendingProjects.length?'warning':'success'
+      value:formatWeeklyReviewCount(overdueProjects.length),
+      meta:`최장 지연 ${oldestOverdueProject?.name||'없음'} · 높음 우선 미해결 ${highPriorityActiveIssues.length}건`,
+      tone:overdueProjects.length||highPriorityActiveIssues.length?'danger':'success'
     },
     {
-      title:'차주 할 일',
-      badge:'다음 주',
-      value:formatWeeklyReviewCount(nextWeekItemCount),
-      meta:`시작 ${nextWeekStarts.length}건 · 마감 ${nextWeekEnds.length}건 · 일정 ${nextWeekSchedules.length}건`,
-      tone:nextWeekItemCount?'':'success'
-    },
-    {
-      title:'청구 대기',
+      title:'수금 현황',
       badge:'실시간',
       value:formatWeeklyReviewCurrency(unbilledAmount),
-      meta:`완료 후 미청구 ${unbilledProjects.length}건`,
-      tone:unbilledAmount?'danger':'success'
+      meta:`청구 후 미수금 ${formatWeeklyReviewCurrency(billedOutstandingAmount)} · 미청구 프로젝트 ${unbilledProjects.length}건`,
+      tone:unbilledAmount||billedOutstandingAmount?'warning':'success'
+    },
+    {
+      title:'차주 예정',
+      badge:'다음 주',
+      value:formatWeeklyReviewCount(nextWeekEnds.length),
+      meta:`시작 ${nextWeekStarts.length}건 · 일정 ${nextWeekSchedules.length}건 · 대표 ${leadNextWeekProject?.name||'없음'}`,
+      tone:nextWeekItemCount?'warning':'success'
+    },
+    {
+      title:'인력 현황',
+      badge:'이번 주',
+      value:`${Number(availableMemberCount||0).toLocaleString()}명`,
+      meta:`휴가 ${formatWeeklyReviewNameSummary(currentLeaveNames)} · 필드웍 ${currentFieldworkNames.length}명 · 다음 주 휴가 ${nextLeaveNames.length}명`,
+      tone:availableMemberCount<(members||[]).length?'warning':'success'
+    },
+    {
+      title:'고객 이슈',
+      badge:'현재',
+      value:`${Number(clientIssueSummary.length||0).toLocaleString()}곳`,
+      meta:`최다 ${topIssueClient?`${topIssueClient.client.name} ${topIssueClient.count}건`:'없음'} · 고정 이슈 ${hasPinnedActiveIssue?'있음':'없음'}`,
+      tone:clientIssueSummary.length?'warning':'success'
     }
   ];
   const pendingWorkItems=[
@@ -442,18 +543,22 @@ async function renderWeeklyReviewPage(offset){
       ? `${weeklyReviewWeekOffset}주 후`
       : `${Math.abs(weeklyReviewWeekOffset)}주 전`;
   const loadingCards=[
-    {title:'이번 주 실적',badge:'이번 주',value:'...',meta:'불러오는 중...'},
-    {title:'Pending',badge:'현재',value:'...',meta:'불러오는 중...'},
-    {title:'차주 할 일',badge:'다음 주',value:'...',meta:'불러오는 중...'},
-    {title:'청구 대기',badge:'실시간',value:'...',meta:'불러오는 중...'}
+    {title:'이번 주 매출',badge:'이번 주',value:'...',meta:'불러오는 중...'},
+    {title:'리스크',badge:'현재',value:'...',meta:'불러오는 중...'},
+    {title:'수금 현황',badge:'실시간',value:'...',meta:'불러오는 중...'},
+    {title:'차주 예정',badge:'다음 주',value:'...',meta:'불러오는 중...'},
+    {title:'인력 현황',badge:'이번 주',value:'...',meta:'불러오는 중...'},
+    {title:'고객 이슈',badge:'현재',value:'...',meta:'불러오는 중...'}
   ];
   el.innerHTML=renderWeeklyReviewPageMarkup(rangeLabel,navLabel,loadingCards,[]);
   const data=await getWeeklyReviewPageData(requestedOffset).catch(()=>({
     cards:[
-      {title:'이번 주 실적',badge:'이번 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'Pending',badge:'현재',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'차주 할 일',badge:'다음 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'청구 대기',badge:'실시간',value:'-',meta:'데이터를 불러오지 못했습니다.'}
+      {title:'이번 주 매출',badge:'이번 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'리스크',badge:'현재',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'수금 현황',badge:'실시간',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'차주 예정',badge:'다음 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'인력 현황',badge:'이번 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'고객 이슈',badge:'현재',value:'-',meta:'데이터를 불러오지 못했습니다.'}
     ],
     sections:[]
   }));

@@ -1,5 +1,5 @@
 let issuesPageCache=[];
-let issuesPageFilters={project_id:'',member_id:'',status:'open'};
+let issuesPageFilters={project_id:'',member_id:'',status:'all'};
 let expandedIssuesPageIds=new Set();
 let issuesPageCollapsedClients={};
 
@@ -56,6 +56,27 @@ function getIssuesPageIssueRank(issue,project){
   return getProjectPriorityRank(issue?.priority||project?.priority||'medium');
 }
 
+function getIssuesPageAgingDays(issue){
+  const baseTs=getIssueStatusChangedAt(issue);
+  if(!baseTs)return null;
+  const diffMs=Date.now()-new Date(baseTs).getTime();
+  if(!Number.isFinite(diffMs))return null;
+  return Math.max(0,Math.floor(diffMs/(1000*60*60*24)));
+}
+
+function getIssuesPageAgingText(issue){
+  const days=getIssuesPageAgingDays(issue);
+  if(days===null)return '';
+  return '에이징 '+days+'일';
+}
+
+function getIssuesPageDueDateText(issue){
+  if(!issue?.due_date)return '';
+  const dueDate=toDate(issue.due_date);
+  if(!issue.due_date||Number.isNaN(dueDate.getTime()))return '';
+  return '기한 '+formatRangeShort(issue.due_date,issue.due_date);
+}
+
 function getIssuesPageRows(){
   return [...(issuesPageCache||[])].filter(issue=>{
     if(issuesPageFilters.project_id&&issue.project_id!==issuesPageFilters.project_id)return false;
@@ -63,9 +84,8 @@ function getIssuesPageRows(){
       const memberMatch=issue.assignee_member_id===issuesPageFilters.member_id||issue.owner_member_id===issuesPageFilters.member_id;
       if(!memberMatch)return false;
     }
-    if(issuesPageFilters.status==='pinned')return !!issue.is_pinned;
-    if(issuesPageFilters.status==='resolved')return isIssueResolvedStatus(issue.status);
-    return isIssueActiveStatus(issue.status);
+    if(issuesPageFilters.status==='all')return true;
+    return normalizeIssueStatus(issue.status)===issuesPageFilters.status;
   }).map(issue=>{
     const project=projects.find(p=>p.id===issue.project_id)||null;
     const client=project?clients.find(c=>c.id===project.client_id):null;
@@ -128,8 +148,15 @@ function renderIssuesPageFromCache(){
       return a.name.localeCompare(b.name,'ko');
     })
   })).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const statusFilterButtons=[
+    {value:'all',label:'전체'},
+    {value:'open',label:'열림'},
+    {value:'in_progress',label:'진행중'},
+    {value:'waiting',label:'대기'},
+    {value:'resolved',label:'해결'}
+  ].map(filter=>'<button class="toggle-btn '+(issuesPageFilters.status===filter.value?'active':'')+'" onclick="toggleIssuesPageStatus(\''+filter.value+'\')">'+filter.label+'</button>').join('');
   el.innerHTML='<div class="section-header" style="margin-bottom:16px"><h2 class="section-title">이슈</h2>'+createBtn+'</div>'
-    +'<div class="card" style="margin-bottom:14px;padding:14px 16px"><div class="filter-row" style="width:100%"><select onchange="setIssuesPageFilter(\'project_id\',this.value)">'+projectOptions+'</select><select onchange="setIssuesPageFilter(\'member_id\',this.value)">'+memberOptions+'</select><div class="toggle-wrap"><button class="toggle-btn '+(issuesPageFilters.status==='open'?'active':'')+'" onclick="toggleIssuesPageStatus(\'open\')">OPEN</button><button class="toggle-btn '+(issuesPageFilters.status==='pinned'?'active':'')+'" onclick="toggleIssuesPageStatus(\'pinned\')">PINNED</button><button class="toggle-btn '+(issuesPageFilters.status==='resolved'?'active':'')+'" onclick="toggleIssuesPageStatus(\'resolved\')">RESOLVED</button></div></div></div>'
+    +'<div class="card" style="margin-bottom:14px;padding:14px 16px"><div class="filter-row" style="width:100%"><select onchange="setIssuesPageFilter(\'project_id\',this.value)">'+projectOptions+'</select><select onchange="setIssuesPageFilter(\'member_id\',this.value)">'+memberOptions+'</select><div class="toggle-wrap">'+statusFilterButtons+'</div></div></div>'
     +(groupedClients.length
       ?'<div class="issues-page-groups">'+groupedClients.map(group=>{
         return '<div>'
@@ -144,6 +171,8 @@ function renderIssuesPageFromCache(){
                 const isExpanded=expandedIssuesPageIds.has(issue.id);
                 const isOpen=isIssueActiveStatus(issue.status);
                 const editable=canEditIssue(issue);
+                const agingText=getIssuesPageAgingText(issue);
+                const dueDateText=getIssuesPageDueDateText(issue);
                 return '<div id="issue-card-'+issue.id+'" class="issues-page-row'+(assigneeMeta.isMine?' mine':'')+'" onclick="toggleIssuesPageAccordion(\''+issue.id+'\')">'
                   +'<div class="issues-page-row-head">'
                     +'<span class="issues-page-priority '+priorityMeta.cls+'">'+priorityMeta.label+'</span>'
@@ -154,9 +183,13 @@ function renderIssuesPageFromCache(){
                   +(isExpanded
                     ?'<div class="issues-page-row-body">'
                       +(issue.content?'<div class="issues-page-row-desc">'+esc(issue.content)+'</div>':'<div class="issues-page-empty">설명 없음</div>')
+                      +(normalizeIssueStatus(issue.status)==='waiting'&&issue.waiting_reason?'<div class="helper-box" style="margin-top:10px"><div class="helper-title">대기 사유</div><div class="helper-text">'+esc(issue.waiting_reason)+'</div></div>':'')
                       +'<div class="issues-page-row-meta">'
                         +(issue.author_name?'<span>작성자 '+esc(issue.author_name)+'</span>':'')
-                        +(issue.created_at?'<span>'+formatCommentDate(issue.created_at)+'</span>':'')
+                        +(issue.category?'<span>분류 '+esc(issue.category)+'</span>':'')
+                        +(dueDateText?'<span>'+esc(dueDateText)+'</span>':'')
+                        +(agingText?'<span>'+esc(agingText)+'</span>':'')
+                        +(getIssueStatusChangedAt(issue)?'<span>상태 기준 '+formatCommentDate(getIssueStatusChangedAt(issue))+'</span>':'')
                         +(issue.is_pinned?'<span>고정됨</span>':'')
                       +'</div>'
                       +'<div class="issue-actions" style="margin-top:10px">'
