@@ -102,18 +102,6 @@
 .detail-tabs{display:flex;gap:2px;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:20px}
 .detail-tab{flex:1;padding:8px;font-size:13px;font-weight:600;border:none;border-radius:8px;cursor:pointer;font-family:inherit;background:transparent;color:var(--text3);transition:all .15s;text-align:center}
 .detail-tab.active{background:var(--card);color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.1)}
-.contract-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--radius-sm);transition:all .1s}
-.contract-item:hover{background:var(--bg);padding-left:8px;padding-right:8px;margin:0 -8px}
-.contract-item:last-child{border-bottom:none}
-.contract-icon{width:36px;height:36px;border-radius:8px;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-.contract-info{flex:1;min-width:0}
-.contract-name{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px}
-.contract-sub{font-size:11px;color:var(--text3)}
-.contract-badges{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-.cst-진행중{background:#e8f5e9;color:#2e7d32}
-.cst-완료{background:var(--bg);color:var(--text3)}
-.cst-검토중{background:#fff8e1;color:#f57f17}
-.cst-해지{background:var(--red-bg);color:var(--red)}
 .proj-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--bg);cursor:pointer;border-radius:var(--radius-sm);transition:background .1s}
 .proj-item:hover{background:var(--bg);padding-left:8px;padding-right:8px;margin:0 -8px}
 .proj-item:last-child{border-bottom:none}
@@ -329,7 +317,6 @@ body{
 .header-nav + .header-search-wrap{}
 #navFun,#mNavFun{order:7}
 #navAdmin,#mNavAdmin{order:8}
-#pageContracts .section-title,
 #pageFun .section-title,
 #pageAdmin .section-title{display:none!important}
 #pageFun .section-header,
@@ -352,7 +339,7 @@ body{
 .pinned-card-title,.detail-hero-text h2,.portal-hero-text h2{color:var(--navy)!important}
 .pinned-card-preview,.detail-hero-text p,.portal-hero-text p{color:var(--text3)!important}
 .detail-avatar,.portal-hero-avatar,.login-logo-mark{background:var(--navy)!important;box-shadow:0 10px 20px rgba(10,37,64,.12)!important}
-.gantt-wrap,.myweek-day,.comment-item,.comment-item.reply,.helper-box,.issue-card,.weekly-item,.contract-item,.proj-item{background:rgba(255,255,255,.94)!important;border:1px solid var(--border)!important;box-shadow:none!important}
+.gantt-wrap,.myweek-day,.comment-item,.comment-item.reply,.helper-box,.issue-card,.weekly-item,.proj-item{background:rgba(255,255,255,.94)!important;border:1px solid var(--border)!important;box-shadow:none!important}
 .issue-card{border-radius:18px!important;padding:14px!important}
 .issue-card:hover{box-shadow:var(--shadow)!important;border-color:rgba(10,37,64,.12)!important}
 .issue-card-context{font-size:11px!important;text-transform:uppercase!important;letter-spacing:.08em!important;color:var(--text3)!important}
@@ -370,18 +357,6 @@ body{
   color:#B45309!important;
   border:1px solid rgba(180,83,9,.10)!important;
 }
-.contract-icon{
-  background:#F3F6F8!important;
-  color:var(--navy)!important;
-  font-size:0!important;
-  position:relative!important;
-}
-.contract-icon::before{
-  content:'CT'!important;
-  font-size:11px!important;
-  font-weight:800!important;
-  letter-spacing:.04em!important;
-}
 .proj-dot{
   width:10px!important;
   height:10px!important;
@@ -394,7 +369,7 @@ body{
   letter-spacing:.02em!important;
 }
 .notice-card.pinned{border-left:4px solid var(--blue)!important}
-.stat-label,.section-label,.myweek-title,.portal-section-label,.notice-meta,.notice-preview,.weekly-sub,.proj-sub,.contract-sub,.info-label{color:var(--text3)!important}
+.stat-label,.section-label,.myweek-title,.portal-section-label,.notice-meta,.notice-preview,.weekly-sub,.proj-sub,.info-label{color:var(--text3)!important}
 .stat-num{font-size:36px!important;color:var(--navy)!important}
 .section-label,.portal-section-label,.stat-label{
   font-size:11px!important;
@@ -472,7 +447,7 @@ body{
   background:#EDF3FF!important;
   color:#1F4FD1!important;
 }
-.contract-item:hover,.proj-item:hover{
+.proj-item:hover{
   background:#F8FAFC!important;
   margin:0 -6px!important;
   padding-left:6px!important;
@@ -541,7 +516,6 @@ body{
   line-height:1.35!important;
   letter-spacing:-.02em!important;
 }
-.contract-name,
 .proj-name,
 .workspace-search-result-title{
   font-size:14px!important;
@@ -561,7 +535,6 @@ body{
 }
 .notice-meta,
 .proj-sub,
-.contract-sub,
 .weekly-sub,
 .issue-meta,
 .info-label,
@@ -632,7 +605,6 @@ select{
   font-size:10px!important;
 }
 .row-label,
-.contract-sub,
 .proj-sub{
   line-height:1.45!important;
 }
@@ -661,7 +633,6 @@ select{
 .comment-item,
 .comment-item.reply,
 .weekly-item,
-.contract-item,
 .proj-item{
   padding:16px!important;
 }
@@ -935,7 +906,7 @@ input,textarea{border-radius:12px!important}
   .card,.card-sm,.notice-card,.stat-card,.portal-proj-card,.myweek-card,.popup-box,.modal,.login-box,.issue-card{border-radius:18px!important}
   .section-title{font-size:var(--font-size-md)!important}
   .card,.notice-card,.portal-proj-card,.myweek-card,.stat-card,.modal,.login-box{padding:18px!important}
-  .card-sm,.helper-box,.weekly-item,.contract-item,.proj-item,.comment-item,.comment-item.reply{padding:14px!important}
+  .card-sm,.helper-box,.weekly-item,.proj-item,.comment-item,.comment-item.reply{padding:14px!important}
   .modal-footer{gap:10px!important}
 }
 </style>
@@ -1194,6 +1165,7 @@ input,textarea{border-radius:12px!important}
 <link rel="stylesheet" href="styles/projects.css">
 <link rel="stylesheet" href="styles/issues.css">
 <link rel="stylesheet" href="styles/clients.css">
+<link rel="stylesheet" href="styles/contracts.css">
 </head>
 
 

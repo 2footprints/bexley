@@ -1,0 +1,51 @@
+.contract-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--radius-sm);transition:all .1s}
+.contract-item:hover{background:var(--bg);padding-left:8px;padding-right:8px;margin:0 -8px}
+.contract-item:last-child{border-bottom:none}
+.contract-icon{width:36px;height:36px;border-radius:8px;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.contract-info{flex:1;min-width:0}
+.contract-name{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px}
+.contract-sub{font-size:11px;color:var(--text3)}
+.contract-badges{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.cst-진행중{background:#e8f5e9;color:#2e7d32}
+.cst-완료{background:var(--bg);color:var(--text3)}
+.cst-검토중{background:#fff8e1;color:#f57f17}
+.cst-해지{background:var(--red-bg);color:var(--red)}
+
+#pageContracts .section-title{display:none!important}
+
+.contract-item{background:rgba(255,255,255,.94)!important;border:1px solid var(--border)!important;box-shadow:none!important}
+.contract-icon{
+  background:#F3F6F8!important;
+  color:var(--navy)!important;
+  font-size:0!important;
+  position:relative!important;
+}
+.contract-icon::before{
+  content:'CT'!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  letter-spacing:.04em!important;
+}
+.contract-sub{color:var(--text3)!important}
+.contract-item:hover{
+  background:#F8FAFC!important;
+  margin:0 -6px!important;
+  padding-left:6px!important;
+  padding-right:6px!important;
+}
+.contract-name{
+  font-size:14px!important;
+  font-weight:700!important;
+  line-height:1.35!important;
+  letter-spacing:-.015em!important;
+}
+.contract-sub{
+  font-size:12px!important;
+  line-height:1.55!important;
+}
+.contract-sub{line-height:1.45!important}
+.contract-item{padding:16px!important}
+
+@media(max-width:768px){
+  .contract-item{padding:14px!important}
+}
