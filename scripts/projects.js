@@ -145,3 +145,100 @@ renderGanttDetailPanel = function(projs,schs){
   const commentCount=projectIssueIds.reduce((sum,id)=>sum+(issueCommentCountMap[id]||0),0);
   el.innerHTML='<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' | '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='\uC9C4\uD589\uC911'?'badge-blue':project.status==='\uC644\uB8CC'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div><div class="gantt-detail-grid"><div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div><div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'Unassigned')+'</div></div><div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div><div><div class="gantt-detail-label">Issue / Comment</div><div class="gantt-detail-value">'+issueCount+' issues | '+commentCount+' comments</div></div></div><div class="gantt-main-copy">The left side is not a priority engine. It is simply the visible project list for this month. Select a project to see team schedules and quick actions here.</div><div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div><div class="gantt-detail-section"><div class="gantt-panel-title">Team Schedule</div><div class="gantt-detail-list">'+(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+getScheduleMemberLabel(s))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')+'</div></div>';
 };
+
+function fixBars(){
+  document.querySelectorAll('.bar[data-span]').forEach(bar=>{
+    const span=parseInt(bar.dataset.span);const td=bar.closest('td');if(!td)return;
+    let w=0,t=td;for(let i=0;i<span;i++){if(t){w+=t.offsetWidth;t=t.nextElementSibling;}}
+    bar.style.width=(w-4)+'px';bar.style.right='auto';
+  });
+}
+
+function renderLegend(){
+  document.getElementById('legend').innerHTML=
+    Object.entries(TYPES).map(([k,c])=>'<div class="legend-item"><div class="legend-dot" style="background:'+c+'"></div>'+k+'</div>').join('')+
+    Object.entries(SCHEDULE_META).filter(([k])=>k!=='project').map(([k,v])=>'<div class="legend-item"><div class="legend-dot" style="background:'+v.color+';border:1px dashed rgba(0,0,0,.15)"></div>'+v.label+'</div>').join('')+
+    '<div class="legend-item" style="margin-left:12px;gap:8px"><span style="opacity:.3">■</span> 완료 <span style="opacity:.5">■</span> 예정 <span>■</span> 진행중</div>';
+}
+
+function buildGanttCalendarItemHtml(item){
+  const itemClass=item.kind==='project'?'project':'schedule';
+  const bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
+  const text=item.kind==='project'?'#FFFFFF':'#243241';
+  const border=item.kind==='project'?'transparent':withAlpha(item.color,'55');
+  const action=item.kind==='project'
+    ?`openProjModal('${item.id}')`
+    :`openScheduleModal('${item.id}')`;
+  return '<button class="gantt-calendar-item '+itemClass+'" type="button" onclick="'+action+'" style="background:'+bg+';color:'+text+';border:1px solid '+border+(item.dueToday?';box-shadow:inset 0 0 0 1px rgba(146,64,14,.24)':'')+'" title="'+esc(item.title)+'">'+esc(item.label)+'</button>';
+}
+
+function buildGanttCalendarItemsForDate(cellDate,projs,schs){
+  const ts=cellDate.getTime();
+  const items=[];
+  projs.forEach(p=>{
+    if(toDate(p.start).getTime()<=ts && toDate(p.end).getTime()>=ts){
+      items.push({
+        kind:'project',
+        id:p.id,
+        label:p.name,
+        title:[p.name,p.type||'',(p.members||[]).join(', ')].filter(Boolean).join(' | '),
+        color:TYPES[p.type]||'#4e5968',
+        dueToday:isDueToday(p) && toDate(p.end).getTime()===ts
+      });
+    }
+  });
+  schs.forEach(s=>{
+    if(toDate(s.start).getTime()<=ts && toDate(s.end).getTime()>=ts){
+      const labelBase=s.title||scheduleLabel(s.schedule_type);
+      items.push({
+        kind:'schedule',
+        id:s.id,
+        label:(s.member_name? s.member_name+' · ':'')+labelBase,
+        title:[labelBase,s.member_name||'',s.location||'',s.memo||''].filter(Boolean).join(' | '),
+        color:scheduleColor(s.schedule_type)
+      });
+    }
+  });
+  return items.sort((a,b)=>{
+    if(a.kind!==b.kind) return a.kind==='project' ? -1 : 1;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+function renderGanttCalendarGrid(projs,schs){
+  const wrap=document.getElementById('ganttWrap');
+  if(!wrap) return;
+  const weekdayLabels=['일','월','화','수','목','금','토'];
+  const totalDays=daysInMonth(curYear,curMonth);
+  const firstDay=new Date(curYear,curMonth-1,1);
+  const startOffset=firstDay.getDay();
+  const totalCells=Math.ceil((startOffset+totalDays)/7)*7;
+  if(!projs.length && !schs.length){
+    wrap.innerHTML='<div class="empty-state" style="padding:40px">이 달에 표시할 프로젝트와 일정이 없습니다.</div>';
+    renderLegend();
+    return;
+  }
+  const weekdayHead=weekdayLabels.map(label=>'<div class="gantt-calendar-weekday">'+label+'</div>').join('');
+  let cells='';
+  for(let i=0;i<totalCells;i++){
+    const dayNumber=i-startOffset+1;
+    if(dayNumber<1 || dayNumber>totalDays){
+      cells+='<div class="gantt-calendar-day is-empty"></div>';
+      continue;
+    }
+    const cellDate=new Date(curYear,curMonth-1,dayNumber);
+    cellDate.setHours(0,0,0,0);
+    const items=buildGanttCalendarItemsForDate(cellDate,projs,schs);
+    const preview=items.slice(0,4).map(buildGanttCalendarItemHtml).join('');
+    const overflow=items.length>4?'<div class="gantt-calendar-item more">+'+(items.length-4)+'개 더</div>':'';
+    const isWeekendCell=cellDate.getDay()===0 || cellDate.getDay()===6;
+    const todayClass=isToday(curYear,curMonth,dayNumber)?' is-today':'';
+    const weekendClass=isWeekendCell?' is-weekend':'';
+    cells+='<div class="gantt-calendar-day'+todayClass+weekendClass+'">'
+      +'<div class="gantt-calendar-date-row"><div class="gantt-calendar-date">'+dayNumber+'</div>'+(items.length?'<div class="gantt-calendar-count">'+items.length+'건</div>':'')+'</div>'
+      +'<div class="gantt-calendar-items">'+preview+overflow+'</div>'
+      +'</div>';
+  }
+  wrap.innerHTML='<div class="gantt-calendar-wrap"><div class="gantt-calendar-board"><div class="gantt-calendar-weekdays">'+weekdayHead+'</div><div class="gantt-calendar-grid">'+cells+'</div></div></div>';
+  renderLegend();
+}
