@@ -361,6 +361,170 @@ td{
   font-size:12px!important;
   color:var(--text2)!important;
 }
+.gantt-list-toolbar{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-list-toolbar-main{
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  flex-wrap:wrap!important;
+  flex:1 1 420px!important;
+}
+.gantt-list-search{
+  min-height:40px!important;
+  min-width:320px!important;
+  padding:9px 12px!important;
+  border:1px solid var(--border)!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:var(--text)!important;
+  font-size:13px!important;
+  font-family:inherit!important;
+}
+.gantt-list-count,
+.gantt-list-selection-summary{
+  font-size:12px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+}
+.gantt-list-bulkbar{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  flex-wrap:wrap!important;
+  padding:12px 14px!important;
+  border:1px solid var(--border)!important;
+  border-radius:16px!important;
+  background:var(--bg)!important;
+}
+.gantt-list-bulkbar-main{
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-list-bulk-title{
+  font-size:12px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+}
+.gantt-list-bulk-actions{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-list-bulk-actions select{
+  min-height:36px!important;
+  padding:7px 12px!important;
+  border:1px solid var(--border)!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:var(--text)!important;
+  font-size:12px!important;
+  font-family:inherit!important;
+}
+.gantt-list-table-shell{
+  overflow:auto!important;
+  border:1px solid var(--border)!important;
+  border-radius:18px!important;
+  background:#fff!important;
+}
+.gantt-list-table{
+  width:100%!important;
+  min-width:1180px!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+  background:#fff!important;
+}
+.gantt-list-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:2!important;
+  background:#F8FAFC!important;
+  border-bottom:1px solid var(--border)!important;
+  padding:0!important;
+  text-align:left!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  color:var(--text3)!important;
+  white-space:nowrap!important;
+}
+.gantt-list-table th.is-numeric,
+.gantt-list-table td.is-numeric{
+  text-align:right!important;
+}
+.gantt-list-check-col{
+  width:44px!important;
+  min-width:44px!important;
+  text-align:center!important;
+}
+.gantt-list-sort-btn{
+  width:100%!important;
+  min-height:42px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:4px!important;
+  padding:10px 12px!important;
+  border:none!important;
+  background:transparent!important;
+  color:inherit!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+}
+.gantt-list-sort-btn.is-numeric{
+  justify-content:flex-end!important;
+}
+.gantt-list-sort-btn:hover{
+  background:#F1F5F9!important;
+}
+.gantt-list-table tbody td{
+  padding:12px!important;
+  border-top:1px solid #EDF2F7!important;
+  vertical-align:middle!important;
+  font-size:12px!important;
+  color:var(--text2)!important;
+  background:#fff!important;
+}
+.gantt-list-table tbody tr:first-child td{
+  border-top:none!important;
+}
+.gantt-list-row{
+  cursor:pointer!important;
+  transition:background .15s ease, box-shadow .15s ease!important;
+}
+.gantt-list-row:hover td{
+  background:#FAFCFF!important;
+}
+.gantt-list-row.is-selected td{
+  background:#EEF4FF!important;
+}
+.gantt-list-row.is-overdue td{
+  box-shadow:inset 3px 0 0 #F97316!important;
+}
+.gantt-list-row.is-due-today td{
+  background:#FFFBEB!important;
+}
+.gantt-list-project-name{
+  font-size:13px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+}
+.gantt-list-project-sub{
+  margin-top:4px!important;
+  font-size:11px!important;
+  color:var(--text3)!important;
+  line-height:1.5!important;
+}
 
 @media (max-width: 1100px){
   .gantt-overview{
@@ -379,6 +543,8 @@ td{
   .gantt-top-filter-bar{flex-direction:column!important;align-items:stretch!important}
   .gantt-top-filter-group{align-items:flex-start!important}
   .gantt-client-search{min-width:0!important;width:100%!important}
+  .gantt-list-search{min-width:0!important;width:100%!important}
+  .gantt-list-bulkbar{align-items:flex-start!important}
 }
 
 .gantt-shell.is-reverted{

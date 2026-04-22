@@ -2,6 +2,10 @@ let ganttFocusProjectId=null;
 let ganttStatusFilter='all';
 let ganttTypeFilters=[];
 let ganttClientFilterQuery='';
+let ganttListSortKey='period';
+let ganttListSortDir='asc';
+let ganttListSearchQuery='';
+let ganttListSelectedIds=[];
 
 const GANTT_STATUS_OPTIONS=[
   {value:'all',label:'전체'},
@@ -603,4 +607,281 @@ function renderGanttListView(projs,schs){
     }).join('')
     +'</div>';
   renderLegend();
+}
+
+function setGanttListSearchQuery(value){
+  ganttListSearchQuery=String(value||'').trim();
+  renderGantt();
+}
+
+function sortGanttListBy(key){
+  const nextKey=String(key||'').trim();
+  if(!nextKey)return;
+  if(ganttListSortKey===nextKey)ganttListSortDir=ganttListSortDir==='asc'?'desc':'asc';
+  else{
+    ganttListSortKey=nextKey;
+    ganttListSortDir=(nextKey==='billing_amount'||nextKey==='issue_count'||nextKey==='status')?'desc':'asc';
+  }
+  renderGantt();
+}
+
+function canManageGanttListProject(project){
+  if(typeof canManageProjectMembers==='function')return !!canManageProjectMembers(project);
+  return !!((typeof roleIsAdmin==='function'&&roleIsAdmin())||(currentUser&&project?.created_by===currentUser.id));
+}
+
+function getGanttListBillingStatus(project){
+  if(project?.is_billable===false)return '비청구대상';
+  return String(project?.billing_status||'미청구').trim()||'미청구';
+}
+
+function getGanttListBillingBadgeClass(status){
+  if(status==='수금완료')return 'badge-green';
+  if(status==='청구완료')return 'badge-blue';
+  if(status==='미청구')return 'badge-orange';
+  return 'badge-gray';
+}
+
+function getGanttListStatusBadgeClass(status){
+  if(status==='진행중')return 'badge-blue';
+  if(status==='완료')return 'badge-green';
+  return 'badge-orange';
+}
+
+function getGanttListPriorityLabel(priority){
+  if(priority==='high')return '긴급';
+  if(priority==='low')return '낮음';
+  return '보통';
+}
+
+function getGanttListPriorityBadgeClass(priority){
+  if(priority==='high')return 'badge-red';
+  if(priority==='low')return 'badge-gray';
+  return 'badge-blue';
+}
+
+function getGanttListProjectRows(projs){
+  return (projs||[]).map(project=>{
+    const clientName=getGanttProjectClientName(project)||'고객사 미지정';
+    const memberNames=[...(project.members||[])];
+    const billingAmount=getGanttProjectBillingAmount(project);
+    const billingStatus=getGanttListBillingStatus(project);
+    const issueCount=openIssuesByProject[project.id]||0;
+    const periodText=(project.start||project.start_date||'')+' ~ '+(project.end||project.end_date||'');
+    const searchText=[clientName,project?.name||'',project?.type||'',memberNames.join(' ')].join(' ').toLowerCase();
+    const status=String(project?.status||'예정').trim()||'예정';
+    return {
+      project,
+      clientName,
+      memberText:memberNames.join(', ')||'담당자 미지정',
+      billingAmount,
+      billingStatus,
+      issueCount,
+      periodText,
+      status,
+      priority:String(project?.priority||'medium').trim()||'medium',
+      searchText
+    };
+  });
+}
+
+function filterGanttListRows(rows){
+  const query=String(ganttListSearchQuery||'').trim().toLowerCase();
+  if(!query)return rows;
+  return rows.filter(row=>row.searchText.includes(query));
+}
+
+function compareGanttListValues(a,b,key){
+  if(key==='client_name')return a.clientName.localeCompare(b.clientName,'ko');
+  if(key==='name')return String(a.project?.name||'').localeCompare(String(b.project?.name||''),'ko');
+  if(key==='type')return String(a.project?.type||'').localeCompare(String(b.project?.type||''),'ko');
+  if(key==='status'){
+    const order={진행중:3,예정:2,완료:1};
+    return (order[a.status]||0)-(order[b.status]||0);
+  }
+  if(key==='period'){
+    const startDiff=toDate(a.project?.start||a.project?.start_date||'')-toDate(b.project?.start||b.project?.start_date||'');
+    if(startDiff)return startDiff;
+    return toDate(a.project?.end||a.project?.end_date||'')-toDate(b.project?.end||b.project?.end_date||'');
+  }
+  if(key==='members')return a.memberText.localeCompare(b.memberText,'ko');
+  if(key==='billing_status')return a.billingStatus.localeCompare(b.billingStatus,'ko');
+  if(key==='billing_amount')return Number(a.billingAmount||0)-Number(b.billingAmount||0);
+  if(key==='issue_count')return Number(a.issueCount||0)-Number(b.issueCount||0);
+  if(key==='priority')return Number(getProjectPriorityRank(a.priority)||0)-Number(getProjectPriorityRank(b.priority)||0);
+  return 0;
+}
+
+function sortGanttListRows(rows){
+  return [...rows].sort((a,b)=>{
+    const diff=compareGanttListValues(a,b,ganttListSortKey);
+    if(diff)return ganttListSortDir==='asc'?diff:-diff;
+    return String(a.project?.name||'').localeCompare(String(b.project?.name||''),'ko');
+  });
+}
+
+function toggleGanttListProjectSelection(projectId){
+  const id=String(projectId||'');
+  if(!id)return;
+  if(ganttListSelectedIds.includes(id))ganttListSelectedIds=ganttListSelectedIds.filter(item=>item!==id);
+  else ganttListSelectedIds=[...ganttListSelectedIds,id];
+  renderGantt();
+}
+
+function toggleGanttListSelectAll(checked,projectIds){
+  const ids=[...new Set((projectIds||[]).map(id=>String(id||'')).filter(Boolean))];
+  ganttListSelectedIds=checked?ids:[];
+  renderGantt();
+}
+
+function clearGanttListSelection(){
+  ganttListSelectedIds=[];
+  renderGantt();
+}
+
+function getGanttListSelectedProjects(){
+  return (projects||[]).filter(project=>ganttListSelectedIds.includes(String(project?.id||'')));
+}
+
+async function completeGanttListSelectedProjects(){
+  const selectedProjects=getGanttListSelectedProjects().filter(canManageGanttListProject);
+  if(!selectedProjects.length){alert('완료 처리할 프로젝트를 선택해주세요.');return;}
+  if(!confirm('선택한 프로젝트를 일괄 완료 처리할까요?'))return;
+  const today=new Date().toISOString().slice(0,10);
+  try{
+    for(const project of selectedProjects){
+      await api('PATCH','projects?id=eq.'+project.id,{
+        status:'완료',
+        actual_end_date:project.actual_end_date||today
+      });
+    }
+    ganttListSelectedIds=[];
+    await loadAll();
+    renderGantt();
+  }catch(e){
+    alert('일괄 완료 처리 오류: '+e.message);
+  }
+}
+
+async function applyGanttListBulkStatus(){
+  const selectedProjects=getGanttListSelectedProjects().filter(canManageGanttListProject);
+  if(!selectedProjects.length){alert('상태를 변경할 프로젝트를 선택해주세요.');return;}
+  const nextStatus=document.getElementById('ganttBulkStatusSelect')?.value||'';
+  if(!nextStatus){alert('변경할 상태를 선택해주세요.');return;}
+  if(!confirm('선택한 프로젝트의 상태를 "'+nextStatus+'"로 변경할까요?'))return;
+  const today=new Date().toISOString().slice(0,10);
+  try{
+    for(const project of selectedProjects){
+      const body={status:nextStatus};
+      if(nextStatus==='완료'&&!project.actual_end_date)body.actual_end_date=today;
+      await api('PATCH','projects?id=eq.'+project.id,body);
+    }
+    ganttListSelectedIds=[];
+    await loadAll();
+    renderGantt();
+  }catch(e){
+    alert('일괄 상태 변경 오류: '+e.message);
+  }
+}
+
+async function applyGanttListBulkMember(){
+  const selectedProjects=getGanttListSelectedProjects().filter(canManageGanttListProject);
+  if(!selectedProjects.length){alert('담당자를 변경할 프로젝트를 선택해주세요.');return;}
+  const memberName=document.getElementById('ganttBulkMemberSelect')?.value||'';
+  if(!memberName){alert('변경할 담당자를 선택해주세요.');return;}
+  const member=(members||[]).find(item=>item?.name===memberName);
+  if(!member){alert('담당자 정보를 찾지 못했습니다.');return;}
+  if(!confirm('선택한 프로젝트의 담당자를 "'+memberName+'" 1명으로 변경할까요?'))return;
+  try{
+    for(const project of selectedProjects){
+      await api('DELETE','project_members?project_id=eq.'+project.id);
+      await apiEx('POST','project_members?on_conflict=project_id,member_id',{project_id:project.id,member_id:member.id},'resolution=merge-duplicates,return=representation');
+    }
+    ganttListSelectedIds=[];
+    await loadAll();
+    renderGantt();
+  }catch(e){
+    alert('일괄 담당자 변경 오류: '+e.message);
+  }
+}
+
+function getGanttListSortIndicator(key){
+  if(ganttListSortKey!==key)return '';
+  return ganttListSortDir==='asc'?' ↑':' ↓';
+}
+
+function renderGanttListView(projs,schs){
+  const wrap=document.getElementById('ganttWrap');
+  if(!wrap)return;
+  const legend=document.getElementById('legend');
+  if(legend)legend.innerHTML='';
+  const rows=sortGanttListRows(filterGanttListRows(getGanttListProjectRows(projs)));
+  const visibleProjectIds=new Set(rows.map(row=>String(row.project?.id||'')));
+  ganttListSelectedIds=ganttListSelectedIds.filter(id=>visibleProjectIds.has(String(id)));
+  const selectableRows=rows.filter(row=>canManageGanttListProject(row.project));
+  const selectedSet=new Set(ganttListSelectedIds.map(id=>String(id)));
+  const allSelected=!!selectableRows.length&&selectableRows.every(row=>selectedSet.has(String(row.project?.id||'')));
+  const availableMembers=getAvailableGanttMembers();
+  if(!rows.length){
+    wrap.innerHTML='<div class="empty-state" style="padding:40px">현재 필터에서 표시할 프로젝트가 없습니다.</div>';
+    return;
+  }
+  wrap.innerHTML='<div class="gantt-list-view">'
+    +'<div class="gantt-list-toolbar">'
+      +'<div class="gantt-list-toolbar-main">'
+        +'<input id="ganttListSearchInput" class="gantt-list-search" value="'+esc(ganttListSearchQuery)+'" placeholder="프로젝트명 / 고객사명 / 담당자명 검색" />'
+        +'<div class="gantt-list-count">총 '+rows.length+'건</div>'
+      +'</div>'
+      +(ganttListSelectedIds.length?'<div class="gantt-list-selection-summary">'+ganttListSelectedIds.length+'건 선택됨</div>':'')
+    +'</div>'
+    +(ganttListSelectedIds.length
+      ?'<div class="gantt-list-bulkbar">'
+        +'<div class="gantt-list-bulkbar-main"><span class="gantt-list-bulk-title">일괄 작업</span><button type="button" class="btn sm" onclick="clearGanttListSelection()">선택 해제</button></div>'
+        +'<div class="gantt-list-bulk-actions">'
+          +'<button type="button" class="btn sm" onclick="completeGanttListSelectedProjects()">일괄 완료 처리</button>'
+          +'<select id="ganttBulkStatusSelect"><option value="">상태 변경</option><option value="예정">예정</option><option value="진행중">진행중</option><option value="완료">완료</option></select>'
+          +'<button type="button" class="btn sm" onclick="applyGanttListBulkStatus()">적용</button>'
+          +'<select id="ganttBulkMemberSelect"><option value="">담당자 변경</option>'+availableMembers.map(member=>'<option value="'+esc(member.name)+'">'+esc(member.name)+'</option>').join('')+'</select>'
+          +'<button type="button" class="btn sm" onclick="applyGanttListBulkMember()">적용</button>'
+        +'</div>'
+      +'</div>'
+      :'')
+    +'<div class="gantt-list-table-shell"><table class="gantt-list-table">'
+      +'<thead><tr>'
+        +'<th class="gantt-list-check-col"><input type="checkbox" '+(allSelected?'checked ':'')+(selectableRows.length?'':'disabled ')+'onclick="event.stopPropagation();toggleGanttListSelectAll(this.checked,['+selectableRows.map(row=>'\''+row.project.id+'\'').join(',')+'])" /></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'client_name\')">고객사'+getGanttListSortIndicator('client_name')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'name\')">프로젝트명'+getGanttListSortIndicator('name')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'type\')">유형'+getGanttListSortIndicator('type')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'status\')">상태'+getGanttListSortIndicator('status')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'period\')">기간'+getGanttListSortIndicator('period')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'members\')">담당자'+getGanttListSortIndicator('members')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'billing_status\')">빌링 상태'+getGanttListSortIndicator('billing_status')+'</button></th>'
+        +'<th class="is-numeric"><button type="button" class="gantt-list-sort-btn is-numeric" onclick="sortGanttListBy(\'billing_amount\')">빌링 금액'+getGanttListSortIndicator('billing_amount')+'</button></th>'
+        +'<th class="is-numeric"><button type="button" class="gantt-list-sort-btn is-numeric" onclick="sortGanttListBy(\'issue_count\')">이슈 수'+getGanttListSortIndicator('issue_count')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'priority\')">우선순위'+getGanttListSortIndicator('priority')+'</button></th>'
+      +'</tr></thead>'
+      +'<tbody>'
+      +rows.map(row=>{
+        const project=row.project;
+        const selected=selectedSet.has(String(project.id));
+        const canManage=canManageGanttListProject(project);
+        return '<tr class="gantt-list-row'+(selected?' is-selected':'')+(isGanttProjectOverdue(project)?' is-overdue':'')+(isDueToday(project)?' is-due-today':'')+'" onclick="openProjModal(\''+project.id+'\')">'
+          +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+project.id+'\')" /></td>'
+          +'<td>'+esc(row.clientName)+'</td>'
+          +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div>'+(project.memo?'<div class="gantt-list-project-sub">'+esc(truncateText(project.memo,48))+'</div>':'')+'</td>'
+          +'<td>'+esc(project.type||'기타')+'</td>'
+          +'<td><span class="badge '+getGanttListStatusBadgeClass(row.status)+'">'+esc(row.status)+'</span></td>'
+          +'<td>'+esc(row.periodText)+'</td>'
+          +'<td>'+esc(row.memberText)+'</td>'
+          +'<td><span class="badge '+getGanttListBillingBadgeClass(row.billingStatus)+'">'+esc(row.billingStatus)+'</span></td>'
+          +'<td class="is-numeric">'+formatGanttCurrency(row.billingAmount)+'</td>'
+          +'<td class="is-numeric">'+row.issueCount+'건</td>'
+          +'<td>'+(typeof getProjectPriorityBadge==='function'?getProjectPriorityBadge(row.priority):('<span class="badge '+getGanttListPriorityBadgeClass(row.priority)+'">'+getGanttListPriorityLabel(row.priority)+'</span>'))+'</td>'
+        +'</tr>';
+      }).join('')
+      +'</tbody>'
+    +'</table></div>'
+    +'</div>';
+  const searchInput=document.getElementById('ganttListSearchInput');
+  if(searchInput)searchInput.oninput=e=>setGanttListSearchQuery(e.target.value);
 }
