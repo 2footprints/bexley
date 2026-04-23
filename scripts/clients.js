@@ -1777,3 +1777,494 @@ renderClients=function(){
   grid.className='board-grid client-card-grid';
   grid.innerHTML=renderClientOverviewIntro(rows)+rows.map(renderClientCard).join('');
 };
+
+function isClientDetailActiveContract(contract){
+  const status=String(contract?.contract_status||'').trim();
+  return !['완료','해지','종료'].includes(status);
+}
+
+function getClientDetailContractExpiryMeta(contract){
+  const endValue=contract?.contract_end_date;
+  if(!endValue)return {tone:'normal',label:'만료일 미정',days:null};
+  const endDate=toDate(endValue);
+  if(!endDate)return {tone:'normal',label:'만료일 미정',days:null};
+  const today=toDate(getHomeBaseDate());
+  const diff=Math.floor((endDate.getTime()-today.getTime())/86400000);
+  if(diff<0)return {tone:'danger',label:'만료 '+Math.abs(diff)+'일 경과',days:diff};
+  if(diff===0)return {tone:'warning',label:'오늘 만료',days:diff};
+  if(diff<=60)return {tone:'warning',label:'D-'+diff,days:diff};
+  return {tone:'normal',label:'D-'+diff,days:diff};
+}
+
+function getClientDetailPendingDocMeta(pendingDocs){
+  const validDocs=(pendingDocs||[]).filter(doc=>doc?.due_date);
+  if(!validDocs.length)return {overdueCount:0,nearestLabel:'회수 일정 미정'};
+  const today=toDate(getHomeBaseDate());
+  const sorted=validDocs
+    .map(doc=>({
+      dueDate:toDate(doc.due_date),
+      dueLabel:doc.due_date
+    }))
+    .filter(item=>item.dueDate)
+    .sort((a,b)=>a.dueDate-b.dueDate);
+  const overdueCount=sorted.filter(item=>item.dueDate<today).length;
+  return {
+    overdueCount,
+    nearestLabel:sorted[0]?.dueLabel||'회수 일정 미정'
+  };
+}
+
+function buildClientDetailTimeline(client, clientProjects, clientContracts, clientIssues, pendingDocs){
+  const clientName=client?.name||'거래처';
+  const items=[];
+  clientProjects.forEach(project=>{
+    const projectName=project?.name||'프로젝트';
+    const projectType=project?.type||'유형 미정';
+    const completionTime=isClientProjectCompleted(project)
+      ?(project.actual_end_date||project.updated_at||project.end||project.end_date)
+      :null;
+    if(completionTime){
+      items.push({
+        time:getClientDateValue(completionTime),
+        kind:'프로젝트 완료',
+        title:projectName,
+        sub:clientName+' · '+projectType+' · '+(project.billing_status||'빌링 상태 확인'),
+        action:'openProjModal(\''+project.id+'\',null,null,\'completion\')',
+        tone:'success'
+      });
+      return;
+    }
+    const updatedAt=project?.updated_at||project?.created_at;
+    if(updatedAt){
+      const statusText=project?.status||'상태 확인';
+      const dueText=project?.end||project?.end_date||'종료일 미정';
+      items.push({
+        time:getClientDateValue(updatedAt),
+        kind:project?.updated_at&&project?.created_at&&project.updated_at!==project.created_at?'프로젝트 변경':'프로젝트 등록',
+        title:projectName,
+        sub:clientName+' · '+statusText+' · '+dueText,
+        action:'openProjModal(\''+project.id+'\')',
+        tone:isClientProjectOverdue(project)?'warning':'info'
+      });
+    }
+  });
+  clientContracts.forEach(contract=>{
+    const changedAt=contract?.updated_at||contract?.created_at||contract?.contract_start_date;
+    if(!changedAt)return;
+    const expiryMeta=getClientDetailContractExpiryMeta(contract);
+    items.push({
+      time:getClientDateValue(changedAt),
+      kind:contract?.updated_at&&contract?.created_at&&contract.updated_at!==contract.created_at?'계약 변경':'계약 등록',
+      title:contract?.contract_name||'계약',
+      sub:(contract?.contract_status||'상태 확인')+' · '+(contract?.contract_amount?formatClientDetailCurrency(contract.contract_amount):'금액 미정')+' · '+expiryMeta.label,
+      action:'openContractDetail(\''+contract.id+'\')',
+      tone:expiryMeta.tone==='danger'?'danger':expiryMeta.tone==='warning'?'warning':'info'
+    });
+  });
+  clientIssues.forEach(issue=>{
+    const project=clientProjects.find(item=>item.id===issue?.project_id);
+    const contextLabel=issue?.task_id&&issue?.task_title
+      ?('업무 · '+issue.task_title)
+      :(project?.name?('프로젝트 · '+project.name):'프로젝트 단위');
+    const createdAt=issue?.created_at||issue?.updated_at;
+    if(createdAt){
+      items.push({
+        time:getClientDateValue(createdAt),
+        kind:'이슈 등록',
+        title:issue?.title||'이슈',
+        sub:contextLabel+' · '+(getIssueStatusMeta(issue?.status)?.label||'상태 확인'),
+        action:'openIssueModal(\''+(issue?.project_id||'')+'\',\''+issue.id+'\')',
+        tone:(String(issue?.priority||'').trim()==='high'||issue?.is_pinned)?'danger':'warning'
+      });
+    }
+    const statusChangedAt=getIssueStatusChangedAt(issue);
+    if(isIssueResolvedStatus(issue?.status)&&statusChangedAt&&statusChangedAt!==createdAt){
+      items.push({
+        time:getClientDateValue(statusChangedAt),
+        kind:'이슈 해결',
+        title:issue?.title||'이슈',
+        sub:contextLabel+' · 해결 처리됨',
+        action:'openIssueModal(\''+(issue?.project_id||'')+'\',\''+issue.id+'\')',
+        tone:'success'
+      });
+    }
+  });
+  pendingDocs.forEach(request=>{
+    const relatedProject=clientProjects.find(project=>project.id===request?.project_id);
+    const dueText=request?.due_date?('회수 희망 '+request.due_date):'회수 일정 미정';
+    items.push({
+      time:getClientDateValue(request?.created_at||request?.due_date),
+      kind:'자료 요청',
+      title:request?.title||'자료 요청',
+      sub:(relatedProject?.name||clientName)+' · '+dueText,
+      action:relatedProject
+        ?'openProjModal(\''+relatedProject.id+'\',null,null,\'documents\')'
+        :'openClientDetail(\''+client.id+'\',\'projects\')',
+      tone:request?.due_date&&toDate(request.due_date)<toDate(getHomeBaseDate())?'warning':'info'
+    });
+  });
+  return items
+    .filter(item=>item.time)
+    .sort((a,b)=>b.time-a.time)
+    .slice(0,5);
+}
+
+function getClientDetailDashboardMetrics(client, clientProjects, clientContracts, clientIssues, pendingDocs){
+  const activeProjects=clientProjects.filter(isClientProjectActive);
+  const overdueProjects=clientProjects.filter(isClientProjectOverdue);
+  const completedProjects=clientProjects.filter(isClientProjectCompleted);
+  const unbilledProjects=completedProjects.filter(project=>project?.is_billable&&String(project?.billing_status||'').trim()==='미청구');
+  const openIssues=clientIssues.filter(issue=>isIssueActiveStatus(issue?.status));
+  const urgentIssues=openIssues.filter(issue=>String(issue?.priority||'').trim()==='high'||issue?.is_pinned);
+  const activeContracts=clientContracts.filter(isClientDetailActiveContract);
+  const expiringContracts=activeContracts.filter(contract=>['warning','danger'].includes(getClientDetailContractExpiryMeta(contract).tone));
+  return {
+    activeProjects,
+    overdueProjects,
+    completedProjects,
+    unbilledProjects,
+    openIssues,
+    urgentIssues,
+    activeContracts,
+    expiringContracts,
+    unbilledAmount:unbilledProjects.reduce((sum,project)=>sum+getClientBillingAmount(project),0),
+    pendingDocs,
+    projectBillingTotal:clientProjects.reduce((sum,project)=>sum+getClientBillingAmount(project),0),
+    contractAmountTotal:clientContracts.reduce((sum,contract)=>sum+Number(contract?.contract_amount||0),0),
+    billedContractAmount:clientProjects.reduce((sum,project)=>{
+      if(!project?.billing_amount)return sum;
+      return String(project?.billing_status||'').trim()==='미청구'?sum:sum+Number(project.billing_amount||0);
+    },0)
+  };
+}
+
+function getClientDetailHubSummary(client, metrics, timelineItems){
+  const clientName=client?.name||'이 거래처';
+  if(metrics.overdueProjects.length||metrics.urgentIssues.length){
+    return clientName+'은 지연 프로젝트 '+metrics.overdueProjects.length+'건, 긴급 이슈 '+metrics.urgentIssues.length+'건을 우선 확인해야 합니다.';
+  }
+  if(metrics.unbilledAmount>0||metrics.pendingDocs.length){
+    return clientName+'은 미청구 금액과 자료 요청 후속 확인이 필요한 상태입니다.';
+  }
+  if(metrics.activeProjects.length||metrics.activeContracts.length){
+    return clientName+'은 진행 중 프로젝트와 계약을 중심으로 현재 상태를 점검하면 됩니다.';
+  }
+  if(timelineItems.length){
+    return clientName+'은 최근 활동 위주로 관계 이력과 다음 액션을 확인하면 됩니다.';
+  }
+  return clientName+'은 현재 급한 리스크가 크지 않아 기본 정보와 최근 기록만 점검하면 됩니다.';
+}
+
+function getClientDetailFocusCards(id, clientProjects, clientContracts, timelineItems, metrics){
+  const sortedActiveProjects=[...metrics.activeProjects].sort((a,b)=>{
+    const aEnd=a?.end||a?.end_date||'9999-12-31';
+    const bEnd=b?.end||b?.end_date||'9999-12-31';
+    return String(aEnd).localeCompare(String(bEnd));
+  });
+  const keyProject=metrics.overdueProjects[0]||sortedActiveProjects[0]||clientProjects[0]||null;
+  const keyContract=metrics.expiringContracts[0]||metrics.activeContracts[0]||clientContracts[0]||null;
+  const latestActivity=timelineItems[0]||null;
+  const projectMeta=keyProject
+    ?((keyProject.status||'상태 확인')+' · '+((keyProject.end||keyProject.end_date)||'종료일 미정'))
+    :'진행중인 프로젝트가 없습니다.';
+  const contractMeta=keyContract
+    ?((keyContract.contract_status||'상태 확인')+' · '+getClientDetailContractExpiryMeta(keyContract).label)
+    :'활성 계약이 없습니다.';
+  const activityMeta=latestActivity
+    ?((latestActivity.kind||'최근 활동')+' · '+formatClientDetailRelativeText(latestActivity.time))
+    :'최근 활동 기록이 없습니다.';
+  return [
+    {
+      label:'핵심 프로젝트',
+      value:keyProject?.name||'활성 프로젝트 없음',
+      meta:projectMeta,
+      action:'openClientDetail(\''+id+'\',\'projects\',\'client-project-list-'+id+'\')'
+    },
+    {
+      label:'계약 / 수금 포인트',
+      value:keyContract?.contract_name||'활성 계약 없음',
+      meta:contractMeta,
+      action:'openClientDetail(\''+id+'\',\'contracts\',\'client-contract-summary-'+id+'\')'
+    },
+    {
+      label:'최근 변화',
+      value:latestActivity?.title||'활동 기록 없음',
+      meta:activityMeta,
+      action:'openClientDetail(\''+id+'\',\'updates\')'
+    }
+  ];
+}
+
+function buildClientDetailHubHtml(id, activeTab, client, clientProjects, clientContracts, timelineItems, metrics){
+  const summaryText=getClientDetailHubSummary(client, metrics, timelineItems);
+  const focusCards=getClientDetailFocusCards(id, clientProjects, clientContracts, timelineItems, metrics);
+  const docMeta=getClientDetailPendingDocMeta(metrics.pendingDocs);
+  const quickNav=[
+    {key:'projects',label:'프로젝트',focus:'client-project-summary-'+id},
+    {key:'contracts',label:'계약',focus:'client-contract-summary-'+id},
+    {key:'updates',label:'고객 레포트'},
+    {key:'info',label:'정보 / 메모'}
+  ];
+  const riskText=[
+    metrics.overdueProjects.length?('지연 프로젝트 '+metrics.overdueProjects.length+'건'):null,
+    metrics.urgentIssues.length?('긴급 이슈 '+metrics.urgentIssues.length+'건'):null,
+    metrics.unbilledAmount>0?('미청구 '+formatClientDetailCurrency(metrics.unbilledAmount)):null,
+    docMeta.overdueCount?('회수 지연 자료 '+docMeta.overdueCount+'건'):null
+  ].filter(Boolean).join(' · ')||'현재 큰 리스크 신호는 없습니다.';
+  return '<div class="card client-detail-hub">'
+    +'<div class="client-detail-hub-head">'
+      +'<div><div class="section-label" style="margin-bottom:4px">거래처 운영 허브</div><div class="client-detail-hub-title">지금 이 고객에서 봐야 할 것</div><div class="client-detail-hub-sub">'+esc(summaryText)+'</div></div>'
+      +'<div class="client-detail-hub-aside"><span class="client-detail-hub-kicker">리스크 요약</span><strong>'+esc(riskText)+'</strong></div>'
+    +'</div>'
+    +'<div class="client-detail-quick-nav">'+quickNav.map(item=>
+      '<button type="button" class="client-detail-quick-btn'+(activeTab===item.key?' is-active':'')+'" onclick="openClientDetail(\''+id+'\',\''+item.key+'\''+(item.focus?(',\''+item.focus+'\''):'')+')">'+esc(item.label)+'</button>'
+    ).join('')+'</div>'
+    +'<div class="client-detail-focus-grid">'+focusCards.map(card=>
+      '<button type="button" class="client-detail-focus-card" onclick="'+card.action+'"><span class="client-detail-focus-label">'+esc(card.label)+'</span><strong class="client-detail-focus-value">'+esc(card.value)+'</strong><span class="client-detail-focus-meta">'+esc(card.meta)+'</span></button>'
+    ).join('')+'</div>'
+  +'</div>';
+}
+
+function enhanceClientDetailTimelineDom(dashboardEl, timelineItems){
+  const timelineHeadSub=dashboardEl.querySelector('.client-detail-timeline-sub');
+  if(timelineHeadSub){
+    timelineHeadSub.textContent=timelineItems.length
+      ?('최근 활동 '+timelineItems.length+'건 · 프로젝트, 계약, 이슈 흐름')
+      :'최근 활동이 없습니다.';
+  }
+  const rows=[...dashboardEl.querySelectorAll('.client-detail-timeline-item')];
+  rows.forEach((row,index)=>{
+    const tone=timelineItems[index]?.tone||'info';
+    const kindEl=row.querySelector('.client-detail-timeline-kind');
+    if(kindEl){
+      kindEl.classList.remove('is-info','is-success','is-warning','is-danger');
+      kindEl.classList.add('is-'+tone);
+    }
+  });
+}
+
+function enhanceClientDetailHealthCards(dashboardEl, metrics){
+  const cards=[...dashboardEl.querySelectorAll('.client-detail-health-card')];
+  const notes=[
+    '완료 '+metrics.completedProjects.length+'건 · 활성 계약 '+metrics.activeContracts.length+'건',
+    '긴급 '+metrics.urgentIssues.length+'건 · 프로젝트 전체 이슈 포함',
+    metrics.unbilledProjects.length?('미청구 프로젝트 '+metrics.unbilledProjects.length+'건'):'지금 바로 청구할 프로젝트는 없습니다.',
+    metrics.pendingDocs.length?('가장 빠른 회수 희망일 '+getClientDetailPendingDocMeta(metrics.pendingDocs).nearestLabel):'대기 중인 자료 요청이 없습니다.'
+  ];
+  cards.forEach((card,index)=>{
+    if(!notes[index])return;
+    let noteEl=card.querySelector('.client-detail-health-note');
+    if(!noteEl){
+      noteEl=document.createElement('span');
+      noteEl.className='client-detail-health-note';
+      card.appendChild(noteEl);
+    }
+    noteEl.textContent=notes[index];
+  });
+}
+
+async function enhanceClientDetailDashboard(id, activeTab){
+  const client=clients.find(item=>item.id===id);
+  const dashboardEl=document.querySelector('#detailContent .client-detail-dashboard');
+  if(!client||!dashboardEl)return;
+  const clientProjects=projects.filter(project=>project.client_id===id);
+  const clientContracts=contracts.filter(contract=>contract.client_id===id);
+  let clientIssues=[];
+  try{
+    clientIssues=await fetchClientDetailIssues(clientProjects);
+  }catch(_error){
+    clientIssues=[];
+  }
+  if(currentDetailClientId!==id)return;
+  const pendingDocs=getClientPendingDocsForClient(id);
+  const metrics=getClientDetailDashboardMetrics(client, clientProjects, clientContracts, clientIssues, pendingDocs);
+  const timelineItems=buildClientDetailTimeline(client, clientProjects, clientContracts, clientIssues, pendingDocs);
+  let mainEl=dashboardEl.querySelector('.client-detail-dashboard-main');
+  const healthGrid=dashboardEl.querySelector('.client-detail-health-grid');
+  if(!healthGrid)return;
+  if(!mainEl){
+    mainEl=document.createElement('div');
+    mainEl.className='client-detail-dashboard-main';
+    dashboardEl.insertBefore(mainEl, healthGrid);
+    mainEl.appendChild(healthGrid);
+  }
+  const existingHub=mainEl.querySelector('.client-detail-hub');
+  if(existingHub)existingHub.remove();
+  mainEl.insertAdjacentHTML('afterbegin', buildClientDetailHubHtml(id, activeTab, client, clientProjects, clientContracts, timelineItems, metrics));
+  enhanceClientDetailTimelineDom(dashboardEl, timelineItems);
+  enhanceClientDetailHealthCards(dashboardEl, metrics);
+}
+
+const openClientDetailPhase3B2Base=openClientDetail;
+openClientDetail=async function(id, tab='projects', focusSection=''){
+  await openClientDetailPhase3B2Base(id, tab, focusSection);
+  if(currentDetailClientId!==id)return;
+  await enhanceClientDetailDashboard(id, tab);
+  if(focusSection)focusTargetElement(focusSection);
+};
+
+function buildClientUpdateOverviewHtml(updates){
+  const portalVisibleCount=(updates||[]).filter(update=>update?.is_portal_visible).length;
+  const noticeCount=(updates||[]).filter(update=>(update?.type||'report')==='notice').length;
+  const internalOnlyCount=Math.max(0,(updates||[]).length-portalVisibleCount);
+  const attachmentCount=(updates||[]).filter(update=>update?.file_url).length;
+  return '<div class="client-update-overview">'
+    +'<div><div class="section-label" style="margin-bottom:4px">업데이트 개요</div><div class="client-update-overview-title">고객에게 공유된 내용과 내부 진행 기록</div></div>'
+    +'<div class="client-update-chips">'
+      +'<span class="client-update-chip">전체 '+updates.length+'건</span>'
+      +'<span class="client-update-chip is-public">포털 공개 '+portalVisibleCount+'건</span>'
+      +'<span class="client-update-chip is-private">내부 전용 '+internalOnlyCount+'건</span>'
+      +'<span class="client-update-chip is-notice">공지 '+noticeCount+'건</span>'
+      +(attachmentCount?'<span class="client-update-chip">첨부 '+attachmentCount+'건</span>':'')
+    +'</div>'
+  +'</div>';
+}
+
+const renderUpdateFeedPhase3B3Base=typeof renderUpdateFeed==='function'?renderUpdateFeed:null;
+renderUpdateFeed=function(updates,clientId){
+  const el=document.getElementById('updateFeed');if(!el)return;
+  const clientProjects=projects.filter(project=>project.client_id===clientId);
+  const projectMap=new Map(clientProjects.map(project=>[project.id,project]));
+  const isAssigned=isAdmin||(currentMember&&clientAssignments.some(assign=>assign.client_id===clientId&&assign.member_id===currentMember.id));
+  if(!updates.length){
+    el.innerHTML='<div class="client-update-empty">'
+      +'<div class="client-update-empty-title">아직 기록된 고객 업데이트가 없습니다.</div>'
+      +'<div class="client-update-empty-sub">내부 진행 메모나 고객 공개 레포트를 첫 기록으로 남겨보세요.</div>'
+      +(isAssigned?'<button class="btn primary sm" onclick="openUpdateModal(null,\''+clientId+'\')">첫 업데이트 작성</button>':'')
+    +'</div>';
+    return;
+  }
+  const now=Date.now();
+  const fourteenDays=14*86400000;
+  el.innerHTML=buildClientUpdateOverviewHtml(updates)
+    +'<div class="client-update-list">'+updates.map(update=>{
+      const canEdit=isAdmin||update.created_by===currentUser?.id;
+      const updateType=(update.type||'report')==='notice'?'notice':'report';
+      const relatedProject=update.project_id?projectMap.get(update.project_id):null;
+      const createdAtValue=getClientDateValue(update.created_at||update.updated_at);
+      const isRecent=createdAtValue&&(now-createdAtValue.getTime())<=fourteenDays;
+      const isPortalVisible=!!update.is_portal_visible;
+      return '<div class="client-update-card is-'+updateType+(isPortalVisible?' is-public':' is-private')+'">'
+        +'<div class="client-update-head">'
+          +'<div>'
+            +'<div class="client-update-badges">'
+              +'<span class="badge '+(updateType==='notice'?'badge-blue':'badge-gray')+'">'+(updateType==='notice'?'공지':'레포트')+'</span>'
+              +'<span class="client-update-context '+(isPortalVisible?'is-public':'is-private')+'">'+(isPortalVisible?'고객 공개':'내부 전용')+'</span>'
+              +(relatedProject?'<span class="badge badge-orange">'+esc(relatedProject.name||'연결 프로젝트')+'</span>':'<span class="client-update-context is-neutral">프로젝트 미연결</span>')
+              +(isRecent?'<span class="client-update-context is-recent">최근 2주</span>':'')
+            +'</div>'
+            +'<div class="client-update-title">'+esc(update.title||'업데이트')+'</div>'
+            +'<div class="client-update-meta">'+esc(update.author_name||'작성자')+' · '+formatCommentDate(update.created_at)+'</div>'
+          +'</div>'
+          +(canEdit
+            ?'<div class="client-update-actions">'
+              +'<button class="btn ghost sm" data-id="'+update.id+'" onclick="openUpdateModal(this.dataset.id,\''+clientId+'\')">수정</button>'
+              +'<button class="btn danger sm" data-id="'+update.id+'" onclick="deleteUpdate(this.dataset.id,\''+clientId+'\')">삭제</button>'
+            +'</div>'
+            :'')
+        +'</div>'
+        +(update.content?'<div class="client-update-content">'+esc(update.content)+'</div>':'')
+        +(update.file_url?'<div class="client-update-footer"><a href="'+esc(update.file_url)+'" target="_blank" class="client-update-file">첨부 파일 · '+esc(update.file_label||'파일 열기')+'</a></div>':'')
+      +'</div>';
+    }).join('')+'</div>';
+};
+
+function buildClientPortalSupportHubHtml(client, portalStatusMeta, portalAccessMeta, pendingDocs, clientDocuments, portalAssignees){
+  const pendingDocCount=(pendingDocs||[]).length;
+  const overdueDocCount=(pendingDocs||[]).filter(doc=>doc?.due_date&&toDate(doc.due_date)<toDate(getHomeBaseDate())).length;
+  const documentCount=(clientDocuments||[]).length;
+  const portalEmail=client?.portal_email||client?.contact_email||'미설정';
+  return '<div class="card client-support-hub">'
+    +'<div class="client-support-hub-head">'
+      +'<div><div class="section-label" style="margin-bottom:4px">지원 영역 허브</div><div class="client-support-hub-title">포털, 레포트, 내부 컨텍스트를 한 번에 확인</div><div class="client-support-hub-sub">고객 공개 여부, 최근 포털 사용, 내부 메모와 문서 링크를 함께 읽을 수 있도록 정리했습니다.</div></div>'
+      +'<span class="badge '+(portalStatusMeta.tone==='active'?'badge-blue':portalStatusMeta.tone==='linked'?'badge-orange':'badge-gray')+'">'+esc(portalStatusMeta.label)+'</span>'
+    +'</div>'
+    +'<div class="client-support-hub-grid">'
+      +'<div class="client-support-hub-card"><span class="client-support-hub-label">포털 연락/상태</span><strong>'+esc(portalEmail)+'</strong><span>'+esc(portalAccessMeta.text)+'</span></div>'
+      +'<div class="client-support-hub-card"><span class="client-support-hub-label">자료 요청 연계</span><strong>'+pendingDocCount+'건</strong><span>'+(pendingDocCount?(overdueDocCount?('회수 지연 '+overdueDocCount+'건 포함'):'대기 중 자료 요청 확인 필요'):'대기 중인 자료 요청이 없습니다.')+'</span></div>'
+      +'<div class="client-support-hub-card"><span class="client-support-hub-label">연결 문서 / 담당</span><strong>'+(documentCount?('문서 '+documentCount+'건'):'문서 링크 없음')+'</strong><span>'+(portalAssignees.length?('내부 배정 · '+portalAssignees.join(', ')):'내부 배정이 없습니다.')+'</span></div>'
+    +'</div>'
+  +'</div>';
+}
+
+async function enhanceClientDetailInfoTab(id){
+  const detailContent=document.getElementById('detailContent');
+  const activeTabButton=detailContent?.querySelector('.detail-tab.active');
+  if(!detailContent||!activeTabButton||!activeTabButton.textContent.includes('정보'))return;
+  const client=clients.find(item=>item.id===id);
+  if(!client)return;
+  const tabBar=detailContent.querySelector('.detail-tabs');
+  if(!tabBar)return;
+  const cards=[];
+  let next=tabBar.nextElementSibling;
+  while(next){
+    if(next.classList.contains('card'))cards.push(next);
+    next=next.nextElementSibling;
+  }
+  if(!cards.length)return;
+  const portalStatusMeta=getClientPortalStatusMeta(client);
+  const pendingDocs=getClientPendingDocsForClient(id);
+  const portalAssignees=getAssignedMemberNames(id);
+  const [clientDocuments, portalAccessLogs]=await Promise.all([
+    fetchClientDocuments(id).catch(()=>[]),
+    fetchClientPortalAccessLogs(id).catch(()=>[])
+  ]);
+  if(currentDetailClientId!==id)return;
+  const portalAccessMeta=(portalAccessLogs&&portalAccessLogs.length)
+    ?getClientAccessLogMeta(portalAccessLogs)
+    :getClientAccessLogMeta(client?.portal_last_login_at?[{accessed_at:client.portal_last_login_at,accessor_email:client.portal_last_login_email}]:[]);
+
+  let supportHub=detailContent.querySelector('.client-support-hub');
+  const supportHubHtml=buildClientPortalSupportHubHtml(client, portalStatusMeta, portalAccessMeta, pendingDocs, clientDocuments, portalAssignees);
+  if(!supportHub){
+    tabBar.insertAdjacentHTML('afterend',supportHubHtml);
+    supportHub=detailContent.querySelector('.client-support-hub');
+  }else{
+    supportHub.outerHTML=supportHubHtml;
+    supportHub=detailContent.querySelector('.client-support-hub');
+  }
+
+  if(detailContent.querySelector('.client-support-layout'))return;
+  const layout=document.createElement('div');
+  layout.className='client-support-layout';
+  const primary=document.createElement('div');
+  primary.className='client-support-grid';
+  const secondary=document.createElement('div');
+  secondary.className='client-support-grid is-secondary';
+  const bottom=document.createElement('div');
+  bottom.className='client-support-stack';
+
+  cards.forEach((card,index)=>{
+    card.classList.add('client-support-card');
+    if(index===0){
+      card.classList.add('is-meta');
+      primary.appendChild(card);
+    }else if(index===1){
+      card.classList.add('is-portal');
+      primary.appendChild(card);
+    }else if(index===2){
+      card.classList.add('is-history');
+      secondary.appendChild(card);
+    }else if(index===3){
+      card.classList.add('is-documents');
+      secondary.appendChild(card);
+    }else{
+      card.classList.add('is-memo');
+      bottom.appendChild(card);
+    }
+  });
+
+  layout.appendChild(primary);
+  if(secondary.children.length)layout.appendChild(secondary);
+  if(bottom.children.length)layout.appendChild(bottom);
+  supportHub.insertAdjacentElement('afterend',layout);
+}
+
+const openClientDetailPhase3B3Base=openClientDetail;
+openClientDetail=async function(id, tab='projects', focusSection=''){
+  await openClientDetailPhase3B3Base(id, tab, focusSection);
+  if(currentDetailClientId!==id)return;
+  if(tab==='info'){
+    await enhanceClientDetailInfoTab(id);
+  }
+};
