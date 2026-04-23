@@ -1150,6 +1150,60 @@ input,textarea{border-radius:12px!important}
   color:var(--text2);
   line-height:1.6;
 }
+#pageWeeklyReview .weekly-review-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:16px 0 18px;
+}
+#pageWeeklyReview .weekly-review-mode-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:999px;
+  background:#fff;
+}
+#pageWeeklyReview .weekly-review-mode-btn{
+  border:none;
+  background:transparent;
+  color:var(--text2);
+  font-size:12px;
+  font-weight:800;
+  padding:8px 12px;
+  border-radius:999px;
+  cursor:pointer;
+}
+#pageWeeklyReview .weekly-review-mode-btn.is-active{
+  background:var(--navy);
+  color:#fff;
+  box-shadow:0 6px 16px rgba(15,23,42,.14);
+}
+#pageWeeklyReview .weekly-review-jump-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+}
+#pageWeeklyReview .weekly-review-jump-btn{
+  border:1px solid rgba(148,163,184,.22);
+  background:var(--bg);
+  color:var(--text2);
+  font-size:11px;
+  font-weight:700;
+  padding:7px 10px;
+  border-radius:999px;
+  cursor:pointer;
+}
+#pageWeeklyReview .weekly-review-jump-btn:hover{
+  background:#fff;
+  border-color:rgba(37,99,235,.28);
+  color:var(--blue);
+}
 #pageWeeklyReview .weekly-review-grid{
   grid-template-columns:repeat(3,minmax(0,1fr));
 }
@@ -1175,6 +1229,20 @@ input,textarea{border-radius:12px!important}
   font-size:12px;
   color:var(--text2);
   line-height:1.55;
+}
+#pageWeeklyReview .weekly-review-shell.is-management-mode .weekly-review-card[data-card-key="revenue"],
+#pageWeeklyReview .weekly-review-shell.is-management-mode .weekly-review-card[data-card-key="risks"],
+#pageWeeklyReview .weekly-review-shell.is-management-mode .weekly-review-card[data-card-key="billing"],
+#pageWeeklyReview .weekly-review-shell.is-management-mode .weekly-review-card[data-card-key="customers"]{
+  border-color:rgba(37,99,235,.18)!important;
+  box-shadow:0 16px 30px rgba(15,23,42,.08)!important;
+}
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-card[data-card-key="risks"],
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-card[data-card-key="next"],
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-card[data-card-key="resources"],
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-card[data-card-key="customers"]{
+  border-color:rgba(16,185,129,.18)!important;
+  box-shadow:0 16px 30px rgba(15,23,42,.08)!important;
 }
 #pageWeeklyReview .weekly-review-card-meta{
   min-height:58px;
@@ -1236,6 +1304,18 @@ input,textarea{border-radius:12px!important}
 }
 #pageWeeklyReview .weekly-review-section-group{
   padding:2px 0;
+}
+#pageWeeklyReview .weekly-review-shell.is-management-mode .weekly-review-section[data-section-id="risks"],
+#pageWeeklyReview .weekly-review-shell.is-management-mode .weekly-review-section[data-section-id="billing"]{
+  border-color:rgba(37,99,235,.16)!important;
+  box-shadow:0 16px 30px rgba(15,23,42,.08)!important;
+}
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-section[data-section-id="completed"],
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-section[data-section-id="risks"],
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-section[data-section-id="next"],
+#pageWeeklyReview .weekly-review-shell.is-team-mode .weekly-review-section[data-section-id="documents"]{
+  border-color:rgba(16,185,129,.16)!important;
+  box-shadow:0 16px 30px rgba(15,23,42,.08)!important;
 }
 #pageWeeklyReview .weekly-review-item{
   gap:16px;
@@ -1302,6 +1382,14 @@ input,textarea{border-radius:12px!important}
   }
   #pageWeeklyReview .weekly-review-summary-shell{
     padding:18px;
+  }
+  #pageWeeklyReview .weekly-review-toolbar{
+    align-items:stretch;
+  }
+  #pageWeeklyReview .weekly-review-mode-toggle,
+  #pageWeeklyReview .weekly-review-jump-row{
+    width:100%;
+    justify-content:flex-start;
   }
   #pageWeeklyReview .weekly-review-item-table-grid{
     grid-template-columns:1fr!important;

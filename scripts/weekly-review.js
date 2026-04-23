@@ -1,22 +1,135 @@
 let weeklyReviewWeekOffset=0;
 let weeklyReviewMemberScope='me';
-const WEEKLY_REVIEW_SECTION_DEFAULTS={
-  completed:false,
-  risks:false,
-  next:false,
-  billing:true,
-  documents:true,
-  members:true,
-  comments:true
+const WEEKLY_REVIEW_MODE_STORAGE_KEY='weeklyReviewMode:v1';
+const WEEKLY_REVIEW_SECTION_STATE_STORAGE_KEY='weeklyReviewSectionState:v1';
+const WEEKLY_REVIEW_SECTION_KEYS=['completed','risks','next','billing','documents','members','comments'];
+const WEEKLY_REVIEW_MODE_DEFAULTS={
+  management:{
+    completed:true,
+    risks:false,
+    next:true,
+    billing:false,
+    documents:true,
+    members:true,
+    comments:true
+  },
+  team:{
+    completed:false,
+    risks:false,
+    next:false,
+    billing:true,
+    documents:false,
+    members:true,
+    comments:true
+  }
 };
-let weeklyReviewSectionCollapseState={...WEEKLY_REVIEW_SECTION_DEFAULTS};
+const WEEKLY_REVIEW_JUMP_ITEMS=[
+  {id:'completed',label:'완료'},
+  {id:'risks',label:'리스크'},
+  {id:'next',label:'다음 주'},
+  {id:'billing',label:'청구·수금'},
+  {id:'documents',label:'자료'},
+  {id:'members',label:'멤버'},
+  {id:'comments',label:'코멘트'}
+];
+let weeklyReviewLastRenderPayload=null;
+let weeklyReviewMode=loadStoredWeeklyReviewMode();
+let weeklyReviewSectionCollapseState={...getWeeklyReviewModeDefaults(weeklyReviewMode)};
+
+function normalizeWeeklyReviewMode(mode){
+  return String(mode||'').trim()==='management'?'management':'team';
+}
+function getWeeklyReviewModeDefaults(mode){
+  return {...(WEEKLY_REVIEW_MODE_DEFAULTS[normalizeWeeklyReviewMode(mode)]||WEEKLY_REVIEW_MODE_DEFAULTS.team)};
+}
+function loadStoredWeeklyReviewMode(){
+  try{
+    const stored=localStorage.getItem(WEEKLY_REVIEW_MODE_STORAGE_KEY);
+    return normalizeWeeklyReviewMode(stored);
+  }catch(e){
+    return 'team';
+  }
+}
+function persistWeeklyReviewMode(){
+  try{localStorage.setItem(WEEKLY_REVIEW_MODE_STORAGE_KEY,weeklyReviewMode);}catch(e){}
+}
+function loadStoredWeeklyReviewSectionStates(){
+  try{
+    const raw=localStorage.getItem(WEEKLY_REVIEW_SECTION_STATE_STORAGE_KEY);
+    const parsed=raw?JSON.parse(raw):{};
+    return parsed&&typeof parsed==='object'?parsed:{};
+  }catch(e){
+    return {};
+  }
+}
+function getWeeklyReviewModeSectionState(mode,data){
+  const nextMode=normalizeWeeklyReviewMode(mode);
+  const defaults=getWeeklyReviewModeDefaults(nextMode);
+  const stored=loadStoredWeeklyReviewSectionStates()?.[nextMode];
+  const merged={...defaults,...(stored&&typeof stored==='object'?stored:{})};
+  if(data?.sections?.length){
+    return data.sections.reduce((acc,section)=>{
+      if(section?.id)acc[section.id]=!!merged[section.id];
+      return acc;
+    },{});
+  }
+  return merged;
+}
+function persistWeeklyReviewSectionState(){
+  try{
+    const stored=loadStoredWeeklyReviewSectionStates();
+    stored[weeklyReviewMode]=WEEKLY_REVIEW_SECTION_KEYS.reduce((acc,key)=>{
+      if(Object.prototype.hasOwnProperty.call(weeklyReviewSectionCollapseState,key)){
+        acc[key]=!!weeklyReviewSectionCollapseState[key];
+      }
+      return acc;
+    },{});
+    localStorage.setItem(WEEKLY_REVIEW_SECTION_STATE_STORAGE_KEY,JSON.stringify(stored));
+  }catch(e){}
+}
+function setWeeklyReviewMode(mode){
+  const nextMode=normalizeWeeklyReviewMode(mode);
+  if(nextMode===weeklyReviewMode)return;
+  weeklyReviewMode=nextMode;
+  persistWeeklyReviewMode();
+  weeklyReviewSectionCollapseState=getWeeklyReviewModeSectionState(nextMode,weeklyReviewLastRenderPayload?.data);
+  const scrollTop=window.scrollY||document.documentElement.scrollTop||0;
+  if(weeklyReviewLastRenderPayload){
+    const el=document.getElementById('pageWeeklyReview');
+    if(el){
+      el.innerHTML=renderWeeklyReviewPageMarkup(
+        weeklyReviewLastRenderPayload.rangeLabel,
+        weeklyReviewLastRenderPayload.navLabel,
+        weeklyReviewLastRenderPayload.data.cards,
+        weeklyReviewLastRenderPayload.data.sections
+      );
+      applyWeeklyReviewEmptyStateLabels();
+      requestAnimationFrame(()=>window.scrollTo({top:scrollTop,left:0,behavior:'auto'}));
+      return;
+    }
+  }
+  renderWeeklyReviewPage();
+}
+function jumpToWeeklyReviewSection(sectionId){
+  if(!sectionId)return;
+  if(isWeeklyReviewSectionCollapsed(sectionId)){
+    weeklyReviewSectionCollapseState={
+      ...weeklyReviewSectionCollapseState,
+      [sectionId]:false
+    };
+    persistWeeklyReviewSectionState();
+    applyWeeklyReviewSectionCollapse(sectionId,false);
+  }
+  const target=document.querySelector('#pageWeeklyReview .weekly-review-section[data-section-id="'+sectionId+'"]');
+  if(target)target.scrollIntoView({behavior:'smooth',block:'start'});
+}
 
 function isWeeklyReviewSectionCollapsed(sectionId){
   if(!sectionId)return false;
   if(Object.prototype.hasOwnProperty.call(weeklyReviewSectionCollapseState,sectionId)){
     return !!weeklyReviewSectionCollapseState[sectionId];
   }
-  return !!WEEKLY_REVIEW_SECTION_DEFAULTS[sectionId];
+  return !!getWeeklyReviewModeDefaults(weeklyReviewMode)[sectionId];
 }
 function toggleWeeklyReviewSection(sectionId){
   if(!sectionId)return;
@@ -660,6 +773,84 @@ function toggleWeeklyReviewSection(sectionId,trigger){
   if(applyWeeklyReviewSectionCollapse(sectionId,nextCollapsed))return;
   renderWeeklyReviewPage();
 }
+function renderWeeklyReviewModeToggleMarkup(){
+  return '<div class="weekly-review-mode-toggle" role="tablist" aria-label="주간 리뷰 보기 모드">'
+    +'<button type="button" class="weekly-review-mode-btn'+(weeklyReviewMode==='management'?' is-active':'')+'" onclick="setWeeklyReviewMode(\'management\')">경영 요약</button>'
+    +'<button type="button" class="weekly-review-mode-btn'+(weeklyReviewMode==='team'?' is-active':'')+'" onclick="setWeeklyReviewMode(\'team\')">실무 회의</button>'
+  +'</div>';
+}
+function renderWeeklyReviewQuickJumpMarkup(sections){
+  const availableIds=new Set((Array.isArray(sections)?sections:[]).map(section=>String(section?.id||'')).filter(Boolean));
+  const items=WEEKLY_REVIEW_JUMP_ITEMS.filter(item=>availableIds.has(item.id));
+  if(!items.length)return '';
+  return '<div class="weekly-review-jump-row" aria-label="주간 리뷰 빠른 이동">'
+    +items.map(item=>
+      '<button type="button" class="weekly-review-jump-btn" onclick="jumpToWeeklyReviewSection(\''+item.id+'\')">'+esc(item.label)+'</button>'
+    ).join('')
+  +'</div>';
+}
+function renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards,sections){
+  const modeIsManagement=weeklyReviewMode==='management';
+  const shellClass=modeIsManagement?' is-management-mode':' is-team-mode';
+  const summaryCopy=modeIsManagement
+    ? '이번 주 실적, 리스크, 청구·수금 이슈를 먼저 빠르게 확인하는 경영 요약 화면입니다.'
+    : '완료·지연·다음 주 일정 순으로 액션 아이템을 따라가며 회의를 진행하는 실무 회의 화면입니다.';
+  return '<div class="weekly-review-shell'+shellClass+'">'
+    +'<div class="weekly-review-summary-shell">'
+      +'<div class="weekly-review-head">'
+        +'<div class="weekly-review-title-wrap">'
+          +'<div class="weekly-review-kicker">'+(modeIsManagement?'Management Summary':'Team Meeting')+'</div>'
+          +'<h2 class="section-title">주간 리뷰</h2>'
+          +'<div class="weekly-review-summary-copy">'+esc(summaryCopy)+'</div>'
+          +'<div class="weekly-review-range">'+esc(rangeLabel)+'</div>'
+        +'</div>'
+        +'<div class="month-nav weekly-review-nav">'
+          +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset-1)+')">&#8249;</button>'
+          +'<div class="weekly-review-nav-label">'+esc(navLabel)+'</div>'
+          +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset+1)+')">&#8250;</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="weekly-review-toolbar">'
+        +renderWeeklyReviewModeToggleMarkup()
+        +renderWeeklyReviewQuickJumpMarkup(sections)
+      +'</div>'
+      +'<div class="weekly-review-grid">'
+        +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
+      +'</div>'
+    +'</div>'
+    +'<div class="weekly-review-body">'
+      +'<div class="weekly-review-body-grid">'
+        +(sections||[]).map(renderWeeklyReviewSectionMarkup).join('')
+      +'</div>'
+    +'</div>'
+  +'</div>';
+}
+function renderWeeklyReviewCardMarkup(card){
+  const toneClass=card?.tone?` is-${card.tone}`:'';
+  const badgeText=card?.badge||'';
+  const helperText=card?.helper||'';
+  const cardKey=card?.key?` data-card-key="${esc(card.key)}"`:'';
+  return '<section class="card weekly-review-card"'+cardKey+'>'
+    +'<div class="weekly-review-card-head">'
+      +'<div class="weekly-review-card-title">'+esc(card?.title||'')+'</div>'
+      +(badgeText?'<span class="weekly-review-card-badge">'+esc(badgeText)+'</span>':'')
+    +'</div>'
+    +'<div class="weekly-review-card-value'+toneClass+'">'+esc(card?.value||'-')+'</div>'
+    +(helperText?'<div class="weekly-review-card-helper">'+esc(helperText)+'</div>':'')
+    +'<div class="weekly-review-card-meta">'+esc(card?.meta||'')+'</div>'
+  +'</section>';
+}
+function toggleWeeklyReviewSection(sectionId,trigger){
+  if(!sectionId)return;
+  const nextCollapsed=!isWeeklyReviewSectionCollapsed(sectionId);
+  weeklyReviewSectionCollapseState={
+    ...weeklyReviewSectionCollapseState,
+    [sectionId]:nextCollapsed
+  };
+  persistWeeklyReviewSectionState();
+  if(applyWeeklyReviewSectionCollapse(sectionId,nextCollapsed))return;
+  renderWeeklyReviewPage();
+}
 async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const reviewBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
   const nextBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks+1);
@@ -908,6 +1099,12 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       tone:clientIssueSummary.length?'warning':'success'
     }
   ];
+  if(cards[0])cards[0].key='revenue';
+  if(cards[1])cards[1].key='risks';
+  if(cards[2])cards[2].key='billing';
+  if(cards[3])cards[3].key='next';
+  if(cards[4])cards[4].key='resources';
+  if(cards[5])cards[5].key='customers';
   if(cards[0]){
     cards[0].helper=completedProjects.length
       ? `완료 ${completedProjects.length}건이 이번 주 실적으로 반영됩니다.`
@@ -1140,6 +1337,8 @@ async function renderWeeklyReviewPage(offset){
     sections:[]
   }));
   if(curPage!=='weeklyReview'||weeklyReviewWeekOffset!==requestedOffset)return;
+  weeklyReviewSectionCollapseState=getWeeklyReviewModeSectionState(weeklyReviewMode,data);
+  weeklyReviewLastRenderPayload={rangeLabel,navLabel,data};
   el.innerHTML=renderWeeklyReviewPageMarkup(rangeLabel,navLabel,data.cards,data.sections);
   applyWeeklyReviewEmptyStateLabels();
 }
