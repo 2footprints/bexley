@@ -26,6 +26,8 @@ const GANTT_TASK_PRIORITY_OPTIONS=[
   {value:'medium',label:'보통'},
   {value:'low',label:'낮음'}
 ];
+const GANTT_PROJECT_TASK_TABLE='project_tasks';
+const GANTT_PROJECT_TASK_MIGRATION_FILE='sql/20260423_project_tasks_phase1.sql';
 
 function setGView(v){
   curGView=v;
@@ -1262,6 +1264,18 @@ function getGanttProjectTaskLoadMeta(projectId){
   return ganttProjectTaskLoadMetaByProjectId[key]||{loading:false,error:''};
 }
 
+function getGanttProjectTaskApiPath(queryString){
+  return GANTT_PROJECT_TASK_TABLE+(queryString?('?'+queryString):'');
+}
+
+function isMissingGanttProjectTaskTableError(error){
+  return /Could not find the table 'public\.(project_tasks|tasks)'/i.test(String(error?.message||''));
+}
+
+function getMissingGanttProjectTaskTableMessage(){
+  return GANTT_PROJECT_TASK_TABLE+' 테이블이 라이브 DB에 없습니다. 먼저 '+GANTT_PROJECT_TASK_MIGRATION_FILE+' 을 적용해 주세요.';
+}
+
 function getGanttProjectTasks(projectId){
   const key=String(projectId||'');
   return Array.isArray(ganttProjectTasksByProjectId[key])?ganttProjectTasksByProjectId[key]:[];
@@ -1425,12 +1439,17 @@ async function loadGanttProjectTasks(projectId,force){
     renderGanttDetailPanel(currentData.projs,currentData.schs);
   }
   try{
-    const rows=await api('GET','project_tasks?project_id=eq.'+key+'&select=*&order=sort_order.asc,created_at.asc');
+    const rows=await api('GET',getGanttProjectTaskApiPath('project_id=eq.'+key+'&select=*&order=sort_order.asc,created_at.asc'));
     ganttProjectTasksByProjectId[key]=Array.isArray(rows)?rows:[];
     setGanttProjectTaskLoadMeta(key,{loading:false,error:''});
   }catch(error){
     ganttProjectTasksByProjectId[key]=[];
-    setGanttProjectTaskLoadMeta(key,{loading:false,error:error?.message||'project_tasks 테이블 적용 여부를 확인해 주세요.'});
+    setGanttProjectTaskLoadMeta(key,{
+      loading:false,
+      error:isMissingGanttProjectTaskTableError(error)
+        ?getMissingGanttProjectTaskTableMessage()
+        :(error?.message||GANTT_PROJECT_TASK_TABLE+' 테이블 조회 중 오류가 발생했습니다.')
+    });
   }
   if(String(ganttFocusProjectId||'')===key&&ganttDetailTab==='work'){
     const currentData=getGanttFilteredData();
@@ -1508,9 +1527,9 @@ async function saveProjectTask(){
   };
   try{
     if(taskId){
-      await api('PATCH','project_tasks?id=eq.'+taskId,body);
+      await api('PATCH',getGanttProjectTaskApiPath('id=eq.'+taskId),body);
     }else{
-      await api('POST','project_tasks',{
+      await api('POST',getGanttProjectTaskApiPath(),{
         ...body,
         created_at:nowIso
       });
@@ -1518,7 +1537,9 @@ async function saveProjectTask(){
     closeModal();
     await loadGanttProjectTasks(projectId,true);
   }catch(error){
-    alert('업무 저장 중 오류가 발생했습니다: '+error.message);
+    alert(isMissingGanttProjectTaskTableError(error)
+      ?getMissingGanttProjectTaskTableMessage()
+      :'업무 저장 중 오류가 발생했습니다: '+error.message);
   }
 }
 
@@ -1527,7 +1548,7 @@ async function completeProjectTask(projectId,taskId){
   const task=getGanttProjectTasks(projectKey).find(row=>String(row?.id||'')===String(taskId||''));
   if(!task)return;
   try{
-    await api('PATCH','project_tasks?id=eq.'+taskId,{
+    await api('PATCH',getGanttProjectTaskApiPath('id=eq.'+taskId),{
       status:'완료',
       progress_percent:100,
       actual_done_at:task?.actual_done_at||new Date().toISOString(),
@@ -1535,7 +1556,9 @@ async function completeProjectTask(projectId,taskId){
     });
     await loadGanttProjectTasks(projectKey,true);
   }catch(error){
-    alert('업무 상태를 바꾸는 중 오류가 발생했습니다: '+error.message);
+    alert(isMissingGanttProjectTaskTableError(error)
+      ?getMissingGanttProjectTaskTableMessage()
+      :'업무 상태를 바꾸는 중 오류가 발생했습니다: '+error.message);
   }
 }
 
