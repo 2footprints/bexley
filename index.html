@@ -2658,38 +2658,54 @@ function setPage(page, extra) {
 }
 
 // ── Contract Modal ──
-function openContractModal(eid, preClientId){
+function getNextDateString(dateValue){
+  if(!dateValue)return '';
+  const date=new Date(dateValue);
+  if(Number.isNaN(date.getTime()))return '';
+  date.setDate(date.getDate()+1);
+  return date.toISOString().slice(0,10);
+}
+
+function openContractModal(eid, preClientId, renewalSourceId){
   if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   editingContractId=eid||null;
   const ct=eid?contracts.find(x=>x.id===eid):null;
+  const renewalSource=!eid&&renewalSourceId?contracts.find(x=>x.id===renewalSourceId):null;
+  const base=ct||renewalSource||null;
   const editable=!ct||isAdmin||ct.created_by===currentUser?.id;
-  const cOpts=clients.map(c=>'<option value="'+c.id+'"'+((ct&&ct.client_id===c.id)||(preClientId===c.id)?' selected':'')+'>'+esc(c.name)+'</option>').join('');
+  const selectedClientId=(ct&&ct.client_id)||preClientId||(renewalSource&&renewalSource.client_id)||'';
+  const cOpts=clients.map(c=>'<option value="'+c.id+'"'+(selectedClientId===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
   const statusOpts=['검토중','진행중','완료','해지'].map(s=>'<option '+(ct&&ct.contract_status===s?'selected':'')+'>'+s+'</option>').join('');
-  const isManaged=ct?ct.is_managed===true:true;
+  const isManaged=ct?ct.is_managed===true:(renewalSource?renewalSource.is_managed===true:true);
+  const initialName=ct?ct.contract_name||'':(renewalSource?((renewalSource.contract_name||'')+' (갱신)'):'' );
+  const initialStart=ct?ct.contract_start_date||'':(renewalSource?getNextDateString(renewalSource.contract_end_date):'');
+  const previousContractId=ct?ct.previous_contract_id||'':(renewalSource?renewalSource.id:'');
   document.getElementById('modalArea').innerHTML=
-    +(editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
+    (editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
     +'<div class="modal" style="width:560px"><div class="modal-title">'+(ct?(editable?'계약 수정':'계약 상세'):'계약 추가')+'</div>'
+    +'<input type="hidden" id="ctPreviousContractId" value="'+esc(previousContractId)+'"/>'
     +'<div class="checkbox-row" style="margin-bottom:16px;padding:10px 14px;background:var(--blue-light);border-radius:var(--radius-sm)">'
     +'<input type="checkbox" id="ctManaged" '+(isManaged?'checked':'')+' '+(editable?'':'disabled')+'/>'
     +'<label for="ctManaged" style="font-size:13px;font-weight:700;color:var(--blue)">우리 팀 관리 계약 (계약 탭에 표시)</label></div>'
+    +(renewalSource&&!ct?'<div class="helper-box" style="margin-bottom:16px"><div class="helper-title">갱신 계약 생성</div><div class="helper-text">이전 계약으로 <strong>'+esc(renewalSource.contract_name||'계약')+'</strong>이 연결됩니다.</div></div>':'')
     +'<div class="form-row"><label class="form-label">고객사</label><select id="ctClient" '+(editable?'':'disabled')+'><option value="">고객사 선택</option>'+cOpts+'</select></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">계약명</label><input id="ctName" value="'+esc(ct?ct.contract_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">계약 코드</label><input id="ctCode" value="'+esc(ct?ct.contract_code||'':'')+'" placeholder="예) BX-2026-001" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 유형</label><input id="ctType" value="'+esc(ct?ct.contract_type||'':'')+'" placeholder="예) 감사, 세무자문" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약명</label><input id="ctName" value="'+esc(initialName)+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">계약 코드</label><input id="ctCode" value="'+esc(base?base.contract_code||'':'')+'" placeholder="예) BX-2026-001" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 유형</label><input id="ctType" value="'+esc(base?base.contract_type||'':'')+'" placeholder="예) 감사, 세무자문" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-row"><label class="form-label">상태</label><select id="ctStatus" '+(editable?'':'disabled')+'>'+statusOpts+'</select></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 시작일</label><input type="date" id="ctStart" value="'+(ct?ct.contract_start_date||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 시작일</label><input type="date" id="ctStart" value="'+(initialStart||'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-row"><label class="form-label">계약 종료일</label><input type="date" id="ctEnd" value="'+(ct?ct.contract_end_date||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 금액 (원)</label><input id="ctAmt" type="number" value="'+(ct&&ct.contract_amount?ct.contract_amount:'')+'" placeholder="예) 10000000" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">VAT</label><select id="ctVat" '+(editable?'':'disabled')+'><option value="false" '+(ct&&ct.vat_included===false?'selected':'')+'>VAT 별도</option><option value="true" '+(ct&&ct.vat_included===true?'selected':'')+'>VAT 포함</option></select></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">계약 금액 (원)</label><input id="ctAmt" type="number" value="'+(base&&base.contract_amount?base.contract_amount:'')+'" placeholder="예) 10000000" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">VAT</label><select id="ctVat" '+(editable?'':'disabled')+'><option value="false" '+(base&&base.vat_included===false?'selected':'')+'>VAT 별도</option><option value="true" '+(base&&base.vat_included===true?'selected':'')+'>VAT 포함</option></select></div></div>'
     +'<div class="divider">담당자 정보</div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">우리 측 빌링 담당</label><input id="ctBillingContact" value="'+esc(ct?ct.billing_contact_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">빌링 담당 이메일</label><input id="ctBillingEmail" value="'+esc(ct?ct.billing_contact_email||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">거래처 담당자</label><input id="ctCpContact" value="'+esc(ct?ct.counterparty_contact_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
-    +'<div class="form-row"><label class="form-label">거래처 이메일</label><input id="ctCpEmail" value="'+esc(ct?ct.counterparty_contact_email||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">우리 측 빌링 담당</label><input id="ctBillingContact" value="'+esc(base?base.billing_contact_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">빌링 담당 이메일</label><input id="ctBillingEmail" value="'+esc(base?base.billing_contact_email||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">거래처 담당자</label><input id="ctCpContact" value="'+esc(base?base.counterparty_contact_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">거래처 이메일</label><input id="ctCpEmail" value="'+esc(base?base.counterparty_contact_email||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
     +'<div class="divider">계약 내용</div>'
-    +'<div class="form-row"><label class="form-label">용역 내용</label><textarea id="ctDesc" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(ct?ct.description||'':'')+'</textarea></div>'
-    +'<div class="form-row"><label class="form-label">납품물 / 결과물</label><textarea id="ctDeliv" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(ct?ct.deliverables||'':'')+'</textarea></div>'
-    +'<div class="form-row"><label class="form-label">메모</label><textarea id="ctMemo" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(ct?ct.memo||'':'')+'</textarea></div>'
+    +'<div class="form-row"><label class="form-label">용역 내용</label><textarea id="ctDesc" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(base?base.description||'':'')+'</textarea></div>'
+    +'<div class="form-row"><label class="form-label">납품물 / 결과물</label><textarea id="ctDeliv" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(base?base.deliverables||'':'')+'</textarea></div>'
+    +'<div class="form-row"><label class="form-label">메모</label><textarea id="ctMemo" rows="2" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(base?base.memo||'':'')+'</textarea></div>'
     +'<div class="modal-footer">'
     +(ct&&editable?'<button class="btn danger" data-id="'+ct.id+'" onclick="deleteContract(this.dataset.id)">삭제</button>':'<div></div>')
     +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'
@@ -2720,7 +2736,8 @@ async function saveContract(){
     description:document.getElementById('ctDesc').value.trim()||null,
     deliverables:document.getElementById('ctDeliv').value.trim()||null,
     memo:document.getElementById('ctMemo').value.trim()||null,
-    is_managed:document.getElementById('ctManaged')?.checked||false
+    is_managed:document.getElementById('ctManaged')?.checked||false,
+    previous_contract_id:document.getElementById('ctPreviousContractId')?.value||null
   };
   const wasPage=curPage;
   try{
@@ -2760,12 +2777,151 @@ async function deleteContract(id){
   }catch(e){alert('오류: '+e.message);}
 }
 
+let contractDetailBillingRecords=[];
+let contractDetailDocuments=[];
+
+function getContractDetailAgingMeta(record){
+  const baseValue=record?.billing_date||record?.created_at||'';
+  if(!baseValue)return {days:null,label:'기준일 없음',tone:'normal'};
+  const baseDate=record?.billing_date&&/^\d{4}-\d{2}-\d{2}$/.test(record.billing_date)?toDate(record.billing_date):new Date(baseValue);
+  if(Number.isNaN(baseDate.getTime()))return {days:null,label:'기준일 없음',tone:'normal'};
+  baseDate.setHours(0,0,0,0);
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const days=Math.max(0,Math.floor((today.getTime()-baseDate.getTime())/(1000*60*60*24)));
+  return {
+    days,
+    label:'경과 '+days+'일',
+    tone:days>=60?'danger':days>=30?'warn':'normal'
+  };
+}
+
+function getContractDetailRemainingMeta(contract){
+  if(!contract?.contract_end_date)return {text:'만료일 미설정',tone:'normal'};
+  const end=toDate(contract.contract_end_date);
+  end.setHours(0,0,0,0);
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const diff=Math.floor((end.getTime()-today.getTime())/(1000*60*60*24));
+  if(diff<0)return {text:'만료 D+'+Math.abs(diff),tone:'danger'};
+  if(diff===0)return {text:'오늘 만료',tone:'warn'};
+  if(diff<=60)return {text:'D-'+diff,tone:'warn'};
+  return {text:'D-'+diff,tone:'normal'};
+}
+
+function buildContractReminderText(record, contract, client){
+  const contactName=client?.contact_name||contract?.counterparty_contact_name||'담당자';
+  const amount=Number(record?.amount||0).toLocaleString()+'원';
+  const billingDate=record?.billing_date||'청구일 미지정';
+  const expectedDate=record?.expected_collection_date?'예상 수금일은 '+record.expected_collection_date+'로 확인하고 있습니다. ':'';
+  return ''
+    +'[리마인드 메일 초안]\n\n'
+    +'안녕하세요 '+contactName+'님,\n'
+    +(client?.name?client.name+' ':'')
+    +(contract?.contract_name||'계약')+' 관련 청구 건('+amount+', 청구일 '+billingDate+') 확인 부탁드립니다.\n'
+    +expectedDate
+    +'수금 일정이나 확인 상태를 회신 주시면 감사하겠습니다.';
+}
+
+function getContractDocumentCategoryOptions(selected=''){
+  return ['','계약서','세금계산서','정산자료','가이드','기타']
+    .map(option=>'<option value="'+option+'"'+(selected===option?' selected':'')+'>'+(option||'카테고리 선택')+'</option>')
+    .join('');
+}
+
+function openRenewalContractFromDetail(contractId){
+  const ct=contracts.find(x=>x.id===contractId);
+  if(!ct)return;
+  openContractModal(null,ct.client_id,contractId);
+}
+
+function openContractBillingReminderModal(recordId, contractId){
+  const record=contractDetailBillingRecords.find(item=>item.id===recordId);
+  if(!record)return;
+  const contract=contracts.find(item=>item.id===record.contract_id)||contracts.find(item=>item.id===contractId)||null;
+  const client=clients.find(item=>item.id===contract?.client_id)||null;
+  const text=buildContractReminderText(record,contract,client);
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal" style="width:560px"><div class="modal-title">리마인드 메일 생성</div>'
+    +'<div class="form-row"><label class="form-label">거래처</label><input value="'+esc(client?.name||'거래처 미지정')+'" readonly style="background:var(--bg)"/></div>'
+    +'<div class="form-row"><label class="form-label">계약</label><input value="'+esc(contract?.contract_name||'계약명 없음')+'" readonly style="background:var(--bg)"/></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">청구 금액</label><input value="'+esc(Number(record.amount||0).toLocaleString()+'원')+'" readonly style="background:var(--bg)"/></div>'
+    +'<div class="form-row"><label class="form-label">예상 수금일</label><input value="'+esc(record.expected_collection_date||'-')+'" readonly style="background:var(--bg)"/></div></div>'
+    +'<div class="form-row"><label class="form-label">문안</label><textarea id="contractReminderText" rows="9" class="copy-area">'+esc(text)+'</textarea></div>'
+    +'<div class="modal-footer"><div class="muted">문안을 복사하면 마지막 리마인드 시각이 함께 기록됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn primary" onclick="copyContractBillingReminder(\''+recordId+'\',\''+(contractId||record.contract_id||'')+'\')">문안 복사</button></div></div>'
+    +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
+}
+
+async function copyContractBillingReminder(recordId, contractId){
+  const record=contractDetailBillingRecords.find(item=>item.id===recordId);
+  if(!record)return;
+  const text=document.getElementById('contractReminderText')?.value||buildContractReminderText(record,contracts.find(item=>item.id===record.contract_id),clients.find(item=>item.id===contracts.find(contract=>contract.id===record.contract_id)?.client_id));
+  await copyText(text);
+  const remindedAt=new Date().toISOString();
+  try{
+    await api('PATCH','billing_records?id=eq.'+recordId,{last_reminder_at:remindedAt});
+    const target=contractDetailBillingRecords.find(item=>item.id===recordId);
+    if(target)target.last_reminder_at=remindedAt;
+    if(typeof invalidateContractBillingRecordsCache==='function')invalidateContractBillingRecordsCache();
+  }catch(e){}
+  closeModal();
+  await openContractDetail(contractId||record.contract_id);
+}
+
+function openContractDocumentModal(contractId, docId){
+  const doc=docId?contractDetailDocuments.find(item=>item.id===docId):null;
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal" style="width:500px"><div class="modal-title">'+(doc?'계약 문서 수정':'계약 문서 추가')+'</div>'
+    +'<div class="form-row"><label class="form-label">제목</label><input id="contractDocTitle" value="'+esc(doc?.title||'')+'" placeholder="예) 계약서 원본"/></div>'
+    +'<div class="form-row"><label class="form-label">링크</label><input id="contractDocUrl" value="'+esc(doc?.url||'')+'" placeholder="https://..."/></div>'
+    +'<div class="form-row"><label class="form-label">카테고리</label><select id="contractDocCategory">'+getContractDocumentCategoryOptions(doc?.category||'')+'</select></div>'
+    +'<div class="modal-footer">'
+    +(doc?'<button class="btn danger" onclick="deleteContractDocument(\''+contractId+'\',\''+doc.id+'\')">삭제</button>':'<div></div>')
+    +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveContractDocument(\''+contractId+'\',\''+(docId||'')+'\')">저장</button></div></div>'
+    +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
+}
+
+async function saveContractDocument(contractId, docId){
+  const title=document.getElementById('contractDocTitle')?.value.trim()||'';
+  const url=document.getElementById('contractDocUrl')?.value.trim()||'';
+  if(!title||!url){alert('문서 제목과 링크를 입력해주세요.');return;}
+  const body={
+    contract_id:contractId,
+    title,
+    url,
+    category:document.getElementById('contractDocCategory')?.value||null
+  };
+  try{
+    if(docId)await api('PATCH','contract_documents?id=eq.'+docId,body);
+    else await api('POST','contract_documents',{...body,created_by:currentUser?.id||null});
+    closeModal();
+    await openContractDetail(contractId);
+  }catch(e){alert('문서 저장 오류: '+e.message);}
+}
+
+async function deleteContractDocument(contractId, docId){
+  if(!confirm('문서 링크를 삭제할까요?'))return;
+  try{
+    await api('DELETE','contract_documents?id=eq.'+docId);
+    closeModal();
+    await openContractDetail(contractId);
+  }catch(e){alert('문서 삭제 오류: '+e.message);}
+}
+
 async function openContractDetail(id){
   const ct=contracts.find(x=>x.id===id);if(!ct)return;
   const client=clients.find(c=>c.id===ct.client_id);
   const ctProjs=projects.filter(p=>p.contract_id===id);
   const totalAmt=ct.contract_amount?Number(ct.contract_amount):0;
   const stCls='cst-'+(ct.contract_status||'검토중');
+  const previousContract=ct.previous_contract_id?contracts.find(item=>item.id===ct.previous_contract_id):null;
+  const remainingMeta=getContractDetailRemainingMeta(ct);
 
   // 뒤로가기 버튼 설정
   const backBtn=document.getElementById('contractBack');
@@ -2777,11 +2933,20 @@ async function openContractDetail(id){
   // billing_records 로드
   let billingRecs=[];
   try{billingRecs=await api('GET','billing_records?contract_id=eq.'+id+'&select=*&order=billing_date.desc')||[];}catch(e){}
+  let contractDocs=[];
+  try{contractDocs=await api('GET','contract_documents?contract_id=eq.'+id+'&select=*&order=created_at.desc')||[];}catch(e){}
+  contractDetailBillingRecords=billingRecs;
+  contractDetailDocuments=contractDocs;
 
   const billedAmt=billingRecs.reduce((s,r)=>s+Number(r.amount||0),0);
   const collectedAmt=billingRecs.filter(r=>r.status==='수금완료').reduce((s,r)=>s+Number(r.amount||0),0);
+  const receivableAmt=Math.max(0,billedAmt-collectedAmt);
   const unbilledAmt=Math.max(0,totalAmt-billedAmt);
   const pct=totalAmt>0?Math.min(100,Math.round(billedAmt/totalAmt*100)):0;
+  const waterfallBase=Math.max(totalAmt,billedAmt,collectedAmt,1);
+  const collectedPct=Math.round((collectedAmt/waterfallBase)*100);
+  const receivablePct=Math.round((receivableAmt/waterfallBase)*100);
+  const unbilledPct=Math.round((unbilledAmt/waterfallBase)*100);
 
   const projRows=ctProjs.map(p=>{
     const od=toDate(p.end)<new Date()&&p.status!=='완료';
@@ -2801,16 +2966,28 @@ async function openContractDetail(id){
   const billingRows=billingRecs.length
     ?billingRecs.map(r=>{
       const isCollected=r.status==='수금완료';
-      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:6px">'
-        +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:13px;font-weight:600;color:var(--navy)">'+Number(r.amount).toLocaleString()+'원</div>'
-        +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(r.billing_date||'날짜미지정')+(r.memo?' · '+esc(r.memo):'')+'</div>'
+      const agingMeta=getContractDetailAgingMeta(r);
+      return '<div class="contract-detail-billing-item is-'+agingMeta.tone+'">'
+        +'<div class="contract-detail-billing-head">'
+          +'<div><div class="contract-detail-billing-amount">'+Number(r.amount||0).toLocaleString()+'원</div><div class="contract-detail-billing-date">'+(r.billing_date||'청구일 미지정')+(r.memo?' · '+esc(r.memo):'')+'</div></div>'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge '+(isCollected?'badge-green':'badge-orange')+'">'+(isCollected?'수금완료':'미수금')+'</span><span class="contract-detail-aging is-'+agingMeta.tone+'">'+agingMeta.label+'</span></div>'
         +'</div>'
-        +'<button onclick="toggleBillingStatus(\''+r.id+'\',\''+id+'\',\''+r.status+'\')" style="padding:4px 10px;border-radius:6px;border:1px solid '+(isCollected?'var(--green)':'var(--border2)')+';background:'+(isCollected?'var(--green-bg)':'transparent')+';color:'+(isCollected?'var(--green)':'var(--text3)')+';font-size:11px;font-weight:700;cursor:pointer;transition:all .15s">'+(isCollected?'✓ 수금완료':'미수금')+'</button>'
-        +(isAdmin?'<button onclick="deleteBillingRecord(\''+r.id+'\',\''+id+'\')" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>':'')
+        +'<div class="contract-detail-billing-meta">'
+          +'<span>예상 수금일 '+esc(r.expected_collection_date||'-')+'</span>'
+          +'<span>마지막 리마인드 '+esc(r.last_reminder_at?formatCommentDate(r.last_reminder_at):'-')+'</span>'
+        +'</div>'
+        +'<div class="contract-detail-billing-actions">'
+          +(!isCollected?'<button class="btn sm" onclick="openContractBillingReminderModal(\''+r.id+'\',\''+id+'\')">리마인드 메일</button>':'')
+          +'<button class="btn '+(isCollected?'ghost':'primary')+' sm" onclick="toggleBillingStatus(\''+r.id+'\',\''+id+'\',\''+r.status+'\')">'+(isCollected?'미수금으로':'수금 완료')+'</button>'
+          +'<button class="btn ghost sm" onclick="openBillingRecordModal(\''+id+'\',\''+r.id+'\')">수정</button>'
+          +(isAdmin?'<button class="btn ghost sm" onclick="deleteBillingRecord(\''+r.id+'\',\''+id+'\')">삭제</button>':'')
+        +'</div>'
         +'</div>';
     }).join('')
     :'<div style="color:var(--text3);font-size:13px;padding:8px 0">청구 내역이 없습니다.</div>';
+  const documentRows=contractDocs.length
+    ?'<div class="contract-detail-doc-list">'+contractDocs.map(doc=>'<div class="contract-detail-doc-item"><div class="contract-detail-doc-main"><div class="contract-detail-doc-title">'+esc(doc.title||'문서')+'</div><div class="contract-detail-doc-meta">'+esc(doc.category||'카테고리 없음')+'</div></div><div class="contract-detail-doc-actions"><a class="btn sm" href="'+esc(doc.url||'#')+'" target="_blank" rel="noopener noreferrer">문서 열기</a>'+(canManageCore()?'<button class="btn ghost sm" onclick="openContractDocumentModal(\''+id+'\',\''+doc.id+'\')">수정</button>':'')+'</div></div>').join('')+'</div>'
+    :'<div class="contract-detail-empty">등록된 계약 문서가 없습니다.</div>';
 
   document.getElementById('contractContent').innerHTML=
     '<div class="detail-hero">'
@@ -2830,11 +3007,13 @@ async function openContractDetail(id){
     +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">계약 총액</div><div style="font-size:22px;font-weight:900;color:var(--navy)">'+(totalAmt?totalAmt.toLocaleString():'미입력')+'원</div></div>'
     +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">청구 합계</div><div style="font-size:22px;font-weight:900;color:var(--blue)">'+billedAmt.toLocaleString()+'원</div></div>'
     +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">수금 완료</div><div style="font-size:22px;font-weight:900;color:var(--green)">'+collectedAmt.toLocaleString()+'원</div></div>'
-    +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">미수금</div><div style="font-size:22px;font-weight:900;color:'+(billedAmt-collectedAmt>0?'var(--orange)':'var(--text3)')+'">'+Math.max(0,billedAmt-collectedAmt).toLocaleString()+'원</div></div>'
+    +'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">미수금</div><div style="font-size:22px;font-weight:900;color:'+(receivableAmt>0?'var(--orange)':'var(--text3)')+'">'+receivableAmt.toLocaleString()+'원</div></div>'
     +(totalAmt?'<div><div style="font-size:11px;color:var(--text3);margin-bottom:3px">미청구 잔액</div><div style="font-size:22px;font-weight:900;color:'+(unbilledAmt>0?'var(--red)':'var(--text3)')+'">'+unbilledAmt.toLocaleString()+'원</div></div>':'')
     +'</div>'
     +(totalAmt?'<div style="background:var(--bg);border-radius:20px;height:8px;overflow:hidden;margin-bottom:4px"><div style="width:'+pct+'%;height:100%;border-radius:20px;transition:width .6s;background:linear-gradient(90deg,var(--blue),var(--purple))"></div></div>'
-    +'<div style="font-size:11px;color:var(--text3);text-align:right">'+pct+'% 청구 완료</div>':'')
+    +'<div style="font-size:11px;color:var(--text3);text-align:right;margin-bottom:12px">'+pct+'% 청구 완료</div>':'')
+    +'<div class="contract-detail-waterfall"><div class="contract-detail-waterfall-segment is-collected" style="width:'+collectedPct+'%"></div><div class="contract-detail-waterfall-segment is-receivable" style="width:'+receivablePct+'%"></div><div class="contract-detail-waterfall-segment is-unbilled" style="width:'+unbilledPct+'%"></div></div>'
+    +'<div class="contract-detail-waterfall-legend"><span><i class="contract-detail-dot is-collected"></i>수금 완료 '+collectedAmt.toLocaleString()+'원</span><span><i class="contract-detail-dot is-receivable"></i>미수금 '+receivableAmt.toLocaleString()+'원</span><span><i class="contract-detail-dot is-unbilled"></i>미청구 '+unbilledAmt.toLocaleString()+'원</span></div>'
     +'</div>'
 
     // 청구 내역
@@ -2844,6 +3023,11 @@ async function openContractDetail(id){
     +'<button class="btn primary sm" onclick="openBillingRecordModal(\''+id+'\')">+ 청구 추가</button>'
     +'</div>'
     +billingRows
+    +'</div>'
+
+    +'<div class="detail-grid" style="margin-bottom:14px">'
+    +'<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px"><div class="section-label" style="margin:0">계약 문서</div>'+(canManageCore()?'<button class="btn primary sm" onclick="openContractDocumentModal(\''+id+'\')">+ 문서 추가</button>':'')+'</div>'+documentRows+'</div>'
+    +'<div class="card"><div class="section-label">갱신 관리</div><div class="contract-detail-renewal-box"><div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">만료까지</span><span class="contract-detail-aging is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span></div>'+(previousContract?'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">이전 계약</span><button class="btn ghost sm" onclick="openContractDetail(\''+previousContract.id+'\')">'+esc(previousContract.contract_name||'계약')+'</button></div>':'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">이전 계약</span><span class="muted">연결된 이전 계약 없음</span></div>')+'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">갱신 작업</span><button class="btn primary sm" onclick="openRenewalContractFromDetail(\''+id+'\')">갱신 계약 생성</button></div></div></div>'
     +'</div>'
 
     // 계약 정보
@@ -2877,24 +3061,28 @@ async function openContractDetail(id){
 
 // ── 청구 내역 관리 ──
 function openBillingRecordModal(contractId, editId){
+  const rec=editId?contractDetailBillingRecords.find(item=>item.id===editId):null;
   const today=new Date().toISOString().slice(0,10);
   document.getElementById('modalArea').innerHTML=
     getInputModalOverlayHtml()
     +'<div class="modal" style="width:420px"><div class="modal-title">'+(editId?'청구 내역 수정':'청구 추가')+'</div>'
     +'<div class="form-half">'
-    +'<div class="form-row"><label class="form-label">청구 금액 (원)</label><input id="brAmt" type="number" placeholder="예) 5000000" autofocus/></div>'
-    +'<div class="form-row"><label class="form-label">청구일</label><input id="brDate" type="date" value="'+today+'"/></div>'
+    +'<div class="form-row"><label class="form-label">청구 금액 (원)</label><input id="brAmt" type="number" value="'+(rec&&rec.amount?rec.amount:'')+'" placeholder="예) 5000000" autofocus/></div>'
+    +'<div class="form-row"><label class="form-label">청구일</label><input id="brDate" type="date" value="'+(rec?rec.billing_date||today:today)+'"/></div>'
     +'</div>'
     +'<div class="form-row"><label class="form-label">상태</label>'
-    +'<select id="brStatus"><option value="미수금">미수금</option><option value="수금완료">수금완료</option></select></div>'
-    +'<div class="form-row"><label class="form-label">메모</label><input id="brMemo" placeholder="세금계산서 번호, 비고 등"/></div>'
+    +'<select id="brStatus"><option value="미수금" '+(rec&&rec.status==='미수금'?'selected':'')+'>미수금</option><option value="수금완료" '+(rec&&rec.status==='수금완료'?'selected':'')+'>수금완료</option></select></div>'
+    +'<div class="form-row"><label class="form-label">예상 수금일</label><input id="brExpectedDate" type="date" value="'+(rec?rec.expected_collection_date||'':'')+'"/></div>'
+    +'<div class="form-row"><label class="form-label">메모</label><input id="brMemo" value="'+esc(rec?rec.memo||'':'')+'" placeholder="세금계산서 번호, 비고 등"/></div>'
     +'<div class="modal-footer"><div></div>'
     +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button>'
-    +'<button class="btn primary" data-cid="'+(contractId||'')+'" onclick="saveBillingRecord(this.dataset.cid)">저장</button>'
+    +'<button class="btn primary" data-cid="'+(contractId||'')+'" data-id="'+(editId||'')+'" onclick="saveBillingRecord(this.dataset.cid,this.dataset.id)">저장</button>'
     +'</div></div></div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
 }
 
-async function saveBillingRecord(contractId){
+async function saveBillingRecord(contractId, editId){
   const amt=document.getElementById('brAmt').value;
   if(!amt||isNaN(amt)){alert('금액을 입력해주세요.');return;}
   const body={
@@ -2902,10 +3090,12 @@ async function saveBillingRecord(contractId){
     amount:parseInt(amt),
     billing_date:document.getElementById('brDate').value||null,
     status:document.getElementById('brStatus').value,
+    expected_collection_date:document.getElementById('brExpectedDate').value||null,
     memo:document.getElementById('brMemo').value.trim()||null
   };
   try{
-    await api('POST','billing_records',body);
+    if(editId)await api('PATCH','billing_records?id=eq.'+editId,body);
+    else await api('POST','billing_records',body);
     if(typeof invalidateContractBillingRecordsCache==='function')invalidateContractBillingRecordsCache();
     closeModal();
     await openContractDetail(contractId);

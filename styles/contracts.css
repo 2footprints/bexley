@@ -166,3 +166,46 @@
   .contract-list-wrap{overflow-x:auto}
   .contract-list-table{min-width:1240px}
 }
+
+.contract-detail-waterfall{display:flex;align-items:stretch;height:12px;border-radius:999px;overflow:hidden;background:var(--bg);margin-bottom:10px}
+.contract-detail-waterfall-segment{height:100%}
+.contract-detail-waterfall-segment.is-collected{background:linear-gradient(90deg,var(--green),#34d399)}
+.contract-detail-waterfall-segment.is-receivable{background:linear-gradient(90deg,var(--orange),#f97316)}
+.contract-detail-waterfall-segment.is-unbilled{background:linear-gradient(90deg,var(--red),#fb7185)}
+.contract-detail-waterfall-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text3);line-height:1.5}
+.contract-detail-waterfall-legend span{display:inline-flex;align-items:center;gap:6px}
+.contract-detail-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+.contract-detail-dot.is-collected{background:var(--green)}
+.contract-detail-dot.is-receivable{background:var(--orange)}
+.contract-detail-dot.is-unbilled{background:var(--red)}
+
+.contract-detail-billing-item{padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px}
+.contract-detail-billing-item.is-warn{border-color:rgba(245,158,11,.24);background:rgba(255,247,237,.7)}
+.contract-detail-billing-item.is-danger{border-color:rgba(239,68,68,.24);background:rgba(255,241,240,.8)}
+.contract-detail-billing-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.contract-detail-billing-amount{font-size:14px;font-weight:800;color:var(--navy)}
+.contract-detail-billing-date{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5}
+.contract-detail-billing-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--text2);line-height:1.5}
+.contract-detail-billing-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px}
+.contract-detail-aging{display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#fff;border:1px solid var(--border);color:var(--text3)}
+.contract-detail-aging.is-warn{background:var(--orange-bg);border-color:rgba(245,158,11,.18);color:var(--orange)}
+.contract-detail-aging.is-danger{background:var(--red-bg);border-color:rgba(239,68,68,.18);color:var(--red)}
+.contract-detail-aging.is-normal{color:var(--text3)}
+
+.contract-detail-doc-list{display:flex;flex-direction:column;gap:8px}
+.contract-detail-doc-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.contract-detail-doc-main{min-width:0;flex:1}
+.contract-detail-doc-title{font-size:13px;font-weight:700;color:var(--navy);line-height:1.45}
+.contract-detail-doc-meta{font-size:11px;color:var(--text3);margin-top:4px}
+.contract-detail-doc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.contract-detail-empty{padding:18px 14px;border-radius:var(--radius-sm);background:var(--bg);font-size:12px;color:var(--text3);text-align:center}
+
+.contract-detail-renewal-box{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.contract-detail-renewal-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.contract-detail-renewal-label{font-size:12px;font-weight:700;color:var(--text2)}
+
+@media(max-width:768px){
+  .contract-detail-billing-head{flex-direction:column;align-items:flex-start}
+  .contract-detail-billing-actions,.contract-detail-doc-actions{justify-content:flex-start}
+  .contract-detail-doc-item,.contract-detail-renewal-row{flex-direction:column;align-items:flex-start}
+}
