@@ -396,6 +396,220 @@ td{
   border-color:rgba(15,23,42,.14)!important;
   background:#F8FAFC!important;
 }
+.gantt-detail-tabbar{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+  margin:0 0 16px!important;
+}
+.gantt-detail-tab{
+  border:1px solid var(--border)!important;
+  background:#fff!important;
+  color:var(--text2)!important;
+  border-radius:999px!important;
+  padding:8px 14px!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  cursor:pointer!important;
+  font-family:inherit!important;
+  transition:all .15s ease!important;
+}
+.gantt-detail-tab:hover{
+  background:#F8FAFC!important;
+  border-color:rgba(15,23,42,.12)!important;
+}
+.gantt-detail-tab.active{
+  background:#0F172A!important;
+  border-color:#0F172A!important;
+  color:#fff!important;
+}
+.gantt-detail-pane{
+  display:grid!important;
+  gap:14px!important;
+}
+.gantt-detail-grid--overview{
+  margin-bottom:0!important;
+}
+.gantt-detail-summary-card,
+.gantt-detail-work-card{
+  padding:14px!important;
+  border:1px solid var(--border)!important;
+  border-radius:16px!important;
+  background:var(--bg)!important;
+}
+.gantt-detail-summary-card.is-warn{
+  border-color:rgba(245,158,11,.18)!important;
+  background:#FFF7ED!important;
+}
+.gantt-detail-meta{
+  font-size:11px!important;
+  color:var(--text3)!important;
+  margin-top:6px!important;
+  line-height:1.55!important;
+}
+.gantt-detail-work-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+}
+.gantt-detail-section--flush{
+  margin-top:0!important;
+  padding-top:0!important;
+  border-top:none!important;
+}
+.gantt-detail-note-grid{
+  display:grid!important;
+  gap:10px!important;
+}
+.gantt-detail-note-card{
+  width:100%!important;
+  border:1px solid var(--border)!important;
+  border-radius:14px!important;
+  background:var(--bg)!important;
+  padding:12px 14px!important;
+  text-align:left!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+  transition:border-color .15s ease, background .15s ease, transform .15s ease!important;
+}
+.gantt-detail-note-card:hover{
+  border-color:rgba(15,23,42,.14)!important;
+  background:#F8FAFC!important;
+  transform:translateY(-1px)!important;
+}
+.gantt-detail-note-label{
+  font-size:11px!important;
+  font-weight:800!important;
+  color:var(--text3)!important;
+  text-transform:uppercase!important;
+  letter-spacing:.03em!important;
+}
+.gantt-detail-note-text{
+  margin-top:8px!important;
+  font-size:12px!important;
+  color:var(--text2)!important;
+  line-height:1.7!important;
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+  overflow:hidden!important;
+}
+.project-modal{
+  max-width:min(760px,calc(100vw - 32px))!important;
+}
+.project-modal-intro{
+  margin-bottom:14px;
+  padding:12px 14px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:16px;
+  background:#F8FAFC;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.65;
+}
+.project-modal-tabs{
+  margin-bottom:16px!important;
+}
+.project-modal-tab-secondary{
+  color:#94A3B8!important;
+}
+.project-modal-basic .form-row{
+  margin-bottom:14px!important;
+}
+.project-basic-grid{
+  align-items:start;
+}
+.project-contract-link{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:-2px 0 12px;
+  padding:10px 12px;
+  border:1px solid rgba(49,130,246,.14);
+  border-radius:14px;
+  background:#F8FBFF;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.5;
+}
+.project-contract-link strong{
+  color:var(--navy);
+  font-size:12px;
+  font-weight:800;
+}
+.project-contract-link span{
+  white-space:nowrap;
+}
+.project-contract-link-kicker{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#EAF2FF;
+  color:var(--blue);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.02em;
+}
+.project-modal-memo{
+  min-height:76px;
+  resize:vertical;
+}
+.project-modal-collapsible{
+  margin-top:12px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#FBFCFE;
+  overflow:hidden;
+}
+.project-modal-collapsible summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  cursor:pointer;
+  list-style:none;
+  font-size:13px;
+  font-weight:800;
+  color:var(--navy);
+}
+.project-modal-collapsible summary::-webkit-details-marker{
+  display:none;
+}
+.project-modal-collapsible summary span{
+  font-size:11px;
+  font-weight:700;
+  color:var(--text3);
+}
+.project-modal-collapsible[open] summary{
+  border-bottom:1px solid var(--border);
+  background:#F8FAFC;
+}
+.project-modal-collapsible-body{
+  padding:14px 16px 16px;
+}
+.project-hours-input{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.project-hours-input span{
+  font-size:12px;
+  color:var(--text3);
+  font-weight:700;
+  white-space:nowrap;
+}
+.project-conflict-warn{
+  padding:8px 12px!important;
+  margin-top:0!important;
+  font-size:11px!important;
+  line-height:1.45!important;
+  border:1px solid rgba(239,68,68,.12)!important;
+}
 .gantt-list-view{
   display:grid!important;
   gap:12px!important;
@@ -618,8 +832,13 @@ td{
 
 @media (max-width: 720px){
   .gantt-overview,
-  .gantt-detail-grid{
+  .gantt-detail-grid,
+  .gantt-detail-work-grid{
     grid-template-columns:1fr!important;
+  }
+  .gantt-detail-tab{
+    flex:1 1 calc(50% - 4px)!important;
+    justify-content:center!important;
   }
   .gantt-top-filter-bar{flex-direction:column!important;align-items:stretch!important}
   .gantt-top-filter-group{align-items:flex-start!important}
@@ -790,4 +1009,22 @@ td{
 }
 .gantt-calendar-item.more:hover{
   transform:none;
+}
+
+@media(max-width:768px){
+  .project-modal{
+    max-width:calc(100vw - 16px)!important;
+  }
+  .project-contract-link{
+    gap:6px;
+    padding:10px 12px;
+  }
+  .project-contract-link span,
+  .project-contract-link strong{
+    white-space:normal;
+  }
+  .project-modal-collapsible summary{
+    flex-direction:column;
+    align-items:flex-start;
+  }
 }

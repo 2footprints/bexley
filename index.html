@@ -3774,42 +3774,56 @@ function renderProjModal(p,editable,preClientId,preContractId){
 
   document.getElementById('modalArea').innerHTML=`
     ${editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">'}
-      <div class="modal" style="width:560px">
+      <div class="modal project-modal ui-modal-680" style="width:680px">
         <div class="modal-title">${p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가'}</div>
         ${p?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn primary sm" type="button" onclick="handleProjectOutlookEvent(\''+p.id+'\')">Outlook에 바로 추가</button></div>':''}
-        <div class="modal-tabs">
+        ${editable?'<div class="project-modal-intro">기본 정보만 먼저 입력하면 저장할 수 있습니다. 체크리스트와 후속 관리 항목은 아래에서 접어서 보거나 저장 후 이어서 입력해도 됩니다.</div>':''}
+        <div class="modal-tabs project-modal-tabs">
           <button class="modal-tab${projModalTab==='basic'?' active':''}" data-tab="basic" onclick="switchProjTab('basic')">기본 정보</button>
-          <button class="modal-tab${projModalTab==='issue'?' active':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
-          <button class="modal-tab${projModalTab==='documents'?' active':''}" data-tab="documents" onclick="switchProjTab('documents')">자료요청</button>
-          <button class="modal-tab${projModalTab==='billing'?' active':''}" data-tab="billing" onclick="switchProjTab('billing')">빌링</button>
-          <button class="modal-tab${projModalTab==='completion'?' active':''}" data-tab="completion" onclick="switchProjTab('completion')">완료·후속</button>
+          <button class="modal-tab${projModalTab==='issue'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
+          <button class="modal-tab${projModalTab==='documents'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="documents" onclick="switchProjTab('documents')">자료요청</button>
+          <button class="modal-tab${projModalTab==='billing'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="billing" onclick="switchProjTab('billing')">빌링</button>
+          <button class="modal-tab${projModalTab==='completion'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="completion" onclick="switchProjTab('completion')">완료·후속</button>
         </div>
 
-        <div class="modal-tab-content${projModalTab==='basic'?' active':''}" data-tab="basic">
+        <div class="modal-tab-content project-modal-basic${projModalTab==='basic'?' active':''}" data-tab="basic">
           <div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="${esc(p?p.name:'')}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
-          <div class="form-half">
+          <div class="form-half project-basic-grid">
             <div class="form-row"><label class="form-label">고객사</label><select id="fClient" ${editable?'onchange="onClientChange()"':'disabled'}><option value="">고객사 없음</option>${cOpts}</select></div>
             <div class="form-row"><label class="form-label">계약 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><select id="fContract" ${editable?'onchange="onContractChange()"':'disabled'}><option value="">계약 없음</option>${ctOpts}</select></div>
           </div>
-          <div id="contractHint" style="${linkedContract?'':'display:none'};background:var(--blue-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:var(--blue);margin-bottom:10px">${linkedContract?'📄 '+esc(linkedContract.contract_name)+(linkedContract.contract_amount?' · '+Number(linkedContract.contract_amount).toLocaleString()+'원':''):''}</div>
-          <div class="form-half">
+          <div id="contractHint" class="project-contract-link" style="${linkedContract?'':'display:none'}">${linkedContract?'<span class="project-contract-link-kicker">연결 계약</span><strong>'+esc(linkedContract.contract_name)+'</strong>'+(linkedContract.contract_amount?'<span>'+Number(linkedContract.contract_amount).toLocaleString()+'원</span>':''):'' :''}</div>
+          <div class="form-half project-basic-grid">
             <div class="form-row"><label class="form-label">유형</label><select id="fType" ${editable?'':'disabled'}>${Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')}</select></div>
             <div class="form-row"><label class="form-label">상태</label><select id="fStatus" ${editable?'':'disabled'}><option ${(p&&p.status==='진행중')?'selected':''}>진행중</option><option ${(p&&p.status==='예정')?'selected':''}>예정</option><option ${(p&&p.status==='완료')?'selected':''}>완료</option></select></div>
           </div>
-          <div class="form-half">
-            <div class="form-row"><label class="form-label">예상 / 실제 투입 시간</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="display:flex;align-items:center;gap:8px"><input type="number" id="fEstimatedHours" min="0" step="1" value="${p?.estimated_hours??''}" placeholder="예상 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">h</span></div><div style="display:flex;align-items:center;gap:8px"><input type="number" id="fActualHours" min="0" step="1" value="${p?.actual_hours??''}" placeholder="실제 투입 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">h</span></div></div></div>
+          <div class="form-half project-basic-grid">
             <div class="form-row"><label class="form-label">우선순위</label><select id="fPriority" ${editable?'':'disabled'}><option value="high" ${(p?.priority==='high')?'selected':''}>상</option><option value="medium" ${(!p||!p.priority||p.priority==='medium')?'selected':''}>중</option><option value="low" ${(p?.priority==='low')?'selected':''}>하</option></select></div>
-          </div>
-          <div class="form-half">
             <div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="${p?p.start:curYear+'-'+pad(curMonth)+'-01'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+          </div>
+          <div class="form-half project-basic-grid">
             <div class="form-row"><label class="form-label">종료일</label><input type="date" id="fEnd" value="${p?p.end:curYear+'-'+pad(curMonth)+'-'+pad(d)}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+            <div class="form-row"><label class="form-label">메모 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><textarea id="fMemo" rows="2" class="project-modal-memo" placeholder="간단한 메모, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p&&p.memo?p.memo:'')}</textarea></div>
           </div>
           ${editable
             ?'<div class="form-row"><label class="form-label">담당 인력</label><div style="display:flex;gap:8px"><select id="fMSel" style="flex:1">'+mOpts+'</select><button class="btn sm" onclick="addMember()">+ 추가</button></div><div class="member-tags" id="fMTags"></div></div>'
             :'<div class="form-row"><label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+(p?p.members.join(', ')||'미배정':'')+'</div></div>'}
           <div id="conflictArea"></div>
-          <div class="form-row"><label class="form-label">메모</label><textarea id="fMemo" rows="2" style="resize:vertical" placeholder="간단한 메모, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p&&p.memo?p.memo:'')}</textarea></div>
-          <div class="form-row"><label class="form-label">체크리스트</label><div id="projectChecklistWrap"></div></div>
+          <details class="project-modal-collapsible">
+            <summary>추가 설정 <span>예상 시간, 실제 투입 시간</span></summary>
+            <div class="project-modal-collapsible-body">
+              <div class="form-half project-basic-grid" style="margin-top:12px">
+                <div class="form-row"><label class="form-label">예상 시간</label><div class="project-hours-input"><input type="number" id="fEstimatedHours" min="0" step="1" value="${p?.estimated_hours??''}" placeholder="예상 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span>h</span></div></div>
+                <div class="form-row"><label class="form-label">실제 투입 시간</label><div class="project-hours-input"><input type="number" id="fActualHours" min="0" step="1" value="${p?.actual_hours??''}" placeholder="실제 투입 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span>h</span></div></div>
+              </div>
+            </div>
+          </details>
+          <details class="project-modal-collapsible">
+            <summary>체크리스트 <span>프로젝트 생성 후 단계별 확인용</span></summary>
+            <div class="project-modal-collapsible-body">
+              <div id="projectChecklistWrap"></div>
+            </div>
+          </details>
           ${!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':''}
         </div>
 
@@ -3900,9 +3914,9 @@ function updateContractHint(ctId){
   if(!ctId){hint.innerHTML='';hint.style.display='none';return;}
   const ct=contracts.find(x=>x.id===ctId);if(!ct){hint.innerHTML='';return;}
   hint.style.display='block';
-  hint.innerHTML='📄 '+esc(ct.contract_name)
-    +(ct.contract_amount?' · 계약금액 '+Number(ct.contract_amount).toLocaleString()+'원':'')
-    +(ct.contract_start_date?' · '+ct.contract_start_date+' ~ '+(ct.contract_end_date||''):'');
+  hint.innerHTML='<span class="project-contract-link-kicker">연결 계약</span><strong>'+esc(ct.contract_name)+'</strong>'
+    +(ct.contract_amount?'<span>'+Number(ct.contract_amount).toLocaleString()+'원</span>':'')
+    +(ct.contract_start_date?'<span>'+ct.contract_start_date+' ~ '+(ct.contract_end_date||'')+'</span>':'');
   // 빌링 금액 placeholder도 업데이트
   const amtEl=document.getElementById('fAmt');
   if(amtEl&&!amtEl.value&&ct.contract_amount) amtEl.placeholder='계약금액: '+Number(ct.contract_amount).toLocaleString()+'원';
@@ -3920,7 +3934,7 @@ function refreshConflict(){
   const area=document.getElementById('conflictArea');if(!area)return;
   if(!s||!e){area.innerHTML='';return;}
   const c=getConflicts(formMembers,s,e,editingProjId);
-  area.innerHTML=c.length?'<div class="conflict-warn">⚠ 일정 충돌: '+c.join(', ')+'와 겹칩니다</div>':'';
+  area.innerHTML=c.length?'<div class="conflict-warn project-conflict-warn">⚠ 일정 충돌 · '+c.join(', ')+'</div>':'';
 }
 
 function copyProj(){
