@@ -1422,6 +1422,7 @@ input,textarea{border-radius:12px!important}
         </div>
       </div>
       <div id="contractFilterTags" class="contract-filter-tags"></div>
+      <div id="contractMonthlyReport"></div>
       <div id="contractsPageContent"></div>
     </div>
 
@@ -2680,6 +2681,7 @@ function openContractModal(eid, preClientId, renewalSourceId){
   const initialName=ct?ct.contract_name||'':(renewalSource?((renewalSource.contract_name||'')+' (갱신)'):'' );
   const initialStart=ct?ct.contract_start_date||'':(renewalSource?getNextDateString(renewalSource.contract_end_date):'');
   const previousContractId=ct?ct.previous_contract_id||'':(renewalSource?renewalSource.id:'');
+  const contractTagsValue=typeof formatContractTags==='function'?formatContractTags(base?base.tags||[]:[]):(Array.isArray(base?.tags)?base.tags.join(', '):String(base?.tags||''));
   document.getElementById('modalArea').innerHTML=
     (editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
     +'<div class="modal" style="width:560px"><div class="modal-title">'+(ct?(editable?'계약 수정':'계약 상세'):'계약 추가')+'</div>'
@@ -2697,6 +2699,10 @@ function openContractModal(eid, preClientId, renewalSourceId){
     +'<div class="form-row"><label class="form-label">계약 종료일</label><input type="date" id="ctEnd" value="'+(ct?ct.contract_end_date||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">계약 금액 (원)</label><input id="ctAmt" type="number" value="'+(base&&base.contract_amount?base.contract_amount:'')+'" placeholder="예) 10000000" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-row"><label class="form-label">VAT</label><select id="ctVat" '+(editable?'':'disabled')+'><option value="false" '+(base&&base.vat_included===false?'selected':'')+'>VAT 별도</option><option value="true" '+(base&&base.vat_included===true?'selected':'')+'>VAT 포함</option></select></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">결제 조건</label><input id="ctPaymentTerms" value="'+esc(base?base.payment_terms||'':'')+'" placeholder="예) 검수 후 14일 이내" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">갱신 알림일</label><input id="ctRenewalAlertDays" type="number" min="0" value="'+esc(base&&base.renewal_alert_days!=null?String(base.renewal_alert_days):'60')+'" placeholder="예) 60" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">태그</label><input id="ctTags" value="'+esc(contractTagsValue)+'" placeholder="쉼표로 구분" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="checkbox-row" style="margin-top:28px"><input type="checkbox" id="ctAutoRenewal" '+(base&&base.auto_renewal?'checked ':'')+(editable?'':'disabled ')+'/><label for="ctAutoRenewal">자동 갱신 대상</label></div></div>'
     +'<div class="divider">담당자 정보</div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">우리 측 빌링 담당</label><input id="ctBillingContact" value="'+esc(base?base.billing_contact_name||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-row"><label class="form-label">빌링 담당 이메일</label><input id="ctBillingEmail" value="'+esc(base?base.billing_contact_email||'':'')+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
@@ -2733,6 +2739,10 @@ async function saveContract(){
     billing_contact_email:document.getElementById('ctBillingEmail').value.trim()||null,
     counterparty_contact_name:document.getElementById('ctCpContact').value.trim()||null,
     counterparty_contact_email:document.getElementById('ctCpEmail').value.trim()||null,
+    payment_terms:document.getElementById('ctPaymentTerms').value.trim()||null,
+    auto_renewal:document.getElementById('ctAutoRenewal')?.checked||false,
+    renewal_alert_days:document.getElementById('ctRenewalAlertDays').value?parseInt(document.getElementById('ctRenewalAlertDays').value):null,
+    tags:typeof normalizeContractTags==='function'?normalizeContractTags(document.getElementById('ctTags').value):document.getElementById('ctTags').value.trim(),
     description:document.getElementById('ctDesc').value.trim()||null,
     deliverables:document.getElementById('ctDeliv').value.trim()||null,
     memo:document.getElementById('ctMemo').value.trim()||null,
@@ -3097,6 +3107,7 @@ async function saveBillingRecord(contractId, editId){
     if(editId)await api('PATCH','billing_records?id=eq.'+editId,body);
     else await api('POST','billing_records',body);
     if(typeof invalidateContractBillingRecordsCache==='function')invalidateContractBillingRecordsCache();
+    if(body.status==='수금완료'&&typeof notifyContractCollectionCompleted==='function')await notifyContractCollectionCompleted(contractId,body.amount);
     closeModal();
     await openContractDetail(contractId);
   }catch(e){alert('저장 오류: '+e.message);}
@@ -3107,6 +3118,10 @@ async function toggleBillingStatus(recId, contractId, currentStatus){
   try{
     await api('PATCH','billing_records?id=eq.'+recId,{status:newStatus});
     if(typeof invalidateContractBillingRecordsCache==='function')invalidateContractBillingRecordsCache();
+    if(newStatus==='수금완료'){
+      const record=contractDetailBillingRecords.find(item=>item.id===recId);
+      if(typeof notifyContractCollectionCompleted==='function')await notifyContractCollectionCompleted(contractId,record?.amount||0);
+    }
     await openContractDetail(contractId);
   }catch(e){alert('오류: '+e.message);}
 }
@@ -4880,9 +4895,9 @@ async function loadNotifications(){
     updateNotifBadge(notifs.filter(n=>!n.is_read).length);
     if(!notifs.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">알림이 없습니다</div>';return;}
     el.innerHTML=notifs.map(n=>{
-      const icon=n.type==='mention'?'@':n.type==='comment'?'💬':n.type==='access_request'?'🙋':n.type==='access_approved'?'✅':n.type==='access_rejected'?'⛔':'🚨';
+      const icon=n.type==='mention'?'@':n.type==='comment'?'💬':n.type==='access_request'?'🙋':n.type==='access_approved'?'✅':n.type==='access_rejected'?'⛔':n.link_type==='contract'?'📄':'🚨';
       const bg=n.is_read?'transparent':'var(--blue-light)';
-      const scope=n.link_type?.includes('issue')?'이슈':n.link_type?.includes('project')?'프로젝트':'알림';
+      const scope=n.link_type?.includes('issue')?'이슈':n.link_type?.includes('project')?'프로젝트':n.link_type==='contract'?'계약':'알림';
       const detail=n.link_type?.includes('_comment')?'댓글 위치로 이동':'관련 위치로 이동';
       return '<div onclick="handleNotifClick(\''+n.id+'\',\''+(n.link_type||'')+'\',\''+(n.link_id||'')+'\')" style="display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:'+bg+'">'
         +'<div style="width:32px;height:32px;border-radius:50%;background:'+(n.is_read?'var(--bg2)':'var(--blue-light)')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+icon+'</div>'
@@ -4901,6 +4916,10 @@ async function handleNotifClick(notifId,linkType,linkId){
   document.getElementById('notifPanel').style.display='none';
   if(linkType==='issue'&&linkId)await navigateToIssue(linkId);
   else if(linkType==='project'&&linkId)await navigateToStoredProjectComment(linkId);
+  else if(linkType==='contract'&&linkId){
+    setPage('contracts');
+    await openContractDetail(linkId);
+  }
   else if(linkType==='access_request'){
     if(roleIsAdmin()&&linkId)openAccessRequestManager(linkId);
     else await initApp();

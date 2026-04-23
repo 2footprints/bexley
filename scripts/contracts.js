@@ -18,6 +18,53 @@ const contractToolbarState={
   search:'',
   sort:'client'
 };
+const contractAlertRuntimeKeys=new Set();
+
+function normalizeContractTags(value){
+  if(Array.isArray(value))return [...new Set(value.map(tag=>String(tag||'').trim()).filter(Boolean))];
+  return [...new Set(String(value||'').split(',').map(tag=>tag.trim()).filter(Boolean))];
+}
+
+function formatContractTags(value){
+  return normalizeContractTags(value).join(', ');
+}
+
+function getContractNotificationUserIds(contract){
+  const ids=new Set();
+  if(contract?.created_by)ids.add(contract.created_by);
+  (clientAssignments||[])
+    .filter(assignment=>String(assignment?.client_id||'')===String(contract?.client_id||''))
+    .forEach(assignment=>{
+      const member=members.find(item=>String(item?.id||'')===String(assignment?.member_id||''));
+      if(member?.auth_user_id)ids.add(member.auth_user_id);
+    });
+  if(currentUser?.id)ids.add(currentUser.id);
+  return [...ids];
+}
+
+async function notifyContractUsers(contract,type,message){
+  if(typeof createNotification!=='function'||!contract?.id)return;
+  const userIds=getContractNotificationUserIds(contract);
+  for(const userId of userIds){
+    await createNotification(userId,type,message,'contract',contract.id);
+  }
+}
+
+function getContractAlertStorageKey(kind,entityId){
+  const today=new Date().toISOString().slice(0,10);
+  return ['contract-alert',kind,entityId,today].join(':');
+}
+
+function wasContractAlertSentToday(kind,entityId){
+  const key=getContractAlertStorageKey(kind,entityId);
+  return contractAlertRuntimeKeys.has(key)||localStorage.getItem(key)==='1';
+}
+
+function markContractAlertSentToday(kind,entityId){
+  const key=getContractAlertStorageKey(kind,entityId);
+  contractAlertRuntimeKeys.add(key);
+  try{localStorage.setItem(key,'1');}catch(e){}
+}
 
 function formatContractCurrency(amount){
   return Number(amount||0).toLocaleString()+'원';
@@ -62,6 +109,19 @@ function getContractDateDiffDays(value){
   if(!time)return null;
   const today=getContractTodayStart().getTime();
   return Math.floor((time-today)/(1000*60*60*24));
+}
+
+function getContractReceivableAgeDays(record){
+  const time=getContractDateValue(record?.billing_date||record?.created_at);
+  if(!time)return 0;
+  return Math.max(0,Math.floor((Date.now()-time)/(1000*60*60*24)));
+}
+
+async function notifyContractCollectionCompleted(contractId, amount){
+  const contract=contracts.find(item=>String(item?.id||'')===String(contractId||''));
+  if(!contract)return;
+  const message='수금 완료: '+(contract.contract_name||'계약')+' · '+formatContractCurrency(amount||0);
+  await notifyContractUsers(contract,'contract_collection',message);
 }
 
 function normalizeContractType(value){
@@ -648,6 +708,106 @@ function renderContractFilterTags(){
   ).join('');
 }
 
+function renderContractMonthlyReport(rows){
+  const el=document.getElementById('contractMonthlyReport');
+  if(!el)return;
+  const contractIds=new Set((rows||[]).map(row=>String(row.contract?.id||'')).filter(Boolean));
+  const monthRange=getContractMonthRange(0);
+  const prevMonthRange=getContractMonthRange(-1);
+  const monthRecords=(contractBillingRecords||[]).filter(record=>{
+    const contractId=String(record?.contract_id||'');
+    if(!contractIds.has(contractId))return false;
+    const time=getContractDateValue(record?.billing_date||record?.created_at);
+    return time>=monthRange.start.getTime()&&time<=monthRange.end.getTime();
+  });
+  const prevMonthRecords=(contractBillingRecords||[]).filter(record=>{
+    const contractId=String(record?.contract_id||'');
+    if(!contractIds.has(contractId))return false;
+    const time=getContractDateValue(record?.billing_date||record?.created_at);
+    return time>=prevMonthRange.start.getTime()&&time<=prevMonthRange.end.getTime();
+  });
+  const collectedMonthRecords=(contractBillingRecords||[]).filter(record=>{
+    const contractId=String(record?.contract_id||'');
+    if(!contractIds.has(contractId))return false;
+    if(String(record?.status||'').trim()!=='수금완료')return false;
+    const time=getContractDateValue(record?.updated_at||record?.billing_date||record?.created_at);
+    return time>=monthRange.start.getTime()&&time<=monthRange.end.getTime();
+  });
+  const collectedPrevMonthRecords=(contractBillingRecords||[]).filter(record=>{
+    const contractId=String(record?.contract_id||'');
+    if(!contractIds.has(contractId))return false;
+    if(String(record?.status||'').trim()!=='수금완료')return false;
+    const time=getContractDateValue(record?.updated_at||record?.billing_date||record?.created_at);
+    return time>=prevMonthRange.start.getTime()&&time<=prevMonthRange.end.getTime();
+  });
+  const billedAmount=monthRecords.reduce((sum,record)=>sum+Number(record?.amount||0),0);
+  const billedPrevAmount=prevMonthRecords.reduce((sum,record)=>sum+Number(record?.amount||0),0);
+  const collectedAmount=collectedMonthRecords.reduce((sum,record)=>sum+Number(record?.amount||0),0);
+  const collectedPrevAmount=collectedPrevMonthRecords.reduce((sum,record)=>sum+Number(record?.amount||0),0);
+  const agingBuckets={current:{count:0,amount:0},warn:{count:0,amount:0},danger:{count:0,amount:0}};
+  const rankingMap=new Map();
+  (contractBillingRecords||[]).forEach(record=>{
+    const contractId=String(record?.contract_id||'');
+    if(!contractIds.has(contractId))return;
+    const contract=contracts.find(item=>String(item?.id||'')===contractId);
+    if(!contract)return;
+    const client=clients.find(item=>String(item?.id||'')===String(contract.client_id||''));
+    const billedTime=getContractDateValue(record?.billing_date||record?.created_at);
+    if(billedTime>=monthRange.start.getTime()&&billedTime<=monthRange.end.getTime()){
+      const key=String(client?.id||contract.client_id||'orphans');
+      const current=rankingMap.get(key)||{name:client?.name||'거래처 미지정',amount:0,count:0};
+      current.amount+=Number(record?.amount||0);
+      current.count+=1;
+      rankingMap.set(key,current);
+    }
+    if(String(record?.status||'').trim()==='수금완료')return;
+    const ageDays=getContractReceivableAgeDays(record);
+    const bucket=ageDays>=60?'danger':ageDays>=30?'warn':'current';
+    agingBuckets[bucket].count+=1;
+    agingBuckets[bucket].amount+=Number(record?.amount||0);
+  });
+  const rankingRows=[...rankingMap.values()].sort((a,b)=>b.amount-a.amount).slice(0,5);
+  el.innerHTML=
+    '<div class="card contract-report-shell">'
+      +'<div class="contract-report-head"><div><div class="section-label" style="margin-bottom:4px">월별 빌링 리포트</div><div class="contract-report-title">이번 달 청구 / 수금 / 에이징 현황</div></div><div class="contract-report-period">'+(monthRange.start.getMonth()+1)+'월 기준</div></div>'
+      +'<div class="contract-report-grid">'
+        +'<div class="contract-report-card"><div class="contract-report-label">이번 달 청구</div><div class="contract-report-value">'+monthRecords.length+'건</div><div class="contract-report-sub">'+formatContractCurrency(billedAmount)+' · 전월 대비 '+formatContractDelta(billedAmount-billedPrevAmount)+'</div></div>'
+        +'<div class="contract-report-card"><div class="contract-report-label">이번 달 수금</div><div class="contract-report-value">'+collectedMonthRecords.length+'건</div><div class="contract-report-sub">'+formatContractCurrency(collectedAmount)+' · 전월 대비 '+formatContractDelta(collectedAmount-collectedPrevAmount)+'</div></div>'
+        +'<div class="contract-report-card"><div class="contract-report-label">미수금 에이징</div><div class="contract-report-value">'+(agingBuckets.warn.count+agingBuckets.danger.count)+'건</div><div class="contract-report-sub">30일 이상 '+agingBuckets.warn.count+'건 · 60일 이상 '+agingBuckets.danger.count+'건</div></div>'
+        +'<div class="contract-report-card"><div class="contract-report-label">거래처 빌링 랭킹</div><div class="contract-report-ranking">'+(rankingRows.length?rankingRows.map((row,index)=>'<div class="contract-report-ranking-row"><span>'+(index+1)+'. '+esc(row.name)+'</span><strong>'+formatContractCurrency(row.amount)+'</strong></div>').join(''):'<div class="contract-report-empty">이번 달 청구 데이터가 없습니다.</div>')+'</div></div>'
+      +'</div>'
+      +'<div class="contract-report-aging-row">'
+        +'<span class="contract-report-aging-chip">0~29일 '+agingBuckets.current.count+'건 · '+formatContractCurrency(agingBuckets.current.amount)+'</span>'
+        +'<span class="contract-report-aging-chip is-warn">30~59일 '+agingBuckets.warn.count+'건 · '+formatContractCurrency(agingBuckets.warn.amount)+'</span>'
+        +'<span class="contract-report-aging-chip is-danger">60일 이상 '+agingBuckets.danger.count+'건 · '+formatContractCurrency(agingBuckets.danger.amount)+'</span>'
+      +'</div>'
+    +'</div>';
+}
+
+async function syncContractAlertNotifications(rows){
+  if(typeof createNotification!=='function')return;
+  for(const row of rows||[]){
+    if(row.isActive&&row.renewalDiffDays!==null){
+      const alertDays=Number(row.contract?.renewal_alert_days||60);
+      if(row.renewalDiffDays>=0&&row.renewalDiffDays<=alertDays&&!wasContractAlertSentToday('expiry',row.contract.id)){
+        const message='계약 만료 알림: '+(row.contract?.contract_name||'계약')+' · '+(row.renewalDiffDays===0?'오늘 만료':'D-'+row.renewalDiffDays);
+        await notifyContractUsers(row.contract,'contract_expiry',message);
+        markContractAlertSentToday('expiry',row.contract.id);
+      }
+    }
+  }
+  for(const record of contractBillingRecords||[]){
+    const row=(rows||[]).find(item=>String(item.contract?.id||'')===String(record?.contract_id||''));
+    if(!row)continue;
+    if(String(record?.status||'').trim()==='수금완료')continue;
+    const ageDays=getContractReceivableAgeDays(record);
+    if(ageDays<30||wasContractAlertSentToday('receivable',record.id))continue;
+    const message='미수금 30일 경과: '+(row.contract?.contract_name||'계약')+' · '+formatContractCurrency(record.amount||0)+' · 경과 '+ageDays+'일';
+    await notifyContractUsers(row.contract,'contract_receivable',message);
+    markContractAlertSentToday('receivable',record.id);
+  }
+}
+
 function renderContractRowItem(row){
   const contract=row.contract;
   const isEnded=isContractEndedStatus(contract?.contract_status);
@@ -820,7 +980,10 @@ async function markBillingRecordCollected(recordId){
   try{
     await api('PATCH','billing_records?id=eq.'+recordId,{status:'수금완료'});
     const target=contractBillingRecords.find(record=>record.id===recordId);
-    if(target)target.status='수금완료';
+    if(target){
+      target.status='수금완료';
+      await notifyContractCollectionCompleted(target.contract_id,target.amount||0);
+    }
     renderContractsPage();
   }catch(e){
     alert('수금 완료 처리 오류: '+e.message);
@@ -840,6 +1003,19 @@ function buildContractReceivableReminderText(recordId){
     :'[리마인드 메일 초안]\n\n안녕하세요,\n'+(contract?.contract_name||'계약')+' 관련 청구 건('+amount+', 청구일 '+billingDate+')의 수금 일정을 확인 부탁드립니다.';
 }
 
+async function copyContractReceivableReminder(recordId){
+  const text=document.getElementById('contractReminderText')?.value||buildContractReceivableReminderText(recordId);
+  await copyText(text);
+  const remindedAt=new Date().toISOString();
+  try{
+    await api('PATCH','billing_records?id=eq.'+recordId,{last_reminder_at:remindedAt});
+    const target=contractBillingRecords.find(record=>record.id===recordId);
+    if(target)target.last_reminder_at=remindedAt;
+  }catch(e){}
+  closeModal();
+  renderContractsPage();
+}
+
 function openContractReceivableReminderModal(recordId){
   const record=contractBillingRecords.find(item=>item.id===recordId);
   if(!record)return;
@@ -851,9 +1027,13 @@ function openContractReceivableReminderModal(recordId){
     +'<div class="modal" style="width:560px"><div class="modal-title">미수금 리마인드 메일</div>'
     +'<div class="form-row"><label class="form-label">거래처</label><input value="'+esc(client?.name||'미지정 거래처')+'" readonly style="background:var(--bg)"/></div>'
     +'<div class="form-row"><label class="form-label">계약</label><input value="'+esc(contract?.contract_name||'계약명 없음')+'" readonly style="background:var(--bg)"/></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">예상 수금일</label><input value="'+esc(record?.expected_collection_date||'-')+'" readonly style="background:var(--bg)"/></div>'
+    +'<div class="form-row"><label class="form-label">마지막 리마인드</label><input value="'+esc(record?.last_reminder_at?formatCommentDate(record.last_reminder_at):'-')+'" readonly style="background:var(--bg)"/></div></div>'
     +'<div class="form-row"><label class="form-label">문안</label><textarea id="contractReminderText" rows="10" class="copy-area">'+esc(text)+'</textarea></div>'
-    +'<div class="modal-footer"><div class="muted">청구 금액과 청구일을 기준으로 초안을 만들었습니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn primary" onclick="copyText(document.getElementById(\'contractReminderText\').value)">문안 복사</button></div></div>'
+    +'<div class="modal-footer"><div class="muted">청구 금액과 청구일을 기준으로 초안을 만들었습니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn primary" onclick="copyContractReceivableReminder(\''+recordId+'\')">문안 복사</button></div></div>'
     +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
 }
 
 function renderContractBillingBoard(rows){
@@ -967,6 +1147,8 @@ async function renderContractsPage(){
 
   renderContractKpis(rows);
   renderContractFilterTags();
+  renderContractMonthlyReport(rows);
+  syncContractAlertNotifications(baseRows).catch(()=>{});
 
   if(!rows.length){
     el.innerHTML=managedFilterActive
