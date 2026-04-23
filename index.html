@@ -1511,14 +1511,14 @@ input,textarea{border-radius:12px!important}
         </div>
       </div>
       <div id="memberFilterTabs" class="member-filter-tabs"></div>
-      <div class="gantt-top-note">이번 달 우선순위 프로젝트를 왼쪽에서 고르고, 오른쪽에서 바로 이슈 확인과 후속 작업을 이어서 처리할 수 있습니다.</div>
+      <div class="gantt-top-note" id="ganttTopNote">운영 리스트에서 상태, 기한, 이슈를 먼저 훑고 필요한 프로젝트만 열어 후속 작업으로 이어갈 수 있습니다.</div>
       <div class="gantt-shell">
         <div class="gantt-stage">
           <aside class="gantt-sidebar">
             <div class="gantt-panel-head">
               <div>
-                <div class="gantt-panel-title">프로젝트 리스트</div>
-                <div class="gantt-panel-sub">우선순위를 보고 바로 선택해 상세 패널에서 처리합니다.</div>
+                <div class="gantt-panel-title" id="ganttSidebarTitle">프로젝트 리스트</div>
+                <div class="gantt-panel-sub" id="ganttSidebarSub">우선순위를 보고 바로 선택해 상세 패널에서 처리합니다.</div>
               </div>
             </div>
             <div id="ganttProjectList" class="gantt-list"></div>
@@ -1526,8 +1526,8 @@ input,textarea{border-radius:12px!important}
           <div class="gantt-main">
             <div class="gantt-main-top">
               <div>
-                <div class="gantt-panel-title">프로젝트 타임라인</div>
-                <div class="gantt-main-copy">프로젝트는 메인 바, 필드웍과 휴가는 보조 레이어로 보여서 일정 충돌과 가용성을 함께 파악할 수 있습니다.</div>
+                <div class="gantt-panel-title" id="ganttMainTitle">프로젝트 운영 리스트</div>
+                <div class="gantt-main-copy" id="ganttMainCopy">담당자, 기간, 상태, 진행률, 미해결 이슈를 한눈에 훑고 바로 상세 패널로 이어서 처리할 수 있습니다.</div>
               </div>
             </div>
             <div class="gantt-wrap" id="ganttWrap"></div>
@@ -7552,7 +7552,7 @@ renderIssueFeed = function(el,pinned,recent){
   el.innerHTML=html;
 };
 
-let curGanttLayout='timeline';
+let curGanttLayout='list';
 const LOCAL_VERIFY_MODE =
   window.location.protocol==='file:' ||
   /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname) ||
@@ -8474,7 +8474,7 @@ function ensureGanttLayoutToggle(){
   const wrap=document.createElement('div');
   wrap.id='ganttLayoutToggle';
   wrap.className='toggle-wrap gantt-layout-toggle';
-  wrap.innerHTML='<button class="toggle-btn active" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button><button class="toggle-btn" id="gll" type="button">리스트</button>';
+  wrap.innerHTML='<button class="toggle-btn active" id="gll" type="button">리스트</button><button class="toggle-btn" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button>';
   viewZone.appendChild(wrap);
   document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
   document.getElementById('glc').onclick=()=>setGanttLayout('calendar');
@@ -8615,12 +8615,13 @@ window.gRow=function(p,days){
     }
   });
   const issueCount=openIssuesByProject[p.id]||0;
+  const isActive=String(ganttFocusProjectId||'')===String(p.id||'');
   const finalBadges=(isCompleted?'<span class="gantt-complete-badge">\uC644\uB8CC</span>':'')
     +(od?'<span class="g-badge overdue">\uC9C0\uC5F0</span>':'')
     +(dueToday?'<span class="g-badge" style="background:#FED7AA;color:#9A3412">오늘 마감</span>':'')
     +(mine?'<span class="g-badge mine">\uB0B4 \uB2F4\uB2F9</span>':'')
     +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">\uC774\uC288 '+issueCount+'</span>':'');
-  const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'');
+  const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'')+(isActive?' is-active':'');
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
   const progressHtml='<div class="gantt-row-progress"><span class="gantt-row-progress-text">진행률 '+progress+'%</span><div class="gantt-row-progress-track"><div class="gantt-row-progress-fill" style="width:'+progress+'%;background:'+progressColor+'"></div></div></div>';
   const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div>'+progressHtml+'</div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
@@ -8644,13 +8645,13 @@ window.gRow=function(p,days){
     if(day===barS){
       const barText=span>=6?esc(p.name)+(p.members.length?' ('+esc(p.members.join(', '))+')':''):span>=3?esc(p.name):'';
       cells+='<td class="'+cellCls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openGanttProjectDetail(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +'<div class="bar'+(isActive?' is-active':'')+'" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openGanttProjectDetail(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
         +overlayHtml+'</td>';
     }else{
       cells+='<td class="'+cellCls+'" style="position:relative">'+overlayHtml+'</td>';
     }
   }
-  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+'"><td class="'+finalRowCls+'" onclick="openGanttProjectDetail(\''+p.id+'\')">'+finalLabelHtml+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+'"><td class="'+finalRowCls+'" onclick="openGanttProjectDetail(\''+p.id+'\')">'+finalLabelHtml+'</td>'+cells+'</tr>';
 };
 gRow=window.gRow;
 
