@@ -1363,17 +1363,65 @@ input,textarea{border-radius:12px!important}
 
     <!-- 계약 탭 -->
     <div id="pageContracts" style="display:none">
-      <div class="section-header" style="margin-bottom:20px">
-        <h2 class="section-title">계약</h2>
-        <div class="filter-row">
-          <div class="toggle-wrap">
-            <button class="toggle-btn active" id="managedFilterBtn" onclick="toggleManagedFilter()">우리 팀 계약</button>
-            <button class="toggle-btn" id="allContractBtn" onclick="toggleManagedFilter()">전체</button>
+      <div id="contractKpiGrid" class="contract-kpi-grid"></div>
+      <div class="card contract-toolbar-shell" style="margin-bottom:14px">
+        <div class="contract-toolbar-grid">
+          <div class="filter-row contract-toolbar-primary">
+            <div class="toggle-wrap">
+              <button class="toggle-btn active" id="managedFilterBtn" onclick="toggleManagedFilter()">우리 팀 계약</button>
+              <button class="toggle-btn" id="allContractBtn" onclick="toggleManagedFilter()">전체</button>
+            </div>
+            <input id="contractSearch" class="contract-toolbar-search" placeholder="거래처명, 계약명, 담당자 검색" oninput="setContractSearch(this.value)"/>
           </div>
-          <input id="contractSearch" placeholder="거래처 또는 계약명 검색" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;width:200px" oninput="renderContractsPage()"/>
-          <button class="btn primary sm" id="addContractBtn" onclick="openContractModal()">+ 계약 추가</button>
+          <div class="filter-row contract-toolbar-filters">
+            <select id="contractStatusFilter" onchange="setContractStatusFilter(this.value)">
+              <option value="all">계약 상태 전체</option>
+              <option value="진행중">진행중</option>
+              <option value="검토중">검토중</option>
+              <option value="완료">완료</option>
+              <option value="해지">해지</option>
+            </select>
+            <select id="contractClientFilter" onchange="setContractClientFilter(this.value)">
+              <option value="">거래처 전체</option>
+            </select>
+            <select id="contractManagerFilter" onchange="setContractManagerFilter(this.value)">
+              <option value="">담당자 전체</option>
+            </select>
+            <select id="contractBillingFilter" onchange="setContractBillingFilter(this.value)">
+              <option value="all">빌링 상태 전체</option>
+              <option value="unbilled">미청구 있음</option>
+              <option value="receivable">미수금 있음</option>
+              <option value="paid">완납</option>
+            </select>
+            <select id="contractRenewalFilter" onchange="setContractRenewalFilter(this.value)">
+              <option value="all">갱신 상태 전체</option>
+              <option value="due60">60일 내 만료</option>
+              <option value="expired">만료됨</option>
+            </select>
+            <div class="contract-type-filter-group" id="contractTypeFilterGroup">
+              <button type="button" class="contract-type-chip" id="contractTypeBtn-감사" onclick="toggleContractTypeFilter('감사')">감사</button>
+              <button type="button" class="contract-type-chip" id="contractTypeBtn-세무자문" onclick="toggleContractTypeFilter('세무자문')">세무자문</button>
+              <button type="button" class="contract-type-chip" id="contractTypeBtn-밸류에이션" onclick="toggleContractTypeFilter('밸류에이션')">밸류에이션</button>
+              <button type="button" class="contract-type-chip" id="contractTypeBtn-기타" onclick="toggleContractTypeFilter('기타')">기타</button>
+            </div>
+          </div>
+          <div class="filter-row contract-toolbar-actions">
+            <div class="toggle-wrap contract-view-toggle">
+              <button class="toggle-btn active" id="contractViewGroupedBtn" onclick="setContractViewMode('grouped')">거래처별</button>
+              <button class="toggle-btn" id="contractViewListBtn" onclick="setContractViewMode('list')">리스트</button>
+              <button class="toggle-btn" id="contractViewBillingBtn" onclick="setContractViewMode('billing')">빌링 보드</button>
+            </div>
+            <select id="contractSortFilter" onchange="setContractSort(this.value)">
+              <option value="client">거래처명순</option>
+              <option value="amount">계약금액순</option>
+              <option value="end">만료일순</option>
+              <option value="receivable">미수금순</option>
+            </select>
+            <button class="btn primary sm" id="addContractBtn" onclick="openContractModal()">+ 계약 추가</button>
+          </div>
         </div>
       </div>
+      <div id="contractFilterTags" class="contract-filter-tags"></div>
       <div id="contractsPageContent"></div>
     </div>
 
@@ -2858,6 +2906,7 @@ async function saveBillingRecord(contractId){
   };
   try{
     await api('POST','billing_records',body);
+    if(typeof invalidateContractBillingRecordsCache==='function')invalidateContractBillingRecordsCache();
     closeModal();
     await openContractDetail(contractId);
   }catch(e){alert('저장 오류: '+e.message);}
@@ -2867,6 +2916,7 @@ async function toggleBillingStatus(recId, contractId, currentStatus){
   const newStatus=currentStatus==='수금완료'?'미수금':'수금완료';
   try{
     await api('PATCH','billing_records?id=eq.'+recId,{status:newStatus});
+    if(typeof invalidateContractBillingRecordsCache==='function')invalidateContractBillingRecordsCache();
     await openContractDetail(contractId);
   }catch(e){alert('오류: '+e.message);}
 }
@@ -2875,6 +2925,7 @@ async function deleteBillingRecord(recId, contractId){
   if(!confirm('청구 내역을 삭제할까요?'))return;
   try{
     await api('DELETE','billing_records?id=eq.'+recId);
+    if(typeof invalidateContractBillingRecordsCache==='function')invalidateContractBillingRecordsCache();
     await openContractDetail(contractId);
   }catch(e){alert('오류: '+e.message);}
 }
