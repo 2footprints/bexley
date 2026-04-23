@@ -464,6 +464,47 @@ function getClientHealthLabel(code){
   return '정상';
 }
 
+function getClientHighPriorityIssueCount(row){
+  if(!Array.isArray(window.issuesPageCache)||!issuesPageCache.length)return 0;
+  const projectIds=new Set((row?.projects||[]).map(project=>project.id));
+  return issuesPageCache.filter(issue=>
+    projectIds.has(issue?.project_id)&&
+    isIssueActiveStatus(issue?.status)&&
+    String(issue?.priority||'medium').trim()==='high'
+  ).length;
+}
+
+function getClientCardHealthMeta(row){
+  const highIssueCount=getClientHighPriorityIssueCount(row);
+  const reasons=[];
+  let tone='normal';
+  let label='정상';
+  if(row.overdueProjectCount>0||highIssueCount>0){
+    tone='risk';
+    label='위험';
+    if(row.overdueProjectCount>0)reasons.push('지연 프로젝트 '+row.overdueProjectCount+'건');
+    if(highIssueCount>0)reasons.push('긴급 이슈 '+highIssueCount+'건');
+  }else if(row.unbilledProjectCount>0||row.pendingDocCount>0){
+    tone='warning';
+    label='주의';
+    if(row.unbilledProjectCount>0)reasons.push('미청구 프로젝트 '+row.unbilledProjectCount+'건');
+    if(row.pendingDocCount>0)reasons.push('자료 대기 '+row.pendingDocCount+'건');
+  }else{
+    reasons.push('지연, 미청구, 열린 이슈 없음');
+  }
+  return {tone,label,reasonText:reasons.join(' · '),highIssueCount};
+}
+
+function getClientRecentActivityMeta(timestamp){
+  if(!timestamp)return {text:'최근 활동 기록 없음',isStale:true};
+  const now=new Date();
+  const diffMs=now.getTime()-timestamp;
+  const days=Math.max(0,Math.floor(diffMs/(1000*60*60*24)));
+  if(days===0)return {text:'최근 활동 오늘',isStale:false};
+  if(days===1)return {text:'최근 활동 1일 전',isStale:false};
+  return {text:'최근 활동 '+days+'일 전',isStale:days>=14};
+}
+
 function buildClientRow(client){
   const clientProjects=(projects||[]).filter(project=>project?.client_id===client.id);
   const clientContracts=(contracts||[]).filter(contract=>contract?.client_id===client.id);
@@ -512,6 +553,7 @@ function buildClientRow(client){
     projects:clientProjects,
     contracts:clientContracts,
     managerNames,
+    contractCount:clientContracts.length,
     activeProjectCount:activeProjects.length,
     overdueProjectCount:overdueProjects.length,
     openIssueCount,
@@ -527,6 +569,8 @@ function buildClientRow(client){
     recentActivityAt
   };
   row.healthCode=getClientHealthCode(row);
+  row.cardHealthMeta=getClientCardHealthMeta(row);
+  row.recentActivityMeta=getClientRecentActivityMeta(recentActivityAt);
   return row;
 }
 
@@ -633,18 +677,16 @@ function renderClientFilterTags(){
 }
 
 function renderClientCard(detail){
-  const warns=(detail.overdueProjectCount||0)+(detail.openIssueCount||0);
   const chips=detail.activeProjectTypes.slice(0,3).map(type=>'<span class="chip" style="background:'+(TYPES[type]||'#94A3B8')+'">'+esc(type)+'</span>').join('');
+  const cardHealth=detail.cardHealthMeta||getClientCardHealthMeta(detail);
+  const recentActivity=detail.recentActivityMeta||getClientRecentActivityMeta(detail.recentActivityAt);
   return '<div class="client-card" onclick="openClientDetail(this.dataset.id)" data-id="'+detail.client.id+'">'
-    +'<div class="client-card-head"><div class="client-avatar">'+esc((detail.client.name||'?').charAt(0))+'</div>'+(warns?'<span class="client-warn">'+warns+'</span>':'')+'</div>'
+    +'<div class="client-card-head"><div class="client-avatar">'+esc((detail.client.name||'?').charAt(0))+'</div><div class="client-card-head-status"><span class="client-health-dot is-'+cardHealth.tone+'" title="'+esc(cardHealth.label+' · '+cardHealth.reasonText)+'"></span></div></div>'
     +'<div class="client-name">'+esc(detail.client.name||'거래처')+'</div>'
     +'<div class="client-industry">'+esc(detail.client.industry||'업종 미입력')+'</div>'
     +'<div class="chip-row">'+chips+(detail.activeProjectTypes.length>3?'<span style="font-size:11px;color:var(--text3);padding:3px 0">+'+(detail.activeProjectTypes.length-3)+'건</span>':'')+'</div>'
-    +'<div class="client-mini-badges">'
-      +'<span class="badge '+(detail.healthCode==='issue'?'badge-red':detail.healthCode==='warning'?'badge-orange':'badge-green')+'">'+getClientHealthLabel(detail.healthCode)+'</span>'
-      +(detail.pendingDocCount?'<span class="badge badge-gray">자료 '+detail.pendingDocCount+'건</span>':'')
-      +(detail.openIssueCount?'<span class="badge badge-red">이슈 '+detail.openIssueCount+'건</span>':'')
-    +'</div>'
+    +'<div class="client-key-stats">진행 '+detail.activeProjectCount+' · 이슈 '+detail.openIssueCount+' · 계약 '+detail.contractCount+'</div>'
+    +'<div class="client-recent'+(recentActivity.isStale?' is-stale':'')+'">'+esc(recentActivity.text)+'</div>'
     +'<div class="client-footer"><span class="client-members">'+esc(detail.managerNames.slice(0,3).join(' · ')||'담당자 미배정')+'</span><span class="client-active">'+detail.activeProjectCount+'건 진행중'+(detail.activeContractCount?' · 계약 '+detail.activeContractCount:'')+'</span></div>'
     +'</div>';
 }
