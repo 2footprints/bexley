@@ -1314,21 +1314,50 @@ input,textarea{border-radius:12px!important}
 
     <!-- 메인(고객사) -->
     <div id="pageClients" style="display:none">
-      <div id="alertWrap"></div>
-      <div class="section-header">
+      <div id="clientsTopSummary" class="client-kpi-grid"></div>
+      <div class="section-header client-toolbar-shell">
         <h2 class="section-title" id="boardTitle">거래처</h2>
-        <div class="filter-row">
-          <div class="toggle-wrap">
-            <button class="toggle-btn active" id="myFilterBtn" onclick="toggleMyFilter()">내 고객사</button>
-            <button class="toggle-btn" id="allFilterBtn" onclick="toggleMyFilter()">전체</button>
+        <div class="client-toolbar-grid">
+          <div class="filter-row client-toolbar-primary">
+            <div class="toggle-wrap">
+              <button class="toggle-btn active" id="myFilterBtn" onclick="toggleMyFilter()">내 고객사</button>
+              <button class="toggle-btn" id="allFilterBtn" onclick="toggleMyFilter()">전체</button>
+            </div>
+            <select id="projStatusFilter" onchange="renderClients()">
+              <option value="active">진행중</option>
+              <option value="">전체</option>
+            </select>
+            <select id="clientIndustryFilter" onchange="renderClients()">
+              <option value="">업종 전체</option>
+            </select>
+            <select id="clientManagerFilter" onchange="renderClients()">
+              <option value="">담당자 전체</option>
+            </select>
+            <select id="clientHealthFilter" onchange="renderClients()">
+              <option value="all">건강 상태 전체</option>
+              <option value="normal">정상</option>
+              <option value="warning">주의 필요</option>
+              <option value="issue">이슈 있음</option>
+            </select>
+            <input id="clientSearchInput" placeholder="거래처명, 담당자명 검색" oninput="setClientSearch(this.value)"/>
           </div>
-          <select id="projStatusFilter" onchange="renderClients()">
-            <option value="active">진행중</option>
-            <option value="">전체</option>
-          </select>
-          <button class="btn primary sm" id="addClientBtn" onclick="openClientModal()">+ 고객사</button>
+          <div class="filter-row client-toolbar-actions">
+            <div class="toggle-wrap client-view-toggle">
+              <button class="toggle-btn active" id="clientViewCardBtn" onclick="setClientViewMode('card')">카드</button>
+              <button class="toggle-btn" id="clientViewTableBtn" onclick="setClientViewMode('table')">테이블</button>
+              <button class="toggle-btn" id="clientViewHealthBtn" onclick="setClientViewMode('health')">건강 보드</button>
+            </div>
+            <select id="clientSortFilter" onchange="setClientSort(this.value)">
+              <option value="name">이름순</option>
+              <option value="revenue">매출순</option>
+              <option value="issues">이슈순</option>
+              <option value="recent">최근 활동순</option>
+            </select>
+            <button class="btn primary sm" id="addClientBtn" onclick="openClientModal()">+ 고객사</button>
+          </div>
         </div>
       </div>
+      <div id="clientFilterTags" class="client-filter-tags"></div>
       <div class="board-grid" id="clientGrid"></div>
     </div>
 

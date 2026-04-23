@@ -312,3 +312,422 @@ renderClients = function(){
   const title=document.getElementById('boardTitle');
   if(title) title.textContent='거래처';
 };
+
+let clientViewMode='card';
+let clientPendingDocRequests=[];
+let clientPendingDocRequestsLoaded=false;
+let clientPendingDocRequestsLoading=false;
+const clientToolbarState={industry:'',manager:'',health:'all',search:'',sort:'name'};
+
+function syncClientPrimaryToggle(){
+  document.getElementById('myFilterBtn')?.classList.toggle('active',myFilterActive);
+  document.getElementById('allFilterBtn')?.classList.toggle('active',!myFilterActive);
+}
+
+toggleMyFilter=function(){
+  myFilterActive=!myFilterActive;
+  syncClientPrimaryToggle();
+  renderClients();
+};
+
+function setClientSearch(value){
+  clientToolbarState.search=String(value||'').trim();
+  renderClients();
+}
+
+function setClientSort(value){
+  clientToolbarState.sort=value||'name';
+  const el=document.getElementById('clientSortFilter');
+  if(el&&el.value!==clientToolbarState.sort)el.value=clientToolbarState.sort;
+  renderClients();
+}
+
+function setClientViewMode(mode){
+  clientViewMode=mode||'card';
+  document.getElementById('clientViewCardBtn')?.classList.toggle('active',clientViewMode==='card');
+  document.getElementById('clientViewTableBtn')?.classList.toggle('active',clientViewMode==='table');
+  document.getElementById('clientViewHealthBtn')?.classList.toggle('active',clientViewMode==='health');
+  renderClients();
+}
+
+function clearClientFilterTag(key){
+  if(key==='myOnly')myFilterActive=false;
+  if(key==='status'){
+    const el=document.getElementById('projStatusFilter');
+    if(el)el.value='';
+  }
+  if(key==='industry'){
+    clientToolbarState.industry='';
+    const el=document.getElementById('clientIndustryFilter');
+    if(el)el.value='';
+  }
+  if(key==='manager'){
+    clientToolbarState.manager='';
+    const el=document.getElementById('clientManagerFilter');
+    if(el)el.value='';
+  }
+  if(key==='health'){
+    clientToolbarState.health='all';
+    const el=document.getElementById('clientHealthFilter');
+    if(el)el.value='all';
+  }
+  if(key==='search'){
+    clientToolbarState.search='';
+    const el=document.getElementById('clientSearchInput');
+    if(el)el.value='';
+  }
+  syncClientPrimaryToggle();
+  renderClients();
+}
+
+async function ensureClientPendingDocRequestsLoaded(force=false){
+  if(clientPendingDocRequestsLoading)return;
+  if(clientPendingDocRequestsLoaded&&!force)return;
+  clientPendingDocRequestsLoading=true;
+  try{
+    clientPendingDocRequests=await api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date,created_at').catch(()=>[])||[];
+    clientPendingDocRequestsLoaded=true;
+  }catch(e){
+    clientPendingDocRequests=[];
+  }finally{
+    clientPendingDocRequestsLoading=false;
+  }
+  if(curPage==='clients')renderClients();
+}
+
+function getClientBillingAmount(project){
+  const projectAmount=Number(project?.billing_amount||0);
+  if(projectAmount>0)return projectAmount;
+  const linkedContract=contracts.find(ct=>ct.id===project?.contract_id);
+  return Number(linkedContract?.contract_amount||0);
+}
+
+function getClientDateValue(value){
+  if(!value)return 0;
+  const time=new Date(value).getTime();
+  return Number.isFinite(time)?time:0;
+}
+
+function getClientMonthRange(offset){
+  const now=new Date();
+  return{
+    start:new Date(now.getFullYear(),now.getMonth()+offset,1),
+    end:new Date(now.getFullYear(),now.getMonth()+offset+1,0,23,59,59,999)
+  };
+}
+
+function isClientProjectCompleted(project){
+  return String(project?.status||'').trim()==='완료';
+}
+
+function isClientProjectActive(project){
+  const status=String(project?.status||'').trim();
+  return status==='진행중'||status==='예정';
+}
+
+function isClientProjectOverdue(project){
+  const end=toDate(project?.end||project?.end_date);
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return !!end&&end<today&&!isClientProjectCompleted(project);
+}
+
+function getClientCompletionTimestamp(project){
+  return getClientDateValue(project?.actual_end_date||project?.updated_at||project?.end||project?.end_date);
+}
+
+function getClientManagerNamesForClient(clientId){
+  const assigned=getAssignedMemberNames(clientId);
+  if(assigned.length)return [...new Set(assigned)];
+  return [...new Set(
+    (projects||[])
+      .filter(project=>project?.client_id===clientId)
+      .flatMap(project=>Array.isArray(project?.members)?project.members:[])
+      .filter(Boolean)
+  )];
+}
+
+function getClientPendingDocsForClient(clientId){
+  const projectIds=new Set((projects||[]).filter(project=>project?.client_id===clientId).map(project=>project.id));
+  return (clientPendingDocRequests||[]).filter(request=>projectIds.has(request.project_id));
+}
+
+function getClientHealthCode(row){
+  if(row.openIssueCount>0)return 'issue';
+  if(row.overdueProjectCount>0||row.unbilledProjectCount>0)return 'warning';
+  return 'normal';
+}
+
+function getClientHealthLabel(code){
+  if(code==='issue')return '이슈 있음';
+  if(code==='warning')return '주의 필요';
+  return '정상';
+}
+
+function buildClientRow(client){
+  const clientProjects=(projects||[]).filter(project=>project?.client_id===client.id);
+  const clientContracts=(contracts||[]).filter(contract=>contract?.client_id===client.id);
+  const managerNames=getClientManagerNamesForClient(client.id);
+  const activeProjects=clientProjects.filter(isClientProjectActive);
+  const overdueProjects=clientProjects.filter(isClientProjectOverdue);
+  const completedProjects=clientProjects.filter(isClientProjectCompleted);
+  const unbilledProjects=completedProjects.filter(project=>project?.is_billable&&String(project?.billing_status||'').trim()==='미청구');
+  const pendingDocs=getClientPendingDocsForClient(client.id);
+  const openIssueCount=clientProjects.reduce((sum,project)=>sum+(openIssuesByProject[project.id]||0),0);
+  const currentRange=getClientMonthRange(0);
+  const previousRange=getClientMonthRange(-1);
+  const revenueThisMonth=completedProjects
+    .filter(project=>{
+      const timestamp=getClientCompletionTimestamp(project);
+      return timestamp>=currentRange.start.getTime()&&timestamp<=currentRange.end.getTime();
+    })
+    .reduce((sum,project)=>sum+getClientBillingAmount(project),0);
+  const revenuePreviousMonth=completedProjects
+    .filter(project=>{
+      const timestamp=getClientCompletionTimestamp(project);
+      return timestamp>=previousRange.start.getTime()&&timestamp<=previousRange.end.getTime();
+    })
+    .reduce((sum,project)=>sum+getClientBillingAmount(project),0);
+  const totalRevenue=completedProjects.reduce((sum,project)=>sum+getClientBillingAmount(project),0);
+  const recentActivityAt=Math.max(
+    getClientDateValue(client?.updated_at||client?.created_at),
+    ...clientProjects.map(project=>Math.max(
+      getClientDateValue(project?.updated_at||project?.created_at),
+      getClientDateValue(project?.actual_end_date),
+      getClientDateValue(project?.end||project?.end_date)
+    )),
+    ...clientContracts.map(contract=>Math.max(
+      getClientDateValue(contract?.updated_at||contract?.created_at),
+      getClientDateValue(contract?.contract_end_date),
+      getClientDateValue(contract?.contract_start_date)
+    )),
+    ...pendingDocs.map(request=>Math.max(
+      getClientDateValue(request?.created_at),
+      getClientDateValue(request?.due_date)
+    )),
+    0
+  );
+  const row={
+    client,
+    projects:clientProjects,
+    contracts:clientContracts,
+    managerNames,
+    activeProjectCount:activeProjects.length,
+    overdueProjectCount:overdueProjects.length,
+    openIssueCount,
+    unbilledProjectCount:unbilledProjects.length,
+    unbilledAmount:unbilledProjects.reduce((sum,project)=>sum+getClientBillingAmount(project),0),
+    pendingDocs,
+    pendingDocCount:pendingDocs.length,
+    revenueThisMonth,
+    revenuePreviousMonth,
+    totalRevenue,
+    activeProjectTypes:[...new Set(clientProjects.map(project=>project?.type).filter(Boolean))],
+    activeContractCount:clientContracts.filter(contract=>String(contract?.contract_status||'').trim()==='진행중').length,
+    recentActivityAt
+  };
+  row.healthCode=getClientHealthCode(row);
+  return row;
+}
+
+function getClientBaseRows(){
+  const statusFilter=document.getElementById('projStatusFilter')?.value||'';
+  return (clients||[])
+    .filter(client=>{
+      const clientProjects=(projects||[]).filter(project=>project?.client_id===client.id);
+      if(myFilterActive&&currentMember&&!clientProjects.some(project=>Array.isArray(project?.members)&&project.members.includes(currentMember.name)))return false;
+      if(statusFilter==='active'&&!clientProjects.some(isClientProjectActive))return false;
+      return true;
+    })
+    .map(buildClientRow);
+}
+
+function clientMatchesDetailFilters(row){
+  const search=clientToolbarState.search.trim().toLowerCase();
+  if(clientToolbarState.industry&&String(row.client?.industry||'')!==clientToolbarState.industry)return false;
+  if(clientToolbarState.manager&&!row.managerNames.includes(clientToolbarState.manager))return false;
+  if(clientToolbarState.health!=='all'&&row.healthCode!==clientToolbarState.health)return false;
+  if(search){
+    const haystack=[row.client?.name||'',...row.managerNames].join(' ').toLowerCase();
+    if(!haystack.includes(search))return false;
+  }
+  return true;
+}
+
+function sortClientRows(rows){
+  const sorted=[...rows];
+  const compareName=(a,b)=>String(a.client?.name||'').localeCompare(String(b.client?.name||''),'ko');
+  sorted.sort((a,b)=>{
+    if(clientToolbarState.sort==='revenue')return (b.totalRevenue-a.totalRevenue)||compareName(a,b);
+    if(clientToolbarState.sort==='issues')return (b.openIssueCount-a.openIssueCount)||(b.overdueProjectCount-a.overdueProjectCount)||compareName(a,b);
+    if(clientToolbarState.sort==='recent')return (b.recentActivityAt-a.recentActivityAt)||compareName(a,b);
+    return compareName(a,b);
+  });
+  return sorted;
+}
+
+function renderClientFilterOptions(baseRows){
+  const industrySelect=document.getElementById('clientIndustryFilter');
+  const managerSelect=document.getElementById('clientManagerFilter');
+  if(industrySelect){
+    const industries=[...new Set(baseRows.map(row=>String(row.client?.industry||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+    industrySelect.innerHTML='<option value="">업종 전체</option>'+industries.map(industry=>'<option value="'+esc(industry)+'">'+esc(industry)+'</option>').join('');
+    industrySelect.value=clientToolbarState.industry;
+    if(industrySelect.value!==clientToolbarState.industry)clientToolbarState.industry=industrySelect.value;
+  }
+  if(managerSelect){
+    const managers=[...new Set(baseRows.flatMap(row=>row.managerNames).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+    managerSelect.innerHTML='<option value="">담당자 전체</option>'+managers.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
+    managerSelect.value=clientToolbarState.manager;
+    if(managerSelect.value!==clientToolbarState.manager)clientToolbarState.manager=managerSelect.value;
+  }
+}
+
+function formatClientCurrency(amount){
+  return Number(amount||0).toLocaleString()+'원';
+}
+
+function formatClientRevenueDelta(currentValue,previousValue){
+  const diff=currentValue-previousValue;
+  if(!diff)return '전월 대비 변동 없음';
+  return '전월 대비 '+(diff>0?'+':'')+Number(diff).toLocaleString()+'원';
+}
+
+function renderClientKpis(rows){
+  const el=document.getElementById('clientsTopSummary');
+  if(!el)return;
+  const activeClientCount=rows.filter(row=>row.activeProjectCount>0).length;
+  const attentionCount=rows.filter(row=>row.overdueProjectCount>0||row.openIssueCount>0).length;
+  const unbilledAmount=rows.reduce((sum,row)=>sum+row.unbilledAmount,0);
+  const pendingDocCount=rows.reduce((sum,row)=>sum+row.pendingDocCount,0);
+  const monthRevenue=rows.reduce((sum,row)=>sum+row.revenueThisMonth,0);
+  const prevMonthRevenue=rows.reduce((sum,row)=>sum+row.revenuePreviousMonth,0);
+  const cards=[
+    {label:'전체 거래처',value:rows.length+'곳',sub:'활성 프로젝트 보유 '+activeClientCount+'곳'},
+    {label:'주의 필요',value:attentionCount===0?'없음 ✓':attentionCount+'곳',sub:attentionCount===0?'지연/열린 이슈 거래처 없음':'지연 프로젝트 또는 열린 이슈 기준',className:attentionCount===0?'is-good':'is-bad'},
+    {label:'미청구 금액',value:formatClientCurrency(unbilledAmount),sub:'미청구 프로젝트 '+rows.reduce((sum,row)=>sum+row.unbilledProjectCount,0)+'건'},
+    {label:'자료 대기',value:pendingDocCount+'건',sub:clientPendingDocRequestsLoaded?'pending document request 기준':'문서 요청 불러오는 중'},
+    {label:'이번 달 매출',value:formatClientCurrency(monthRevenue),sub:formatClientRevenueDelta(monthRevenue,prevMonthRevenue)}
+  ];
+  el.innerHTML=cards.map(card=>
+    '<div class="client-kpi-card '+(card.className||'')+'">'
+      +'<div class="client-kpi-label">'+esc(card.label)+'</div>'
+      +'<div class="client-kpi-value">'+esc(card.value)+'</div>'
+      +'<div class="client-kpi-sub">'+esc(card.sub)+'</div>'
+    +'</div>'
+  ).join('');
+}
+
+function renderClientFilterTags(){
+  const el=document.getElementById('clientFilterTags');
+  if(!el)return;
+  const tags=[];
+  const statusFilter=document.getElementById('projStatusFilter')?.value||'';
+  if(myFilterActive)tags.push({key:'myOnly',label:'내 고객사'});
+  if(statusFilter==='active')tags.push({key:'status',label:'진행중 프로젝트만'});
+  if(clientToolbarState.industry)tags.push({key:'industry',label:'업종 · '+clientToolbarState.industry});
+  if(clientToolbarState.manager)tags.push({key:'manager',label:'담당자 · '+clientToolbarState.manager});
+  if(clientToolbarState.health!=='all')tags.push({key:'health',label:'건강상태 · '+getClientHealthLabel(clientToolbarState.health)});
+  if(clientToolbarState.search)tags.push({key:'search',label:'검색 · '+clientToolbarState.search});
+  el.innerHTML=tags.map(tag=>'<span class="client-filter-tag">'+esc(tag.label)+'<button type="button" onclick="clearClientFilterTag(\''+tag.key+'\')">×</button></span>').join('');
+}
+
+function renderClientCard(detail){
+  const warns=(detail.overdueProjectCount||0)+(detail.openIssueCount||0);
+  const chips=detail.activeProjectTypes.slice(0,3).map(type=>'<span class="chip" style="background:'+(TYPES[type]||'#94A3B8')+'">'+esc(type)+'</span>').join('');
+  return '<div class="client-card" onclick="openClientDetail(this.dataset.id)" data-id="'+detail.client.id+'">'
+    +'<div class="client-card-head"><div class="client-avatar">'+esc((detail.client.name||'?').charAt(0))+'</div>'+(warns?'<span class="client-warn">'+warns+'</span>':'')+'</div>'
+    +'<div class="client-name">'+esc(detail.client.name||'거래처')+'</div>'
+    +'<div class="client-industry">'+esc(detail.client.industry||'업종 미입력')+'</div>'
+    +'<div class="chip-row">'+chips+(detail.activeProjectTypes.length>3?'<span style="font-size:11px;color:var(--text3);padding:3px 0">+'+(detail.activeProjectTypes.length-3)+'건</span>':'')+'</div>'
+    +'<div class="client-mini-badges">'
+      +'<span class="badge '+(detail.healthCode==='issue'?'badge-red':detail.healthCode==='warning'?'badge-orange':'badge-green')+'">'+getClientHealthLabel(detail.healthCode)+'</span>'
+      +(detail.pendingDocCount?'<span class="badge badge-gray">자료 '+detail.pendingDocCount+'건</span>':'')
+      +(detail.openIssueCount?'<span class="badge badge-red">이슈 '+detail.openIssueCount+'건</span>':'')
+    +'</div>'
+    +'<div class="client-footer"><span class="client-members">'+esc(detail.managerNames.slice(0,3).join(' · ')||'담당자 미배정')+'</span><span class="client-active">'+detail.activeProjectCount+'건 진행중'+(detail.activeContractCount?' · 계약 '+detail.activeContractCount:'')+'</span></div>'
+    +'</div>';
+}
+
+function renderClientTable(rows){
+  return '<div class="client-table-shell">'
+    +'<div class="client-table-head"><div class="client-table-title">거래처 테이블</div><div class="muted">검색과 정렬은 상단 필터를 따릅니다.</div></div>'
+    +'<div class="client-table-wrap"><table class="client-table"><thead><tr><th>거래처</th><th>업종</th><th>담당자</th><th>건강 상태</th><th>진행중</th><th>열린 이슈</th><th>자료 대기</th><th>미청구</th><th>이번 달 매출</th><th>최근 활동</th></tr></thead><tbody>'
+    +rows.map(row=>{
+      const recentLabel=row.recentActivityAt?formatDate(row.recentActivityAt):'-';
+      return '<tr onclick="openClientDetail(\''+row.client.id+'\')">'
+        +'<td><div class="client-table-name">'+esc(row.client.name||'거래처')+'</div><div class="client-table-sub">활성 프로젝트 '+row.activeProjectCount+'건</div></td>'
+        +'<td>'+esc(row.client.industry||'-')+'</td>'
+        +'<td>'+esc(row.managerNames.join(', ')||'-')+'</td>'
+        +'<td><span class="badge '+(row.healthCode==='issue'?'badge-red':row.healthCode==='warning'?'badge-orange':'badge-green')+'">'+getClientHealthLabel(row.healthCode)+'</span></td>'
+        +'<td>'+row.activeProjectCount+'건</td>'
+        +'<td>'+row.openIssueCount+'건</td>'
+        +'<td>'+row.pendingDocCount+'건</td>'
+        +'<td>'+formatClientCurrency(row.unbilledAmount)+'</td>'
+        +'<td>'+formatClientCurrency(row.revenueThisMonth)+'</td>'
+        +'<td>'+esc(recentLabel)+'</td>'
+      +'</tr>';
+    }).join('')
+    +'</tbody></table></div></div>';
+}
+
+function renderClientHealthBoard(rows){
+  const groups=[
+    {key:'issue',label:'이슈 있음',className:'is-issue'},
+    {key:'warning',label:'주의 필요',className:'is-warning'},
+    {key:'normal',label:'정상',className:''}
+  ];
+  return '<div class="client-health-board">'+groups.map(group=>{
+    const items=rows.filter(row=>row.healthCode===group.key);
+    return '<div class="client-health-column '+group.className+'"><div class="client-health-head"><div class="client-health-title">'+group.label+'</div><div class="client-health-count">'+items.length+'곳</div></div><div class="client-health-list">'
+      +(items.length?items.map(row=>'<div class="client-health-item" onclick="openClientDetail(\''+row.client.id+'\')"><div class="client-health-item-name">'+esc(row.client.name||'거래처')+'</div><div class="client-health-item-sub">'+esc((row.managerNames.join(', ')||'담당자 미배정')+' · 진행 '+row.activeProjectCount+'건 · 이슈 '+row.openIssueCount+'건 · 자료 '+row.pendingDocCount+'건')+'</div></div>').join(''):'<div class="empty-state" style="padding:24px 14px">해당 거래처가 없습니다.</div>')
+      +'</div></div>';
+  }).join('')+'</div>';
+}
+
+renderAlerts=function(){};
+renderPinned=function(){};
+
+renderClients=function(){
+  const grid=document.getElementById('clientGrid');
+  if(!grid)return;
+  syncClientPrimaryToggle();
+  if(!clientPendingDocRequestsLoaded&&!clientPendingDocRequestsLoading)ensureClientPendingDocRequestsLoaded();
+  clientToolbarState.industry=document.getElementById('clientIndustryFilter')?.value||'';
+  clientToolbarState.manager=document.getElementById('clientManagerFilter')?.value||'';
+  clientToolbarState.health=document.getElementById('clientHealthFilter')?.value||'all';
+  clientToolbarState.search=document.getElementById('clientSearchInput')?.value?.trim()||'';
+  clientToolbarState.sort=document.getElementById('clientSortFilter')?.value||clientToolbarState.sort||'name';
+
+  const title=document.getElementById('boardTitle');
+  if(title)title.textContent='거래처';
+
+  const baseRows=getClientBaseRows();
+  renderClientFilterOptions(baseRows);
+  let rows=baseRows.filter(clientMatchesDetailFilters);
+  rows=sortClientRows(rows);
+  renderClientKpis(rows);
+  renderClientFilterTags();
+  document.getElementById('clientViewCardBtn')?.classList.toggle('active',clientViewMode==='card');
+  document.getElementById('clientViewTableBtn')?.classList.toggle('active',clientViewMode==='table');
+  document.getElementById('clientViewHealthBtn')?.classList.toggle('active',clientViewMode==='health');
+
+  if(!rows.length){
+    grid.className='board-grid';
+    grid.innerHTML='<div class="empty-state"><span class="empty-icon">🏢</span>조건에 맞는 거래처가 없습니다<br><br><button class="btn primary sm" onclick="openClientModal()">+ 고객사 추가</button></div>';
+    return;
+  }
+
+  if(clientViewMode==='table'){
+    grid.className='';
+    grid.innerHTML=renderClientTable(rows);
+    return;
+  }
+  if(clientViewMode==='health'){
+    grid.className='';
+    grid.innerHTML=renderClientHealthBoard(rows);
+    return;
+  }
+  grid.className='board-grid';
+  grid.innerHTML=rows.map(renderClientCard).join('');
+};

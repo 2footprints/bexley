@@ -52,7 +52,58 @@
 .client-card{padding:22px!important}
 .client-card{border-radius:18px!important}
 
+.client-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+.client-kpi-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow-md)}
+.client-kpi-card.is-good .client-kpi-value{color:var(--green)}
+.client-kpi-card.is-bad .client-kpi-value{color:var(--red)}
+.client-kpi-label{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.12em;text-transform:uppercase}
+.client-kpi-value{font-size:30px;font-weight:760;color:var(--navy);line-height:1;margin-top:10px}
+.client-kpi-sub{font-size:12px;color:var(--text2);margin-top:8px;line-height:1.55}
+
+.client-toolbar-shell{display:block!important}
+.client-toolbar-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;width:100%}
+.client-toolbar-primary,.client-toolbar-actions{align-items:center;flex-wrap:wrap}
+.client-toolbar-primary input,.client-toolbar-primary select,.client-toolbar-actions select{min-height:40px}
+.client-toolbar-primary input{padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;min-width:220px;background:#fff}
+.client-view-toggle{flex-shrink:0}
+
+.client-filter-tags{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 16px}
+.client-filter-tag{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:12px;font-weight:700;color:var(--text2);box-shadow:var(--shadow-sm)}
+.client-filter-tag button{border:none;background:transparent;color:var(--text3);font-size:14px;line-height:1;cursor:pointer;padding:0}
+
+.client-table-shell{background:var(--color-surface);border:1px solid var(--color-border);border-radius:18px;box-shadow:var(--shadow-md);overflow:hidden}
+.client-table-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border);background:#FBFCFE}
+.client-table-title{font-size:14px;font-weight:800;color:var(--navy)}
+.client-table-wrap{overflow:auto}
+.client-table{width:100%;border-collapse:collapse;min-width:920px}
+.client-table th,.client-table td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+.client-table th{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;background:#FBFCFE}
+.client-table td{font-size:13px;color:var(--text)}
+.client-table tbody tr{cursor:pointer;transition:background .15s ease}
+.client-table tbody tr:hover{background:#F8FAFC}
+.client-table-name{font-weight:700;color:var(--navy)}
+.client-table-sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+.client-health-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.client-health-column{background:var(--color-surface);border:1px solid var(--color-border);border-radius:18px;box-shadow:var(--shadow-md);padding:18px}
+.client-health-column.is-warning{border-color:rgba(180,83,9,.2)}
+.client-health-column.is-issue{border-color:rgba(194,65,58,.18)}
+.client-health-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.client-health-title{font-size:14px;font-weight:800;color:var(--navy)}
+.client-health-count{font-size:12px;color:var(--text3);font-weight:700}
+.client-health-list{display:flex;flex-direction:column;gap:10px}
+.client-health-item{border:1px solid var(--border);border-radius:14px;padding:14px;background:#fff;cursor:pointer;transition:all .16s ease}
+.client-health-item:hover{border-color:rgba(10,37,64,.12);box-shadow:var(--shadow-sm)}
+.client-health-item-name{font-size:13px;font-weight:800;color:var(--navy)}
+.client-health-item-sub{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.55}
+
+.client-mini-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+
 @media(max-width:768px){
+  .client-kpi-grid{grid-template-columns:1fr 1fr}
+  .client-toolbar-grid{grid-template-columns:1fr}
+  .client-toolbar-primary input{min-width:0;width:100%}
+  .client-health-board{grid-template-columns:1fr}
   .client-card{border-radius:18px!important}
   .client-card{padding:18px!important}
 }
