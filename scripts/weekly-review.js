@@ -1,5 +1,31 @@
 let weeklyReviewWeekOffset=0;
 let weeklyReviewMemberScope='me';
+const WEEKLY_REVIEW_SECTION_DEFAULTS={
+  completed:false,
+  risks:false,
+  next:false,
+  billing:true,
+  documents:true,
+  members:true,
+  comments:true
+};
+let weeklyReviewSectionCollapseState={...WEEKLY_REVIEW_SECTION_DEFAULTS};
+
+function isWeeklyReviewSectionCollapsed(sectionId){
+  if(!sectionId)return false;
+  if(Object.prototype.hasOwnProperty.call(weeklyReviewSectionCollapseState,sectionId)){
+    return !!weeklyReviewSectionCollapseState[sectionId];
+  }
+  return !!WEEKLY_REVIEW_SECTION_DEFAULTS[sectionId];
+}
+function toggleWeeklyReviewSection(sectionId){
+  if(!sectionId)return;
+  weeklyReviewSectionCollapseState={
+    ...weeklyReviewSectionCollapseState,
+    [sectionId]:!isWeeklyReviewSectionCollapsed(sectionId)
+  };
+  renderWeeklyReviewPage();
+}
 
 function getWeeklyReviewWeekRangeLabel(offsetWeeks=weeklyReviewWeekOffset){
   const {start,end}=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
@@ -218,6 +244,7 @@ function createWeeklyReviewProjectItem(project,options={}){
         ? formatRangeShort(getWeeklyReviewProjectStartDate(project),getWeeklyReviewProjectEndDate(project))
         : getWeeklyReviewShortDate(getWeeklyReviewProjectEndDate(project))
     ),
+    actionHint:options.actionHint||'프로젝트 상세를 열어 후속 작업을 확인하세요.',
     action:options.action||("openProjModal('"+project.id+"')")
   };
 }
@@ -233,6 +260,7 @@ function createWeeklyReviewIssueItem(issue,options={}){
     sideText:options.sideText||(String(issue?.status||'').trim()==='resolved'
       ? `해결 ${getWeeklyReviewShortDate(issue?.resolved_at||issue?.updated_at||issue?.created_at)}`
       : `등록 ${getWeeklyReviewShortDate(issue?.created_at)}`),
+    actionHint:options.actionHint||'이슈 상태와 담당자를 바로 확인하세요.',
     action:options.action||("openIssueModal('"+(issue?.project_id||'')+"','"+(issue?.id||'')+"')")
   };
 }
@@ -247,6 +275,7 @@ function createWeeklyReviewScheduleItem(schedule,options={}){
       schedule?.start||schedule?.start_date,
       schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date
     ),
+    actionHint:options.actionHint||'관련 일정과 담당 멤버를 확인하세요.',
     action:options.action||("openScheduleModal('"+schedule.id+"')")
   };
 }
@@ -270,6 +299,9 @@ function createWeeklyReviewCompletedProjectTableItem(project){
       memberLabel,
       formatWeeklyReviewCurrency(getWeeklyReviewProjectBillingAmount(project))
     ],
+    actionHint:String(project?.billing_status||'').trim()==='誘몄껌援?'
+      ? '청구 준비가 필요한 완료 프로젝트입니다.'
+      : '완료 결과와 빌링 상태를 점검하세요.',
     badgeLabel:billingMeta.label,
     badgeClass:billingMeta.badgeClass
   };
@@ -284,6 +316,7 @@ function createWeeklyReviewBillingRecordItem(row){
     badgeLabel:String(row?.status||'').trim()||'미수금',
     badgeClass:String(row?.status||'').trim()==='수금완료'?'badge-green':'badge-orange',
     sideText:formatWeeklyReviewCurrency(row?.amount||0),
+    actionHint:'수금 예정과 리마인드 필요 여부를 확인하세요.',
     action:contract?.id?("openContractDetail('"+contract.id+"')"):(project?.id?("openProjModal('"+project.id+"',null,null,'completion')"):'')
   };
 }
@@ -298,7 +331,10 @@ function createWeeklyReviewDocumentRequestTableItem(request,baseDate){
       request?.title||'자료명 없음',
       request?.due_date||'-',
       formatWeeklyReviewDocumentElapsed(request?.due_date,baseDate)
-    ]
+    ],
+    actionHint:getWeeklyReviewDayDiff(request?.due_date,baseDate)>0
+      ? '기한이 지난 자료 요청입니다. 회수가 필요합니다.'
+      : '자료 제출 예정일과 담당자 커뮤니케이션을 확인하세요.'
   };
 }
 function createWeeklyReviewMemberSummary(member,context){
@@ -407,11 +443,13 @@ function renderWeeklyReviewCardMarkup(card){
 function renderWeeklyReviewItemMarkup(item){
   const badgeHtml=item?.badgeLabel?'<span class="badge '+esc(item?.badgeClass||'badge-gray')+'">'+esc(item.badgeLabel)+'</span>':'';
   const sideTextHtml=item?.sideText?'<div class="weekly-review-item-side-text">'+esc(item.sideText)+'</div>':'';
+  const actionHintHtml=item?.actionHint?'<div class="weekly-review-item-action">'+esc(item.actionHint)+'</div>':'';
   const onclickAttr=item?.action?' onclick="'+item.action+'"':'';
   return '<button type="button" class="weekly-review-item"'+onclickAttr+'>'
     +'<div class="weekly-review-item-main">'
       +'<div class="weekly-review-item-title">'+esc(item?.title||'-')+'</div>'
       +(item?.meta?'<div class="weekly-review-item-meta">'+esc(item.meta)+'</div>':'')
+      +actionHintHtml
     +'</div>'
     +'<div class="weekly-review-item-side">'
       +badgeHtml
@@ -423,12 +461,15 @@ function renderWeeklyReviewTableItemMarkup(item,templateColumns,appendBadge=true
   const columns=Array.isArray(item?.columns)?item.columns:[];
   const onclickAttr=item?.action?' onclick="'+item.action+'"':'';
   const template=templateColumns||'1.1fr 1.6fr .9fr 1.1fr 1fr .9fr';
-  return '<button type="button" class="weekly-review-item"'+onclickAttr+' style="display:grid;grid-template-columns:'+template+';align-items:center">'
-    +columns.map((columnValue,index)=>{
-      const align=index===4?'text-align:right;':'';
-      return '<div style="min-width:0;font-size:12px;color:var(--text2);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+align+'">'+esc(columnValue||'-')+'</div>';
-    }).join('')
-    +(appendBadge?'<div style="display:flex;justify-content:flex-end">'+(item?.badgeLabel?'<span class="badge '+esc(item?.badgeClass||'badge-gray')+'">'+esc(item.badgeLabel)+'</span>':'-')+'</div>':'')
+  return '<button type="button" class="weekly-review-item weekly-review-item--table"'+onclickAttr+'>'
+    +'<div class="weekly-review-item-table-grid" style="grid-template-columns:'+template+'">'
+      +columns.map((columnValue,index)=>{
+        const align=index===4?'text-align:right;':'';
+        return '<div style="min-width:0;font-size:12px;color:var(--text2);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+align+'">'+esc(columnValue||'-')+'</div>';
+      }).join('')
+      +(appendBadge?'<div style="display:flex;justify-content:flex-end">'+(item?.badgeLabel?'<span class="badge '+esc(item?.badgeClass||'badge-gray')+'">'+esc(item.badgeLabel)+'</span>':'-')+'</div>':'')
+    +'</div>'
+    +(item?.actionHint?'<div class="weekly-review-item-action weekly-review-item-action--table">'+esc(item.actionHint)+'</div>':'')
   +'</button>';
 }
 function renderWeeklyReviewGroupMarkup(group){
@@ -476,15 +517,24 @@ function renderWeeklyReviewGroupMarkup(group){
 }
 function renderWeeklyReviewSectionMarkup(section){
   const groups=Array.isArray(section?.groups)?section.groups:[];
+  const sectionId=section?.id||'';
+  const isCollapsed=isWeeklyReviewSectionCollapsed(sectionId);
   return '<section class="card weekly-review-section">'
     +'<div class="weekly-review-section-head">'
       +'<div>'
         +'<div class="weekly-review-section-title">'+esc(section?.title||'')+'</div>'
         +(section?.sub?'<div class="weekly-review-section-sub">'+esc(section.sub)+'</div>':'')
       +'</div>'
-      +(section?.actionsHtml||'')
+      +'<div class="weekly-review-section-controls">'
+        +(section?.actionsHtml||'')
+        +'<button type="button" class="btn ghost sm" onclick="toggleWeeklyReviewSection(\''+sectionId+'\')">'+(isCollapsed?'펼치기':'접기')+'</button>'
+      +'</div>'
     +'</div>'
-    +groups.map(renderWeeklyReviewGroupMarkup).join('')
+    +'<div class="weekly-review-section-content'+(isCollapsed?' is-collapsed':'')+'">'
+      +(isCollapsed
+        ?'<div class="weekly-review-section-collapsed-note">'+esc(section?.collapsedSummary||'섹션을 펼쳐 상세 내용을 확인하세요.')+'</div>'
+        :groups.map(renderWeeklyReviewGroupMarkup).join(''))
+    +'</div>'
   +'</section>';
 }
 function renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards,sections){
@@ -501,6 +551,31 @@ function renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards,sections){
     +'</div>'
     +'<div class="weekly-review-grid">'
       +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
+    +'</div>'
+    +'<div class="weekly-review-body">'
+      +'<div class="weekly-review-body-grid">'
+        +(sections||[]).map(renderWeeklyReviewSectionMarkup).join('')
+      +'</div>'
+    +'</div>';
+}
+function renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards,sections){
+  return '<div class="weekly-review-summary-shell">'
+      +'<div class="weekly-review-head">'
+        +'<div class="weekly-review-title-wrap">'
+          +'<div class="weekly-review-kicker">Meeting Summary</div>'
+          +'<h2 class="section-title">주간 리뷰</h2>'
+          +'<div class="weekly-review-summary-copy">이번 주 실적과 리스크, 차주 일정과 수금 이슈를 회의 순서대로 빠르게 확인합니다.</div>'
+          +'<div class="weekly-review-range">'+esc(rangeLabel)+'</div>'
+        +'</div>'
+        +'<div class="month-nav weekly-review-nav">'
+          +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset-1)+')">&#8249;</button>'
+          +'<div class="weekly-review-nav-label">'+esc(navLabel)+'</div>'
+          +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset+1)+')">&#8250;</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="weekly-review-grid">'
+        +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
+      +'</div>'
     +'</div>'
     +'<div class="weekly-review-body">'
       +'<div class="weekly-review-body-grid">'
@@ -901,6 +976,13 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       ]
     }
   ];
+  if(sections[0]){sections[0].id='completed';sections[0].collapsedSummary=`이번 주 완료 프로젝트 ${completedProjectsByBilling.length}건, 합계 ${formatWeeklyReviewCurrency(weeklyRevenue)}`;}
+  if(sections[1]){sections[1].id='risks';sections[1].collapsedSummary=`지연 ${overdueProjects.length}건, 긴급 이슈 ${urgentIssues.length}건, 후속 조치 ${followUpProjects.length}건`;}
+  if(sections[2]){sections[2].id='next';sections[2].collapsedSummary=`차주 마감 ${nextWeekEnds.length}건, 신규 착수 ${nextWeekStarts.length}건, 일정 ${nextWeekSchedules.length}건`;}
+  if(sections[3]){sections[3].id='billing';sections[3].collapsedSummary=`미청구 ${unbilledProjects.length}건, 청구 후 미수금 ${outstandingBillingRows.length}건`;}
+  if(sections[4]){sections[4].id='documents';sections[4].collapsedSummary=`회수 대기 자료 요청 ${pendingDocumentRows.length}건`;}
+  if(sections[5]){sections[5].id='members';sections[5].collapsedSummary=`멤버 요약 ${memberSummaries.length}명`;}
+  if(sections[6]){sections[6].id='comments';sections[6].collapsedSummary=`팀 코멘트 ${weeklyReviews.length}건`;}
   return {cards,sections};
 }
 async function getWeeklyReviewSummaryCards(offsetWeeks=weeklyReviewWeekOffset){

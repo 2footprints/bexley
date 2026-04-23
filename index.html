@@ -1129,6 +1129,124 @@ input,textarea{border-radius:12px!important}
   font-size:12px;
   color:var(--text3);
 }
+#pageWeeklyReview .weekly-review-summary-shell{
+  margin-bottom:var(--spacing-md);
+  padding:22px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:20px;
+  background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);
+  box-shadow:0 16px 32px rgba(15,23,42,.06);
+}
+#pageWeeklyReview .weekly-review-kicker{
+  font-size:11px;
+  font-weight:800;
+  color:var(--blue);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+#pageWeeklyReview .weekly-review-summary-copy{
+  max-width:720px;
+  font-size:13px;
+  color:var(--text2);
+  line-height:1.6;
+}
+#pageWeeklyReview .weekly-review-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+#pageWeeklyReview .weekly-review-card{
+  min-height:196px;
+  border-color:rgba(15,23,42,.08)!important;
+}
+#pageWeeklyReview .weekly-review-card-head{
+  align-items:flex-start;
+}
+#pageWeeklyReview .weekly-review-card-title{
+  font-size:15px;
+  font-weight:800;
+}
+#pageWeeklyReview .weekly-review-card-badge{
+  background:#fff;
+}
+#pageWeeklyReview .weekly-review-card-value{
+  font-size:36px;
+}
+#pageWeeklyReview .weekly-review-card-meta{
+  min-height:58px;
+}
+#pageWeeklyReview .weekly-review-body-grid{
+  grid-template-columns:1fr;
+  gap:14px;
+}
+#pageWeeklyReview .weekly-review-section{
+  gap:14px;
+}
+#pageWeeklyReview .weekly-review-section-head{
+  align-items:center;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(148,163,184,.18);
+}
+#pageWeeklyReview .weekly-review-section-controls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+#pageWeeklyReview .weekly-review-section-content{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+#pageWeeklyReview .weekly-review-section-content.is-collapsed{
+  display:block;
+}
+#pageWeeklyReview .weekly-review-section-collapsed-note{
+  padding:12px 14px;
+  border:1px dashed var(--border);
+  border-radius:14px;
+  background:var(--bg);
+  font-size:12px;
+  color:var(--text2);
+}
+#pageWeeklyReview .weekly-review-section-group{
+  padding:2px 0;
+}
+#pageWeeklyReview .weekly-review-item{
+  gap:16px;
+  padding:14px 16px;
+}
+#pageWeeklyReview .weekly-review-item--table{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+}
+#pageWeeklyReview .weekly-review-item-table-grid{
+  display:grid;
+  align-items:center;
+  gap:12px;
+}
+#pageWeeklyReview .weekly-review-item-meta{
+  color:var(--text2);
+}
+#pageWeeklyReview .weekly-review-item-action{
+  margin-top:8px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--blue);
+  line-height:1.5;
+}
+#pageWeeklyReview .weekly-review-item-action--table{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px dashed rgba(148,163,184,.3);
+}
+#pageWeeklyReview .weekly-review-empty{
+  padding:18px 14px;
+  border:1px dashed rgba(148,163,184,.28);
+  border-radius:14px;
+  background:var(--bg);
+  color:var(--text2);
+}
 
 @media(max-width:768px){
   #pageWeeklyReview .weekly-review-head{
@@ -1155,6 +1273,18 @@ input,textarea{border-radius:12px!important}
   }
   #pageWeeklyReview .weekly-review-card{
     min-height:0;
+  }
+  #pageWeeklyReview .weekly-review-summary-shell{
+    padding:18px;
+  }
+  #pageWeeklyReview .weekly-review-item-table-grid{
+    grid-template-columns:1fr!important;
+    gap:6px;
+  }
+}
+@media(max-width:1024px){
+  #pageWeeklyReview .weekly-review-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
 </style>
