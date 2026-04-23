@@ -1487,21 +1487,31 @@ input,textarea{border-radius:12px!important}
 
     <!-- 프로젝트 관리 -->
     <div id="pageGantt" style="display:none">
-      <div id="ganttOverview" class="gantt-overview"></div>
-      <div class="gantt-toolbar">
-        <div class="month-nav">
-          <button class="month-nav-btn" id="prevM">‹</button>
-          <span class="month-label" id="monthLabel"></span>
-          <button class="month-nav-btn" id="nextM">›</button>
+      <div class="gantt-top-shell">
+        <div id="ganttOverview" class="gantt-overview"></div>
+        <div class="gantt-controls-shell">
+          <div class="gantt-toolbar">
+            <div class="gantt-toolbar-zone gantt-toolbar-zone--nav" id="ganttToolbarNav" data-group-label="날짜">
+              <div class="month-nav">
+                <button class="month-nav-btn" id="prevM">‹</button>
+                <span class="month-label" id="monthLabel"></span>
+                <button class="month-nav-btn" id="nextM">›</button>
+              </div>
+            </div>
+            <div class="gantt-toolbar-zone gantt-toolbar-zone--view" id="ganttToolbarView" data-group-label="보기">
+              <button class="btn sm" id="gvp" onclick="setGView('project')">프로젝트별</button>
+              <button class="btn sm" id="gvm" onclick="setGView('member')">인력별</button>
+            </div>
+            <div class="gantt-toolbar-zone gantt-toolbar-zone--actions" id="ganttToolbarActions" data-group-label="작업">
+              <input type="hidden" id="memberFilter" value="">
+              <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()">+ 개인 일정</button>
+              <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
+            </div>
+          </div>
         </div>
-        <button class="btn sm" id="gvp" onclick="setGView('project')">프로젝트별</button>
-        <button class="btn sm" id="gvm" onclick="setGView('member')">인력별</button>
-        <input type="hidden" id="memberFilter" value="">
-        <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()" style="margin-left:auto">+ 개인 일정</button>
-        <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
       </div>
       <div id="memberFilterTabs" class="member-filter-tabs"></div>
-      <div style="font-size:12px;color:var(--text3);margin:-6px 0 12px">이번 달 우선순위 프로젝트를 왼쪽에서 고르고, 오른쪽에서 바로 이슈 확인과 후속 작업을 이어서 처리할 수 있습니다.</div>
+      <div class="gantt-top-note">이번 달 우선순위 프로젝트를 왼쪽에서 고르고, 오른쪽에서 바로 이슈 확인과 후속 작업을 이어서 처리할 수 있습니다.</div>
       <div class="gantt-shell">
         <div class="gantt-stage">
           <aside class="gantt-sidebar">
@@ -8173,6 +8183,7 @@ function writeStoredGanttToggle(key,value){
 function ensureGanttVisibilityToggles(){
   const toolbar=document.querySelector('#pageGantt .gantt-toolbar');
   if(!toolbar)return;
+  const actionZone=document.getElementById('ganttToolbarActions')||toolbar;
   let wrap=document.getElementById('ganttVisibilityToggleWrap');
   if(!wrap){
     wrap=document.createElement('div');
@@ -8180,9 +8191,9 @@ function ensureGanttVisibilityToggles(){
     wrap.className='toggle-wrap gantt-visibility-toggle';
     wrap.innerHTML=''
       +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완료 항목 숨기기</button>';
-    const memberFilter=document.getElementById('memberFilter');
-    if(memberFilter)toolbar.insertBefore(wrap,memberFilter);
-    else toolbar.appendChild(wrap);
+    const scheduleBtn=document.getElementById('scheduleAddBtn');
+    if(scheduleBtn&&scheduleBtn.parentNode===actionZone)actionZone.insertBefore(wrap,scheduleBtn);
+    else actionZone.appendChild(wrap);
   }
 }
 function ensureGanttVisibilitySummary(){
@@ -8459,16 +8470,12 @@ getGanttFilteredData=window.getGanttFilteredData;
 function ensureGanttLayoutToggle(){
   const toolbar=document.querySelector('#pageGantt .gantt-toolbar');
   if(!toolbar || document.getElementById('ganttLayoutToggle')) return;
+  const viewZone=document.getElementById('ganttToolbarView')||toolbar;
   const wrap=document.createElement('div');
   wrap.id='ganttLayoutToggle';
   wrap.className='toggle-wrap gantt-layout-toggle';
   wrap.innerHTML='<button class="toggle-btn active" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button><button class="toggle-btn" id="gll" type="button">리스트</button>';
-  const memberFilter=document.getElementById('memberFilter');
-  if(memberFilter){
-    toolbar.insertBefore(wrap, memberFilter);
-  }else{
-    toolbar.appendChild(wrap);
-  }
+  viewZone.appendChild(wrap);
   document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
   document.getElementById('glc').onclick=()=>setGanttLayout('calendar');
   document.getElementById('gll').onclick=()=>setGanttLayout('list');

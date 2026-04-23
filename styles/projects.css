@@ -4,23 +4,36 @@
   .gantt-wrap table{font-size:11px}
   .th-label{min-width:120px!important}
   .gantt-toolbar{gap:10px}
+  .gantt-toolbar-zone{width:100%;margin-left:0!important}
+  .gantt-toolbar-zone--actions{justify-content:flex-start}
   .gantt-toolbar .btn,.gantt-toolbar select{min-height:40px}
+  .gantt-top-filter-bar{padding:12px 14px}
+  .gantt-top-filter-group{width:100%}
+  .gantt-client-search{min-width:0;width:100%}
 }
 
-.gantt-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.gantt-top-shell{display:grid;gap:14px;margin-bottom:12px}
+.gantt-controls-shell{border:1px solid var(--border);border-radius:18px;background:#fff;padding:14px 16px;box-shadow:var(--shadow-sm)}
+.gantt-toolbar{display:flex;align-items:stretch;gap:12px;margin-bottom:0;flex-wrap:wrap}
+.gantt-toolbar-zone{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%);min-width:0}
+.gantt-toolbar-zone::before{content:attr(data-group-label);display:block;width:100%;font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+.gantt-toolbar-zone--nav{min-width:220px}
+.gantt-toolbar-zone--view{flex:1 1 280px}
+.gantt-toolbar-zone--actions{margin-left:auto;justify-content:flex-end;flex:1 1 260px}
 .gantt-today-btn{margin-left:6px}
-.gantt-top-filter-bar{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 10px}
+.gantt-top-filter-bar{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:12px 0 0;padding:14px 16px;border:1px solid var(--border);border-radius:18px;background:#fff}
 .gantt-top-filter-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .gantt-top-filter-label{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
 .gantt-top-filter-group select,
 .gantt-client-search{min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:12px;background:#fff;color:var(--text);font-size:13px;font-family:inherit}
 .gantt-client-search{min-width:220px}
 .gantt-type-group{flex:1 1 420px}
+.gantt-client-group{flex:1 1 240px}
 .gantt-type-chip-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .gantt-type-chip{border:1px solid var(--border);background:#fff;color:var(--text2);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
 .gantt-type-chip:hover{border-color:rgba(15,23,42,.14);background:#F8FAFC}
 .gantt-type-chip.active{background:var(--navy);border-color:var(--navy);color:#fff}
-.gantt-active-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.gantt-active-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px;padding:0 2px}
 .gantt-filter-tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--text2);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 .gantt-filter-tag span{font-size:13px;line-height:1}
 .member-filter-tabs{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
@@ -125,7 +138,7 @@ td{
 
 .gantt-shell{
   display:grid!important;
-  gap:18px!important;
+  gap:22px!important;
 }
 .gantt-overview{
   display:grid!important;
@@ -163,7 +176,7 @@ td{
 .gantt-stage{
   display:grid!important;
   grid-template-columns:minmax(280px,320px) minmax(0,1fr)!important;
-  gap:18px!important;
+  gap:20px!important;
   align-items:start!important;
 }
 .gantt-sidebar,
@@ -172,9 +185,11 @@ td{
   border:1px solid var(--border)!important;
   border-radius:20px!important;
   background:#fff!important;
+  box-shadow:0 10px 24px rgba(15,23,42,.04)!important;
 }
 .gantt-sidebar{
   padding:18px!important;
+  background:linear-gradient(180deg,#ffffff 0%,#fbfcfe 100%)!important;
 }
 .gantt-panel-head{
   display:flex!important;
@@ -212,8 +227,17 @@ td{
 }
 .gantt-project-card.active{
   border-color:var(--navy)!important;
-  box-shadow:0 0 0 1px rgba(19,52,89,.08),0 14px 30px rgba(19,52,89,.10)!important;
+  box-shadow:0 0 0 1px rgba(19,52,89,.08),0 16px 34px rgba(19,52,89,.12)!important;
   background:linear-gradient(180deg,#ffffff 0%, #f4f8fc 100%)!important;
+}
+.gantt-project-card.active::after{
+  content:'';
+  display:block;
+  width:42px;
+  height:3px;
+  border-radius:999px;
+  background:var(--navy);
+  margin-top:12px;
 }
 .gantt-project-top{
   display:flex!important;
@@ -241,10 +265,18 @@ td{
   font-weight:700!important;
   color:var(--red)!important;
 }
+.gantt-project-selection-hint{
+  margin-top:10px!important;
+  font-size:11px!important;
+  color:#1D4ED8!important;
+  font-weight:700!important;
+  line-height:1.5!important;
+}
 .gantt-main{
   padding:18px!important;
   display:grid!important;
   gap:16px!important;
+  background:linear-gradient(180deg,#ffffff 0%,#fcfdff 100%)!important;
 }
 .gantt-main-top{
   display:flex!important;
@@ -252,14 +284,27 @@ td{
   justify-content:space-between!important;
   gap:14px!important;
   flex-wrap:wrap!important;
+  padding-bottom:4px!important;
 }
 .gantt-main-copy{
   font-size:13px!important;
   color:var(--text2)!important;
   max-width:720px!important;
 }
+.gantt-wrap{
+  background:#fff!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7)!important;
+}
+.legend{
+  padding:14px 16px 4px!important;
+  border:1px solid var(--border)!important;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%)!important;
+}
 .gantt-detail{
   padding:18px!important;
+  border-top:3px solid rgba(15,23,42,.12)!important;
+  background:linear-gradient(180deg,#ffffff 0%,#fbfcfe 100%)!important;
 }
 .gantt-detail-header{
   display:flex!important;
@@ -272,6 +317,13 @@ td{
 .gantt-detail-head-copy{
   display:grid!important;
   gap:8px!important;
+}
+.gantt-detail-context{
+  font-size:11px!important;
+  font-weight:800!important;
+  color:var(--blue)!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
 }
 .gantt-detail-badges{
   display:flex!important;
@@ -374,6 +426,11 @@ td{
   padding:12px 2px!important;
   font-size:12px!important;
   color:var(--text3)!important;
+}
+.gantt-detail-empty-state{
+  display:grid!important;
+  gap:8px!important;
+  padding:10px 4px 6px!important;
 }
 .gantt-detail-memo{
   width:100%!important;
@@ -909,6 +966,7 @@ td{
   align-items:center!important;
   gap:4px!important;
 }
+.gantt-top-note{font-size:12px;color:var(--text3);margin:-2px 0 12px;padding:0 2px}
 .gantt-calendar-wrap{
   overflow-x:auto;
   padding-bottom:8px;

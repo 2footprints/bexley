@@ -463,6 +463,7 @@ renderGanttSidebarList=function(projs){
     const client=clients.find(c=>c.id===p.client_id);
     const issueCount=openIssuesByProject[p.id]||0;
     const hasMemo=!!(p.memo&&String(p.memo).trim());
+    const isActiveCard=p.id===ganttFocusProjectId;
     const warning=isOverdue(p)
       ?'기간 초과'
       :isDueToday(p)
@@ -474,12 +475,13 @@ renderGanttSidebarList=function(projs){
       :'정상 진행';
     const memoMeta=hasMemo?'<div class="gantt-project-meta" style="color:#334155;font-weight:700">메모 있음</div>':'';
     const badgeClass=p.status===activeStatus?'badge-blue':p.status===doneStatus?'badge-green':'badge-orange';
-    return '<div class="gantt-project-card'+(p.id===ganttFocusProjectId?' active':'')+'" onclick="openGanttProjectDetail(\''+p.id+'\')">'
+    return '<div class="gantt-project-card'+(isActiveCard?' active':'')+'" onclick="openGanttProjectDetail(\''+p.id+'\')">'
       +'<div class="gantt-project-top"><div><div class="gantt-project-name">'+esc(p.name)+'</div><div class="gantt-project-client">'+esc(client?.name||'No client')+'</div></div><span class="badge '+badgeClass+'">'+esc(p.status||'No status')+'</span></div>'
       +'<div class="gantt-project-meta">'+esc((p.start||'')+' ~ '+(p.end||''))+'</div>'
       +'<div class="gantt-project-meta">'+esc((p.members||[]).join(', ')||'No owner')+'</div>'
       +memoMeta
       +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
+      +(isActiveCard?'<div class="gantt-project-selection-hint">선택됨 · 아래 상세 패널에서 바로 후속 작업을 이어서 처리할 수 있습니다.</div>':'')
       +'</div>';
   }).join('');
 };
@@ -489,7 +491,7 @@ renderGanttDetailPanel=function(projs,schs){
   if(!el)return;
   const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
   if(!project){
-    el.innerHTML='<div class="gantt-panel-title">Select a project</div><div class="gantt-panel-sub">Pick a project from the left list. The right panel shows the team schedule and quick actions.</div>';
+    el.innerHTML='<div class="gantt-detail-empty-state"><div class="gantt-detail-context">선택된 프로젝트</div><div class="gantt-panel-title">프로젝트 상세</div><div class="gantt-panel-sub">왼쪽 리스트나 간트, 달력, 리스트 뷰에서 프로젝트를 선택하면 여기에서 같은 상세 정보와 후속 작업을 이어서 볼 수 있습니다.</div></div>';
     return;
   }
   const client=clients.find(c=>c.id===project.client_id)||null;
@@ -1109,6 +1111,7 @@ renderGanttDetailPanel=function(projs,schs){
   el.innerHTML=''
     +'<div class="gantt-detail-header">'
       +'<div class="gantt-detail-head-copy">'
+        +'<div class="gantt-detail-context">선택된 프로젝트</div>'
         +'<div class="gantt-panel-title">'+esc(project.name)+'</div>'
         +'<div class="gantt-panel-sub">'+esc(client?.name||'고객사 미지정')+'</div>'
         +'<div class="gantt-detail-badges"><span class="badge '+getGanttDetailTypeBadgeClass(project.type)+'">'+esc(project.type||'기타')+'</span><span class="badge '+getGanttDetailStatusBadgeClass(project.status)+'">'+esc(project.status||'예정')+'</span>'+priorityBadge+'</div>'
