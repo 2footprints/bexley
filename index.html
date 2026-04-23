@@ -1437,15 +1437,14 @@ input,textarea{border-radius:12px!important}
       <div class="home-dashboard-grid">
         <div class="home-dashboard-col home-dashboard-col--main">
           <div id="myWeekWrap"></div>
-          <div id="teamNoticeWrap"></div>
         </div>
         <div class="home-dashboard-col home-dashboard-col--side">
           <div id="teamWorkloadWrap"></div>
           <div id="memberScheduleWrap"></div>
         </div>
       </div>
-      <div class="home-kudos-section">
-        <div id="teamKudosReviewWrap"></div>
+      <div class="home-reference-section">
+        <div id="teamNoticeWrap"></div>
       </div>
       <div class="team-fun-section">
         <div class="card home-card" style="margin-bottom:0">
@@ -1468,6 +1467,9 @@ input,textarea{border-radius:12px!important}
             </button>
           </div>
         </div>
+      </div>
+      <div class="home-kudos-section">
+        <div id="teamKudosReviewWrap"></div>
       </div>
     </div>
 
@@ -5470,24 +5472,24 @@ async function openIssueComments(issueId,forceOpen=false,focusCommentId=''){
     const issueRows=await api('GET','project_issues?id=eq.'+issueId+'&select=id,title,owner_name,assignee_name,status');
     const issueData=(issueRows||[])[0]||{};
     const comments=await api('GET','issue_comments?issue_id=eq.'+issueId+'&order=created_at.asc')||[];
-    el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">'
-      +'<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(issueData.title||'이슈 댓글')+'</div>'+renderIssuePeopleBadges(issueData)+'</div>'
-      +comments.map(c=>{
-        const canEdit=isAdmin||c.created_by===currentUser?.id;
-        const isEditing=activeIssueCommentEditId===c.id;
-        return '<div id="issue-comment-'+c.id+'" class="notif-anchor" style="display:flex;gap:8px;margin-bottom:10px;padding:4px 2px">'
-        +'<div style="width:26px;height:26px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(c.author_name||'?').charAt(0)+'</div>'
-        +'<div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(c.author_name||'익명')
-        +'<span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:6px">'+formatCommentDate(c.created_at)+'</span></div>'
-        +(isEditing
-          ?'<div style="margin-top:6px"><textarea id="issue-edit-'+c.id+'" rows="3" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;resize:vertical">'+esc(c.content||'')+'</textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px"><button class="btn ghost sm" onclick="cancelEditIssueComment(\''+issueId+'\')">취소</button><button class="btn primary sm" onclick="saveIssueCommentEdit(\''+c.id+'\',\''+issueId+'\')">저장</button></div></div>'
-          :'<div style="font-size:12px;color:var(--text2);margin-top:2px;line-height:1.6;white-space:pre-wrap">'+esc(c.content)+'</div>')
-        +'</div>'
-        +(canEdit&&!isEditing?'<div style="display:flex;gap:6px;flex-shrink:0"><button class="btn ghost sm" style="padding:2px 8px;font-size:11px" onclick="startEditIssueComment(\''+c.id+'\',\''+issueId+'\')">수정</button><button class="btn ghost sm" style="padding:2px 8px;font-size:11px" onclick="deleteIssueComment(\''+c.id+'\',\''+issueId+'\')">삭제</button></div>':'')
-        +'</div>';
-      }).join('')
-      +(comments.length===0?'<div style="font-size:12px;color:var(--text3);margin-bottom:10px">아직 댓글이 없습니다.</div>':'')
-      +'<div style="display:flex;gap:8px;margin-top:4px">'
+    el.innerHTML='<div class="issue-comments-thread">'
+      +'<div class="issue-comments-summary"><div><div class="issue-comments-summary-title">'+esc(issueData.title||'이슈 댓글')+'</div><div class="issue-comments-summary-meta">상태 '+esc(getIssueStatusMeta(issueData.status||'open').label)+'</div></div><div>'+renderIssuePeopleBadges(issueData)+'</div></div>'
+      +(comments.length
+        ?'<div class="issue-comments-list">'+comments.map(c=>{
+          const canEdit=isAdmin||c.created_by===currentUser?.id;
+          const isEditing=activeIssueCommentEditId===c.id;
+          return '<div id="issue-comment-'+c.id+'" class="issue-comment-item notif-anchor">'
+            +'<div class="issue-comment-avatar">'+(c.author_name||'?').charAt(0)+'</div>'
+            +'<div class="issue-comment-main"><div class="issue-comment-head"><span class="issue-comment-author">'+esc(c.author_name||'익명')+'</span><span class="issue-comment-date">'+formatCommentDate(c.created_at)+'</span></div>'
+            +(isEditing
+              ?'<div class="issue-comment-editor"><textarea id="issue-edit-'+c.id+'" rows="3" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;resize:vertical">'+esc(c.content||'')+'</textarea><div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px"><button class="btn ghost sm" onclick="cancelEditIssueComment(\''+issueId+'\')">취소</button><button class="btn primary sm" onclick="saveIssueCommentEdit(\''+c.id+'\',\''+issueId+'\')">저장</button></div></div>'
+              :'<div class="issue-comment-body">'+esc(c.content)+'</div>')
+            +'</div>'
+            +(canEdit&&!isEditing?'<div class="issue-comment-actions"><button class="btn ghost sm" style="padding:2px 8px;font-size:11px" onclick="startEditIssueComment(\''+c.id+'\',\''+issueId+'\')">수정</button><button class="btn ghost sm" style="padding:2px 8px;font-size:11px" onclick="deleteIssueComment(\''+c.id+'\',\''+issueId+'\')">삭제</button></div>':'')
+          +'</div>';
+        }).join('')+'</div>'
+        :'<div class="issue-comments-list"><div class="issues-page-empty">아직 댓글이 없습니다.</div></div>')
+      +'<div class="issue-comment-compose">'
       +'<input id="ic-'+issueId+'" placeholder="댓글 입력... @이름으로 멘션 (Enter로 등록)" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit"/>'
       +'<button class="btn primary sm" onclick="submitIssueComment(\''+issueId+'\')">등록</button>'
       +'</div></div>';

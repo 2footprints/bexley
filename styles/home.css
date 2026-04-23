@@ -119,6 +119,22 @@
 .main-focus-card.warn .main-focus-value{color:var(--red)}
 .main-focus-card.today .main-focus-value{color:#92400E}
 .main-focus-card.info .main-focus-value{color:var(--blue)}
+.home-reference-section{margin-bottom:var(--spacing-md)}
+#pageTeam .home-priority-card{
+  border-color:rgba(37,99,235,.16)!important;
+  box-shadow:0 14px 30px rgba(15,23,42,.06)!important;
+}
+#pageTeam .home-daily-work-section--secondary .home-daily-work-card{
+  border-left-color:#CBD5E1!important;
+  background:#FBFCFE;
+}
+#pageTeam .home-risk-grid .home-risk-card:nth-child(-n+4){
+  border-top:3px solid rgba(37,99,235,.22);
+}
+#pageTeam .home-risk-grid .home-risk-card:nth-child(n+5){
+  background:rgba(248,250,252,.95);
+  box-shadow:none;
+}
 
 .main-home-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.95fr);gap:14px;margin:0 0 18px}
 .main-home-stack{display:grid;gap:14px}
@@ -737,6 +753,9 @@
 }
 #pageTeam .home-kudos-section > #teamKudosReviewWrap > .home-card{
   padding:22px var(--spacing-lg)!important;
+  background:rgba(250,251,253,.95)!important;
+  box-shadow:none!important;
+  border-style:dashed!important;
 }
 #pageTeam .home-kudos-section .team-extra-grid{
   grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
@@ -752,6 +771,8 @@
 }
 #pageTeam .team-notice-panel.home-card{
   padding:16px var(--spacing-lg)!important;
+  background:rgba(250,251,253,.96)!important;
+  box-shadow:none!important;
 }
 #pageTeam .home-notice-alert{
   display:flex;
@@ -822,7 +843,7 @@
 #pageTeam .home-team-talk-reviews{
   border:1px solid var(--border);
   border-radius:14px;
-  background:var(--bg);
+  background:rgba(248,250,252,.92);
   padding:14px 16px;
 }
 #pageTeam .home-team-talk-kicker{
@@ -880,6 +901,13 @@
   padding:14px 0 2px;
   font-size:12px;
   color:var(--text3);
+}
+#pageTeam .team-fun-section .home-card{
+  background:rgba(250,251,253,.96)!important;
+  box-shadow:none!important;
+}
+#pageTeam .team-fun-card{
+  background:rgba(255,255,255,.78);
 }
 
 @media(max-width:768px){

@@ -425,6 +425,37 @@ function getHomeAttentionItems(today,todayScheduleItems,issueRows){
   return sortHomeAttentionItems([...deadlineItems,...issueItems]);
 }
 
+function getHomeRecentWorkItems(limit=4){
+  const sourceProjects=(projects||[]).filter(project=>currentMember?isHomeProjectAssignedToCurrentMember(project):true);
+  return sourceProjects
+    .map(project=>{
+      const client=clients.find(item=>item.id===project.client_id)||null;
+      const referenceAt=project.updated_at||project.actual_end_date||project.created_at||project.end||project.start||'';
+      const referenceTime=referenceAt?new Date(referenceAt).getTime():0;
+      const summary=project.work_summary||project.memo||project.result_summary||project.type||'최근 작업한 프로젝트';
+      return {
+        key:'recent-project:'+project.id,
+        sourceType:'project',
+        sourceId:String(project.id),
+        kind:'project',
+        badgeLabel:'프로젝트',
+        badgeClass:'project',
+        context:(client?.name||'거래처 없음')+' · '+(project.name||'프로젝트 없음'),
+        summary,
+        dueMeta:{label:referenceAt?'업데이트 '+formatHomeShortDate(referenceAt):'',tone:'normal'},
+        dueSortTime:null,
+        hasDue:false,
+        createdTime:referenceTime||0,
+        priorityRaw:String(project.priority||'').trim().toLowerCase(),
+        urgencyRank:3,
+        urgencyColor:'#CBD5E1',
+        action:"openProjModal('"+project.id+"')"
+      };
+    })
+    .sort((a,b)=>(b.createdTime||0)-(a.createdTime||0))
+    .slice(0,limit);
+}
+
 function renderHomeDailyWorkCard(item){
   const badgeLabel=item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정');
   const badgeClass=item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule');
@@ -506,6 +537,7 @@ function renderHomeDailyWorkSection(payload,options={}){
   const today=getHomeBaseDate();
   const todayItems=Array.isArray(payload)?payload:(payload?.todayItems||[]);
   const attentionItems=Array.isArray(payload)?[]:(payload?.attentionItems||[]);
+  const recentItems=Array.isArray(payload)?[]:(payload?.recentItems||[]);
   const hiddenTodayCount=Math.max(todayItems.length-8,0);
   const visibleTodayItems=homeTodayScheduleExpanded?todayItems:todayItems.slice(0,8);
   const nextContentHtml=options.loading
@@ -538,13 +570,32 @@ function renderHomeDailyWorkSection(payload,options={}){
     +'</div>'
     +nextContentHtml
   +'</div>';
+  const priorityCard=el.querySelector('.home-card');
+  if(priorityCard){
+    priorityCard.classList.add('home-priority-card');
+    if(!options.loading){
+      priorityCard.insertAdjacentHTML('beforeend',
+        '<div class="home-daily-work-section-divider"></div>'
+        +'<div class="home-daily-work-section home-daily-work-section--secondary">'
+          +'<div class="home-daily-work-section-head">'
+            +'<div class="home-daily-work-section-title">최근 작업</div>'
+            +'<div class="home-daily-work-section-count">'+recentItems.length+'건</div>'
+          +'</div>'
+          +(recentItems.length
+            ?'<div class="home-daily-work-list">'+recentItems.map(renderHomeDailyWorkCard).join('')+'</div>'
+            :'<div class="home-daily-work-empty is-compact">최근에 열어본 프로젝트가 없습니다</div>')
+        +'</div>'
+      );
+    }
+  }
 }
 
 async function renderHomeDashboardIssues(){
   const today=getHomeBaseDate();
   const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
+  const recentItems=getHomeRecentWorkItems(4);
   if(!currentMember){
-    renderHomeDailyWorkSection({todayItems:todayScheduleItems,attentionItems:[]});
+    renderHomeDailyWorkSection({todayItems:todayScheduleItems,attentionItems:[],recentItems});
     return;
   }
   try{
@@ -555,12 +606,14 @@ async function renderHomeDashboardIssues(){
     );
     renderHomeDailyWorkSection({
       todayItems:todayScheduleItems,
-      attentionItems:getHomeAttentionItems(today,todayScheduleItems,issueRows)
+      attentionItems:getHomeAttentionItems(today,todayScheduleItems,issueRows),
+      recentItems
     });
   }catch(e){
     renderHomeDailyWorkSection({
       todayItems:todayScheduleItems,
-      attentionItems:getHomeAttentionItems(today,todayScheduleItems,[])
+      attentionItems:getHomeAttentionItems(today,todayScheduleItems,[]),
+      recentItems
     });
   }
   return;
