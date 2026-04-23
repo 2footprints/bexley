@@ -1269,7 +1269,7 @@ function getGanttProjectTaskApiPath(queryString){
 }
 
 function isMissingGanttProjectTaskTableError(error){
-  return /Could not find the table 'public\.(project_tasks|tasks)'/i.test(String(error?.message||''));
+  return /Could not find the table 'public\.project_tasks'/i.test(String(error?.message||''));
 }
 
 function getMissingGanttProjectTaskTableMessage(){
