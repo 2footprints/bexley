@@ -107,14 +107,21 @@
 .contract-inline-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .contract-mini-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px}
 
-.contract-list-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm)}
+.contract-list-shell{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm)}
+.contract-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border);background:#FBFCFE}
+.contract-list-title{font-size:14px;font-weight:800;color:var(--navy)}
+.contract-bulk-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.contract-bulk-count{font-size:12px;font-weight:800;color:var(--navy)}
+.contract-list-wrap{overflow:auto}
 .contract-list-table{width:100%;border-collapse:collapse}
 .contract-list-table th,.contract-list-table td{padding:12px 14px;border-top:1px solid var(--border);font-size:12px;text-align:left;vertical-align:middle}
 .contract-list-table thead th{border-top:none;background:var(--bg);font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.02em;text-transform:uppercase}
+.contract-list-table th:first-child,.contract-list-table td:first-child{width:44px}
 .contract-list-table tbody tr{cursor:pointer;transition:background .15s}
 .contract-list-table tbody tr:hover{background:#F8FAFC}
 .contract-list-name{font-size:13px;font-weight:700;color:var(--navy)}
 .contract-list-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.contract-list-sort-btn{display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;padding:0;font:inherit;color:inherit;cursor:pointer}
 
 .contract-billing-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .contract-billing-column{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-sm)}
@@ -122,8 +129,12 @@
 .contract-billing-column-head span{font-size:11px;color:var(--text3)}
 .contract-billing-card{width:100%;display:block;text-align:left;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer;transition:all .15s;margin-bottom:8px;font-family:inherit}
 .contract-billing-card:hover{background:var(--blue-light);border-color:rgba(49,130,246,.18)}
+.contract-billing-card.is-overdue{border-color:rgba(239,68,68,.24);background:rgba(255,241,240,.75)}
+.contract-billing-card.is-paid{background:rgba(236,253,243,.55);border-color:rgba(16,185,129,.18)}
 .contract-billing-card-title{font-size:13px;font-weight:700;color:var(--navy)}
 .contract-billing-card-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.contract-billing-card-meta{font-size:11px;color:var(--text2);line-height:1.55;margin-top:8px}
+.contract-billing-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .contract-billing-card-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .contract-billing-card-tags span{padding:4px 8px;border-radius:999px;background:#fff;color:var(--text2);font-size:10px;font-weight:700;border:1px solid var(--border)}
 .contract-billing-empty{padding:16px 10px;border-radius:var(--radius-sm);background:var(--bg);font-size:12px;color:var(--text3);text-align:center}
@@ -150,6 +161,8 @@
   .contract-group-rate{min-width:0;width:100%}
   .contract-inline-row{align-items:flex-start}
   .contract-inline-actions{align-self:flex-start}
+  .contract-list-head{flex-direction:column;align-items:flex-start}
+  .contract-bulk-actions{justify-content:flex-start}
   .contract-list-wrap{overflow-x:auto}
-  .contract-list-table{min-width:860px}
+  .contract-list-table{min-width:1240px}
 }
