@@ -396,6 +396,11 @@ function renderGanttEntryViewChrome(){
   const sidebarSub=document.getElementById('ganttSidebarSub');
   const mainTitle=document.getElementById('ganttMainTitle');
   const mainCopy=document.getElementById('ganttMainCopy');
+  const setTopNote=text=>{
+    if(!topNote)return;
+    topNote.textContent=text||'';
+    topNote.hidden=!text;
+  };
   if(shell){
     shell.classList.toggle('is-list-entry',curGanttLayout==='list');
     shell.classList.toggle('is-support-view',curGanttLayout!=='list');
@@ -405,15 +410,15 @@ function renderGanttEntryViewChrome(){
     shell.classList.toggle('is-project-view',curGView!=='member');
   }
   if(curGanttLayout==='list'){
-    if(topNote)topNote.textContent='운영 리스트에서 상태, 기한, 이슈를 먼저 훑고 필요한 프로젝트만 열어 후속 작업으로 이어갈 수 있습니다.';
+    setTopNote('');
     if(sidebarTitle)sidebarTitle.textContent='빠른 선택';
     if(sidebarSub)sidebarSub.textContent='리스트에서 바로 상세를 열 수 있으니, 여기서는 포커스가 필요한 프로젝트만 다시 고르면 됩니다.';
-    if(mainTitle)mainTitle.textContent='프로젝트 운영 리스트';
-    if(mainCopy)mainCopy.textContent='담당자, 기간, 상태, 진행률, 미해결 이슈를 한눈에 훑고 바로 상세 패널로 이어서 처리할 수 있습니다.';
+    if(mainTitle)mainTitle.textContent='프로젝트 목록';
+    if(mainCopy)mainCopy.textContent='상태, 기한, 진행률을 먼저 훑고 필요한 프로젝트만 아래 상세 패널로 이어서 확인하세요.';
     return;
   }
   if(curGanttLayout==='calendar'){
-    if(topNote)topNote.textContent='달력은 월간 겹침과 일정 집중도를 보는 보조 보기입니다. 필요한 프로젝트를 고르면 아래 상세 패널로 같은 항목이 이어집니다.';
+    setTopNote('달력은 월간 겹침과 일정 집중도를 보는 보조 보기입니다. 필요한 프로젝트를 고르면 아래 상세 패널로 같은 항목이 이어집니다.');
     if(sidebarTitle)sidebarTitle.textContent='프로젝트 리스트';
     if(sidebarSub)sidebarSub.textContent='달력에서 본 프로젝트를 다시 찾거나, 상세로 이어서 볼 항목을 여기서 빠르게 선택할 수 있습니다.';
     if(mainTitle)mainTitle.textContent='프로젝트 달력';
@@ -421,14 +426,14 @@ function renderGanttEntryViewChrome(){
     return;
   }
   if(curGView==='member'){
-    if(topNote)topNote.textContent='인력별 보기는 담당자 기준으로 프로젝트와 개인 일정을 함께 보는 보조 보기입니다. 필요한 프로젝트를 선택해 아래 상세로 이어가세요.';
+    setTopNote('인력별 보기는 담당자 기준으로 프로젝트와 개인 일정을 함께 보는 보조 보기입니다. 필요한 프로젝트를 선택해 아래 상세로 이어가세요.');
     if(sidebarTitle)sidebarTitle.textContent='포커스 프로젝트';
     if(sidebarSub)sidebarSub.textContent='인력 흐름을 본 뒤 실제로 관리할 프로젝트를 다시 고르는 빠른 선택 영역입니다.';
     if(mainTitle)mainTitle.textContent='인력 운영 타임라인';
     if(mainCopy)mainCopy.textContent='담당자별 프로젝트와 휴가·필드웍 일정이 어떻게 겹치는지 확인하는 보조 보기입니다. 선택된 프로젝트는 아래 상세 패널과 같은 항목으로 유지됩니다.';
     return;
   }
-  if(topNote)topNote.textContent='간트는 전체 일정 흐름과 충돌을 보는 보조 보기입니다. 월간 맥락을 확인한 뒤 필요한 프로젝트를 선택해 상세 패널로 이어가세요.';
+  setTopNote('간트는 전체 일정 흐름과 충돌을 보는 보조 보기입니다. 월간 맥락을 확인한 뒤 필요한 프로젝트를 선택해 상세 패널로 이어가세요.');
   if(sidebarTitle)sidebarTitle.textContent='포커스 프로젝트';
   if(sidebarSub)sidebarSub.textContent='타임라인을 보다가 바로 관리할 프로젝트를 다시 고를 수 있는 빠른 선택 영역입니다.';
   if(mainTitle)mainTitle.textContent='프로젝트 타임라인';
@@ -759,6 +764,7 @@ function getGanttListProjectRows(projs){
     return {
       project,
       clientName,
+      typeText:String(project?.type||'기타').trim()||'기타',
       memberText:memberNames.join(', ')||'담당자 미지정',
       billingAmount,
       billingStatus,
@@ -771,6 +777,20 @@ function getGanttListProjectRows(projs){
       searchText
     };
   });
+}
+
+function getGanttListSignalBarMarkup(overdueRows,dueTodayRows,issueAttentionRows){
+  const chips=[];
+  if(overdueRows.length)chips.push('<div class="gantt-list-signal-chip is-danger">지연 '+overdueRows.length+'건</div>');
+  if(dueTodayRows.length)chips.push('<div class="gantt-list-signal-chip is-warn">오늘 마감 '+dueTodayRows.length+'건</div>');
+  if(issueAttentionRows.length)chips.push('<div class="gantt-list-signal-chip is-issue">미해결 이슈 '+issueAttentionRows.length+'건</div>');
+  if(!chips.length)chips.push('<div class="gantt-list-signal-chip is-safe">주의 신호 없음</div>');
+  return chips.join('');
+}
+
+function getGanttListAttentionSubtext(row){
+  if(Number(row?.issueCount||0)>0)return '미해결 이슈 '+row.issueCount+'건';
+  return row?.riskMeta?.detail||'현재 위험 신호 없음';
 }
 
 function filterGanttListRows(rows){
@@ -930,14 +950,12 @@ function renderGanttListView(projs,schs){
     +'<div class="gantt-list-toolbar">'
       +'<div class="gantt-list-toolbar-main">'
         +'<input id="ganttListSearchInput" class="gantt-list-search" value="'+esc(ganttListSearchQuery)+'" placeholder="프로젝트명 / 고객사명 / 담당자명 검색" />'
-        +'<div class="gantt-list-count">총 '+rows.length+'건</div>'
+        +'<div class="gantt-list-count">총 '+rows.length+'건 · 프로젝트를 선택하면 아래 상세 패널로 이어집니다.</div>'
       +'</div>'
       +(ganttListSelectedIds.length?'<div class="gantt-list-selection-summary">'+ganttListSelectedIds.length+'건 선택됨</div>':'')
     +'</div>'
     +'<div class="gantt-list-signalbar">'
-      +'<div class="gantt-list-signal-chip'+(overdueRows.length?' is-danger':'')+'">지연 '+overdueRows.length+'건</div>'
-      +'<div class="gantt-list-signal-chip'+(dueTodayRows.length?' is-warn':'')+'">오늘 마감 '+dueTodayRows.length+'건</div>'
-      +'<div class="gantt-list-signal-chip'+(issueAttentionRows.length?' is-issue':'')+'">미해결 이슈 '+issueAttentionRows.length+'건</div>'
+      +getGanttListSignalBarMarkup(overdueRows,dueTodayRows,issueAttentionRows)
     +'</div>'
     +(ganttListSelectedIds.length
       ?'<div class="gantt-list-bulkbar">'
@@ -956,16 +974,12 @@ function renderGanttListView(projs,schs){
         +'<th class="gantt-list-check-col"><input type="checkbox" '+(allSelected?'checked ':'')+(selectableRows.length?'':'disabled ')+'onclick="event.stopPropagation();toggleGanttListSelectAll(this.checked,['+selectableRows.map(row=>'\''+row.project.id+'\'').join(',')+'])" /></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'client_name\')">고객사'+getGanttListSortIndicator('client_name')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'name\')">프로젝트명'+getGanttListSortIndicator('name')+'</button></th>'
-        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'type\')">유형'+getGanttListSortIndicator('type')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'members\')">담당자'+getGanttListSortIndicator('members')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'period\')">기간'+getGanttListSortIndicator('period')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'status\')">상태'+getGanttListSortIndicator('status')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'progress\')">진행률'+getGanttListSortIndicator('progress')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'risk\')">주의'+getGanttListSortIndicator('risk')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'billing_status\')">빌링 상태'+getGanttListSortIndicator('billing_status')+'</button></th>'
-        +'<th class="is-numeric"><button type="button" class="gantt-list-sort-btn is-numeric" onclick="sortGanttListBy(\'billing_amount\')">빌링 금액'+getGanttListSortIndicator('billing_amount')+'</button></th>'
-        +'<th class="is-numeric"><button type="button" class="gantt-list-sort-btn is-numeric" onclick="sortGanttListBy(\'issue_count\')">이슈 수'+getGanttListSortIndicator('issue_count')+'</button></th>'
-        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'risk\')">리스크'+getGanttListSortIndicator('risk')+'</button></th>'
-        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'priority\')">우선순위'+getGanttListSortIndicator('priority')+'</button></th>'
       +'</tr></thead>'
       +'<tbody>'
       +rows.map(row=>{
@@ -975,17 +989,13 @@ function renderGanttListView(projs,schs){
         return '<tr class="gantt-list-row'+(selected?' is-selected':'')+(isGanttProjectOverdue(project)?' is-overdue':'')+(isDueToday(project)?' is-due-today':'')+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
           +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+project.id+'\')" /></td>'
           +'<td>'+esc(row.clientName)+'</td>'
-          +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div>'+(project.memo?'<div class="gantt-list-project-sub">'+esc(truncateText(project.memo,48))+'</div>':'')+'</td>'
-          +'<td>'+esc(project.type||'기타')+'</td>'
+          +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div><div class="gantt-list-project-sub">'+esc(row.typeText)+'</div></td>'
           +'<td><div class="gantt-list-member-cell">'+esc(row.memberText)+'</div></td>'
           +'<td><div class="gantt-list-period-cell">'+esc(row.periodText)+'</div></td>'
           +'<td><span class="badge '+getGanttListStatusBadgeClass(row.status)+'">'+esc(row.status)+'</span></td>'
           +'<td><div class="gantt-list-progress"><div class="gantt-list-progress-text">'+row.progressPercent+'%</div><div class="gantt-list-progress-track"><div class="gantt-list-progress-fill" style="width:'+row.progressPercent+'%"></div></div></div></td>'
-          +'<td><span class="badge '+getGanttListBillingBadgeClass(row.billingStatus)+'">'+esc(row.billingStatus)+'</span></td>'
-          +'<td class="is-numeric">'+formatGanttCurrency(row.billingAmount)+'</td>'
-          +'<td class="is-numeric">'+row.issueCount+'건</td>'
-          +'<td><span class="badge '+getGanttListRiskBadgeClass(row.riskMeta)+'" title="'+esc(row.riskMeta?.detail||'')+'">'+esc(row.riskMeta?.label||'정상')+'</span></td>'
-          +'<td>'+(typeof getProjectPriorityBadge==='function'?getProjectPriorityBadge(row.priority):('<span class="badge '+getGanttListPriorityBadgeClass(row.priority)+'">'+getGanttListPriorityLabel(row.priority)+'</span>'))+'</td>'
+          +'<td><div class="gantt-list-attention-cell"><span class="gantt-list-attention-label is-'+esc(row.riskMeta?.tone||'safe')+'" title="'+esc(row.riskMeta?.detail||'')+'">'+esc(row.riskMeta?.label||'정상')+'</span><div class="gantt-list-attention-sub">'+esc(getGanttListAttentionSubtext(row))+'</div></div></td>'
+          +'<td><div class="gantt-list-billing-cell"><span class="badge '+getGanttListBillingBadgeClass(row.billingStatus)+'">'+esc(row.billingStatus)+'</span>'+(row.billingAmount>0?'<div class="gantt-list-billing-sub">'+formatGanttCurrency(row.billingAmount)+'</div>':'')+'</div></td>'
         +'</tr>';
       }).join('')
       +'</tbody>'
