@@ -78,6 +78,15 @@
 .contract-group-meta{flex:1;min-width:0}
 .contract-group-title{font-size:15px;font-weight:800;color:var(--navy)}
 .contract-group-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.contract-group-finance{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;flex-wrap:wrap}
+.contract-group-rate{min-width:220px;flex:1}
+.contract-group-rate-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:6px}
+.contract-group-rate-head strong{font-size:12px;color:var(--navy)}
+.contract-group-rate-track{height:8px;border-radius:999px;background:var(--bg);overflow:hidden}
+.contract-group-rate-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--green))}
+.contract-group-finance-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.contract-group-finance-meta span{font-size:11px;color:var(--text3)}
+.contract-group-danger-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red)!important;font-weight:800;border:1px solid rgba(239,68,68,.16)}
 .contract-group-link{font-size:11px;color:var(--text3);flex-shrink:0}
 .contract-group-list{display:flex;flex-direction:column;gap:8px}
 
@@ -87,6 +96,14 @@
 .contract-inline-main{flex:1;min-width:0}
 .contract-inline-name{font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .contract-inline-sub{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.45}
+.contract-inline-progress-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.contract-inline-progress-track{flex:1;min-width:140px;height:6px;border-radius:999px;background:#E6EDF4;overflow:hidden}
+.contract-inline-progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--green))}
+.contract-inline-progress-label{font-size:11px;font-weight:700;color:var(--text2);white-space:nowrap}
+.contract-inline-dday{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#fff;border:1px solid var(--border);font-size:11px;font-weight:800;white-space:nowrap}
+.contract-inline-dday.is-warn{background:var(--orange-bg);color:var(--orange);border-color:rgba(245,158,11,.16)}
+.contract-inline-dday.is-danger{background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.16)}
+.contract-inline-dday.is-normal{color:var(--text3)}
 .contract-inline-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .contract-mini-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px}
 
@@ -129,6 +146,10 @@
   .contract-type-chip{flex:1;min-width:calc(50% - 4px)}
   .contract-view-toggle{width:100%}
   .contract-view-toggle .toggle-btn{flex:1}
+  .contract-group-finance{flex-direction:column;align-items:stretch}
+  .contract-group-rate{min-width:0;width:100%}
+  .contract-inline-row{align-items:flex-start}
+  .contract-inline-actions{align-self:flex-start}
   .contract-list-wrap{overflow-x:auto}
   .contract-list-table{min-width:860px}
 }

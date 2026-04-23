@@ -112,6 +112,41 @@ function getContractBillingStateLabel(state){
   return '완납';
 }
 
+function getContractBillingProgressPercent(row){
+  const total=Number(row?.contractAmount||0);
+  const billed=Number(row?.billedTotal||0);
+  if(total<=0)return billed>0?100:0;
+  return Math.max(0,Math.min(100,Math.round((billed/total)*100)));
+}
+
+function getContractRemainingDaysMeta(row){
+  if(!row?.contract?.contract_end_date||!row?.isActive)return null;
+  const diff=row.renewalDiffDays;
+  if(diff===null||diff===undefined)return null;
+  if(diff<0){
+    return {
+      text:'만료 D+'+Math.abs(diff),
+      tone:'danger'
+    };
+  }
+  if(diff===0){
+    return {
+      text:'오늘 만료',
+      tone:'warn'
+    };
+  }
+  if(diff<=60){
+    return {
+      text:'D-'+diff,
+      tone:'warn'
+    };
+  }
+  return {
+    text:'D-'+diff,
+    tone:'normal'
+  };
+}
+
 function buildContractRow(contract){
   const client=clients.find(item=>item.id===contract.client_id)||null;
   const relatedProjects=(projects||[]).filter(project=>project.contract_id===contract.id);
@@ -457,6 +492,8 @@ function renderContractRowItem(row){
   const contract=row.contract;
   const isEnded=isContractEndedStatus(contract?.contract_status);
   const statusClass=getContractStatusBadgeClass(contract?.contract_status);
+  const billingPercent=getContractBillingProgressPercent(row);
+  const remainingMeta=getContractRemainingDaysMeta(row);
   const billingHint=row.receivableAmount>0
     ?'미수금 '+formatContractCurrency(row.receivableAmount)
     :(row.unbilledBalance>0?'미청구 '+formatContractCurrency(row.unbilledBalance):'완납');
@@ -468,7 +505,16 @@ function renderContractRowItem(row){
         +(contract?.contract_amount?' · '+formatContractCurrency(contract.contract_amount):'')
         +(row.managerNames.length?' · '+esc(row.managerNames.join(', ')):'')
       +'</div>'
-      +'<div class="contract-inline-sub">'+billingHint+(contract?.contract_end_date?' · 만료 '+contract.contract_end_date:'')+'</div>'
+      +'<div class="contract-inline-sub">'
+        +billingHint
+        +(row.relatedProjects.length?' · 연결 프로젝트 '+row.relatedProjects.length+'건':'')
+        +(contract?.contract_end_date?' · 만료 '+contract.contract_end_date:'')
+      +'</div>'
+      +'<div class="contract-inline-progress-row">'
+        +'<div class="contract-inline-progress-track"><div class="contract-inline-progress-fill" style="width:'+billingPercent+'%"></div></div>'
+        +'<span class="contract-inline-progress-label">빌링 '+billingPercent+'%</span>'
+        +(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'')
+      +'</div>'
     +'</div>'
     +'<div class="contract-inline-actions">'
       +'<button type="button" class="contract-mini-btn" onclick="event.stopPropagation();toggleContractManaged(\''+contract.id+'\','+(!contract.is_managed)+')" title="우리 팀 관리 여부">'+(contract.is_managed?'🏢':'🏬')+'</button>'
@@ -509,12 +555,27 @@ function renderContractGroupedView(rows){
   return groups.map(group=>{
     const totalAmount=group.rows.reduce((sum,row)=>sum+row.contractAmount,0);
     const activeCount=group.rows.filter(row=>row.isActive).length;
+    const billedTotal=group.rows.reduce((sum,row)=>sum+row.billedTotal,0);
+    const collectedTotal=group.rows.reduce((sum,row)=>sum+row.collectedTotal,0);
+    const unbilledBalance=group.rows.reduce((sum,row)=>sum+row.unbilledBalance,0);
+    const receivableAmount=group.rows.reduce((sum,row)=>sum+row.receivableAmount,0);
+    const collectionRate=billedTotal>0?Math.max(0,Math.min(100,Math.round((collectedTotal/billedTotal)*100))):0;
     return '<div class="card contract-group-card">'
       +'<div class="contract-group-head"'+(group.client?' onclick="openClientDetail(\''+group.client.id+'\',\'contracts\')"':'')+'>'
         +'<div class="contract-group-avatar">'+esc((group.client?.name||'미')[0]||'미')+'</div>'
         +'<div class="contract-group-meta">'
           +'<div class="contract-group-title">'+esc(group.client?.name||'미지정 거래처')+'</div>'
           +'<div class="contract-group-sub">'+group.rows.length+'건'+(totalAmount?' · '+formatContractCurrency(totalAmount):'')+(activeCount?' · 진행 '+activeCount+'건':'')+'</div>'
+          +'<div class="contract-group-finance">'
+            +'<div class="contract-group-rate">'
+              +'<div class="contract-group-rate-head"><span>수금률</span><strong>'+collectionRate+'%</strong></div>'
+              +'<div class="contract-group-rate-track"><div class="contract-group-rate-fill" style="width:'+collectionRate+'%"></div></div>'
+            +'</div>'
+            +'<div class="contract-group-finance-meta">'
+              +'<span>미청구 잔액 '+formatContractCurrency(unbilledBalance)+'</span>'
+              +(receivableAmount>0?'<span class="contract-group-danger-badge">미수금 '+formatContractCurrency(receivableAmount)+'</span>':'')
+            +'</div>'
+          +'</div>'
         +'</div>'
         +(group.client?'<span class="contract-group-link">→</span>':'')
       +'</div>'
