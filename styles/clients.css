@@ -85,11 +85,14 @@
 .client-table-shell{background:var(--color-surface);border:1px solid var(--color-border);border-radius:18px;box-shadow:var(--shadow-md);overflow:hidden}
 .client-table-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border);background:#FBFCFE}
 .client-table-title{font-size:14px;font-weight:800;color:var(--navy)}
+.client-bulk-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.client-bulk-count{font-size:12px;font-weight:800;color:var(--navy)}
 .client-table-wrap{overflow:auto}
 .client-table{width:100%;border-collapse:collapse;min-width:1080px}
 .client-table th,.client-table td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
 .client-table th{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;background:#FBFCFE}
 .client-table td{font-size:13px;color:var(--text)}
+.client-table th:first-child,.client-table td:first-child{width:44px}
 .client-table tbody tr{cursor:pointer;transition:background .15s ease}
 .client-table tbody tr:hover{background:#F8FAFC}
 .client-table-name{font-weight:700;color:var(--navy)}
@@ -153,6 +156,7 @@
   .client-health-board{grid-template-columns:1fr}
   .client-detail-dashboard{grid-template-columns:1fr}
   .client-detail-health-grid{grid-template-columns:1fr 1fr}
+  .client-bulk-actions{justify-content:flex-start}
   .client-detail-timeline-item{grid-template-columns:1fr;gap:8px}
   .client-detail-timeline-time{white-space:normal}
   .client-detail-tab-summary{grid-template-columns:1fr 1fr}

@@ -2000,6 +2000,23 @@ function switchLoginType(type){
 // ── 고객사 포털 로그인 ──
 let portalClient=null;
 let activePortalDocumentSubmitId='';
+async function recordPortalAccess(clientId,email){
+  if(!clientId)return;
+  const accessedAt=new Date().toISOString();
+  try{
+    await api('PATCH','clients?id=eq.'+clientId,{
+      portal_last_login_at:accessedAt,
+      portal_last_login_email:email||null
+    });
+  }catch(e){}
+  try{
+    await api('POST','client_portal_access_logs',{
+      client_id:clientId,
+      accessor_email:email||null,
+      accessed_at:accessedAt
+    });
+  }catch(e){}
+}
 async function doClientLogin(){
   const email=document.getElementById('clientEmail').value.trim();
   const pw=document.getElementById('clientPw').value;
@@ -2019,6 +2036,7 @@ async function doClientLogin(){
     if(client.portal_password!==pw)throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
     portalClient=client;
     localStorage.setItem('portal_client_id',client.id);
+    await recordPortalAccess(client.id,email);
     showPage('portal');
     renderPortal();
   }catch(e){msg.textContent=e.message;msg.className='login-msg err';}
@@ -2180,6 +2198,9 @@ async function renderPortal(){
       fetch(SB_URL+'/rest/v1/project_members?select=project_id,members(name)',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json()),
       fetch(SB_URL+'/rest/v1/client_updates?client_id=eq.'+portalClient.id+'&select=*&order=created_at.desc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}}).then(r=>r.json())
     ]);
+    const portalVisibleUpdates=(updates||[]).filter(u=>u.is_portal_visible!==false);
+    const portalNotices=portalVisibleUpdates.filter(u=>(u.type||'report')==='notice');
+    const portalReports=portalVisibleUpdates.filter(u=>(u.type||'report')!=='notice');
     const projsWithMembers=(projs||[]).map(p=>({...p,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
     const active=projsWithMembers.filter(p=>p.status==='진행중'||p.status==='예정');
     const done=projsWithMembers.filter(p=>p.status==='완료');
@@ -2221,10 +2242,21 @@ async function renderPortal(){
       +'</div>'
       // 업무 탭 (기본)
       +'<div id="ptab-content-업무">'
+      +(portalNotices.length?'<div class="portal-section-label">포털 공지</div>'
+        +portalNotices.map(u=>'<div class="portal-proj-card">'
+          +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
+          +'<div><div class="portal-proj-name">'+esc(u.title)+'</div>'
+          +'<div class="portal-proj-meta">'+esc(u.author_name||'담당자')+' · '+formatCommentDate(u.created_at)+'</div></div>'
+          +'<span class="badge badge-blue">공지</span>'
+          +'</div>'
+          +(u.content?'<div style="font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap;margin-bottom:10px">'+esc(u.content)+'</div>':'')
+          +(u.file_url?'<a href="'+esc(u.file_url)+'" target="_blank" class="portal-drive-btn" style="font-size:12px;padding:8px 14px">📎 '+esc(u.file_label||'첨부 파일 열기')+'</a>':'')
+          +'</div>').join('')
+        :'')
       +'<div class="portal-section-label">자료 요청</div>'
       +(active.length?active.map(docCard).join(''):'<div class="portal-empty">현재 요청된 자료가 없습니다.</div>')
-      +((updates&&updates.length)?'<div class="portal-section-label">업데이트 ('+updates.length+'건)</div>'
-        +updates.map(u=>'<div class="portal-proj-card">'
+      +((portalReports&&portalReports.length)?'<div class="portal-section-label">업데이트 ('+portalReports.length+'건)</div>'
+        +portalReports.map(u=>'<div class="portal-proj-card">'
           +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
           +'<div><div class="portal-proj-name">'+esc(u.title)+'</div>'
           +'<div class="portal-proj-meta">'+esc(u.author_name||'담당자')+' · '+formatCommentDate(u.created_at)+'</div></div>'
@@ -2877,6 +2909,7 @@ function openClientModal(eid){
   if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   editingClientId=eid||null;const c=eid?clients.find(x=>x.id===eid):null;
   const canPortal=canManagePortalSettings();
+  const portalMeta=typeof getClientPortalStatusMeta==='function'?getClientPortalStatusMeta(c||{}):{label:(c&&c.portal_email?'활성':'미설정'),tone:(c&&c.portal_email?'active':'empty')};
   const portalSection=canPortal
     ?'<div class="divider">고객사 포털 설정</div>'
       +'<div class="form-half"><div class="form-row"><label class="form-label">포털 로그인 이메일</label><input id="cPortalEmail" type="email" value="'+(c?c.portal_email||'':'')+'" placeholder="고객사 담당자 이메일"/></div>'
@@ -2895,6 +2928,12 @@ function openClientModal(eid){
     +'<div class="form-half"><div class="form-row"><label class="form-label">담당자</label><input id="cCN" value="'+(c?c.contact_name||'':'')+'"/></div>'
     +'<div class="form-row"><label class="form-label">연락처</label><input id="cCP" value="'+(c?c.contact_phone||'':'')+'"/></div></div>'
     +'<div class="form-row"><label class="form-label">이메일</label><input id="cCE" value="'+(c?c.contact_email||'':'')+'"/></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">태그</label><input id="cTags" value="'+esc(formatClientTags(c?c.tags||[]:[]))+'" placeholder="쉼표로 구분"/></div>'
+    +'<div class="form-row"><label class="form-label">사업자등록번호</label><input id="cBizNo" value="'+esc(c?c.business_number||'':'')+'" placeholder="예) 123-45-67890"/></div></div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">대표자명</label><input id="cRepName" value="'+esc(c?c.representative_name||'':'')+'" placeholder="예) 홍길동"/></div>'
+    +'<div class="form-row"><label class="form-label">회계 기준 결산월</label><select id="cFiscalMonth"><option value="">미설정</option>'+Array.from({length:12},(_,i)=>'<option value="'+(i+1)+'" '+(Number(c?c.fiscal_year_end_month||0:0)===(i+1)?'selected':'')+'>'+(i+1)+'월</option>').join('')+'</select></div></div>'
+    +'<div class="form-row"><label class="form-label">주소</label><input id="cAddress" value="'+esc(c?c.address||'':'')+'" placeholder="사업장 주소"/></div>'
+    +'<div class="form-row"><label class="form-label">포털 상태</label><div style="min-height:42px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)"><span class="badge '+(portalMeta.tone==='active'?'badge-blue':portalMeta.tone==='linked'?'badge-orange':'badge-gray')+'">'+esc(portalMeta.label)+'</span></div></div>'
     +'<div class="form-row"><label class="form-label">메모</label><textarea id="cMemo" rows="2" style="resize:vertical">'+(c?c.memo||'':'')+'</textarea></div>'
     +portalSection
     +'<div class="modal-footer">'
@@ -2912,6 +2951,11 @@ async function saveClient(){
     contact_name:document.getElementById('cCN').value.trim(),
     contact_phone:document.getElementById('cCP').value.trim(),
     contact_email:document.getElementById('cCE').value.trim(),
+    tags:typeof normalizeClientTags==='function'?normalizeClientTags(document.getElementById('cTags').value):document.getElementById('cTags').value.trim(),
+    business_number:document.getElementById('cBizNo').value.trim()||null,
+    representative_name:document.getElementById('cRepName').value.trim()||null,
+    address:document.getElementById('cAddress').value.trim()||null,
+    fiscal_year_end_month:Number(document.getElementById('cFiscalMonth').value||0)||null,
     memo:document.getElementById('cMemo').value.trim()
   };
   if(canManagePortalSettings()){
@@ -4465,16 +4509,24 @@ async function loadClientUpdates(clientId){
 function renderUpdateFeed(updates,clientId){
   const el=document.getElementById('updateFeed');if(!el)return;
   const cp=projects.filter(p=>p.client_id===clientId);
-  const isAssigned=isAdmin||(currentMember&&clientAssignments.some(a=>a.client_id===id&&a.member_id===currentMember.id));
+  const projectMap=new Map(cp.map(project=>[project.id,project]));
+  const isAssigned=isAdmin||(currentMember&&clientAssignments.some(a=>a.client_id===clientId&&a.member_id===currentMember.id));
   if(!updates.length){
     el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">아직 작성된 업데이트가 없습니다.'+(isAssigned?'<br><br><button class="btn primary sm" onclick="openUpdateModal(null,\''+clientId+'\')">첫 업데이트 작성</button>':'')+'</div>';
     return;
   }
   el.innerHTML=updates.map(u=>{
     const canEdit=isAdmin||u.created_by===currentUser?.id;
+    const updateType=(u.type||'report')==='notice'?'notice':'report';
+    const relatedProject=u.project_id?projectMap.get(u.project_id):null;
     return '<div style="padding:16px 0;border-bottom:1px solid var(--border)">'
       +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
       +'<div>'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
+      +'<span class="badge '+(updateType==='notice'?'badge-blue':'badge-gray')+'">'+(updateType==='notice'?'공지':'레포트')+'</span>'
+      +(u.is_portal_visible?'<span class="badge badge-green">포털 공개</span>':'')
+      +(relatedProject?'<span class="badge badge-orange">'+esc(relatedProject.name||'연결 프로젝트')+'</span>':'')
+      +'</div>'
       +'<div style="font-size:14px;font-weight:800;color:var(--navy);letter-spacing:-.2px">'+esc(u.title)+'</div>'
       +'<div style="font-size:11px;color:var(--text3);margin-top:3px">'+esc(u.author_name||'작성자')+' · '+formatCommentDate(u.created_at)+'</div>'
       +'</div>'
@@ -4490,12 +4542,13 @@ function renderUpdateFeed(updates,clientId){
 }
 
 function openUpdateModal(editId,clientId){
-  const u=editId?null:null; // DB에서 불러올 필요 없이 새 작성
-  // editId가 있으면 현재 피드에서 찾기
-  const feedEl=document.getElementById('updateFeed');
+  const clientProjects=projects.filter(p=>p.client_id===(clientId||currentDetailClientId));
   document.getElementById('modalArea').innerHTML=
     getInputModalOverlayHtml()
     +'<div class="modal" style="width:520px"><div class="modal-title">'+(editId?'레포트 수정':'레포트 작성')+'</div>'
+    +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="uType"><option value="report">레포트</option><option value="notice">포털 공지</option></select></div>'
+    +'<div class="form-row"><label class="form-label">관련 프로젝트</label><select id="uProjectId"><option value="">미연결</option>'+clientProjects.map(project=>'<option value="'+project.id+'">'+esc(project.name||'프로젝트')+'</option>').join('')+'</select></div></div>'
+    +'<div class="form-row"><label class="form-label"><input id="uPortalVisible" type="checkbox" style="width:auto;margin-right:8px">포털 공개</label></div>'
     +'<div class="form-row"><label class="form-label">제목</label><input id="uTitle" placeholder="예) 1분기 감사 중간 보고" autofocus/></div>'
     +'<div class="form-row"><label class="form-label">내용</label><textarea id="uContent" rows="5" style="resize:vertical" placeholder="진행 상황, 주요 내용, 전달 사항 등을 작성하세요"></textarea></div>'
     +'<div class="divider">첨부 파일 링크 (OneDrive)</div>'
@@ -4514,6 +4567,9 @@ async function loadUpdateForEdit(id){
     const result=await api('GET','client_updates?id=eq.'+id+'&select=*');
     if(!result||!result.length)return;
     const u=result[0];
+    document.getElementById('uType').value=u.type||'report';
+    document.getElementById('uProjectId').value=u.project_id||'';
+    document.getElementById('uPortalVisible').checked=!!u.is_portal_visible;
     document.getElementById('uTitle').value=u.title||'';
     document.getElementById('uContent').value=u.content||'';
     document.getElementById('uFileUrl').value=u.file_url||'';
@@ -4525,6 +4581,9 @@ async function saveUpdate(editId,clientId){
   const title=document.getElementById('uTitle').value.trim();
   if(!title){alert('제목을 입력해주세요.');return;}
   const body={
+    type:document.getElementById('uType').value||'report',
+    project_id:document.getElementById('uProjectId').value||null,
+    is_portal_visible:!!document.getElementById('uPortalVisible').checked,
     title,
     content:document.getElementById('uContent').value.trim()||null,
     file_url:document.getElementById('uFileUrl').value.trim()||null,
