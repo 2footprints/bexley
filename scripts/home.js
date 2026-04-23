@@ -1476,6 +1476,10 @@ function renderHomeRiskSummaryCard(card){
 function getHomeProjectBillingAmount(project){
   const directAmount=Number(project?.billing_amount||0);
   if(directAmount>0)return directAmount;
+  const contractId=String(project?.contract_id||'').trim();
+  if(!contractId)return 0;
+  const linkedProjects=(projects||[]).filter(item=>String(item?.contract_id||'').trim()===contractId);
+  if(linkedProjects.length!==1)return 0;
   const linkedContract=(contracts||[]).find(contract=>String(contract.id)===String(project?.contract_id||''));
   const contractAmount=Number(linkedContract?.contract_amount||0);
   return contractAmount>0?contractAmount:0;

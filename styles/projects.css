@@ -1202,7 +1202,13 @@ td{
   background:#F3F7FF!important;
 }
 .gantt-list-row.is-overdue td{
-  box-shadow:inset 2px 0 0 #F97316!important;
+  background:#FFF8F1!important;
+}
+.gantt-list-row.is-overdue td:first-child{
+  box-shadow:inset 3px 0 0 #F59E0B!important;
+}
+.gantt-list-row.is-overdue td:not(:first-child){
+  box-shadow:none!important;
 }
 .gantt-list-row.is-due-today td{
   background:#FFFCF2!important;

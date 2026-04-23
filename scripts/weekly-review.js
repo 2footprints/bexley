@@ -498,6 +498,62 @@ function renderWeeklyReviewMemberSummaryGridMarkup(summaries){
     +(summaries||[]).map(summary=>renderWeeklyReviewMemberSummaryCardMarkup(summary,maxScore)).join('')
   +'</div>';
 }
+function getWeeklyReviewVisibleMembersForScope(scope,adminCanViewAll,currentMemberName){
+  return (adminCanViewAll&&(scope==='all'||!currentMemberName)
+    ? [...(members||[])].filter(member=>String(member?.name||'').trim())
+    : currentMemberName
+      ? [{id:currentMember?.id||currentMemberName,name:currentMemberName}]
+      : []
+  ).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+}
+function buildWeeklyReviewMemberScopeActionsHtml(adminCanViewAll,scope){
+  if(!adminCanViewAll)return '';
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +'<button class="btn sm '+(scope==='me'?'primary':'')+'" onclick="setWeeklyReviewMemberScope(\'me\')">내 기준</button>'
+    +'<button class="btn sm '+(scope==='all'?'primary':'')+'" onclick="setWeeklyReviewMemberScope(\'all\')">전체 멤버</button>'
+  +'</div>';
+}
+function createWeeklyReviewMemberSection(scope,context){
+  const normalizedScope=scope==='all'?'all':'me';
+  const adminCanViewAll=!!context?.adminCanViewAll;
+  const currentMemberName=String(context?.currentMemberName||'').trim();
+  const visibleMembers=getWeeklyReviewVisibleMembersForScope(normalizedScope,adminCanViewAll,currentMemberName);
+  const memberSummaries=visibleMembers.map(member=>createWeeklyReviewMemberSummary(member,{
+    completedProjects:context?.completedProjects||[],
+    resolvedIssues:context?.resolvedIssues||[],
+    activeProjects:context?.activeProjects||[],
+    nextWeekEnds:context?.nextWeekEnds||[],
+    leaveSchedules:context?.leaveSchedules||[],
+    fieldworkSchedules:context?.fieldworkSchedules||[],
+    reviewStart:context?.reviewStart,
+    reviewEnd:context?.reviewEnd
+  }));
+  return {
+    id:'members',
+    title:'인력별 주간 요약',
+    sub:'기본은 내 기준이고, 관리자만 전체 멤버 기준으로 넓혀서 볼 수 있습니다.',
+    actionsHtml:buildWeeklyReviewMemberScopeActionsHtml(adminCanViewAll,normalizedScope),
+    collapsedSummary:`멤버 요약 ${memberSummaries.length}명`,
+    groups:[
+      {
+        title:adminCanViewAll&&normalizedScope==='all'?'전체 멤버 요약':'내 주간 요약',
+        variant:'html',
+        items:memberSummaries,
+        html:renderWeeklyReviewMemberSummaryGridMarkup(memberSummaries),
+        emptyText:'표시할 멤버 요약이 없습니다.'
+      }
+    ]
+  };
+}
+function replaceWeeklyReviewSectionMarkup(section){
+  const sectionId=String(section?.id||'');
+  if(!sectionId)return false;
+  const currentSection=document.querySelector('#pageWeeklyReview .weekly-review-section[data-section-id="'+sectionId+'"]');
+  if(!currentSection)return false;
+  currentSection.outerHTML=renderWeeklyReviewSectionMarkup(section);
+  applyWeeklyReviewEmptyStateLabels();
+  return true;
+}
 function renderWeeklyReviewKudosSummaryMarkup(votes){
   const tally={};
   (votes||[]).forEach(vote=>{
@@ -538,8 +594,22 @@ function renderWeeklyReviewCommentsMarkup(reviews,isCurrentWeek){
   +'</div>';
 }
 function setWeeklyReviewMemberScope(scope){
-  weeklyReviewMemberScope=scope==='all'?'all':'me';
-  renderWeeklyReviewPage();
+  const nextScope=scope==='all'?'all':'me';
+  if(nextScope===weeklyReviewMemberScope)return;
+  weeklyReviewMemberScope=nextScope;
+  const cachedSections=weeklyReviewLastRenderPayload?.data?.memberSectionsByScope;
+  const nextSection=cachedSections?.[nextScope]||cachedSections?.me||null;
+  const scrollTop=window.scrollY||document.documentElement.scrollTop||0;
+  if(nextSection&&replaceWeeklyReviewSectionMarkup(nextSection)){
+    if(Array.isArray(weeklyReviewLastRenderPayload?.data?.sections)){
+      weeklyReviewLastRenderPayload.data.sections=weeklyReviewLastRenderPayload.data.sections.map(section=>
+        String(section?.id||'')==='members'?nextSection:section
+      );
+    }
+    requestAnimationFrame(()=>window.scrollTo({top:scrollTop,left:0,behavior:'auto'}));
+    return;
+  }
+  renderWeeklyReviewPage().then(()=>window.scrollTo({top:scrollTop,left:0,behavior:'auto'}));
 }
 function renderWeeklyReviewCardMarkup(card){
   const toneClass=card?.tone?` is-${card.tone}`:'';
@@ -1029,13 +1099,9 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const activeProjectsNow=(projects||[]).filter(project=>isWeeklyReviewActiveProject(project));
   const adminCanViewAll=roleIsAdmin();
   const currentMemberName=String(currentMember?.name||'').trim();
-  const visibleMembers=(adminCanViewAll&&(weeklyReviewMemberScope==='all'||!currentMemberName)
-    ? [...(members||[])].filter(member=>String(member?.name||'').trim())
-    : currentMemberName
-      ? [{id:currentMember?.id||currentMemberName,name:currentMemberName}]
-      : []
-  ).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
-  const memberSummaries=visibleMembers.map(member=>createWeeklyReviewMemberSummary(member,{
+  const memberSectionContext={
+    adminCanViewAll,
+    currentMemberName,
     completedProjects,
     resolvedIssues,
     activeProjects:activeProjectsNow,
@@ -1044,16 +1110,15 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     fieldworkSchedules:currentWeekFieldwork,
     reviewStart:reviewBounds.start,
     reviewEnd:reviewBounds.end
-  }));
+  };
+  const memberSectionsByScope={
+    me:createWeeklyReviewMemberSection('me',memberSectionContext),
+    all:createWeeklyReviewMemberSection('all',memberSectionContext)
+  };
+  const memberSection=memberSectionsByScope[adminCanViewAll&&weeklyReviewMemberScope==='all'?'all':'me'];
   const myWeeklyReview=(weeklyReviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
   const commentsActionHtml=offsetWeeks===0
     ? '<button class="btn sm" onclick="openReviewModal('+(myWeeklyReview?'\''+myWeeklyReview.id+'\'':'')+')">'+(myWeeklyReview?'내 후기 수정':'+ 후기 작성')+'</button>'
-    : '';
-  const memberActionsHtml=adminCanViewAll
-    ? '<div style="display:flex;gap:6px;flex-wrap:wrap">'
-      +'<button class="btn sm '+(weeklyReviewMemberScope==='me'?'primary':'')+'" onclick="setWeeklyReviewMemberScope(\'me\')">내 기준</button>'
-      +'<button class="btn sm '+(weeklyReviewMemberScope==='all'?'primary':'')+'" onclick="setWeeklyReviewMemberScope(\'all\')">전체 멤버</button>'
-    +'</div>'
     : '';
   const cards=[
     {
@@ -1256,13 +1321,13 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     {
       title:'인력별 주간 요약',
       sub:'기본은 내 기준이며, 관리자는 전체 멤버 기준으로 확장해서 볼 수 있습니다.',
-      actionsHtml:memberActionsHtml,
+      actionsHtml:memberSection.actionsHtml,
       groups:[
         {
           title:adminCanViewAll&&weeklyReviewMemberScope==='all'?'전체 멤버 요약':'내 주간 요약',
           variant:'html',
-          items:memberSummaries,
-          html:renderWeeklyReviewMemberSummaryGridMarkup(memberSummaries)
+          items:memberSection.groups[0]?.items||[],
+          html:memberSection.groups[0]?.html||renderWeeklyReviewMemberSummaryGridMarkup([])
         }
       ]
     },
@@ -1285,7 +1350,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   if(sections[2]){sections[2].id='next';sections[2].collapsedSummary=`차주 마감 ${nextWeekEnds.length}건, 신규 착수 ${nextWeekStarts.length}건, 일정 ${nextWeekSchedules.length}건`;}
   if(sections[3]){sections[3].id='billing';sections[3].collapsedSummary=`미청구 ${unbilledProjects.length}건, 청구 후 미수금 ${outstandingBillingRows.length}건`;}
   if(sections[4]){sections[4].id='documents';sections[4].collapsedSummary=`회수 대기 자료 요청 ${pendingDocumentRows.length}건`;}
-  if(sections[5]){sections[5].id='members';sections[5].collapsedSummary=`멤버 요약 ${memberSummaries.length}명`;}
+  if(sections[5]){sections[5].id='members';sections[5].collapsedSummary=memberSection.collapsedSummary||`멤버 요약 ${(memberSection.groups?.[0]?.items||[]).length}명`;}
   if(sections[6]){sections[6].id='comments';sections[6].collapsedSummary=`팀 코멘트 ${weeklyReviews.length}건`;}
   if(sections[0]?.groups?.[0])sections[0].groups[0].emptyText='이번 주 완료된 프로젝트가 없습니다. 다음 주차 실적을 기다리는 상태입니다.';
   if(sections[1]?.groups?.[0])sections[1].groups[0].emptyText='지연 프로젝트가 없습니다.';
@@ -1299,7 +1364,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   if(sections[4]?.groups?.[0])sections[4].groups[0].emptyText='대기 중인 자료 요청이 없습니다.';
   if(sections[5]?.groups?.[0])sections[5].groups[0].emptyText='표시할 멤버 요약이 없습니다.';
   if(sections[6]?.groups?.[0])sections[6].groups[0].emptyText=offsetWeeks===0?'이번 주 등록된 팀 코멘트가 없습니다.':'이 주차의 팀 코멘트가 없습니다.';
-  return {cards,sections};
+  return {cards,sections,memberSectionsByScope};
 }
 async function getWeeklyReviewSummaryCards(offsetWeeks=weeklyReviewWeekOffset){
   const data=await getWeeklyReviewPageData(offsetWeeks);
