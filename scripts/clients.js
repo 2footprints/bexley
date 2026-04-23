@@ -314,6 +314,8 @@ renderClients = function(){
 };
 
 let clientViewMode='card';
+let clientTableSortKey='name';
+let clientTableSortDir='asc';
 let clientPendingDocRequests=[];
 let clientPendingDocRequestsLoaded=false;
 let clientPendingDocRequestsLoading=false;
@@ -339,6 +341,10 @@ function setClientSort(value){
   clientToolbarState.sort=value||'name';
   const el=document.getElementById('clientSortFilter');
   if(el&&el.value!==clientToolbarState.sort)el.value=clientToolbarState.sort;
+  if(['name','revenue','issues','recent'].includes(clientToolbarState.sort)){
+    clientTableSortKey=clientToolbarState.sort;
+    clientTableSortDir=clientToolbarState.sort==='name'?'asc':'desc';
+  }
   renderClients();
 }
 
@@ -377,6 +383,15 @@ function clearClientFilterTag(key){
     if(el)el.value='';
   }
   syncClientPrimaryToggle();
+  renderClients();
+}
+
+function sortClientTableBy(key){
+  if(clientTableSortKey===key)clientTableSortDir=clientTableSortDir==='asc'?'desc':'asc';
+  else{
+    clientTableSortKey=key;
+    clientTableSortDir=key==='name'||key==='industry'||key==='manager'||key==='portal'?'asc':'desc';
+  }
   renderClients();
 }
 
@@ -462,6 +477,18 @@ function getClientHealthLabel(code){
   if(code==='issue')return '이슈 있음';
   if(code==='warning')return '주의 필요';
   return '정상';
+}
+
+function getClientPortalStatusMeta(client){
+  if(client?.portal_email)return {label:'활성',tone:'active',clickable:true};
+  if(client?.onedrive_url)return {label:'문서함',tone:'linked',clickable:false};
+  return {label:'미설정',tone:'empty',clickable:false};
+}
+
+function formatClientCompactCurrency(amount){
+  const value=Number(amount||0);
+  if(value>=10000)return Math.round(value/10000).toLocaleString()+'만원';
+  return value.toLocaleString()+'원';
 }
 
 function getClientHighPriorityIssueCount(row){
@@ -571,6 +598,7 @@ function buildClientRow(client){
   row.healthCode=getClientHealthCode(row);
   row.cardHealthMeta=getClientCardHealthMeta(row);
   row.recentActivityMeta=getClientRecentActivityMeta(recentActivityAt);
+  row.portalStatusMeta=getClientPortalStatusMeta(client);
   return row;
 }
 
@@ -608,6 +636,74 @@ function sortClientRows(rows){
     return compareName(a,b);
   });
   return sorted;
+}
+
+function sortClientTableRows(rows){
+  const sorted=[...rows];
+  const dir=clientTableSortDir==='asc'?1:-1;
+  const compareText=(a,b)=>String(a||'').localeCompare(String(b||''),'ko')*dir;
+  const compareNumber=(a,b)=>(Number(a||0)-Number(b||0))*dir;
+  sorted.sort((a,b)=>{
+    if(clientTableSortKey==='health'){
+      const rank={risk:3,warning:2,normal:1};
+      return compareNumber(rank[a.cardHealthMeta?.tone]||0,rank[b.cardHealthMeta?.tone]||0)||compareNameFallback(a,b);
+    }
+    if(clientTableSortKey==='name')return compareText(a.client?.name,b.client?.name);
+    if(clientTableSortKey==='industry')return compareText(a.client?.industry,b.client?.industry)||compareNameFallback(a,b);
+    if(clientTableSortKey==='active')return compareNumber(a.activeProjectCount,b.activeProjectCount)||compareNameFallback(a,b);
+    if(clientTableSortKey==='issues')return compareNumber(a.openIssueCount,b.openIssueCount)||compareNameFallback(a,b);
+    if(clientTableSortKey==='revenue')return compareNumber(a.totalRevenue,b.totalRevenue)||compareNameFallback(a,b);
+    if(clientTableSortKey==='unbilled')return compareNumber(a.unbilledAmount,b.unbilledAmount)||compareNameFallback(a,b);
+    if(clientTableSortKey==='contracts')return compareNumber(a.contractCount,b.contractCount)||compareNameFallback(a,b);
+    if(clientTableSortKey==='manager')return compareText(a.managerNames.join(', '),b.managerNames.join(', '))||compareNameFallback(a,b);
+    if(clientTableSortKey==='portal'){
+      const rank={active:3,linked:2,empty:1};
+      return compareNumber(rank[a.portalStatusMeta?.tone]||0,rank[b.portalStatusMeta?.tone]||0)||compareNameFallback(a,b);
+    }
+    if(clientTableSortKey==='recent')return compareNumber(a.recentActivityAt,b.recentActivityAt)||compareNameFallback(a,b);
+    return compareNameFallback(a,b);
+  });
+  return sorted;
+}
+
+function compareNameFallback(a,b){
+  return String(a.client?.name||'').localeCompare(String(b.client?.name||''),'ko');
+}
+
+function getClientTableSortIndicator(key){
+  if(clientTableSortKey!==key)return '';
+  return clientTableSortDir==='asc'?' ↑':' ↓';
+}
+
+function openClientQuickProject(clientId){
+  openClientDetail(clientId,'projects');
+}
+
+function openClientQuickIssues(clientId){
+  const clientProjects=(projects||[]).filter(project=>project?.client_id===clientId);
+  const issueProject=clientProjects.find(project=>(openIssuesByProject[project.id]||0)>0)||clientProjects[0];
+  if(issueProject)openProjModal(issueProject.id,null,null,'issue');
+  else openClientDetail(clientId,'projects');
+}
+
+function openClientQuickPortal(clientId){
+  const client=clients.find(item=>item.id===clientId);
+  if(!client)return;
+  if(client.portal_email&&typeof previewPortal==='function'){previewPortal(clientId);return;}
+  if(canManagePortalSettings()&&typeof openPortalAccountEdit==='function'){openPortalAccountEdit(clientId);return;}
+  openClientDetail(clientId,'info');
+}
+
+function getClientBoardReasonTags(row){
+  const tags=[];
+  const highIssueCount=row.cardHealthMeta?.highIssueCount||0;
+  if(row.overdueProjectCount>0)tags.push('지연 '+row.overdueProjectCount+'건');
+  if(row.unbilledAmount>0)tags.push('미청구 '+formatClientCompactCurrency(row.unbilledAmount));
+  if(highIssueCount>0)tags.push('긴급 이슈 '+highIssueCount+'건');
+  else if(row.openIssueCount>0)tags.push('열린 이슈 '+row.openIssueCount+'건');
+  if(row.pendingDocCount>0)tags.push('자료 대기 '+row.pendingDocCount+'건');
+  if(!tags.length)tags.push('특이사항 없음');
+  return tags;
 }
 
 function renderClientFilterOptions(baseRows){
@@ -692,22 +788,34 @@ function renderClientCard(detail){
 }
 
 function renderClientTable(rows){
+  const tableRows=sortClientTableRows(rows);
   return '<div class="client-table-shell">'
     +'<div class="client-table-head"><div class="client-table-title">거래처 테이블</div><div class="muted">검색과 정렬은 상단 필터를 따릅니다.</div></div>'
-    +'<div class="client-table-wrap"><table class="client-table"><thead><tr><th>거래처</th><th>업종</th><th>담당자</th><th>건강 상태</th><th>진행중</th><th>열린 이슈</th><th>자료 대기</th><th>미청구</th><th>이번 달 매출</th><th>최근 활동</th></tr></thead><tbody>'
-    +rows.map(row=>{
-      const recentLabel=row.recentActivityAt?formatDate(row.recentActivityAt):'-';
+    +'<div class="client-table-wrap"><table class="client-table"><thead><tr>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'health\')">건강'+getClientTableSortIndicator('health')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'name\')">거래처명'+getClientTableSortIndicator('name')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'industry\')">업종'+getClientTableSortIndicator('industry')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'active\')">진행중 프로젝트'+getClientTableSortIndicator('active')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'issues\')">열린 이슈'+getClientTableSortIndicator('issues')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'unbilled\')">미청구 금액'+getClientTableSortIndicator('unbilled')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'contracts\')">계약 수'+getClientTableSortIndicator('contracts')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'manager\')">담당자'+getClientTableSortIndicator('manager')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'portal\')">포털 상태'+getClientTableSortIndicator('portal')+'</button></th>'
+      +'<th><button type="button" class="client-table-sort-btn" onclick="sortClientTableBy(\'recent\')">최근 활동'+getClientTableSortIndicator('recent')+'</button></th>'
+    +'</tr></thead><tbody>'
+    +tableRows.map(row=>{
+      const recentLabel=row.recentActivityMeta?.text||'최근 활동 기록 없음';
       return '<tr onclick="openClientDetail(\''+row.client.id+'\')">'
-        +'<td><div class="client-table-name">'+esc(row.client.name||'거래처')+'</div><div class="client-table-sub">활성 프로젝트 '+row.activeProjectCount+'건</div></td>'
+        +'<td><span class="client-health-dot is-'+(row.cardHealthMeta?.tone||'normal')+'" title="'+esc((row.cardHealthMeta?.label||'정상')+' · '+(row.cardHealthMeta?.reasonText||''))+'"></span></td>'
+        +'<td><div class="client-table-name">'+esc(row.client.name||'거래처')+'</div><div class="client-table-sub">활성 프로젝트 '+row.activeProjectCount+'건</div><div class="client-table-actions"><button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickProject(\''+row.client.id+'\')">프로젝트 보기</button><button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickIssues(\''+row.client.id+'\')">이슈 보기</button>'+(row.portalStatusMeta?.clickable?'<button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickPortal(\''+row.client.id+'\')">포털 접속</button>':'')+'</div></td>'
         +'<td>'+esc(row.client.industry||'-')+'</td>'
-        +'<td>'+esc(row.managerNames.join(', ')||'-')+'</td>'
-        +'<td><span class="badge '+(row.healthCode==='issue'?'badge-red':row.healthCode==='warning'?'badge-orange':'badge-green')+'">'+getClientHealthLabel(row.healthCode)+'</span></td>'
         +'<td>'+row.activeProjectCount+'건</td>'
         +'<td>'+row.openIssueCount+'건</td>'
-        +'<td>'+row.pendingDocCount+'건</td>'
         +'<td>'+formatClientCurrency(row.unbilledAmount)+'</td>'
-        +'<td>'+formatClientCurrency(row.revenueThisMonth)+'</td>'
-        +'<td>'+esc(recentLabel)+'</td>'
+        +'<td>'+row.contractCount+'건</td>'
+        +'<td>'+esc(row.managerNames.join(', ')||'-')+'</td>'
+        +'<td><span class="badge '+(row.portalStatusMeta?.tone==='active'?'badge-blue':'badge-gray')+'">'+esc(row.portalStatusMeta?.label||'미설정')+'</span></td>'
+        +'<td><span class="'+(row.recentActivityMeta?.isStale?'client-table-recent is-stale':'client-table-recent')+'">'+esc(recentLabel)+'</span></td>'
       +'</tr>';
     }).join('')
     +'</tbody></table></div></div>';
@@ -715,14 +823,14 @@ function renderClientTable(rows){
 
 function renderClientHealthBoard(rows){
   const groups=[
-    {key:'issue',label:'이슈 있음',className:'is-issue'},
+    {key:'normal',label:'정상',className:''},
     {key:'warning',label:'주의 필요',className:'is-warning'},
-    {key:'normal',label:'정상',className:''}
+    {key:'risk',label:'위험',className:'is-issue'}
   ];
   return '<div class="client-health-board">'+groups.map(group=>{
-    const items=rows.filter(row=>row.healthCode===group.key);
+    const items=rows.filter(row=>(row.cardHealthMeta?.tone||'normal')===group.key);
     return '<div class="client-health-column '+group.className+'"><div class="client-health-head"><div class="client-health-title">'+group.label+'</div><div class="client-health-count">'+items.length+'곳</div></div><div class="client-health-list">'
-      +(items.length?items.map(row=>'<div class="client-health-item" onclick="openClientDetail(\''+row.client.id+'\')"><div class="client-health-item-name">'+esc(row.client.name||'거래처')+'</div><div class="client-health-item-sub">'+esc((row.managerNames.join(', ')||'담당자 미배정')+' · 진행 '+row.activeProjectCount+'건 · 이슈 '+row.openIssueCount+'건 · 자료 '+row.pendingDocCount+'건')+'</div></div>').join(''):'<div class="empty-state" style="padding:24px 14px">해당 거래처가 없습니다.</div>')
+      +(items.length?items.map(row=>'<div class="client-health-item" onclick="openClientDetail(\''+row.client.id+'\')"><div class="client-health-item-name">'+esc(row.client.name||'거래처')+'</div><div class="client-health-item-tags">'+getClientBoardReasonTags(row).map(tag=>'<span class="client-health-tag">'+esc(tag)+'</span>').join('')+'</div></div>').join(''):'<div class="empty-state" style="padding:24px 14px">해당 거래처가 없습니다.</div>')
       +'</div></div>';
   }).join('')+'</div>';
 }

@@ -86,7 +86,7 @@
 .client-table-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border);background:#FBFCFE}
 .client-table-title{font-size:14px;font-weight:800;color:var(--navy)}
 .client-table-wrap{overflow:auto}
-.client-table{width:100%;border-collapse:collapse;min-width:920px}
+.client-table{width:100%;border-collapse:collapse;min-width:1080px}
 .client-table th,.client-table td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
 .client-table th{font-size:11px;font-weight:800;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;background:#FBFCFE}
 .client-table td{font-size:13px;color:var(--text)}
@@ -94,6 +94,10 @@
 .client-table tbody tr:hover{background:#F8FAFC}
 .client-table-name{font-weight:700;color:var(--navy)}
 .client-table-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.client-table-sort-btn{display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;padding:0;font:inherit;color:inherit;cursor:pointer}
+.client-table-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;opacity:0;pointer-events:none;transition:opacity .15s ease}
+.client-table tbody tr:hover .client-table-actions{opacity:1;pointer-events:auto}
+.client-table-recent.is-stale{color:#B45309;font-weight:700}
 
 .client-health-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .client-health-column{background:var(--color-surface);border:1px solid var(--color-border);border-radius:18px;box-shadow:var(--shadow-md);padding:18px}
@@ -107,6 +111,8 @@
 .client-health-item:hover{border-color:rgba(10,37,64,.12);box-shadow:var(--shadow-sm)}
 .client-health-item-name{font-size:13px;font-weight:800;color:var(--navy)}
 .client-health-item-sub{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.55}
+.client-health-item-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.client-health-tag{display:inline-flex;align-items:center;min-height:24px;padding:4px 9px;border-radius:999px;background:#F3F6F8;color:#5C6B7E;border:1px solid rgba(92,107,126,.10);font-size:11px;font-weight:700}
 
 .client-mini-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 
