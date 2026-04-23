@@ -792,7 +792,7 @@ function renderHomeScheduleGroupByType(type,items){
   return '<div class="home-team-schedule-group is-type-view">'
     +'<div class="home-team-schedule-group-title">'+esc(scheduleLabel(type))+'</div>'
     +(items.length
-      ?items.map(renderScheduleRow).join('')
+      ?'<div class="home-team-schedule-group-body">'+items.map(renderScheduleRow).join('')+'</div>'
       :'<div class="weekly-empty">일정 없음</div>')
     +'</div>';
 }
@@ -984,7 +984,7 @@ function renderWeeklyScheduleSummary(){
   const activeMembers=getHomePanelActiveMembers().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   const renderWeekBlock=(label,weekData,tone='current')=>'<div class="home-team-schedule-week '+tone+'">'
     +'<div class="home-team-schedule-week-head"><span class="home-team-schedule-week-label">'+label+'</span><span class="home-team-schedule-week-range">'+formatHomeWeekRangeLabel(weekData.start,weekData.end)+'</span></div>'
-    +'<div class="team-schedule-grid">'+(weekData.typeKeys.length?weekData.typeKeys.map(type=>renderHomeScheduleGroupByType(type,weekData.grouped[type]||[])).join(''):'<div class="weekly-empty">일정이 없습니다</div>')+'</div>'
+    +'<div class="home-team-schedule-type-grid">'+(weekData.typeKeys.length?weekData.typeKeys.map(type=>renderHomeScheduleGroupByType(type,weekData.grouped[type]||[])).join(''):'<div class="weekly-empty">일정이 없습니다</div>')+'</div>'
     +'</div>';
   const memberViewHtml='<div class="home-team-member-list">'+activeMembers.map(member=>{
     const thisWeekItems=(thisWeek.items||[]).filter(schedule=>scheduleHasMember(schedule,member.name));

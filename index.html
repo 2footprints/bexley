@@ -5469,11 +5469,14 @@ async function openIssueComments(issueId,forceOpen=false,focusCommentId=''){
   el.style.display='block';
   el.innerHTML='<div style="padding:8px 0;color:var(--text3);font-size:12px">불러오는 중...</div>';
   try{
+    const shouldCompactHeader=!!(el.closest('.issues-page-comments-shell')||el.closest('.issue-card'));
     const issueRows=await api('GET','project_issues?id=eq.'+issueId+'&select=id,title,owner_name,assignee_name,status');
     const issueData=(issueRows||[])[0]||{};
     const comments=await api('GET','issue_comments?issue_id=eq.'+issueId+'&order=created_at.asc')||[];
     el.innerHTML='<div class="issue-comments-thread">'
-      +'<div class="issue-comments-summary"><div><div class="issue-comments-summary-title">'+esc(issueData.title||'이슈 댓글')+'</div><div class="issue-comments-summary-meta">상태 '+esc(getIssueStatusMeta(issueData.status||'open').label)+'</div></div><div>'+renderIssuePeopleBadges(issueData)+'</div></div>'
+      +(shouldCompactHeader
+        ?'<div class="issue-comments-header"><div class="issue-comments-header-title">댓글 '+comments.length+'건</div><div class="issue-comments-header-meta">최신 순이 아닌 등록 순으로 표시됩니다</div></div>'
+        :'<div class="issue-comments-summary"><div><div class="issue-comments-summary-title">'+esc(issueData.title||'이슈 댓글')+'</div><div class="issue-comments-summary-meta">상태 '+esc(getIssueStatusMeta(issueData.status||'open').label)+'</div></div><div>'+renderIssuePeopleBadges(issueData)+'</div></div>')
       +(comments.length
         ?'<div class="issue-comments-list">'+comments.map(c=>{
           const canEdit=isAdmin||c.created_by===currentUser?.id;
