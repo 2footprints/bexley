@@ -1503,6 +1503,24 @@ td{
 .gantt-list-row.is-overdue td:not(:first-child){
   box-shadow:none!important;
 }
+.gantt-list-row.is-attention td{
+  background:#FFFEFA!important;
+}
+.gantt-list-row.is-attention td:first-child{
+  box-shadow:inset 2px 0 0 #FCD34D!important;
+}
+.gantt-list-row.is-attention td:not(:first-child){
+  box-shadow:none!important;
+}
+.gantt-list-row.is-issue-risk td{
+  background:#FBFCFF!important;
+}
+.gantt-list-row.is-issue-risk td:first-child{
+  box-shadow:inset 2px 0 0 #93C5FD!important;
+}
+.gantt-list-row.is-issue-risk td:not(:first-child){
+  box-shadow:none!important;
+}
 .gantt-list-row.is-due-today td{
   background:#FFFCF2!important;
 }
@@ -1520,8 +1538,8 @@ td{
 .gantt-list-project-metachips{
   display:flex!important;
   flex-wrap:wrap!important;
-  gap:6px!important;
-  margin-top:6px!important;
+  gap:5px!important;
+  margin-top:5px!important;
 }
 .gantt-list-member-cell,
 .gantt-list-period-cell{
@@ -1537,19 +1555,19 @@ td{
 .gantt-list-progress{
   min-width:96px!important;
   display:grid!important;
-  gap:4px!important;
+  gap:3px!important;
 }
 .gantt-list-progress-text{
   font-size:10px!important;
   font-weight:700!important;
-  color:#475569!important;
+  color:#64748B!important;
 }
 .gantt-list-progress-track{
   position:relative!important;
   width:100%!important;
-  height:5px!important;
+  height:4px!important;
   border-radius:999px!important;
-  background:#E5EAF1!important;
+  background:#E8EDF3!important;
   overflow:hidden!important;
 }
 .gantt-list-progress-fill{
@@ -1558,7 +1576,7 @@ td{
   top:0!important;
   bottom:0!important;
   border-radius:999px!important;
-  background:linear-gradient(90deg,#3B82F6 0%, #60A5FA 100%)!important;
+  background:linear-gradient(90deg,#94A3B8 0%, #CBD5E1 100%)!important;
 }
 .gantt-list-attention-cell,
 .gantt-list-billing-cell{
@@ -1569,7 +1587,7 @@ td{
 .gantt-list-attention-badges{
   display:flex!important;
   flex-wrap:wrap!important;
-  gap:6px!important;
+  gap:5px!important;
 }
 .gantt-list-mini-chip{
   display:inline-flex!important;
@@ -1577,9 +1595,9 @@ td{
   justify-content:center!important;
   width:fit-content!important;
   min-height:22px!important;
-  padding:3px 8px!important;
+  padding:3px 7px!important;
   border-radius:999px!important;
-  font-size:11px!important;
+  font-size:10.5px!important;
   font-weight:700!important;
   line-height:1!important;
   border:1px solid transparent!important;

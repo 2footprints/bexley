@@ -859,7 +859,7 @@ async function loadGanttListTaskSummaries(projectIds){
   try{
     const rows=await api(
       'GET',
-      GANTT_PROJECT_TASK_TABLE+'?project_id=in.('+missingIds.join(',')+')&select=project_id,title,status,due_date'
+      GANTT_PROJECT_TASK_TABLE+'?project_id=in.('+missingIds.join(',')+')&select=project_id,title,status,due_date,assignee_member_id'
     );
     const grouped={};
     missingIds.forEach(id=>{grouped[id]=[];});
@@ -960,11 +960,14 @@ async function loadGanttListPendingDocSummaries(projectIds){
   if(curGanttLayout==='list')renderGantt();
 }
 
-function getGanttListRiskMeta(project,issueCount,taskSummary){
-  if(isGanttProjectOverdue(project))return {label:'지연',tone:'danger',rank:4,detail:'기한이 지났습니다'};
-  if(isDueToday(project))return {label:'오늘 마감',tone:'warn',rank:3,detail:'오늘 종료 예정'};
-  if(Number(taskSummary?.overdueCount||0)>0)return {label:'업무 지연',tone:'warn',rank:2.5,detail:'기한을 넘긴 업무 '+taskSummary.overdueCount+'건'};
-  if(Number(issueCount||0)>0)return {label:'이슈 주의',tone:'issue',rank:2,detail:'미해결 이슈 '+issueCount+'건'};
+function getGanttListRiskMeta(project,issueCount,taskSummary,taskIssueSummary,pendingDocSummary){
+  if(isGanttProjectOverdue(project))return {label:'지연',tone:'danger',rank:5,detail:'프로젝트 기한이 지났습니다'};
+  if(isDueToday(project))return {label:'오늘 마감',tone:'warn',rank:4.2,detail:'오늘 종료 예정입니다'};
+  if(Number(taskSummary?.overdueCount||0)>0)return {label:'업무 지연',tone:'warn',rank:3.8,detail:'지연 업무 '+taskSummary.overdueCount+'건'};
+  if(Number(issueCount||0)>0)return {label:'이슈',tone:'issue',rank:3.2,detail:'미해결 이슈 '+issueCount+'건'};
+  if(Number(taskIssueSummary?.issueLinkedTaskCount||0)>0)return {label:'연결 이슈',tone:'issue',rank:2.9,detail:'업무 연결 이슈 '+taskIssueSummary.issueLinkedTaskCount+'건'};
+  if(Number(pendingDocSummary?.total||0)>0)return {label:'자료 확인',tone:'warn',rank:2.6,detail:'자료 요청 확인 필요'};
+  if(Number(taskSummary?.unassignedCount||0)>0)return {label:'무담당',tone:'neutral',rank:2.2,detail:'담당 확인이 필요한 업무가 있습니다'};
   return {label:'정상',tone:'safe',rank:1,detail:'현재 위험 신호 없음'};
 }
 
@@ -979,7 +982,7 @@ function getGanttListProjectRows(projs){
     const taskSummary=getGanttListTaskSummary(project.id);
     const taskIssueSummary=getGanttListTaskIssueSummary(project.id);
     const pendingDocSummary=(window.ganttProjectPendingDocSummaryByProjectId||{})[String(project.id||'')]||null;
-    const riskMeta=getGanttListRiskMeta(project,issueCount,taskSummary);
+    const riskMeta=getGanttListRiskMeta(project,issueCount,taskSummary,taskIssueSummary,pendingDocSummary);
     const periodText=(project.start||project.start_date||'')+' ~ '+(project.end||project.end_date||'');
     const searchText=[clientName,project?.name||'',project?.type||'',memberNames.join(' ')].join(' ').toLowerCase();
     const status=String(project?.status||'예정').trim()||'예정';
@@ -1008,24 +1011,25 @@ function getGanttListProjectRows(projs){
 
 function getGanttListProjectMetaItems(row){
   const items=[];
-  if(Number(row?.taskSummary?.total||0)>0)items.push({label:'업무 '+row.taskSummary.total,tone:'neutral'});
+  if(Number(row?.taskSummary?.openCount||0)>0)items.push({label:'열린 '+row.taskSummary.openCount,tone:'neutral'});
+  else if(Number(row?.taskSummary?.total||0)>0)items.push({label:'업무 '+row.taskSummary.total,tone:'neutral'});
   if(Number(row?.taskSummary?.overdueCount||0)>0)items.push({label:'지연 '+row.taskSummary.overdueCount,tone:'warn'});
   else if(Number(row?.taskSummary?.dueSoonCount||0)>0)items.push({label:'임박 '+row.taskSummary.dueSoonCount,tone:'warn'});
-  if(Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0)items.push({label:'연결이슈 '+row.taskIssueSummary.issueLinkedTaskCount,tone:'issue'});
-  if(row?.taskSummary?.nearestDueLabel)items.push({label:'다음 '+row.taskSummary.nearestDueLabel,tone:'neutral'});
-  return items.slice(0,4);
+  if(Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0)items.push({label:'이슈연결 '+row.taskIssueSummary.issueLinkedTaskCount,tone:'issue'});
+  else if(row?.taskSummary?.nearestDueLabel)items.push({label:'다음 '+row.taskSummary.nearestDueLabel,tone:'neutral'});
+  return items.slice(0,3);
 }
 
 function getGanttListExecutionSignalItems(row){
   const items=[];
-  if(isGanttProjectOverdue(row?.project))items.push({label:'프로젝트 지연',tone:'danger'});
-  else if(isDueToday(row?.project))items.push({label:'오늘 마감',tone:'warn'});
-  if(Number(row?.taskSummary?.overdueCount||0)>0)items.push({label:'업무지연 '+row.taskSummary.overdueCount,tone:'warn'});
-  if(Number(row?.issueCount||0)>0)items.push({label:'이슈 '+row.issueCount,tone:'issue'});
-  if(Number(row?.pendingDocSummary?.total||0)>0)items.push({label:'자료대기 '+row.pendingDocSummary.total,tone:'warn'});
-  if(Number(row?.taskSummary?.unassignedCount||0)>0)items.push({label:'무담당 '+row.taskSummary.unassignedCount,tone:'neutral'});
+  if(row?.riskMeta?.label&&row.riskMeta.label!=='정상')items.push({label:row.riskMeta.label,tone:row.riskMeta.tone});
+  if(Number(row?.taskSummary?.overdueCount||0)>0&&row?.riskMeta?.label!=='업무 지연')items.push({label:'지연 '+row.taskSummary.overdueCount,tone:'warn'});
+  if(Number(row?.issueCount||0)>0&&row?.riskMeta?.label!=='이슈')items.push({label:'이슈 '+row.issueCount,tone:'issue'});
+  else if(Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0&&row?.riskMeta?.label!=='연결 이슈')items.push({label:'연결이슈 '+row.taskIssueSummary.issueLinkedTaskCount,tone:'issue'});
+  if(Number(row?.pendingDocSummary?.total||0)>0&&row?.riskMeta?.label!=='자료 확인')items.push({label:'자료 확인',tone:'warn'});
+  if(Number(row?.taskSummary?.unassignedCount||0)>0&&row?.riskMeta?.label!=='무담당')items.push({label:'무담당 '+row.taskSummary.unassignedCount,tone:'neutral'});
   if(!items.length)items.push({label:'정상',tone:'safe'});
-  return items.slice(0,4);
+  return items.slice(0,3);
 }
 
 function renderGanttListMetaChips(items){
@@ -1048,7 +1052,8 @@ function getGanttListSignalBarMarkup(overdueRows,dueTodayRows,issueAttentionRows
 
 function getGanttListAttentionSubtext(row){
   const items=getGanttListExecutionSignalItems(row).map(item=>item.label);
-  return items.join(' · ');
+  if(items.length)return items.join(' · ');
+  return row?.riskMeta?.detail||'현재 위험 신호 없음';
 }
 
 function toggleGanttListExecutionRiskFilter(key){
@@ -1065,7 +1070,7 @@ function getGanttListExecutionRiskFilterOptions(){
     {value:'issue_linked',label:'연결 이슈'},
     {value:'due_soon',label:'기한 임박'},
     {value:'unassigned_task',label:'무담당'},
-    {value:'material_waiting',label:'자료 대기'}
+    {value:'material_waiting',label:'자료 확인'}
   ];
 }
 
@@ -1290,7 +1295,16 @@ function renderGanttListView(projs,schs){
         const selected=selectedSet.has(String(project.id));
         const canManage=canManageGanttListProject(project);
         const metaItems=getGanttListProjectMetaItems(row);
-        return '<tr class="gantt-list-row'+(selected?' is-selected':'')+(isGanttProjectOverdue(project)?' is-overdue':'')+(isDueToday(project)?' is-due-today':'')+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
+        const rowStateClass=isGanttProjectOverdue(project)
+          ?' is-overdue'
+          :isDueToday(project)
+            ?' is-due-today'
+            :row.riskMeta?.tone==='issue'
+              ?' is-issue-risk'
+              :row.riskMeta?.tone==='warn'
+                ?' is-attention'
+                :'';
+        return '<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
           +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+project.id+'\')" /></td>'
           +'<td>'+esc(row.clientName)+'</td>'
           +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div><div class="gantt-list-project-sub">'+esc(row.typeText)+'</div>'+(metaItems.length?'<div class="gantt-list-project-metachips" title="'+esc(row.taskSummaryTitle||'')+'">'+renderGanttListMetaChips(metaItems)+'</div>':'')+'</td>'
