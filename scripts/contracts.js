@@ -4,6 +4,10 @@ let contractBillingRecords=[];
 let contractBillingRecordsLoaded=false;
 let contractBillingRecordsLoading=false;
 let contractBillingRecordsPromise=null;
+let contractPendingDocRequests=[];
+let contractPendingDocRequestsLoaded=false;
+let contractPendingDocRequestsLoading=false;
+let contractPendingDocRequestsPromise=null;
 const contractListSelectedIds=new Set();
 let contractListSortKey='client';
 let contractListSortDir='asc';
@@ -163,6 +167,12 @@ function getContractBillingRecords(contractId){
   return (contractBillingRecords||[]).filter(record=>String(record?.contract_id||'')===String(contractId||''));
 }
 
+function getContractPendingDocRequests(projectIds){
+  const projectIdSet=new Set((projectIds||[]).map(id=>String(id||'')).filter(Boolean));
+  if(!projectIdSet.size)return [];
+  return (contractPendingDocRequests||[]).filter(request=>projectIdSet.has(String(request?.project_id||'')));
+}
+
 function getContractBillingState(row){
   if(row.receivableAmount>0)return 'receivable';
   if(row.unbilledBalance>0)return 'unbilled';
@@ -221,48 +231,113 @@ function getContractAttentionMeta(row){
   const remainingMeta=getContractRemainingDaysMeta(row);
   if(Number(row?.receivableAmount||0)>0){
     return {
-      label:'미수금',
+      label:'위험',
       tone:'danger',
       detail:row.agedReceivableCount>0
-        ?'30일 이상 '+row.agedReceivableCount+'건'
-        :'회수 확인 필요'
+        ?'수금 미확인 · 30일+ '+row.agedReceivableCount+'건'
+        :'수금 미확인'
+    };
+  }
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<0){
+    return {
+      label:'위험',
+      tone:'danger',
+      detail:'만료 후 정리 필요'
     };
   }
   if(Number(row?.unbilledBalance||0)>0){
     return {
-      label:'미청구',
+      label:'주의',
       tone:'warn',
-      detail:'청구 대기 금액 존재'
+      detail:'미청구 잔액 있음'
     };
   }
-  if(remainingMeta?.tone==='danger'){
+  if(Number(row?.pendingDocCount||0)>0){
     return {
-      label:'만료됨',
-      tone:'danger',
-      detail:remainingMeta.text
+      label:'주의',
+      tone:'warn',
+      detail:'자료 대기 '+row.pendingDocCount+'건'
+    };
+  }
+  if(Number(row?.openIssueCount||0)>0){
+    return {
+      label:'주의',
+      tone:'warn',
+      detail:'이슈 미해결 '+row.openIssueCount+'건'
     };
   }
   if(remainingMeta?.tone==='warn'){
     return {
-      label:'갱신 점검',
+      label:'주의',
       tone:'warn',
-      detail:remainingMeta.text
+      detail:(row.renewalDiffDays!==null&&row.renewalDiffDays<=30)
+        ?'30일 내 만료'
+        :'만료 임박'
     };
   }
   return {
-    label:'안정',
+    label:'정상',
     tone:'ok',
-    detail:'현재 위험 신호 없음'
+    detail:'운영 리스크 신호 없음'
   };
 }
 
+function getContractNextActionLabel(row){
+  if(Number(row?.receivableAmount||0)>0){
+    return '수금 확인';
+  }
+  if(Number(row?.unbilledBalance||0)>0)return '청구 발행';
+  if(Number(row?.pendingDocCount||0)>0)return '자료 회수';
+  if(Number(row?.openIssueCount||0)>0)return '이슈 점검';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=30)return '갱신 확인';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=60)return '계약 일정 점검';
+  if(row?.isActive)return '청구 리듬 점검';
+  return '종료 기록 확인';
+}
+
 function getContractNextActionText(row){
-  if(Number(row?.receivableAmount||0)>0)return '다음 액션: 수금 일정과 리마인드 여부를 확인하세요.';
-  if(Number(row?.unbilledBalance||0)>0)return '다음 액션: 남은 계약 금액의 청구 계획을 확인하세요.';
-  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<0)return '다음 액션: 종료 처리 또는 갱신 계약 여부를 확인하세요.';
-  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=60)return '다음 액션: 갱신 일정과 고객 커뮤니케이션을 점검하세요.';
-  if(row?.isActive)return '다음 액션: 현재 계약 흐름을 유지하며 청구/수금 진행률만 점검하면 됩니다.';
-  return '다음 액션: 종료된 계약으로 상세 기록과 청구 이력을 중심으로 확인하세요.';
+  if(Number(row?.receivableAmount||0)>0)return '리마인드 발송 · 수금 일정 확인';
+  if(Number(row?.unbilledBalance||0)>0)return '인보이스 발행 여부 확인';
+  if(Number(row?.pendingDocCount||0)>0)return '필수 자료 회수 팔로업';
+  if(Number(row?.openIssueCount||0)>0)return '미해결 이슈 상태 확인';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<0)return '종료 처리 또는 갱신 여부 결정';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=30)return '갱신 조건 · 일정 확인';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=60)return '만료 전 커뮤니케이션 점검';
+  if(row?.isActive)return '다음 청구 일정만 확인';
+  return '상세 기록과 종료 상태 확인';
+}
+
+function getContractRiskTags(row){
+  const tags=[];
+  if(Number(row?.unbilledBalance||0)>0)tags.push('<span class="contract-inline-chip is-warn">미청구 '+formatContractCurrency(row.unbilledBalance)+'</span>');
+  else tags.push('<span class="contract-inline-chip">청구 '+formatContractCurrency(row.billedTotal)+'</span>');
+  if(Number(row?.receivableAmount||0)>0)tags.push('<span class="contract-inline-chip is-danger">미수금 '+formatContractCurrency(row.receivableAmount)+'</span>');
+  if(Number(row?.pendingDocCount||0)>0)tags.push('<span class="contract-inline-chip is-warn">자료 '+row.pendingDocCount+'건</span>');
+  if(Number(row?.openIssueCount||0)>0)tags.push('<span class="contract-inline-chip is-danger">이슈 '+row.openIssueCount+'건</span>');
+  return tags;
+}
+
+async function ensureContractPendingDocRequestsLoaded(force=false){
+  if(force){
+    contractPendingDocRequestsLoaded=false;
+    contractPendingDocRequestsPromise=null;
+  }
+  if(contractPendingDocRequestsLoaded)return;
+  if(contractPendingDocRequestsPromise)return contractPendingDocRequestsPromise;
+  contractPendingDocRequestsLoading=true;
+  contractPendingDocRequestsPromise=(async()=>{
+    try{
+      contractPendingDocRequests=await api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date,created_at').catch(()=>[])||[];
+      contractPendingDocRequestsLoaded=true;
+    }catch(e){
+      contractPendingDocRequests=[];
+      contractPendingDocRequestsLoaded=true;
+    }finally{
+      contractPendingDocRequestsLoading=false;
+      contractPendingDocRequestsPromise=null;
+    }
+  })();
+  return contractPendingDocRequestsPromise;
 }
 
 function getContractPortfolioSummary(rows){
@@ -287,8 +362,11 @@ function canManageContractBulkActions(){
 function buildContractRow(contract){
   const client=clients.find(item=>item.id===contract.client_id)||null;
   const relatedProjects=(projects||[]).filter(project=>project.contract_id===contract.id);
+  const relatedProjectIds=relatedProjects.map(project=>project.id);
   const managerNames=getContractManagerNames(contract,relatedProjects);
   const records=getContractBillingRecords(contract.id);
+  const pendingDocs=getContractPendingDocRequests(relatedProjectIds);
+  const openIssueCount=relatedProjects.reduce((sum,project)=>sum+Number(openIssuesByProject?.[project.id]||0),0);
   const yearRange=getContractYearRange();
   const monthRange=getContractMonthRange(0);
   const prevMonthRange=getContractMonthRange(-1);
@@ -336,6 +414,8 @@ function buildContractRow(contract){
     relatedProjects,
     managerNames,
     typeGroup:normalizeContractType(contract?.contract_type),
+    openIssueCount,
+    pendingDocCount:pendingDocs.length,
     contractAmount,
     billedTotal,
     collectedTotal,
@@ -874,7 +954,7 @@ function renderContractRowItem(row){
   const billingHint=row.receivableAmount>0
     ?'미수금 '+formatContractCurrency(row.receivableAmount)
     :(row.unbilledBalance>0?'미청구 '+formatContractCurrency(row.unbilledBalance):'완납');
-  return '<div class="contract-inline-row'+(isEnded?' is-ended':'')+'" onclick="openContractDetail(\''+contract.id+'\')">'
+  return '<div class="contract-inline-row is-'+attentionMeta.tone+(isEnded?' is-ended':'')+'" onclick="openContractDetail(\''+contract.id+'\')">'
     +'<div class="contract-inline-main">'
       +'<div class="contract-inline-name" title="'+esc(contract?.contract_name||'')+'">'+esc(contract?.contract_name||'계약명 없음')+'</div>'
       +'<div class="contract-inline-sub">'
@@ -1229,69 +1309,73 @@ function renderContractKpis(rows){
   const el=document.getElementById('contractKpiGrid');
   if(!el)return;
   const activeRows=rows.filter(row=>row.isActive);
-  const portfolioSummary=getContractPortfolioSummary(rows);
+  const attentionRows=rows.filter(row=>getContractAttentionMeta(row).tone!=='ok');
+  const pendingDocCount=rows.reduce((sum,row)=>sum+Number(row.pendingDocCount||0),0);
+  const pendingDocContracts=rows.filter(row=>Number(row.pendingDocCount||0)>0).length;
   const activeAmountTotal=activeRows.reduce((sum,row)=>sum+row.contractAmount,0);
   const billedYear=rows.reduce((sum,row)=>sum+row.billedThisYear,0);
-  const billedThisMonth=rows.reduce((sum,row)=>sum+row.billedThisMonth,0);
-  const billedPrevMonth=rows.reduce((sum,row)=>sum+row.billedPrevMonth,0);
   const receivableAmount=rows.reduce((sum,row)=>sum+row.receivableAmount,0);
   const agedReceivableCount=rows.reduce((sum,row)=>sum+row.agedReceivableCount,0);
-  const collectedYear=rows.reduce((sum,row)=>sum+row.collectedThisYear,0);
   const unbilledBalance=Math.max(0,activeAmountTotal-activeRows.reduce((sum,row)=>sum+row.billedTotal,0));
-  const averageActiveAmount=activeRows.length?Math.round(activeAmountTotal/activeRows.length):0;
   const renewalRows=activeRows
     .filter(row=>row.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60)
     .sort((a,b)=>(a.endDateValue||Number.MAX_SAFE_INTEGER)-(b.endDateValue||Number.MAX_SAFE_INTEGER));
-  const collectionRate=billedYear>0?Math.round((collectedYear/billedYear)*100):0;
+  const activeAverage=activeRows.length?Math.round(activeAmountTotal/activeRows.length):0;
   const earliestRenewal=renewalRows[0];
   const cards=[
     {
-      label:'계약 총액',
-      value:formatContractCurrency(activeAmountTotal),
-      sub:'활성 계약 '+activeRows.length+'건',
-      helper:averageActiveAmount?'평균 계약 '+formatContractCurrency(averageActiveAmount):'현재 필터 기준 활성 계약 금액입니다.'
-    },
-    {
-      label:'청구 완료',
-      value:formatContractCurrency(billedYear),
-      sub:'올해 청구 누계',
-      helper:'이번 달 '+formatContractCurrency(billedThisMonth)+' · '+formatContractDelta(billedThisMonth-billedPrevMonth)
-    },
-    {
       label:'미청구 잔액',
       value:formatContractCurrency(unbilledBalance),
-      sub:'미청구 계약 '+portfolioSummary.unbilledCount+'건',
-      helper:'활성 계약 중 아직 청구되지 않은 잔여 금액입니다.'
+      sub:'청구 후속 계약 '+rows.filter(row=>Number(row.unbilledBalance||0)>0).length+'건',
+      helper:unbilledBalance?'지금 청구 일정 확인이 필요한 잔액입니다.':'청구 후속이 필요한 계약이 없습니다.',
+      tone:unbilledBalance>0?'warn':'quiet'
+    },
+    {
+      label:'자료 대기',
+      value:pendingDocCount+'건',
+      sub:'자료 확인 계약 '+pendingDocContracts+'건',
+      helper:pendingDocCount?'자료 회수 또는 고객 요청 대응이 남아 있습니다.':'현재 대기 중인 자료 요청이 없습니다.',
+      tone:pendingDocCount>0?'warn':'quiet'
+    },
+    {
+      label:'주의 필요',
+      value:attentionRows.length+'건',
+      sub:'미수·미청구·자료·만료 신호 포함',
+      helper:attentionRows.length
+        ?attentionRows.slice(0,2).map(row=>(row.contract?.contract_name||'계약')+' · '+getContractAttentionMeta(row).detail).join(' / ')
+        :'지금 바로 후속이 필요한 계약이 없습니다.',
+      tone:attentionRows.length?'danger':'quiet'
     },
     {
       label:'미수금',
       value:formatContractCurrency(receivableAmount),
-      sub:'미수 계약 '+portfolioSummary.receivableCount+'건',
-      helper:'30일 이상 '+agedReceivableCount+'건 · 회수 확인 필요',
-      tone:receivableAmount>0?'danger':'ok'
+      sub:'장기 미수 '+agedReceivableCount+'건',
+      helper:receivableAmount?'수금 확인과 리마인드가 필요한 금액입니다.':'회수 추적 중인 금액이 없습니다.',
+      tone:receivableAmount>0?'danger':'quiet'
     },
     {
-      label:'수금률',
-      value:collectionRate+'%',
-      sub:'올해 청구 '+formatContractCurrency(billedYear),
-      helper:'수금 완료 '+formatContractCurrency(collectedYear)
-    },
-    {
-      label:'갱신 임박',
-      value:renewalRows.length+'건',
-      sub:renewalRows.length?'60일 내 만료':'이번 달 긴급 만료 없음',
+      label:'활성 계약',
+      value:activeRows.length+'건',
+      sub:renewalRows.length?('만료 임박 '+renewalRows.length+'건'):'긴급 만료 없음',
       helper:earliestRenewal
         ?(earliestRenewal.contract?.contract_name||'계약')+' · '+(earliestRenewal.contract?.contract_end_date||'만료일 미정')
-        :'가장 가까운 만료 계약이 없습니다.',
+        :(activeAverage?'평균 계약 '+formatContractCurrency(activeAverage):'현재 진행 중 계약 기준입니다.'),
       tone:renewalRows.length?'warn':'ok'
+    },
+    {
+      label:'계약 총액',
+      value:formatContractCurrency(activeAmountTotal),
+      sub:'활성 계약 기준',
+      helper:activeAverage?'평균 계약 '+formatContractCurrency(activeAverage):'현재 필터 기준 계약 총액입니다.',
+      tone:'quiet'
     }
   ];
   el.innerHTML=cards.map(card=>
     '<div class="contract-kpi-card'+(card.tone?' is-'+card.tone:'')+'">'
-      +'<div class="contract-kpi-label">'+card.label+'</div>'
-      +'<div class="contract-kpi-value">'+card.value+'</div>'
-      +'<div class="contract-kpi-sub">'+card.sub+'</div>'
-      +(card.helper?'<div class="contract-kpi-helper">'+card.helper+'</div>':'')
+      +'<div class="contract-kpi-label">'+esc(card.label)+'</div>'
+      +'<div class="contract-kpi-value">'+esc(card.value)+'</div>'
+      +'<div class="contract-kpi-sub">'+esc(card.sub)+'</div>'
+      +(card.helper?'<div class="contract-kpi-helper">'+esc(card.helper)+'</div>':'')
     +'</div>'
   ).join('');
 }
@@ -1304,16 +1388,17 @@ function renderContractOverviewIntro(rows){
       ?'계약 리스트'
       :'빌링 보드';
   const copy=contractViewMode==='grouped'
-    ?'거래처 단위로 계약 규모, 청구 진행, 미수 리스크, 만료 시점을 한 번에 훑는 화면입니다.'
+    ?'운영 중심 보기입니다. 어떤 계약이 막혔는지와 다음 조치를 거래처 단위로 빠르게 확인합니다.'
     :contractViewMode==='list'
-      ?'계약별 금액, 청구, 미수금, 만료 컨텍스트를 비교하기 쉬운 표 보기입니다.'
+      ?'비교 중심 보기입니다. 계약별 위험 이유와 다음 액션을 한 줄 기준으로 정렬합니다.'
       :'청구 전후 상태와 수금 흐름을 보드 형태로 확인하는 보기입니다.';
   const chips=[
-    '<span class="contract-overview-chip">활성 '+summary.activeCount+'건</span>'
+    '<span class="contract-overview-chip '+((summary.unbilledCount||summary.receivableCount)?'is-danger':'is-muted')+'">주의 '+rows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length+'건</span>'
   ];
   if(summary.unbilledCount>0)chips.push('<span class="contract-overview-chip is-warn">미청구 '+summary.unbilledCount+'건</span>');
   if(summary.receivableCount>0)chips.push('<span class="contract-overview-chip is-danger">미수 '+summary.receivableCount+'건</span>');
   if(summary.expiringCount>0)chips.push('<span class="contract-overview-chip is-warn">만료 임박 '+summary.expiringCount+'건</span>');
+  chips.push('<span class="contract-overview-chip is-muted">활성 '+summary.activeCount+'건</span>');
   return ''
     +'<div class="contract-overview-head">'
       +'<div><div class="contract-overview-title">'+title+'</div><div class="contract-overview-sub">'+copy+'</div></div>'
@@ -1326,28 +1411,25 @@ function renderContractRowItem(row){
   const isEnded=isContractEndedStatus(contract?.contract_status);
   const statusClass=getContractStatusBadgeClass(contract?.contract_status);
   const billingPercent=getContractBillingProgressPercent(row);
-  const collectionRate=getContractCollectionRate(row);
   const remainingMeta=getContractRemainingDaysMeta(row);
   const attentionMeta=getContractAttentionMeta(row);
   const chips=[
     '<span class="contract-inline-chip">계약 '+formatContractCurrency(row.contractAmount)+'</span>',
-    '<span class="contract-inline-chip">청구 '+formatContractCurrency(row.billedTotal)+'</span>'
-  ];
-  if(row.unbilledBalance>0)chips.push('<span class="contract-inline-chip is-warn">미청구 '+formatContractCurrency(row.unbilledBalance)+'</span>');
-  if(row.receivableAmount>0)chips.push('<span class="contract-inline-chip is-danger">미수금 '+formatContractCurrency(row.receivableAmount)+'</span>');
-  if(row.relatedProjects.length)chips.push('<span class="contract-inline-chip">프로젝트 '+row.relatedProjects.length+'건</span>');
-  return '<div class="contract-inline-row'+(isEnded?' is-ended':'')+'" onclick="openContractDetail(\''+contract.id+'\')">'
+    ...getContractRiskTags(row),
+    (remainingMeta?'<span class="contract-inline-chip '+(remainingMeta.tone==='danger'?'is-danger':remainingMeta.tone==='warn'?'is-warn':'')+'">'+remainingMeta.text+'</span>':'')
+  ].filter(Boolean);
+  const progressText='청구 '+billingPercent+'%';
+  return '<div class="contract-inline-row is-'+attentionMeta.tone+(isEnded?' is-ended':'')+'" onclick="openContractDetail(\''+contract.id+'\')">'
     +'<div class="contract-inline-main">'
       +'<div class="contract-inline-name-row"><div class="contract-inline-name" title="'+esc(contract?.contract_name||'')+'">'+esc(contract?.contract_name||'계약명 없음')+'</div><span class="contract-inline-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div>'
-      +'<div class="contract-inline-sub">'+esc(contract?.contract_type||'기타')+(row.managerNames.length?' · '+esc(row.managerNames.join(', ')):'')+'</div>'
+      +'<div class="contract-inline-sub">'+esc(contract?.contract_type||'기타')+(row.managerNames.length?' · 담당 '+esc(row.managerNames.join(', ')):' · 담당 미정')+'</div>'
       +'<div class="contract-inline-finance-row">'+chips.join('')+'</div>'
       +'<div class="contract-inline-progress-row">'
         +'<div class="contract-inline-progress-track"><div class="contract-inline-progress-fill" style="width:'+billingPercent+'%"></div></div>'
-        +'<span class="contract-inline-progress-label">청구 '+billingPercent+'%</span>'
-        +'<span class="contract-inline-progress-label">수금 '+collectionRate+'%</span>'
-        +(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'')
+        +'<span class="contract-inline-progress-label">'+progressText+'</span>'
       +'</div>'
-      +'<div class="contract-inline-next is-'+attentionMeta.tone+'">'+esc(getContractNextActionText(row))+'</div>'
+      +'<div class="contract-inline-reason">이유 · '+esc(attentionMeta.detail)+'</div>'
+      +'<div class="contract-inline-next is-'+attentionMeta.tone+'"><span class="contract-inline-next-label">'+esc(getContractNextActionLabel(row))+'</span>'+esc(getContractNextActionText(row))+'</div>'
     +'</div>'
     +'<div class="contract-inline-actions">'
       +'<button type="button" class="contract-mini-btn" onclick="event.stopPropagation();toggleContractManaged(\''+contract.id+'\','+(!contract.is_managed)+')" title="우리 팀 관리 여부">'+(contract.is_managed?'팀':'외부')+'</button>'
@@ -1392,6 +1474,7 @@ function renderContractGroupedView(rows){
     const collectedTotal=group.rows.reduce((sum,row)=>sum+row.collectedTotal,0);
     const unbilledBalance=group.rows.reduce((sum,row)=>sum+row.unbilledBalance,0);
     const receivableAmount=group.rows.reduce((sum,row)=>sum+row.receivableAmount,0);
+    const pendingDocCount=group.rows.reduce((sum,row)=>sum+Number(row.pendingDocCount||0),0);
     const expiringCount=group.rows.filter(row=>row.isActive&&row.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60).length;
     const collectionRate=billedTotal>0?Math.max(0,Math.min(100,Math.round((collectedTotal/billedTotal)*100))):0;
     const summaryChips=[
@@ -1399,6 +1482,7 @@ function renderContractGroupedView(rows){
     ];
     if(unbilledBalance>0)summaryChips.push('<span class="contract-group-chip is-warn">미청구 '+formatContractCurrency(unbilledBalance)+'</span>');
     if(receivableAmount>0)summaryChips.push('<span class="contract-group-chip is-danger">미수금 '+formatContractCurrency(receivableAmount)+'</span>');
+    if(pendingDocCount>0)summaryChips.push('<span class="contract-group-chip is-warn">자료 '+pendingDocCount+'건</span>');
     if(expiringCount>0)summaryChips.push('<span class="contract-group-chip is-warn">만료 임박 '+expiringCount+'건</span>');
     return '<div class="card contract-group-card">'
       +'<div class="contract-group-head"'+(group.client?' onclick="openClientDetail(\''+group.client.id+'\',\'contracts\')"':'')+'>'
@@ -1430,7 +1514,7 @@ function renderContractListView(rows){
   const allSelected=!!(visibleIds.length&&visibleIds.every(id=>contractListSelectedIds.has(id)));
   const selectedRows=getSelectedContractRows(tableRows);
   return '<div class="contract-list-shell">'
-    +'<div class="contract-list-head"><div><div class="contract-list-title">계약 비교 보기</div><div class="muted">금액, 청구 진행, 미수 리스크, 만료 시점을 행 단위로 비교합니다.</div></div>'
+    +'<div class="contract-list-head"><div><div class="contract-list-title">계약 비교 보기</div><div class="muted">위험 이유와 다음 액션을 같은 축으로 비교하는 정렬용 보기입니다.</div></div>'
     +(manageable&&selectedRows.length
       ?'<div class="contract-bulk-actions"><span class="contract-bulk-count">'+selectedRows.length+'개 선택</span><select id="contractBulkStatusSelect"><option value="">상태 변경</option><option value="진행중">진행중</option><option value="검토중">검토중</option><option value="완료">완료</option><option value="해지">해지</option></select><button type="button" class="btn sm" onclick="applyContractBulkStatus(document.getElementById(\'contractBulkStatusSelect\').value)">일괄 상태 변경</button><button type="button" class="btn sm" onclick="applyContractBulkManaged(true)">우리 팀 관리 ON</button><button type="button" class="btn sm" onclick="applyContractBulkManaged(false)">우리 팀 관리 OFF</button><button type="button" class="btn ghost sm" onclick="clearContractListSelection()">선택 해제</button></div>'
       :'')
@@ -1439,34 +1523,31 @@ function renderContractListView(rows){
       +(manageable?'<th><input type="checkbox" '+(allSelected?'checked ':'')+'onclick="event.stopPropagation();toggleAllContractListSelections(window.__contractListVisibleIds||[],this.checked)"/></th>':'')
       +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'client\')">거래처'+getContractListSortIndicator('client')+'</button></th>'
       +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'name\')">계약'+getContractListSortIndicator('name')+'</button></th>'
-      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'type\')">유형'+getContractListSortIndicator('type')+'</button></th>'
       +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'status\')">상태'+getContractListSortIndicator('status')+'</button></th>'
-      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'amount\')">계약금액'+getContractListSortIndicator('amount')+'</button></th>'
-      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'billed\')">청구 진행'+getContractListSortIndicator('billed')+'</button></th>'
-      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'receivable\')">미수금'+getContractListSortIndicator('receivable')+'</button></th>'
-      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'rate\')">수금률'+getContractListSortIndicator('rate')+'</button></th>'
-      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'period\')">계약기간'+getContractListSortIndicator('period')+'</button></th>'
+      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'amount\')">핵심 금액'+getContractListSortIndicator('amount')+'</button></th>'
+      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'receivable\')">리스크 이유'+getContractListSortIndicator('receivable')+'</button></th>'
+      +'<th>다음 액션</th>'
       +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'remaining\')">만료'+getContractListSortIndicator('remaining')+'</button></th>'
-      +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'projects\')">프로젝트'+getContractListSortIndicator('projects')+'</button></th>'
     +'</tr></thead><tbody>'
     +tableRows.map(row=>{
       const remainingMeta=getContractRemainingDaysMeta(row);
-      const collectionRate=getContractCollectionRate(row);
       const billingPercent=getContractBillingProgressPercent(row);
       const attentionMeta=getContractAttentionMeta(row);
+      const metricChips=[
+        '<span class="contract-list-chip">계약 '+formatContractCurrency(row.contractAmount)+'</span>',
+        (row.unbilledBalance>0?'<span class="contract-list-chip is-warn">미청구 '+formatContractCurrency(row.unbilledBalance)+'</span>':''),
+        (row.pendingDocCount>0?'<span class="contract-list-chip is-warn">자료 '+row.pendingDocCount+'건</span>':''),
+        (row.openIssueCount>0?'<span class="contract-list-chip is-danger">이슈 '+row.openIssueCount+'건</span>':'')
+      ].filter(Boolean).join('');
       return '<tr onclick="openContractDetail(\''+row.contract.id+'\')">'
         +(manageable?'<td><input type="checkbox" '+(contractListSelectedIds.has(String(row.contract?.id||''))?'checked ':'')+'onclick="event.stopPropagation();toggleContractListSelection(\''+row.contract.id+'\',this.checked)"/></td>':'')
         +'<td><div class="contract-list-name">'+esc(row.client?.name||'미지정 거래처')+'</div><div class="contract-list-sub">'+(row.isActive?'활성 계약':'종료/해지 포함')+'</div></td>'
-        +'<td><div class="contract-list-name-row"><div class="contract-list-name">'+esc(row.contract?.contract_name||'계약명 없음')+'</div><span class="contract-list-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div><div class="contract-list-sub">'+esc(row.managerNames.join(', ')||'담당자 미정')+'</div><div class="contract-list-sub contract-list-action">'+esc(getContractNextActionText(row))+'</div></td>'
-        +'<td>'+esc(row.contract?.contract_type||'기타')+'</td>'
+        +'<td><div class="contract-list-name-row"><div class="contract-list-name">'+esc(row.contract?.contract_name||'계약명 없음')+'</div><span class="contract-list-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div><div class="contract-list-sub">'+esc(row.contract?.contract_type||'기타')+' · '+esc(row.managerNames.join(', ')||'담당자 미정')+'</div></td>'
         +'<td><span class="badge '+getContractStatusBadgeClass(row.contract?.contract_status)+'">'+esc(row.contract?.contract_status||'검토중')+'</span></td>'
-        +'<td><div class="contract-list-money">'+formatContractCurrency(row.contractAmount)+'</div><div class="contract-list-sub">'+(row.unbilledBalance>0?'미청구 '+formatContractCurrency(row.unbilledBalance):'미청구 없음')+'</div></td>'
-        +'<td><div class="contract-list-money">'+formatContractCurrency(row.billedTotal)+'</div><div class="contract-list-progress-mini"><span>청구 '+billingPercent+'%</span><div class="contract-list-progress-mini-track"><div class="contract-list-progress-mini-fill" style="width:'+billingPercent+'%"></div></div></div></td>'
-        +'<td><div class="contract-list-money">'+formatContractCurrency(row.receivableAmount)+'</div><div class="contract-list-sub">'+(row.agedReceivableCount>0?'30일+ '+row.agedReceivableCount+'건':'미수 장기화 없음')+'</div></td>'
-        +'<td><div class="contract-list-money">'+collectionRate+'%</div><div class="contract-list-sub">'+(row.receivableAmount>0?'회수 진행 필요':'수금 안정')+'</div></td>'
-        +'<td><div class="contract-list-period">'+esc(getContractPeriodText(row.contract))+'</div><div class="contract-list-sub">'+attentionMeta.detail+'</div></td>'
-        +'<td>'+(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'<span class="contract-list-sub">만료 정보 없음</span>')+'</td>'
-        +'<td>'+row.relatedProjects.length+'건</td>'
+        +'<td><div class="contract-list-money">'+formatContractCurrency(row.billedTotal)+'</div><div class="contract-list-progress-mini"><span>청구 '+billingPercent+'%</span><div class="contract-list-progress-mini-track"><div class="contract-list-progress-mini-fill" style="width:'+billingPercent+'%"></div></div></div><div class="contract-list-chip-row">'+metricChips+'</div></td>'
+        +'<td><div class="contract-list-period">'+esc(attentionMeta.detail)+'</div><div class="contract-list-sub">'+(row.receivableAmount>0?('미수금 '+formatContractCurrency(row.receivableAmount)):(row.unbilledBalance>0?'청구 후속 필요':'운영 리스크 낮음'))+'</div></td>'
+        +'<td><div class="contract-list-next-label">'+esc(getContractNextActionLabel(row))+'</div><div class="contract-list-sub contract-list-action">'+esc(getContractNextActionText(row))+'</div></td>'
+        +'<td>'+(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'<span class="contract-list-sub">만료 정보 없음</span>')+'<div class="contract-list-sub">'+esc(getContractPeriodText(row.contract))+'</div></td>'
       +'</tr>';
     }).join('')
     +'</tbody></table></div></div>';
@@ -1486,6 +1567,7 @@ async function renderContractsPage(){
   document.getElementById('contractSortFilter')&&(document.getElementById('contractSortFilter').value=contractToolbarState.sort);
 
   if(!contractBillingRecordsLoaded)await ensureContractBillingRecordsLoaded();
+  if(!contractPendingDocRequestsLoaded)await ensureContractPendingDocRequestsLoaded();
 
   const baseRows=(contracts||[]).map(buildContractRow);
   renderContractFilterOptions(baseRows);
@@ -1517,4 +1599,113 @@ async function renderContractsPage(){
     return;
   }
   el.innerHTML=renderContractOverviewIntro(rows)+renderContractGroupedView(rows);
+}
+
+function getContractBillingBoardMetaItem(label,value){
+  return '<div class="contract-billing-meta-item"><span>'+esc(label)+'</span><strong>'+esc(value||'-')+'</strong></div>';
+}
+
+function renderContractBillingBoard(rows){
+  const source=getContractBoardSource(rows);
+  const unbilledAmount=source.unbilledProjects.reduce((sum,project)=>{
+    const contract=contracts.find(item=>item.id===project.contract_id);
+    const amount=Number(project.billing_amount||0)||Number(contract?.contract_amount||0);
+    return sum+amount;
+  },0);
+  const receivableAmount=source.receivableRecords.reduce((sum,record)=>sum+Number(record.amount||0),0);
+  const collectedAmount=source.recentCollectedRecords.reduce((sum,record)=>sum+Number(record.amount||0),0);
+  const columns=[
+    {
+      key:'unbilled',
+      label:'미청구',
+      summary:formatContractCurrency(unbilledAmount),
+      helper:source.unbilledProjects.length?'완료 후 아직 청구하지 않은 프로젝트':'청구 대기 프로젝트 없음',
+      html:source.unbilledProjects.length
+        ?source.unbilledProjects.map(project=>{
+          const client=clients.find(item=>item.id===project.client_id);
+          const contract=contracts.find(item=>item.id===project.contract_id);
+          const completedAt=project.actual_end_date||project.updated_at||project.end||project.end_date||'-';
+          const amount=Number(project.billing_amount||0)||Number(contract?.contract_amount||0);
+          const clickAction=contract?.id
+            ?"openContractDetail('"+contract.id+"')"
+            :"openProjModal('"+project.id+"',null,null,'completion')";
+          return '<div class="contract-billing-card is-unbilled" onclick="'+clickAction+'">'
+            +'<div class="contract-billing-card-head"><div class="contract-billing-card-eyebrow">'+esc(client?.name||'고객사 미지정')+'</div><span class="contract-billing-status is-warn">청구 필요</span></div>'
+            +'<div class="contract-billing-card-title">'+esc(project.name||'프로젝트명 없음')+'</div>'
+            +'<div class="contract-billing-card-sub">'+(contract?('계약 · '+esc(contract.contract_name||'계약명 없음')):'계약 연결 없음')+'</div>'
+            +'<div class="contract-billing-card-grid">'
+              +getContractBillingBoardMetaItem('청구 예정 금액',formatContractCurrency(amount))
+              +getContractBillingBoardMetaItem('완료일',completedAt)
+            +'</div>'
+            +'<div class="contract-billing-card-note">다음 액션: 빌링 메일을 확인한 뒤 청구 완료로 넘기세요.</div>'
+            +'<div class="contract-billing-card-actions"><button type="button" class="btn sm" onclick="event.stopPropagation();openBillingMailModal(\''+project.id+'\')">빌링 메일 작성</button><button type="button" class="btn primary sm" onclick="event.stopPropagation();markProjectBillingComplete(\''+project.id+'\')">청구 완료 처리</button></div>'
+          +'</div>';
+        }).join('')
+        :'<div class="contract-billing-empty">청구할 프로젝트가 없습니다. 완료 후 미청구 상태인 프로젝트가 생기면 여기에 표시됩니다.</div>'
+    },
+    {
+      key:'receivable',
+      label:'미수금',
+      summary:formatContractCurrency(receivableAmount),
+      helper:source.receivableRecords.length?'청구 후 아직 수금되지 않은 건':'추적 중인 미수금 없음',
+      html:source.receivableRecords.length
+        ?source.receivableRecords.map(record=>{
+          const contract=contracts.find(item=>item.id===record.contract_id);
+          const client=clients.find(item=>item.id===contract?.client_id);
+          const ageBase=getContractDateValue(record.billing_date||record.created_at);
+          const ageDays=ageBase?Math.max(0,Math.floor((Date.now()-ageBase)/(1000*60*60*24))):0;
+          const tone=ageDays>=60?'danger':ageDays>=30?'warn':'normal';
+          return '<div class="contract-billing-card is-receivable'+(tone!=='normal'?' is-'+tone:'')+'" onclick="openContractDetail(\''+record.contract_id+'\')">'
+            +'<div class="contract-billing-card-head"><div class="contract-billing-card-eyebrow">'+esc(client?.name||'고객사 미지정')+'</div><span class="contract-billing-status is-'+tone+'">'+(ageDays>=60?'장기 미수':ageDays>=30?'회수 지연':'회수 추적')+'</span></div>'
+            +'<div class="contract-billing-card-title">'+esc(contract?.contract_name||'계약명 없음')+'</div>'
+            +'<div class="contract-billing-card-sub">청구 후 수금 대기 중</div>'
+            +'<div class="contract-billing-card-grid">'
+              +getContractBillingBoardMetaItem('청구 금액',formatContractCurrency(record.amount||0))
+              +getContractBillingBoardMetaItem('청구일',record.billing_date||'-')
+              +getContractBillingBoardMetaItem('경과일',ageBase?('경과 '+ageDays+'일'):'기준일 미기록')
+              +getContractBillingBoardMetaItem('예상 수금일',record.expected_collection_date||'미정')
+            +'</div>'
+            +'<div class="contract-billing-card-note">다음 액션: '+(record.expected_collection_date?'예상 수금일과 리마인드 이력을 확인하세요.':'예상 수금일을 정하고 리마인드 여부를 점검하세요.')+'</div>'
+            +'<div class="contract-billing-card-actions"><button type="button" class="btn sm" onclick="event.stopPropagation();openContractReceivableReminderModal(\''+record.id+'\')">리마인드 메일</button><button type="button" class="btn primary sm" onclick="event.stopPropagation();markBillingRecordCollected(\''+record.id+'\')">수금 완료 처리</button></div>'
+          +'</div>';
+        }).join('')
+        :'<div class="contract-billing-empty">미수금 건이 없습니다. 청구 후 미수 상태인 건이 생기면 여기에서 추적합니다.</div>'
+    },
+    {
+      key:'paid',
+      label:'수금 완료',
+      summary:formatContractCurrency(collectedAmount),
+      helper:source.recentCollectedRecords.length?'최근 30일 내 수금 완료 건':'최근 수금 완료 건 없음',
+      html:source.recentCollectedRecords.length
+        ?source.recentCollectedRecords.map(record=>{
+          const contract=contracts.find(item=>item.id===record.contract_id);
+          const client=clients.find(item=>item.id===contract?.client_id);
+          const collectedAt=record.updated_at?formatCommentDate(record.updated_at):(record.billing_date||'-');
+          return '<div class="contract-billing-card is-paid" onclick="openContractDetail(\''+record.contract_id+'\')">'
+            +'<div class="contract-billing-card-head"><div class="contract-billing-card-eyebrow">'+esc(client?.name||'고객사 미지정')+'</div><span class="contract-billing-status is-success">수금 완료</span></div>'
+            +'<div class="contract-billing-card-title">'+esc(contract?.contract_name||'계약명 없음')+'</div>'
+            +'<div class="contract-billing-card-sub">최근 회수 완료 내역</div>'
+            +'<div class="contract-billing-card-grid">'
+              +getContractBillingBoardMetaItem('수금 금액',formatContractCurrency(record.amount||0))
+              +getContractBillingBoardMetaItem('처리일',collectedAt)
+            +'</div>'
+            +'<div class="contract-billing-card-note">현재 상태: 수금이 완료된 건입니다. 상세에서 전체 이력을 이어서 확인할 수 있습니다.</div>'
+          +'</div>';
+        }).join('')
+        :'<div class="contract-billing-empty">최근 30일 내 수금 완료 건이 없습니다.</div>'
+    }
+  ];
+  return '<div class="contract-billing-board-shell">'
+    +'<div class="contract-billing-board-summary">'
+      +columns.map(column=>'<div class="contract-billing-summary-card"><div class="contract-billing-summary-label">'+column.label+'</div><div class="contract-billing-summary-value">'+column.summary+'</div><div class="contract-billing-summary-sub">'+column.helper+'</div></div>').join('')
+    +'</div>'
+    +'<div class="contract-billing-board">'
+      +columns.map(column=>
+        '<div class="contract-billing-column is-'+column.key+'">'
+          +'<div class="contract-billing-column-head"><div><div class="contract-billing-column-title">'+column.label+'</div><div class="contract-billing-column-sub">'+column.helper+'</div></div><span>'+column.summary+'</span></div>'
+          +column.html
+        +'</div>'
+      ).join('')
+    +'</div>'
+  +'</div>';
 }

@@ -185,7 +185,7 @@
   .contract-list-head{flex-direction:column;align-items:flex-start}
   .contract-bulk-actions{justify-content:flex-start}
   .contract-list-wrap{overflow-x:auto}
-  .contract-list-table{min-width:1240px}
+  .contract-list-table{min-width:980px}
 }
 
 .contract-detail-waterfall{display:flex;align-items:stretch;height:12px;border-radius:999px;overflow:hidden;background:var(--bg);margin-bottom:10px}
@@ -221,14 +221,68 @@
 .contract-detail-doc-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .contract-detail-empty{padding:18px 14px;border-radius:var(--radius-sm);background:var(--bg);font-size:12px;color:var(--text3);text-align:center}
 
+.contract-detail-section{padding:18px}
+.contract-detail-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.contract-detail-card-sub{font-size:12px;color:var(--text3);line-height:1.6;margin-top:4px;max-width:56ch}
+.contract-detail-summary-inline{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text2)}
+.contract-detail-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+.contract-detail-summary-card{padding:14px 15px;border:1px solid var(--border);border-radius:var(--radius-sm);background:linear-gradient(180deg,#fff 0%,#fafcff 100%)}
+.contract-detail-summary-label{font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px}
+.contract-detail-summary-value{font-size:22px;font-weight:900;color:var(--navy);letter-spacing:-.02em}
+.contract-detail-summary-value.is-blue{color:var(--blue)}
+.contract-detail-summary-value.is-green{color:var(--green)}
+.contract-detail-summary-value.is-orange{color:var(--orange)}
+.contract-detail-summary-value.is-red{color:var(--red)}
+.contract-detail-summary-meta{font-size:11px;color:var(--text3);line-height:1.5;margin-top:6px}
+.contract-detail-progress-block{margin-bottom:14px}
+.contract-detail-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--text2);margin-bottom:8px}
+.contract-detail-progress-head strong{font-size:12px;font-weight:800;color:var(--navy)}
+.contract-detail-progress-track{height:10px;border-radius:999px;background:var(--bg);overflow:hidden}
+.contract-detail-progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--purple));transition:width .6s}
+
 .contract-detail-renewal-box{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .contract-detail-renewal-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
 .contract-detail-renewal-label{font-size:12px;font-weight:700;color:var(--text2)}
+.contract-detail-renewal-value{font-size:13px;font-weight:700;color:var(--navy)}
+
+.contract-detail-billing-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.contract-detail-billing-meta-item{padding:10px 12px;border-radius:12px;background:#fff;border:1px solid rgba(15,23,42,.06);display:flex;flex-direction:column;gap:4px}
+.contract-detail-billing-meta-item span{font-size:11px;color:var(--text3)}
+.contract-detail-billing-meta-item strong{font-size:12px;color:var(--navy);font-weight:800}
+.contract-detail-billing-note{margin-top:10px;font-size:12px;color:var(--text2);line-height:1.6}
+
+.contract-detail-project-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.contract-detail-summary-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2)}
+.contract-detail-summary-chip.is-warn{background:var(--orange-bg);border-color:rgba(245,158,11,.18);color:var(--orange)}
+.contract-detail-project-list{display:flex;flex-direction:column;gap:10px}
+.contract-detail-project-item{padding:14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease,background .12s ease}
+.contract-detail-project-item:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(15,23,42,.06)}
+.contract-detail-project-item.is-danger{border-color:rgba(239,68,68,.18);background:rgba(255,245,245,.92)}
+.contract-detail-project-item.is-active{border-color:rgba(59,130,246,.14);background:rgba(248,251,255,.96)}
+.contract-detail-project-item.is-done{border-color:rgba(15,23,42,.08);background:rgba(249,250,251,.96)}
+.contract-detail-project-main{min-width:0}
+.contract-detail-project-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.contract-detail-project-name{font-size:14px;font-weight:800;color:var(--navy);line-height:1.45}
+.contract-detail-project-meta{font-size:11px;color:var(--text3);line-height:1.6;margin-top:4px}
+.contract-detail-project-chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.contract-detail-project-note{font-size:12px;color:var(--text2);line-height:1.6;margin-top:10px}
+
+.contract-detail-note-block{padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);margin-top:10px}
+.contract-detail-note-label{font-size:11px;font-weight:800;color:var(--text3);margin-bottom:6px}
+.contract-detail-note-value{font-size:13px;color:var(--text2);line-height:1.75;white-space:pre-wrap}
 
 @media(max-width:768px){
+  .contract-detail-card-head{flex-direction:column;align-items:flex-start}
+  .contract-detail-summary-grid{grid-template-columns:1fr 1fr}
+  .contract-detail-billing-meta-grid{grid-template-columns:1fr}
   .contract-detail-billing-head{flex-direction:column;align-items:flex-start}
   .contract-detail-billing-actions,.contract-detail-doc-actions{justify-content:flex-start}
-  .contract-detail-doc-item,.contract-detail-renewal-row{flex-direction:column;align-items:flex-start}
+  .contract-detail-doc-item,.contract-detail-renewal-row,.contract-detail-project-top{flex-direction:column;align-items:flex-start}
+  .contract-detail-project-chips{justify-content:flex-start}
+}
+
+@media(max-width:560px){
+  .contract-detail-summary-grid{grid-template-columns:1fr}
 }
 
 .contract-kpi-grid{
@@ -239,6 +293,10 @@
   padding:20px 20px 18px;
   border-radius:18px;
   background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%);
+}
+.contract-kpi-card.is-quiet{
+  background:linear-gradient(180deg,#FCFDFE 0%,#F8FAFC 100%);
+  box-shadow:none;
 }
 .contract-kpi-label{
   font-size:11px;
@@ -356,6 +414,12 @@
   border-color:rgba(239,68,68,.18);
   color:var(--red);
 }
+.contract-overview-chip.is-muted,
+.contract-group-chip.is-muted{
+  background:#F8FAFC;
+  border-color:rgba(148,163,184,.18);
+  color:var(--text3);
+}
 
 .contract-group-card{
   padding:18px;
@@ -377,9 +441,17 @@
   padding:14px;
   border-radius:14px;
 }
+.contract-inline-row.is-warn{
+  border-color:rgba(245,158,11,.18);
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F2 100%);
+}
+.contract-inline-row.is-danger{
+  border-color:rgba(239,68,68,.18);
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7F7 100%);
+}
 .contract-inline-main{
   display:grid;
-  gap:8px;
+  gap:6px;
 }
 .contract-inline-name-row{
   display:flex;
@@ -442,10 +514,33 @@
   border-color:rgba(239,68,68,.18);
   color:var(--red);
 }
+.contract-inline-reason{
+  font-size:11px;
+  line-height:1.5;
+  color:var(--text2);
+  font-weight:700;
+}
 .contract-inline-next{
   font-size:11px;
   line-height:1.55;
   color:var(--text3);
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.contract-inline-next-label{
+  display:inline-flex;
+  align-items:center;
+  min-height:22px;
+  padding:3px 8px;
+  border-radius:999px;
+  background:#EFF6FF;
+  color:#1D4ED8;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
 }
 .contract-inline-next.is-danger{color:var(--red);}
 .contract-inline-next.is-warn{color:var(--orange);}
@@ -461,14 +556,50 @@
   flex-wrap:wrap;
 }
 .contract-list-action{
-  margin-top:6px;
-  line-height:1.55;
+  margin-top:4px;
+  line-height:1.45;
 }
 .contract-list-money,
 .contract-list-period{
   font-size:12px;
   font-weight:800;
   color:var(--navy);
+}
+.contract-list-chip-row{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+.contract-list-chip{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#fff;
+  border:1px solid var(--border);
+  color:var(--text2);
+  font-size:10px;
+  font-weight:700;
+}
+.contract-list-chip.is-warn{
+  background:var(--orange-bg);
+  border-color:rgba(245,158,11,.18);
+  color:var(--orange);
+}
+.contract-list-chip.is-danger{
+  background:var(--red-bg);
+  border-color:rgba(239,68,68,.18);
+  color:var(--red);
+}
+.contract-list-next-label{
+  font-size:10px;
+  font-weight:800;
+  color:var(--text3);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  margin-bottom:4px;
 }
 .contract-list-progress-mini{
   display:grid;
@@ -508,5 +639,241 @@
   }
   .contract-overview-head{
     flex-direction:column;
+  }
+}
+
+.contract-billing-board-shell{
+  display:grid;
+  gap:14px;
+}
+.contract-billing-board-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.contract-billing-summary-card{
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:linear-gradient(180deg,#fff 0%,#fafcff 100%);
+  padding:16px 18px;
+}
+.contract-billing-summary-label{
+  font-size:11px;
+  font-weight:800;
+  color:var(--text3);
+  margin-bottom:6px;
+}
+.contract-billing-summary-value{
+  font-size:20px;
+  font-weight:900;
+  color:var(--navy);
+  letter-spacing:-.02em;
+}
+.contract-billing-summary-sub{
+  margin-top:6px;
+  font-size:11px;
+  color:var(--text3);
+  line-height:1.5;
+}
+
+.contract-billing-board{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+}
+.contract-billing-column{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:var(--shadow-sm);
+}
+.contract-billing-column.is-unbilled{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F2 100%);
+}
+.contract-billing-column.is-receivable{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7F7 100%);
+}
+.contract-billing-column.is-paid{
+  background:linear-gradient(180deg,#FFFFFF 0%,#F5FCF8 100%);
+}
+.contract-billing-column-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.contract-billing-column-head span{
+  font-size:12px;
+  font-weight:800;
+  color:var(--navy);
+  white-space:nowrap;
+}
+.contract-billing-column-title{
+  font-size:14px;
+  font-weight:900;
+  color:var(--navy);
+  letter-spacing:-.02em;
+}
+.contract-billing-column-sub{
+  margin-top:4px;
+  font-size:11px;
+  color:var(--text3);
+  line-height:1.5;
+}
+
+.contract-billing-card{
+  width:100%;
+  display:block;
+  text-align:left;
+  padding:14px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.9);
+  cursor:pointer;
+  transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease,background .14s ease;
+  margin-bottom:10px;
+  font-family:inherit;
+}
+.contract-billing-card:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 24px rgba(15,23,42,.08);
+}
+.contract-billing-card.is-unbilled{
+  border-color:rgba(245,158,11,.18);
+}
+.contract-billing-card.is-receivable{
+  border-color:rgba(251,146,60,.18);
+}
+.contract-billing-card.is-receivable.is-warn{
+  background:rgba(255,247,237,.92);
+}
+.contract-billing-card.is-receivable.is-danger{
+  background:rgba(255,241,240,.95);
+  border-color:rgba(239,68,68,.24);
+}
+.contract-billing-card.is-paid{
+  background:rgba(236,253,243,.7);
+  border-color:rgba(16,185,129,.18);
+}
+.contract-billing-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.contract-billing-card-eyebrow{
+  font-size:11px;
+  font-weight:800;
+  color:var(--text3);
+  line-height:1.4;
+}
+.contract-billing-status{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:5px 8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text2);
+  white-space:nowrap;
+}
+.contract-billing-status.is-warn{
+  color:var(--orange);
+  border-color:rgba(245,158,11,.18);
+  background:var(--orange-bg);
+}
+.contract-billing-status.is-danger{
+  color:var(--red);
+  border-color:rgba(239,68,68,.18);
+  background:var(--red-bg);
+}
+.contract-billing-status.is-normal{
+  color:var(--text2);
+}
+.contract-billing-status.is-success{
+  color:var(--green);
+  border-color:rgba(16,185,129,.18);
+  background:rgba(236,253,243,.9);
+}
+.contract-billing-card-title{
+  margin-top:8px;
+  font-size:14px;
+  font-weight:800;
+  color:var(--navy);
+  line-height:1.45;
+}
+.contract-billing-card-sub{
+  font-size:11px;
+  color:var(--text3);
+  margin-top:4px;
+  line-height:1.5;
+}
+.contract-billing-card-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.contract-billing-meta-item{
+  border:1px solid rgba(15,23,42,.06);
+  border-radius:12px;
+  background:#fff;
+  padding:10px 11px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.contract-billing-meta-item span{
+  font-size:10px;
+  color:var(--text3);
+}
+.contract-billing-meta-item strong{
+  font-size:12px;
+  font-weight:800;
+  color:var(--navy);
+  line-height:1.4;
+}
+.contract-billing-card-note{
+  margin-top:10px;
+  font-size:11px;
+  color:var(--text2);
+  line-height:1.6;
+}
+.contract-billing-card-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+.contract-billing-empty{
+  padding:18px 14px;
+  border-radius:14px;
+  background:var(--bg);
+  font-size:12px;
+  color:var(--text3);
+  text-align:center;
+  line-height:1.6;
+}
+
+@media(max-width:1024px){
+  .contract-billing-board-summary,
+  .contract-billing-board{
+    grid-template-columns:1fr;
+  }
+}
+
+@media(max-width:768px){
+  .contract-billing-card-head,
+  .contract-billing-column-head{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .contract-billing-card-grid{
+    grid-template-columns:1fr;
   }
 }
