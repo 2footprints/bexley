@@ -459,6 +459,13 @@
   margin-top:4px;
   line-height:1.55;
 }
+.client-table-next{
+  font-size:11px;
+  color:var(--navy);
+  font-weight:700;
+  margin-top:4px;
+  line-height:1.55;
+}
 
 .client-health-sub{
   margin-top:4px;
