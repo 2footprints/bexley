@@ -937,14 +937,15 @@ function getClientPendingDocsForClient(clientId){
 }
 
 function getClientHealthCode(row){
-  if(row.openIssueCount>0)return 'issue';
-  if(row.overdueProjectCount>0||row.unbilledProjectCount>0)return 'warning';
+  const highIssueCount=getClientHighPriorityIssueCount(row);
+  if(row.overdueProjectCount>0||highIssueCount>0)return 'risk';
+  if(!row.managerNames.length||row.unbilledProjectCount>0||row.pendingDocCount>0||row.openIssueCount>0)return 'warning';
   return 'normal';
 }
 
 function getClientHealthLabel(code){
-  if(code==='issue')return '이슈 있음';
-  if(code==='warning')return '주의 필요';
+  if(code==='risk'||code==='issue')return '위험';
+  if(code==='warning')return '주의';
   return '정상';
 }
 
@@ -1178,6 +1179,7 @@ function getClientBoardReasonTags(row){
 function renderClientFilterOptions(baseRows){
   const industrySelect=document.getElementById('clientIndustryFilter');
   const managerSelect=document.getElementById('clientManagerFilter');
+  const healthSelect=document.getElementById('clientHealthFilter');
   if(industrySelect){
     const industries=[...new Set(baseRows.map(row=>String(row.client?.industry||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
     industrySelect.innerHTML='<option value="">업종 전체</option>'+industries.map(industry=>'<option value="'+esc(industry)+'">'+esc(industry)+'</option>').join('');
@@ -1189,6 +1191,16 @@ function renderClientFilterOptions(baseRows){
     managerSelect.innerHTML='<option value="">담당자 전체</option>'+managers.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
     managerSelect.value=clientToolbarState.manager;
     if(managerSelect.value!==clientToolbarState.manager)clientToolbarState.manager=managerSelect.value;
+  }
+  if(healthSelect){
+    const normalizedHealth=clientToolbarState.health==='issue'?'risk':clientToolbarState.health;
+    healthSelect.innerHTML=''
+      +'<option value="all">건강 상태 전체</option>'
+      +'<option value="normal">정상 · 막힘 없음</option>'
+      +'<option value="warning">주의 · 후속 필요</option>'
+      +'<option value="risk">위험 · 지연/긴급</option>';
+    healthSelect.value=normalizedHealth||'all';
+    if(healthSelect.value!==clientToolbarState.health)clientToolbarState.health=healthSelect.value;
   }
 }
 
@@ -2298,28 +2310,42 @@ openClientDetail=async function(id, tab='projects', focusSection=''){
 
 function getClientCardHealthMeta(row){
   const highIssueCount=getClientHighPriorityIssueCount(row);
-  const reasons=[];
   let tone='normal';
   let label='정상';
-  if(!row.managerNames.length){
-    tone='warning';
-    label='주의';
-    reasons.push('담당자 확인 필요');
-  }else if(row.overdueProjectCount>0||highIssueCount>0){
+  let reasonText='의미 있는 운영 막힘 없음';
+  let meaningText='의미 있는 운영 막힘 없음';
+  if(row.overdueProjectCount>0){
     tone='risk';
     label='위험';
-    if(row.overdueProjectCount>0)reasons.push(`지연 ${row.overdueProjectCount}건`);
-    if(highIssueCount>0)reasons.push(`긴급 이슈 ${highIssueCount}건`);
-  }else if(row.unbilledProjectCount>0||row.pendingDocCount>0||row.openIssueCount>0){
+    reasonText='지연 프로젝트 있음';
+    meaningText='지연 또는 긴급 이슈가 있습니다.';
+  }else if(highIssueCount>0){
+    tone='risk';
+    label='위험';
+    reasonText='긴급 이슈 있음';
+    meaningText='지연 또는 긴급 이슈가 있습니다.';
+  }else if(!row.managerNames.length){
     tone='warning';
     label='주의';
-    if(row.unbilledProjectCount>0)reasons.push(`미청구 ${row.unbilledProjectCount}건`);
-    if(row.pendingDocCount>0)reasons.push(`자료 대기 ${row.pendingDocCount}건`);
-    if(row.openIssueCount>0)reasons.push(`관련 이슈 ${row.openIssueCount}건`);
-  }else{
-    reasons.push('안정 운영');
+    reasonText='담당자 확인 필요';
+    meaningText='후속 확인이 필요합니다.';
+  }else if(row.unbilledAmount>0||row.unbilledProjectCount>0){
+    tone='warning';
+    label='주의';
+    reasonText='미청구 잔액 남음';
+    meaningText='재무 follow-up이 필요합니다.';
+  }else if(row.pendingDocCount>0){
+    tone='warning';
+    label='주의';
+    reasonText='자료 회수 대기';
+    meaningText='자료 follow-up이 필요합니다.';
+  }else if(row.openIssueCount>0){
+    tone='warning';
+    label='주의';
+    reasonText='관련 이슈 미해결';
+    meaningText='실행에 영향 줄 수 있는 follow-up이 있습니다.';
   }
-  return {tone,label,reasonText:reasons.slice(0,2).join(' · '),highIssueCount};
+  return {tone,label,reasonText,meaningText,highIssueCount};
 }
 
 function getClientBoardReasonTags(row){
@@ -2349,17 +2375,7 @@ function getClientPortfolioTags(row){
 }
 
 function getClientPortfolioReasonText(row){
-  const highIssueCount=row.cardHealthMeta?.highIssueCount||0;
-  if(!row.managerNames.length)return '담당자 미지정';
-  if(row.overdueProjectCount>0)return '지연 프로젝트 있음';
-  if(highIssueCount>0)return '긴급 이슈 있음';
-  if(row.openIssueCount>0)return '관련 이슈 미해결';
-  if(row.unbilledAmount>0)return '미청구 잔액 남음';
-  if(row.pendingDocCount>0)return '자료 회수 대기';
-  if(row.recentActivityMeta?.isStale)return '최근 상태 점검 필요';
-  if(row.activeProjectCount>0)return '안정 운영 중';
-  if(row.activeContractCount>0)return '계약 관계 유지 중';
-  return '정기 관계 점검 대상';
+  return row.cardHealthMeta?.reasonText||'현재 상태 안정적';
 }
 
 function getClientPortfolioActionMeta(row){
@@ -2370,10 +2386,9 @@ function getClientPortfolioActionMeta(row){
   if(row.openIssueCount>0)return {label:'다음 액션',text:'프로젝트 관리에서 진행 이슈 확인'};
   if(row.unbilledAmount>0)return {label:'다음 액션',text:'계약 탭에서 청구 확인'};
   if(row.pendingDocCount>0)return {label:'다음 액션',text:'프로젝트 관리에서 자료 요청 follow-up'};
-  if(row.recentActivityMeta?.isStale)return {label:'다음 액션',text:'거래처 상태 점검 필요'};
   if(row.activeProjectCount>0)return {label:'다음 액션',text:'프로젝트 관리에서 정기 점검'};
   if(row.activeContractCount>0)return {label:'다음 액션',text:'계약 맥락 정기 확인'};
-  return {label:'다음 액션',text:'즉시 후속 조치 없음'};
+  return {label:'다음 액션',text:'정기 점검 유지'};
 }
 
 function renderClientOverviewIntro(rows){
@@ -2384,10 +2399,10 @@ function renderClientOverviewIntro(rows){
       ?'리스크 우선순위 보드'
       :'거래처 포트폴리오';
   const copy=clientViewMode==='table'
-    ?'비교와 정렬 중심 보기입니다. 거래처별 위험 신호와 다음 액션을 한 줄에서 비교합니다.'
+    ?'비교와 정렬 중심 보기입니다. 정상은 막힘 없음, 주의는 후속 필요, 위험은 지연·긴급 기준으로 비교합니다.'
     :clientViewMode==='health'
-      ?'리스크 중심 보기입니다. 왜 주의가 필요한지와 어느 거래처부터 볼지 빠르게 고릅니다.'
-      :'관계와 운영 맥락을 함께 보는 포트폴리오 보기입니다. 리스크 이유와 다음 액션을 거래처 단위로 확인합니다.';
+      ?'건강 상태 중심 보기입니다. 위험은 지연·긴급, 주의는 후속 확인, 정상은 의미 있는 막힘이 없는 상태입니다.'
+      :'관계와 운영 맥락을 함께 보는 포트폴리오 보기입니다. 건강 상태의 이유와 다음 액션을 거래처 단위로 확인합니다.';
   const chips=[
     '<span class="client-overview-chip '+(summary.attentionCount?'is-danger':'is-muted')+'">주의 '+summary.attentionCount+'곳</span>'
   ];
@@ -2417,7 +2432,7 @@ renderClientKpis=function(rows){
       label:'주의 필요',
       value:summary.attentionCount===0?'없음':summary.attentionCount+'곳',
       sub:'위험 '+summary.riskCount+'곳 · 주의 '+summary.warningCount+'곳',
-      helper:summary.attentionCount?'지연·이슈·미청구로 follow-up이 필요한 거래처 기준입니다.':'지금 바로 점검할 거래처는 많지 않습니다.',
+      helper:summary.attentionCount?'위험은 지연·긴급 이슈, 주의는 미청구·자료·일반 후속 기준입니다.':'지연·긴급 이슈나 의미 있는 후속이 보이지 않습니다.',
       className:summary.attentionCount===0?'is-quiet':'is-bad'
     },
     {
@@ -2541,13 +2556,14 @@ renderClientHealthBoard=function(rows){
   ];
   return '<div class="client-health-board">'+groups.map(group=>{
     const items=rows.filter(row=>(row.cardHealthMeta?.tone||'normal')===group.key);
-    return '<div class="client-health-column '+group.className+'"><div class="client-health-head"><div><div class="client-health-title">'+group.label+'</div><div class="client-health-sub">'+(group.key==='normal'?'안정 운영 · 관계 유지 대상':group.key==='warning'?'막힘이 커지기 전 확인할 거래처':'리스크와 지연을 먼저 볼 거래처')+'</div></div><div class="client-health-count">'+items.length+'곳</div></div><div class="client-health-list">'
+    return '<div class="client-health-column '+group.className+'"><div class="client-health-head"><div><div class="client-health-title">'+group.label+'</div><div class="client-health-sub">'+(group.key==='normal'?'의미 있는 운영 막힘 없음':group.key==='warning'?'후속 확인이 필요한 거래처':'지연 또는 긴급 이슈가 있는 거래처')+'</div></div><div class="client-health-count">'+items.length+'곳</div></div><div class="client-health-list">'
       +(items.length
         ?items.map(row=>{
           const recentLabel=row.recentActivityMeta?.text||'최근 활동 기록 없음';
           const reasonText=getClientPortfolioReasonText(row);
           const actionMeta=getClientPortfolioActionMeta(row);
-          return '<div class="client-health-item" onclick="openClientDetail(\''+row.client.id+'\')"><div class="client-health-item-name">'+esc(row.client.name||'거래처')+'</div><div class="client-health-item-sub">'+esc(row.client.industry||'업종 미입력')+' · 담당 '+esc(row.managerNames.join(', ')||'미배정')+'</div><div class="client-health-item-meta">프로젝트 '+row.activeProjectCount+'건 · 이슈 '+row.openIssueCount+'건 · 계약 '+row.contractCount+'건</div><div class="client-health-item-tags">'+getClientBoardReasonTags(row).map(tag=>'<span class="client-health-tag">'+esc(tag)+'</span>').join('')+'</div><div class="client-health-item-note"><span class="client-health-note-label">주의 이유</span>'+esc(reasonText)+'<span class="client-health-note-meta">다음 액션 · '+esc(actionMeta.text)+' · '+esc(recentLabel)+'</span></div></div>';
+          const reasonLabel=(row.cardHealthMeta?.tone||'normal')==='normal'?'현재 상태':'주의 이유';
+          return '<div class="client-health-item" onclick="openClientDetail(\''+row.client.id+'\')"><div class="client-health-item-name">'+esc(row.client.name||'거래처')+'</div><div class="client-health-item-sub">'+esc(row.client.industry||'업종 미입력')+' · 담당 '+esc(row.managerNames.join(', ')||'미배정')+'</div><div class="client-health-item-meta">프로젝트 '+row.activeProjectCount+'건 · 이슈 '+row.openIssueCount+'건 · 계약 '+row.contractCount+'건</div><div class="client-health-item-tags">'+getClientBoardReasonTags(row).map(tag=>'<span class="client-health-tag">'+esc(tag)+'</span>').join('')+'</div><div class="client-health-item-note"><span class="client-health-note-label">'+esc(reasonLabel)+'</span>'+esc(reasonText)+'<span class="client-health-note-meta">다음 액션 · '+esc(actionMeta.text)+' · '+esc(recentLabel)+'</span></div></div>';
         }).join('')
         :'<div class="empty-state client-health-empty">해당 상태의 거래처가 없습니다.</div>')
       +'</div></div>';
