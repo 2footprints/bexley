@@ -555,6 +555,12 @@ td{
   color:var(--text3)!important;
   margin-top:3px!important;
 }
+.gantt-issue-item-note{
+  font-size:11px!important;
+  color:var(--text2)!important;
+  margin-top:4px!important;
+  line-height:1.5!important;
+}
 .gantt-detail-item-side{
   display:flex!important;
   align-items:center!important;
@@ -636,6 +642,48 @@ td{
 }
 .gantt-detail-grid--overview{
   margin-bottom:0!important;
+}
+.gantt-overview-pane{
+  gap:12px!important;
+}
+.gantt-overview-section{
+  gap:10px!important;
+}
+.gantt-overview-context-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+}
+.gantt-overview-context-card{
+  padding:14px!important;
+  border:1px solid var(--border)!important;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,#fff 0%,#fbfcfe 100%)!important;
+}
+.gantt-overview-context-card.is-warn{
+  border-color:rgba(245,158,11,.18)!important;
+  background:#FFF9F1!important;
+}
+.gantt-overview-signal-grid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:10px!important;
+}
+.gantt-overview-signal-card{
+  padding:12px 14px!important;
+  border:1px solid rgba(148,163,184,.16)!important;
+  border-radius:14px!important;
+  background:#F8FAFC!important;
+}
+.gantt-overview-signal-card.is-warn{
+  border-color:rgba(245,158,11,.18)!important;
+  background:#FFF9F1!important;
+}
+.gantt-overview-signal-card.is-neutral{
+  background:#FFFFFF!important;
+}
+.gantt-overview-signal-card.is-quiet .gantt-detail-value{
+  color:#475569!important;
 }
 .gantt-detail-summary-card,
 .gantt-detail-work-card{
@@ -1604,6 +1652,9 @@ td{
   .gantt-overview{
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
+  .gantt-overview-signal-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
   .gantt-stage{
     grid-template-columns:1fr!important;
   }
@@ -1612,6 +1663,8 @@ td{
 @media (max-width: 720px){
   .gantt-overview,
   .gantt-detail-grid,
+  .gantt-overview-context-grid,
+  .gantt-overview-signal-grid,
   .gantt-detail-work-grid,
   .gantt-detail-focus-grid,
   .gantt-task-summary-grid{

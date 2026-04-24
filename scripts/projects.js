@@ -843,6 +843,14 @@ function getGanttListTaskIssueSummary(projectId){
   return ganttListTaskIssueSummaryByProjectId[String(projectId||'')]||null;
 }
 
+function refreshGanttOverviewDetailIfNeeded(projectIds){
+  const focusId=String(ganttFocusProjectId||'').trim();
+  const ids=[...new Set((projectIds||[]).map(id=>String(id||'').trim()).filter(Boolean))];
+  if(!focusId||ganttDetailTab!=='overview'||!ids.includes(focusId))return;
+  const currentData=getGanttFilteredData();
+  renderGanttDetailPanel(currentData.projs,currentData.schs);
+}
+
 async function loadGanttListTaskSummaries(projectIds){
   const ids=[...new Set((projectIds||[]).map(id=>String(id||'')).filter(Boolean))];
   const missingIds=ids.filter(id=>ganttListTaskSummaryByProjectId[id]===undefined&&!ganttListTaskSummaryLoadingProjectIds.has(id));
@@ -872,6 +880,7 @@ async function loadGanttListTaskSummaries(projectIds){
   if(curGanttLayout==='list'){
     renderGantt();
   }
+  refreshGanttOverviewDetailIfNeeded(ids);
 }
 
 async function loadGanttListTaskIssueSummaries(projectIds){
@@ -904,6 +913,7 @@ async function loadGanttListTaskIssueSummaries(projectIds){
     missingIds.forEach(id=>ganttListTaskIssueSummaryLoadingProjectIds.delete(id));
   }
   if(curGanttLayout==='list')renderGantt();
+  refreshGanttOverviewDetailIfNeeded(ids);
 }
 
 async function loadGanttListPendingDocSummaries(projectIds){
@@ -1424,17 +1434,89 @@ function renderGanttDetailTabBar(){
   +'</div>';
 }
 
+function getGanttOverviewTaskSummary(projectId){
+  const key=String(projectId||'');
+  const cached=getGanttListTaskSummary(key);
+  if(cached)return cached;
+  if(Array.isArray(ganttProjectTasksByProjectId[key]))return buildGanttListTaskSummary(getGanttProjectTasks(key));
+  return null;
+}
+
+function getGanttOverviewIssueLinkedCount(projectId){
+  const cached=getGanttListTaskIssueSummary(projectId);
+  if(cached&&typeof cached==='object')return Number(cached.issueLinkedTaskCount||0);
+  const taskIssueCounts=ganttProjectTaskIssueCountsByProjectId[String(projectId||'')];
+  if(taskIssueCounts&&typeof taskIssueCounts==='object'){
+    return Object.values(taskIssueCounts).filter(value=>Number(value||0)>0).length;
+  }
+  return null;
+}
+
+function getGanttOverviewExecutionSignals(project){
+  const summary=getGanttOverviewTaskSummary(project?.id);
+  const issueLinkedCount=getGanttOverviewIssueLinkedCount(project?.id);
+  return [
+    {
+      label:'열린 업무',
+      value:summary?(summary.openCount+'건'):'준비 중',
+      meta:summary
+        ?(summary.total?('전체 '+summary.total+'건 중 확인할 업무'):'등록된 업무 없음')
+        :'업무 요약을 준비하는 중입니다.',
+      tone:summary&&summary.openCount>0?'neutral':'quiet'
+    },
+    {
+      label:'지연 업무',
+      value:summary?(summary.overdueCount?summary.overdueCount+'건':'없음'):'준비 중',
+      meta:summary
+        ?(summary.overdueCount?'기한을 넘긴 업무가 있습니다.':'현재 지연 업무는 없습니다.')
+        :'기한 요약을 준비하는 중입니다.',
+      tone:summary&&summary.overdueCount>0?'warn':'quiet'
+    },
+    {
+      label:'이슈 연결',
+      value:issueLinkedCount===null?'준비 중':(issueLinkedCount?issueLinkedCount+'건':'없음'),
+      meta:issueLinkedCount===null
+        ?'업무 연결 이슈를 확인하는 중입니다.'
+        :(issueLinkedCount?'Issues 탭과 함께 볼 업무가 있습니다.':'현재 업무 연결 이슈는 없습니다.'),
+      tone:issueLinkedCount>0?'warn':'quiet'
+    },
+    {
+      label:'다음 마감',
+      value:summary?(summary.nearestDueLabel||'없음'):'준비 중',
+      meta:summary
+        ?(summary.nearestDueLabel
+          ?((summary.nearestDueTitle||'가까운 업무')+' 일정')
+          :'가까운 기한 일정이 없습니다.')
+        :'마감 일정을 준비하는 중입니다.',
+      tone:summary&&summary.nearestDueLabel?'neutral':'quiet'
+    }
+  ];
+}
+
 function renderGanttProjectOverviewSection(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount){
   const scheduleTone=(memberSchedules||[]).length?'is-warn':'';
+  const scheduleSummary=(memberSchedules||[]).length?getGanttDetailConflictSummary(memberSchedules):'조정 필요 없음';
+  const executionSignals=getGanttOverviewExecutionSignals(project);
   return ''
-    +'<div class="gantt-detail-pane">'
-      +'<div class="gantt-detail-grid gantt-detail-grid--overview">'
-        +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">고객사</div><div class="gantt-detail-value">'+esc(client?.name||'고객사 미지정')+'</div></div>'
-        +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">연결 계약</div><div class="gantt-detail-value">'+esc(linkedContract?.contract_name||'계약 없음')+'</div>'+(linkedContract?.contract_amount?'<div class="gantt-detail-meta">'+formatGanttCurrency(linkedContract.contract_amount)+'</div>':'')+'</div>'
-        +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div>'
-        +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">담당자</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'담당자 미지정')+'</div></div>'
-        +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">빌링 요약</div><div class="gantt-detail-value">'+esc(billingStatus)+'</div><div class="gantt-detail-meta">'+formatGanttCurrency(billingAmount)+'</div></div>'
-        +'<div class="gantt-detail-summary-card '+scheduleTone+'"><div class="gantt-detail-label">일정 충돌 요약</div><div class="gantt-detail-value">'+esc(getGanttDetailConflictSummary(memberSchedules))+'</div></div>'
+    +'<div class="gantt-detail-pane gantt-overview-pane">'
+      +'<div class="gantt-detail-section gantt-detail-section--flush gantt-overview-section">'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">프로젝트 요약</div><div class="gantt-detail-meta">고객사, 계약, 기간, 담당자를 중심으로 현재 프로젝트의 큰 맥락을 확인합니다.</div></div></div>'
+        +'<div class="gantt-detail-grid gantt-detail-grid--overview">'
+          +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">고객사</div><div class="gantt-detail-value">'+esc(client?.name||'고객사 미지정')+'</div></div>'
+          +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">연결 계약</div><div class="gantt-detail-value">'+esc(linkedContract?.contract_name||'계약 없음')+'</div>'+(linkedContract?.contract_amount?'<div class="gantt-detail-meta">'+formatGanttCurrency(linkedContract.contract_amount)+'</div>':'')+'</div>'
+          +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div>'
+          +'<div class="gantt-detail-summary-card"><div class="gantt-detail-label">담당자</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'담당자 미지정')+'</div></div>'
+        +'</div>'
+      +'</div>'
+      +'<div class="gantt-overview-context-grid">'
+        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">계약 / 청구 현황</div><div class="gantt-detail-value">'+esc(billingStatus)+'</div><div class="gantt-detail-meta">'+formatGanttCurrency(billingAmount)+(linkedContract?.contract_amount?' · 계약 '+formatGanttCurrency(linkedContract.contract_amount):'')+'</div></div>'
+        +'<div class="gantt-overview-context-card '+scheduleTone+'"><div class="gantt-detail-label">일정 / 조정</div><div class="gantt-detail-value">'+esc(scheduleSummary)+'</div><div class="gantt-detail-meta">'+((memberSchedules||[]).length?('휴가·필드웍 일정 '+memberSchedules.length+'건 확인'):'현재 조정할 일정 없음')+'</div></div>'
+      +'</div>'
+      +'<div class="gantt-detail-section gantt-overview-section">'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">실행 요약</div><div class="gantt-detail-meta">열린 업무, 지연 업무, 이슈 연결, 다음 마감만 가볍게 확인합니다. 세부 조정은 Work 탭에서 이어집니다.</div></div></div>'
+        +'<div class="gantt-overview-signal-grid">'
+          +executionSignals.map(item=>'<div class="gantt-overview-signal-card is-'+item.tone+'"><div class="gantt-detail-label">'+esc(item.label)+'</div><div class="gantt-detail-value">'+esc(item.value)+'</div><div class="gantt-detail-meta">'+esc(item.meta)+'</div></div>').join('')
+        +'</div>'
       +'</div>'
     +'</div>';
 }
@@ -2171,13 +2253,29 @@ function getGanttIssueContextLabel(issue){
   return '프로젝트 단위 이슈';
 }
 
+function getGanttIssueOperationalHint(issue){
+  const isTaskLinked=!!String(issue?.task_id||'').trim();
+  const needsExecutionAttention=String(issue?.priority||'')==='high'||!!issue?.is_pinned;
+  if(isTaskLinked){
+    return needsExecutionAttention
+      ?'실행 영향 있음 · Work 탭에서 연결 업무와 함께 확인'
+      :'관련 업무 확인 필요 · Work 탭과 함께 확인';
+  }
+  return needsExecutionAttention
+    ?'프로젝트 조정 확인'
+    :'프로젝트 맥락 확인';
+}
+
 function renderGanttDetailIssueItem(projectId,issue){
   const statusMeta=typeof getIssueStatusMeta==='function'?getIssueStatusMeta(issue.status):{label:'열림',badgeCls:'badge-blue'};
   const editable=typeof canEditIssue==='function'?canEditIssue(issue):false;
   const canResolve=editable&&typeof isIssueResolvedStatus==='function'?!isIssueResolvedStatus(issue.status):false;
   const assigneeLabel=issue?.assignee_name||issue?.owner_name||'담당자 미정';
+  const issueHint=getGanttIssueOperationalHint(issue);
+  const contextParts=[getGanttIssueContextLabel(issue),assigneeLabel];
+  if(issue.priority==='high')contextParts.push('우선 확인');
   return '<div class="gantt-detail-item is-clickable" onclick="openIssueModal(\''+(issue.project_id||projectId||'')+'\',\''+issue.id+'\')">'
-    +'<div><div class="gantt-detail-item-title">'+(issue.is_pinned?'📌 ':'')+esc(issue.title||'제목 없음')+'</div><div class="gantt-detail-item-sub">'+esc(getGanttIssueContextLabel(issue))+' · '+esc(assigneeLabel)+(issue.priority==='high'?' · 긴급':'')+'</div></div>'
+    +'<div><div class="gantt-detail-item-title">'+(issue.is_pinned?'📌 ':'')+esc(issue.title||'제목 없음')+'</div><div class="gantt-detail-item-sub">'+esc(contextParts.join(' · '))+'</div><div class="gantt-issue-item-note">'+esc(issueHint)+'</div></div>'
     +'<div class="gantt-detail-item-side"><span class="badge '+statusMeta.badgeCls+'">'+statusMeta.label+'</span>'+(canResolve?'<button type="button" class="btn sm" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')">해결</button>':'')+'</div>'
   +'</div>';
 }
@@ -2256,6 +2354,10 @@ renderGanttDetailPanel=function(projs,schs){
   const billingAmount=getGanttProjectBillingAmount(project);
   const linkedContract=getGanttDetailLinkedContract(project);
   const priorityBadge=typeof getProjectPriorityBadge==='function'?getProjectPriorityBadge(project.priority):'<span class="badge '+getGanttListPriorityBadgeClass(project.priority)+'">'+getGanttListPriorityLabel(project.priority)+'</span>';
+  if(ganttDetailTab==='overview'){
+    if(ganttListTaskSummaryByProjectId[String(project.id||'')]===undefined)loadGanttListTaskSummaries([project.id]);
+    if(ganttListTaskIssueSummaryByProjectId[String(project.id||'')]===undefined)loadGanttListTaskIssueSummaries([project.id]);
+  }
   let sectionHtml=renderGanttProjectOverviewSection(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount);
   if(ganttDetailTab==='work')sectionHtml=renderGanttProjectWorkSection(project,memberSchedules);
   else if(ganttDetailTab==='issues')sectionHtml=renderGanttProjectIssuesSection(project);
@@ -3049,13 +3151,13 @@ function renderGanttProjectWorkSection(project,memberSchedules){
 function renderGanttIssueEmptyState(projectId){
   return ''
     +'<div class="gantt-detail-empty-state">'
-      +'<div class="gantt-detail-value">아직 등록된 이슈가 없습니다.</div>'
-      +'<div class="gantt-detail-meta">이 탭에서는 프로젝트 전체 이슈와 특정 업무에 연결된 이슈를 나눠서 확인합니다.</div>'
+      +'<div class="gantt-detail-value">현재 확인할 이슈가 없습니다.</div>'
+      +'<div class="gantt-detail-meta">이 탭에서는 프로젝트 전체 리스크와 업무 연결 이슈를 나눠서 확인합니다.</div>'
       +'<div class="gantt-detail-list">'
-        +'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">프로젝트 단위 이슈 없음</div><div class="gantt-detail-item-sub">프로젝트 전체 일정, 리스크, 의사결정 이슈가 아직 없습니다.</div></div><span class="badge badge-gray">없음</span></div>'
-        +'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">업무 연결 이슈 없음</div><div class="gantt-detail-item-sub">새 이슈를 만들 때 필요하면 특정 업무에 선택적으로 연결할 수 있습니다.</div></div><span class="badge badge-gray">없음</span></div>'
+        +'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">프로젝트 단위 이슈 없음</div><div class="gantt-detail-item-sub">범위, 일정, 의사결정처럼 프로젝트 전체에서 확인할 이슈가 없습니다.</div></div><span class="badge badge-gray">없음</span></div>'
+        +'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">업무 연결 이슈 없음</div><div class="gantt-detail-item-sub">특정 업무를 막는 이슈가 없으며, 필요하면 새 이슈를 업무에 선택적으로 연결할 수 있습니다.</div></div><span class="badge badge-gray">없음</span></div>'
       +'</div>'
-      +'<div class="gantt-detail-meta">실행 중에는 Work 탭에서 업무별 이슈 수만 가볍게 신호로 확인할 수 있습니다.</div>'
+      +'<div class="gantt-detail-meta">실행 중에는 Work 탭에서 업무별 이슈 수만 가볍게 확인하고, 세부 맥락은 여기서 봅니다.</div>'
     +'</div>';
 }
 
@@ -3088,13 +3190,13 @@ function renderGanttDetailIssuePreview(projectId,issues){
   container.innerHTML=''
     +renderGanttIssueGroup(
       '프로젝트 단위 이슈',
-      '특정 업무에 한정되지 않은 프로젝트 전체 리스크와 결정 사항입니다.',
+      '범위, 일정, 의사결정처럼 프로젝트 전체에 영향을 주는 이슈입니다.',
       projectLevelIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
-      '현재 프로젝트 전체 이슈는 없습니다.'
+      '현재 프로젝트 전체에서 확인할 이슈는 없습니다.'
     )
     +renderGanttIssueGroup(
       '업무 연결 이슈',
-      '특정 업무 진행을 막거나 지연시키는 이슈입니다. Work 탭에서는 수량 신호로만 보입니다.',
+      '특정 업무 진행을 막거나 늦추는 이슈입니다. 조치는 Work 탭과 함께 확인합니다.',
       taskLinkedIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
       '현재 업무에 연결된 이슈는 없습니다.'
     );
@@ -3104,7 +3206,7 @@ function renderGanttProjectIssuesSection(project){
   return ''
     +'<div class="gantt-detail-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">프로젝트 이슈</div><div class="gantt-detail-meta">프로젝트 전체 이슈와 특정 업무에 연결된 이슈를 함께 확인합니다. Work 탭에서는 업무별 이슈 수만 가볍게 보입니다.</div></div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">전체 이슈 보기</button></div>'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">프로젝트 이슈</div><div class="gantt-detail-meta">프로젝트 전체 리스크와 업무 연결 이슈를 나눠 확인합니다. 실행 조정은 Work 탭에서 이어갑니다.</div></div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">전체 이슈 보기</button></div>'
         +'<div class="gantt-detail-list" id="ganttDetailIssueList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
       +'</div>'
     +'</div>';
