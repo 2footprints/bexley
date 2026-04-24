@@ -1546,24 +1546,43 @@ function getClientPortfolioSummary(rows){
 
 function getClientPortfolioTags(row){
   const tags=[];
-  if(row.activeProjectCount>0)tags.push('진행 '+row.activeProjectCount+'건');
-  if(row.openIssueCount>0)tags.push('이슈 '+row.openIssueCount+'건');
-  if(row.unbilledAmount>0)tags.push('미청구 '+formatClientCompactCurrency(row.unbilledAmount));
-  if(row.pendingDocCount>0)tags.push('자료 대기 '+row.pendingDocCount+'건');
-  if(row.recentActivityMeta?.isStale)tags.push('최근 활동 점검');
-  return tags.slice(0,4);
+  const highIssueCount=row.cardHealthMeta?.highIssueCount||0;
+  if(row.overdueProjectCount>0)tags.push('지연 프로젝트');
+  if(highIssueCount>0)tags.push('긴급 이슈');
+  else if(row.openIssueCount>0)tags.push('열린 이슈');
+  if(row.unbilledAmount>0)tags.push('미청구 잔액');
+  if(row.pendingDocCount>0)tags.push('자료 대기');
+  if(row.recentActivityMeta?.isStale)tags.push('활동 점검');
+  if(!tags.length)tags.push('안정 운영');
+  return tags.slice(0,3);
+}
+
+function getClientPortfolioReasonText(row){
+  const highIssueCount=row.cardHealthMeta?.highIssueCount||0;
+  if(row.overdueProjectCount>0)return '지연 프로젝트가 있어 일정 재정렬이 필요합니다.';
+  if(highIssueCount>0)return '긴급 이슈가 있어 우선 대응이 필요합니다.';
+  if(row.openIssueCount>0)return '열린 이슈가 남아 진행 상태 확인이 필요합니다.';
+  if(row.unbilledAmount>0)return '미청구 잔액이 남아 청구 확인이 필요합니다.';
+  if(row.pendingDocCount>0)return '필수 자료 회수가 아직 끝나지 않았습니다.';
+  if(row.recentActivityMeta?.isStale)return '최근 업데이트가 오래되어 현재 상태 점검이 필요합니다.';
+  if(row.activeProjectCount>0)return '지연·미청구·자료 대기 없이 안정적으로 관리 중입니다.';
+  return '현재 특별한 운영 리스크 신호는 없습니다.';
+}
+
+function getClientPortfolioActionMeta(row){
+  const highIssueCount=row.cardHealthMeta?.highIssueCount||0;
+  if(row.overdueProjectCount>0)return {label:'오늘 조치',text:'일정 · 완료 계획 다시 확인'};
+  if(highIssueCount>0)return {label:'오너 액션',text:'긴급 이슈 담당 · 우선순위 정리'};
+  if(row.openIssueCount>0)return {label:'이슈 점검',text:'열린 이슈 진행 상태 확인'};
+  if(row.unbilledAmount>0)return {label:'청구 후속',text:'완료분 청구 상태 확인'};
+  if(row.pendingDocCount>0)return {label:'자료 요청',text:'회수 일정 · 고객 커뮤니케이션'};
+  if(row.recentActivityMeta?.isStale)return {label:'관계 점검',text:'최근 활동 업데이트 확인'};
+  if(row.activeProjectCount>0)return {label:'정기 점검',text:'진행 프로젝트 리듬 유지'};
+  return {label:'상태 유지',text:'즉시 후속 조치 없음'};
 }
 
 function getClientPortfolioActionText(row){
-  const highIssueCount=row.cardHealthMeta?.highIssueCount||0;
-  if(row.overdueProjectCount>0)return '지연 프로젝트 일정과 완료 계획을 먼저 확인하세요.';
-  if(highIssueCount>0)return '긴급 이슈 우선순위와 담당자를 바로 점검하세요.';
-  if(row.openIssueCount>0)return '열린 이슈의 진행 상태를 확인하세요.';
-  if(row.unbilledAmount>0)return '완료 프로젝트의 청구 상태 확인이 필요합니다.';
-  if(row.pendingDocCount>0)return '자료 회수 일정과 고객 커뮤니케이션을 점검하세요.';
-  if(row.recentActivityMeta?.isStale)return '최근 활동이 오래되어 현재 상태 확인이 필요합니다.';
-  if(row.activeProjectCount>0)return '진행 중 프로젝트를 안정적으로 관리 중입니다.';
-  return '현재 특별한 후속 조치가 필요한 신호는 없습니다.';
+  return getClientPortfolioActionMeta(row).text;
 }
 
 function renderClientOverviewIntro(rows){
@@ -1574,17 +1593,17 @@ function renderClientOverviewIntro(rows){
       ?'거래처 건강 보드'
       :'거래처 포트폴리오';
   const copy=clientViewMode==='table'
-    ?'담당자, 최근 활동, 미청구 리스크를 비교하기 쉬운 스캔용 보기입니다.'
+    ?'비교 · 정렬용 보기입니다. 건강 상태, 미청구, 최근 활동을 한 줄에서 빠르게 비교합니다.'
     :clientViewMode==='health'
-      ?'정상 · 주의 · 위험 기준으로 고객사를 빠르게 분류해서 볼 수 있습니다.'
-      :'건강 상태, 진행 프로젝트, 이슈와 후속 리스크를 한 화면에서 훑는 카드 보기입니다.';
+      ?'리스크 우선순위 보기입니다. 왜 주의 · 위험인지와 다음 확인 대상을 빠르게 고릅니다.'
+      :'관계 · 운영 맥락 보기입니다. 담당자, 핵심 숫자, 리스크 이유, 다음 액션을 한 카드에서 봅니다.';
   const chips=[
-    '<span class="client-overview-chip">활성 '+summary.activeClientCount+'곳</span>',
-    '<span class="client-overview-chip '+(summary.attentionCount?'is-warn':'')+'">주의 '+summary.attentionCount+'곳</span>'
+    '<span class="client-overview-chip '+(summary.attentionCount?'is-danger':'is-muted')+'">주의 '+summary.attentionCount+'곳</span>'
   ];
-  if(summary.issueClientCount>0)chips.push('<span class="client-overview-chip is-danger">이슈 '+summary.issueClientCount+'곳</span>');
   if(summary.unbilledClientCount>0)chips.push('<span class="client-overview-chip is-warn">미청구 '+summary.unbilledClientCount+'곳</span>');
   if(summary.pendingDocClientCount>0)chips.push('<span class="client-overview-chip">자료 대기 '+summary.pendingDocClientCount+'곳</span>');
+  if(summary.issueClientCount>0)chips.push('<span class="client-overview-chip is-danger">이슈 '+summary.issueClientCount+'곳</span>');
+  chips.push('<span class="client-overview-chip is-muted">활성 '+summary.activeClientCount+'곳</span>');
   if(summary.staleCount>0)chips.push('<span class="client-overview-chip is-muted">최근 활동 점검 '+summary.staleCount+'곳</span>');
   return '<div class="client-overview-head">'
     +'<div><div class="client-overview-title">'+title+'</div><div class="client-overview-sub">'+copy+'</div></div>'
@@ -1604,35 +1623,39 @@ renderClientKpis=function(rows){
   const unbilledProjects=rows.reduce((sum,row)=>sum+row.unbilledProjectCount,0);
   const cards=[
     {
-      label:'전체 거래처',
-      value:rows.length+'곳',
-      sub:'활성 프로젝트 있는 거래처 '+summary.activeClientCount+'곳',
-      helper:summary.staleCount?('최근 활동 점검 '+summary.staleCount+'곳'):'최근 활동이 오래된 거래처 없음'
-    },
-    {
       label:'주의 필요',
       value:summary.attentionCount===0?'없음 ✓':summary.attentionCount+'곳',
       sub:'위험 '+summary.riskCount+'곳 · 주의 '+summary.warningCount+'곳',
-      helper:summary.issueClientCount?('이슈 있는 거래처 '+summary.issueClientCount+'곳'):'지연·이슈 거래처 없음',
-      className:summary.attentionCount===0?'is-good':'is-bad'
+      helper:summary.issueClientCount?('열린 이슈가 있는 거래처 '+summary.issueClientCount+'곳'):'지연·이슈 고객사 없음',
+      className:summary.attentionCount===0?'is-quiet':'is-bad'
     },
     {
       label:'미청구 금액',
       value:formatClientCurrency(unbilledAmount),
       sub:'미청구 거래처 '+summary.unbilledClientCount+'곳',
-      helper:unbilledProjects?('청구 대기 프로젝트 '+unbilledProjects+'건'):'청구 대기 프로젝트 없음'
+      helper:unbilledProjects?('청구 후속이 필요한 프로젝트 '+unbilledProjects+'건'):'청구 대기 프로젝트 없음',
+      className:unbilledAmount>0?'is-warn':'is-quiet'
     },
     {
       label:'자료 대기',
       value:pendingDocCount+'건',
       sub:'자료 대기 거래처 '+pendingDocClients+'곳',
-      helper:clientPendingDocRequestsLoaded?'pending 자료 요청 기준':'자료 요청 불러오는 중'
+      helper:clientPendingDocRequestsLoaded?'pending 자료 요청 기준':'자료 요청 불러오는 중',
+      className:pendingDocCount>0?'is-warn':'is-quiet'
     },
     {
       label:'이번 달 매출',
       value:formatClientCurrency(monthRevenue),
       sub:formatClientRevenueDelta(monthRevenue,prevMonthRevenue),
-      helper:'이번 달 완료 프로젝트 기준'
+      helper:'이번 달 완료 프로젝트 기준',
+      className:'is-accent'
+    },
+    {
+      label:'전체 거래처',
+      value:rows.length+'곳',
+      sub:'활성 프로젝트 있는 거래처 '+summary.activeClientCount+'곳',
+      helper:summary.staleCount?('최근 활동 점검 '+summary.staleCount+'곳'):'최근 활동이 오래된 거래처 없음',
+      className:'is-quiet'
     }
   ];
   el.innerHTML=cards.map(card=>
@@ -1650,7 +1673,9 @@ renderClientCard=function(detail){
   const recentActivity=detail.recentActivityMeta||getClientRecentActivityMeta(detail.recentActivityAt);
   const managerText=detail.managerNames.length?detail.managerNames.join(', '):'담당자 미지정';
   const tags=getClientPortfolioTags(detail);
-  return '<div class="client-card" onclick="openClientDetail(this.dataset.id)" data-id="'+detail.client.id+'">'
+  const reasonText=getClientPortfolioReasonText(detail);
+  const actionMeta=getClientPortfolioActionMeta(detail);
+  return '<div class="client-card is-'+cardHealth.tone+'" onclick="openClientDetail(this.dataset.id)" data-id="'+detail.client.id+'">'
     +'<div class="client-card-head">'
       +'<div class="client-card-identity"><div class="client-avatar">'+esc((detail.client.name||'?').charAt(0))+'</div><div><div class="client-name">'+esc(detail.client.name||'거래처')+'</div><div class="client-industry">'+esc(detail.client.industry||'업종 미입력')+'</div></div></div>'
       +'<div class="client-card-health"><span class="client-health-dot is-'+cardHealth.tone+'" title="'+esc(cardHealth.label+' · '+cardHealth.reasonText)+'"></span><span class="client-card-health-label is-'+cardHealth.tone+'">'+esc(cardHealth.label)+'</span></div>'
@@ -1663,8 +1688,9 @@ renderClientCard=function(detail){
       +'<div class="client-card-stat"><span>자료</span><strong>'+detail.pendingDocCount+'건</strong></div>'
     +'</div>'
     +(tags.length?'<div class="client-signal-row">'+tags.map(tag=>'<span class="client-signal-chip">'+esc(tag)+'</span>').join('')+'</div>':'')
-    +'<div class="client-card-note">다음 확인: '+esc(getClientPortfolioActionText(detail))+'</div>'
-    +'<div class="client-footer"><span class="client-members">'+(detail.activeContractCount?'활성 계약 '+detail.activeContractCount+'건':'활성 계약 없음')+'</span><span class="client-recent'+(recentActivity.isStale?' is-stale':'')+'">'+esc(recentActivity.text)+'</span></div>'
+    +'<div class="client-card-reason"><span class="client-card-reason-label">'+esc(cardHealth.tone==='normal'?'상태':'주의 이유')+'</span><strong>'+esc(reasonText)+'</strong></div>'
+    +'<div class="client-card-next"><span class="client-card-next-label">'+esc(actionMeta.label)+'</span><strong class="client-card-next-text">'+esc(actionMeta.text)+'</strong></div>'
+    +'<div class="client-footer"><span class="client-footer-meta">'+(detail.activeContractCount?'활성 계약 '+detail.activeContractCount+'건':'활성 계약 없음')+'</span><span class="client-recent'+(recentActivity.isStale?' is-stale':'')+'">'+esc(recentActivity.text)+'</span></div>'
   +'</div>';
 };
 
@@ -1676,7 +1702,7 @@ renderClientTable=function(rows){
   const selectedRows=getSelectedClientRows(tableRows);
   const allSelected=!!(window.__clientTableVisibleIds.length&&window.__clientTableVisibleIds.every(id=>clientTableSelectedIds.has(id)));
   return '<div class="client-table-shell">'
-    +'<div class="client-table-head"><div><div class="client-table-title">거래처 비교 테이블</div><div class="muted">건강 상태, 진행 상황, 미청구와 최근 활동을 함께 비교합니다.</div></div>'
+    +'<div class="client-table-head"><div><div class="client-table-title">거래처 비교 테이블</div><div class="muted">비교 · 정렬용 보기입니다. 담당자, 미청구, 최근 활동을 같은 기준으로 스캔합니다.</div></div>'
     +(manageable&&selectedRows.length
       ?'<div class="client-bulk-actions"><span class="client-bulk-count">'+selectedRows.length+'곳 선택</span><button type="button" class="btn sm" onclick="openClientBulkManagerModal()">일괄 담당자 변경</button><button type="button" class="btn sm" onclick="openClientBulkTagModal()">일괄 태그 추가</button><button type="button" class="btn sm" onclick="openClientBulkPortalModal()">일괄 포털 설정</button><button type="button" class="btn ghost sm" onclick="clearClientTableSelection()">선택 해제</button></div>'
       :'<div class="muted">행 hover 시 프로젝트, 이슈, 포털 빠른 링크가 나타납니다.</div>')
@@ -1697,11 +1723,11 @@ renderClientTable=function(rows){
     +tableRows.map(row=>{
       const recentLabel=row.recentActivityMeta?.text||'최근 활동 기록 없음';
       const healthMeta=row.cardHealthMeta||getClientCardHealthMeta(row);
-      const actionText=getClientPortfolioActionText(row);
+      const reasonText=getClientPortfolioReasonText(row);
       return '<tr onclick="openClientDetail(\''+row.client.id+'\')">'
         +(manageable?'<td><input type="checkbox" '+(clientTableSelectedIds.has(row.client.id)?'checked ':'')+'onclick="event.stopPropagation();toggleClientTableSelection(\''+row.client.id+'\',this.checked)"/></td>':'')
         +'<td><div class="client-table-health"><span class="client-health-dot is-'+(healthMeta.tone||'normal')+'" title="'+esc((healthMeta.label||'정상')+' · '+(healthMeta.reasonText||''))+'"></span><span class="client-table-health-label is-'+(healthMeta.tone||'normal')+'">'+esc(healthMeta.label||'정상')+'</span></div></td>'
-        +'<td><div class="client-table-name">'+esc(row.client.name||'거래처')+'</div><div class="client-table-sub">담당자 · '+esc(row.managerNames.join(', ')||'미배정')+'</div><div class="client-table-subline">'+esc(actionText)+'</div><div class="client-table-actions"><button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickProject(\''+row.client.id+'\')">프로젝트 보기</button><button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickIssues(\''+row.client.id+'\')">이슈 보기</button>'+(row.portalStatusMeta?.clickable?'<button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickPortal(\''+row.client.id+'\')">포털 접속</button>':'')+'</div></td>'
+        +'<td><div class="client-table-name">'+esc(row.client.name||'거래처')+'</div><div class="client-table-sub">담당자 · '+esc(row.managerNames.join(', ')||'미배정')+'</div><div class="client-table-subline">'+esc(reasonText)+'</div><div class="client-table-actions"><button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickProject(\''+row.client.id+'\')">프로젝트 보기</button><button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickIssues(\''+row.client.id+'\')">이슈 보기</button>'+(row.portalStatusMeta?.clickable?'<button type="button" class="btn sm" onclick="event.stopPropagation();openClientQuickPortal(\''+row.client.id+'\')">포털 접속</button>':'')+'</div></td>'
         +'<td>'+esc(row.client.industry||'-')+'</td>'
         +'<td><div class="client-table-metric">'+row.activeProjectCount+'건</div><div class="client-table-sub">'+(row.overdueProjectCount>0?'지연 '+row.overdueProjectCount+'건':'지연 없음')+'</div></td>'
         +'<td><div class="client-table-metric">'+row.openIssueCount+'건</div><div class="client-table-sub">'+((healthMeta.highIssueCount||0)>0?'긴급 이슈 '+healthMeta.highIssueCount+'건':'긴급 이슈 없음')+'</div></td>'
@@ -1723,11 +1749,12 @@ renderClientHealthBoard=function(rows){
   ];
   return '<div class="client-health-board">'+groups.map(group=>{
     const items=rows.filter(row=>(row.cardHealthMeta?.tone||'normal')===group.key);
-    return '<div class="client-health-column '+group.className+'"><div class="client-health-head"><div><div class="client-health-title">'+group.label+'</div><div class="client-health-sub">'+(group.key==='normal'?'안정적으로 관리 중인 거래처':'우선 확인이 필요한 거래처')+'</div></div><div class="client-health-count">'+items.length+'곳</div></div><div class="client-health-list">'
+    return '<div class="client-health-column '+group.className+'"><div class="client-health-head"><div><div class="client-health-title">'+group.label+'</div><div class="client-health-sub">'+(group.key==='normal'?'안정 운영 · 정기 점검 대상':group.key==='warning'?'막힘이 커지기 전 확인할 거래처':'지연 · 긴급 이슈를 먼저 볼 거래처')+'</div></div><div class="client-health-count">'+items.length+'곳</div></div><div class="client-health-list">'
       +(items.length
         ?items.map(row=>{
           const recentLabel=row.recentActivityMeta?.text||'최근 활동 기록 없음';
-          return '<div class="client-health-item" onclick="openClientDetail(\''+row.client.id+'\')"><div class="client-health-item-name">'+esc(row.client.name||'거래처')+'</div><div class="client-health-item-sub">'+esc(row.client.industry||'업종 미입력')+' · 담당자 '+esc(row.managerNames.join(', ')||'미배정')+'</div><div class="client-health-item-meta">진행 '+row.activeProjectCount+'건 · 이슈 '+row.openIssueCount+'건 · 계약 '+row.contractCount+'건</div><div class="client-health-item-tags">'+getClientBoardReasonTags(row).map(tag=>'<span class="client-health-tag">'+esc(tag)+'</span>').join('')+'</div><div class="client-health-item-note">'+esc(recentLabel)+' · '+esc(getClientPortfolioActionText(row))+'</div></div>';
+          const actionMeta=getClientPortfolioActionMeta(row);
+          return '<div class="client-health-item" onclick="openClientDetail(\''+row.client.id+'\')"><div class="client-health-item-name">'+esc(row.client.name||'거래처')+'</div><div class="client-health-item-sub">'+esc(row.client.industry||'업종 미입력')+' · 담당자 '+esc(row.managerNames.join(', ')||'미배정')+'</div><div class="client-health-item-meta">진행 '+row.activeProjectCount+'건 · 이슈 '+row.openIssueCount+'건 · 계약 '+row.contractCount+'건</div><div class="client-health-item-tags">'+getClientBoardReasonTags(row).map(tag=>'<span class="client-health-tag">'+esc(tag)+'</span>').join('')+'</div><div class="client-health-item-note"><span class="client-health-note-label">'+esc(actionMeta.label)+'</span>'+esc(actionMeta.text)+'<span class="client-health-note-meta">'+esc(recentLabel)+'</span></div></div>';
         }).join('')
         :'<div class="empty-state client-health-empty">해당 상태의 거래처가 없습니다.</div>')
       +'</div></div>';
