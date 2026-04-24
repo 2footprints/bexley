@@ -1780,16 +1780,16 @@ async function saveProjectTask(){
     alert('업무 제목을 입력해 주세요.');
     return;
   }
-  const status=document.getElementById('taskStatus')?.value||'예정';
-  const priority=document.getElementById('taskPriority')?.value||'medium';
+  const status=String(existingTask?.status||'예정').trim()||'예정';
+  const priority=String(existingTask?.priority||'medium').trim()||'medium';
   const assigneeMemberId=document.getElementById('taskAssignee')?.value||null;
-  const startDate=document.getElementById('taskStart')?.value||null;
+  const startDate=existingTask?.start_date||null;
   const dueDate=document.getElementById('taskDue')?.value||null;
   const description=document.getElementById('taskDescription')?.value.trim()||null;
-  const progressRaw=document.getElementById('taskProgress')?.value;
+  const existingProgress=Number(existingTask?.progress_percent);
   const progressValue=status==='완료'
     ?100
-    :Math.max(0,Math.min(100,Number.isNaN(Number(progressRaw))?0:Number(progressRaw)));
+    :Math.max(0,Math.min(100,Number.isNaN(existingProgress)?0:existingProgress));
   const nowIso=new Date().toISOString();
   const body={
     project_id:projectId,
@@ -2118,28 +2118,20 @@ function openProjectTaskModal(projectId,taskId){
   editingProjectTaskProjectId=String(projectId||'');
   editingProjectTaskId=String(task?.id||'');
   const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
-  const progressValue=String(getGanttTaskProgressValue(task));
   document.getElementById('modalArea').innerHTML=''
     +overlayHtml
     +'<div class="modal project-task-modal">'
       +'<div class="modal-header"><div><div class="modal-title">'+(task?'업무 수정':'업무 추가')+'</div><div class="modal-sub">프로젝트: '+esc(project.name||'프로젝트 없음')+'</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
-      +'<div class="project-task-modal-intro">업무 제목만 먼저 등록하고, 담당자·기한·진행률은 운영 흐름에 맞춰 가볍게 보강할 수 있습니다.</div>'
+      +'<div class="project-task-modal-intro">업무 제목, 담당자, 기한만 정하면 바로 저장할 수 있습니다. 설명은 필요할 때만 짧게 남겨 주세요.</div>'
       +'<div class="project-task-form">'
         +'<div class="project-task-form-section">'
-          +'<div class="project-task-form-section-title">기본 정보</div>'
+          +'<div class="project-task-form-section-title">업무 기본 정보</div>'
           +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
-          +'<div class="form-row"><label class="form-label">설명</label><textarea id="taskDescription" class="project-modal-memo" placeholder="업무 메모나 다음 액션을 간단히 적어 주세요">'+esc(task?.description||'')+'</textarea></div>'
-        +'</div>'
-        +'<div class="project-task-form-section">'
-          +'<div class="project-task-form-section-title">담당 · 상태 · 일정</div>'
           +'<div class="form-grid two">'
             +'<div class="form-row"><label class="form-label">담당자</label><select id="taskAssignee">'+getProjectTaskModalMemberOptions(task?.assignee_member_id||'')+'</select></div>'
-            +'<div class="form-row"><label class="form-label">상태</label><select id="taskStatus" onchange="syncProjectTaskStatusUI()">'+GANTT_TASK_STATUS_OPTIONS.map(status=>'<option value="'+status+'"'+((task?.status||'예정')===status?' selected':'')+'>'+status+'</option>').join('')+'</select></div>'
-            +'<div class="form-row"><label class="form-label">우선순위</label><select id="taskPriority">'+GANTT_TASK_PRIORITY_OPTIONS.map(option=>'<option value="'+option.value+'"'+((String(task?.priority||'medium')===option.value)?' selected':'')+'>'+option.label+'</option>').join('')+'</select></div>'
-            +'<div class="form-row"><label class="form-label">진행률</label><div class="project-hours-input"><input id="taskProgress" type="number" min="0" max="100" step="5" value="'+progressValue+'"><span>%</span></div></div>'
-            +'<div class="form-row"><label class="form-label">시작일</label><input id="taskStart" type="date" value="'+esc(task?.start_date||'')+'"></div>'
             +'<div class="form-row"><label class="form-label">기한</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
           +'</div>'
+          +'<div class="form-row"><label class="form-label">설명</label><textarea id="taskDescription" class="project-modal-memo" placeholder="업무 메모나 다음 액션을 간단히 적어 주세요">'+esc(task?.description||'')+'</textarea></div>'
         +'</div>'
       +'</div>'
       +'<div class="modal-footer"><div class="muted">필수 입력은 업무 제목만이며, 나머지는 운영 상황에 맞춰 나중에 보강해도 됩니다.</div><div class="modal-footer-right">'+(task?'<button class="btn ghost gantt-task-delete-btn" onclick="deleteProjectTask(\''+projectId+'\',\''+task.id+'\')">삭제</button>':'')+'<button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveProjectTask()">저장</button></div></div>'
@@ -2147,7 +2139,6 @@ function openProjectTaskModal(projectId,taskId){
     +'</div>';
   if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
   if(typeof lockBodyScroll==='function')lockBodyScroll();
-  syncProjectTaskStatusUI();
 }
 
 function renderGanttProjectWorkSection(project,memberSchedules){
@@ -2708,12 +2699,17 @@ function getGanttTaskOperationalHint(projectId,task){
   return assignee+' 중심으로 진행률과 다음 마감 시점을 계속 확인하세요.';
 }
 
-function getGanttTaskExecutionCueMeta(projectId,task){
+function getGanttTaskExecutionCueMeta(projectId,task,pendingDocSummary){
   const issueCount=getGanttTaskLinkedIssueCount(projectId,task?.id);
   const status=String(task?.status||'예정').trim()||'예정';
   const dueMeta=getGanttTaskDueMeta(task);
+  const dueDiff=getGanttTaskDueDiff(task);
+  const hasMaterialWaiting=Number(pendingDocSummary?.total||0)>0&&(status==='대기'||status==='보류');
   if(dueMeta.tone==='danger')return {label:'오늘 대응',tone:'danger',hint:'일정 재조정 또는 완료 처리'};
+  if(dueDiff===0)return {label:'오늘 마감',tone:'warn',hint:'오늘 안에 진행 상황 확인'};
+  if(dueDiff===1)return {label:'D-1 확인',tone:'warn',hint:'내일 마감 전 준비 확인'};
   if(status==='대기'&&issueCount>0)return {label:'막힘 확인',tone:'danger',hint:'연결 이슈 확인 후 재개'};
+  if(hasMaterialWaiting)return {label:'자료 확인',tone:'warn',hint:'프로젝트 자료 요청 영향 확인'};
   if(status==='대기')return {label:'대기 해소',tone:'warn',hint:'재개 조건과 시점 확인'};
   if(status==='보류')return {label:'우선순위 재확인',tone:'warn',hint:'이번 주에도 보류할지 결정'};
   if(!String(task?.assignee_member_id||'').trim())return {label:'담당 지정',tone:'neutral',hint:'담당자 먼저 지정'};
@@ -2730,10 +2726,93 @@ function getGanttTaskDueDisplayText(task,dueMeta,dateMeta){
   return (dateMeta?.dueText||'기한 미정')+' · '+(dueMeta?.label||'');
 }
 
-function getGanttProjectFocusTasks(projectId,limit=4){
-  return getGanttTaskDisplayRows(projectId)
+function getGanttTaskDueDiff(task,baseDate=getHomeBaseDate()){
+  const dueValue=getGanttTaskDateValue(task?.due_date);
+  if(!dueValue)return null;
+  const dueDate=toDate(dueValue);
+  if(Number.isNaN(dueDate.getTime()))return null;
+  const today=new Date(baseDate.getFullYear(),baseDate.getMonth(),baseDate.getDate());
+  const due=new Date(dueDate.getFullYear(),dueDate.getMonth(),dueDate.getDate());
+  return Math.round((due-today)/86400000);
+}
+
+function getGanttTaskNextActionRank(projectId,task,pendingDocSummary){
+  const status=String(task?.status||'예정').trim()||'예정';
+  if(status==='완료')return 999;
+  const dueDiff=getGanttTaskDueDiff(task);
+  const issueCount=getGanttTaskLinkedIssueCount(projectId,task?.id);
+  const hasMaterialWaiting=Number(pendingDocSummary?.total||0)>0&&(status==='대기'||status==='보류');
+  if(dueDiff!==null&&dueDiff<0)return 10;
+  if(dueDiff===0)return 20;
+  if(dueDiff===1)return 30;
+  if(issueCount>0)return 40;
+  if(hasMaterialWaiting)return 50;
+  if(dueDiff!==null&&dueDiff<=3)return 60;
+  if(status==='대기')return 70;
+  if(status==='보류')return 80;
+  if(!String(task?.assignee_member_id||'').trim())return 90;
+  if(status==='진행중')return 100;
+  return 110;
+}
+
+function getGanttProjectFocusTasks(projectId,limit=5){
+  const pendingDocSummary=getGanttProjectPendingDocSummary(projectId);
+  return [...getGanttTaskDisplayRows(projectId)]
     .filter(task=>String(task?.status||'').trim()!=='완료')
+    .sort((a,b)=>{
+      const rankDiff=getGanttTaskNextActionRank(projectId,a,pendingDocSummary)-getGanttTaskNextActionRank(projectId,b,pendingDocSummary);
+      if(rankDiff)return rankDiff;
+      const aDue=getGanttTaskDateValue(a?.due_date);
+      const bDue=getGanttTaskDateValue(b?.due_date);
+      if(aDue&&bDue&&aDue!==bDue)return aDue.localeCompare(bDue);
+      if(aDue!==bDue)return aDue?-1:1;
+      return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
+    })
     .slice(0,limit);
+}
+
+function getGanttTaskQuickStatusOptions(task){
+  const current=String(task?.status||'예정').trim()||'예정';
+  const preferred=['진행중','대기','완료'];
+  const values=preferred.includes(current)?preferred:[current,...preferred];
+  return values.map(value=>'<option value="'+value+'"'+(value===current?' selected':'')+'>'+value+'</option>').join('');
+}
+
+async function updateProjectTaskQuickStatus(projectId,taskId,nextStatus){
+  const projectKey=String(projectId||'');
+  const taskKey=String(taskId||'');
+  const task=getGanttProjectTasks(projectKey).find(row=>String(row?.id||'')===taskKey);
+  const status=String(nextStatus||'').trim();
+  if(!projectKey||!taskKey||!task||!status)return;
+  const currentStatus=String(task?.status||'예정').trim()||'예정';
+  if(status===currentStatus)return;
+  const nowIso=new Date().toISOString();
+  const currentProgress=getGanttTaskProgressValue(task);
+  const progressValue=status==='완료'
+    ?100
+    :(currentStatus==='완료'&&currentProgress===100?0:currentProgress);
+  try{
+    await api('PATCH',getGanttProjectTaskApiPath('id=eq.'+taskKey),{
+      status,
+      progress_percent:progressValue,
+      actual_done_at:status==='완료'?(task?.actual_done_at||nowIso):null,
+      updated_at:nowIso
+    });
+    await loadGanttProjectTasks(projectKey,true);
+  }catch(error){
+    alert(isMissingGanttProjectTaskTableError(error)
+      ?getMissingGanttProjectTaskTableMessage()
+      :'업무 상태를 바꾸는 중 오류가 발생했습니다: '+error.message);
+  }
+}
+
+function renderGanttTaskProgressMini(task){
+  const progress=getGanttTaskProgressValue(task);
+  return ''
+    +'<div class="gantt-task-row-progress" aria-label="진행률 '+progress+'%">'
+      +'<span class="gantt-task-row-progress-bar"><span class="gantt-task-row-progress-fill" style="width:'+progress+'%"></span></span>'
+      +'<span class="gantt-task-row-progress-text">'+progress+'%</span>'
+    +'</div>';
 }
 
 function renderGanttTaskRowActions(projectId,task,options={}){
@@ -2749,11 +2828,11 @@ function renderGanttTaskRowActions(projectId,task,options={}){
 function renderGanttTaskCard(projectId,task,variant='list'){
   const assignee=getGanttTaskMemberName(task?.assignee_member_id)||'담당 미정';
   const dueMeta=getGanttTaskDueMeta(task);
-  const progress=getGanttTaskProgressValue(task);
   const rowTone=getGanttTaskRowTone(task,dueMeta);
   const dateMeta=getGanttTaskDateDisplayMeta(task);
-  const cueMeta=getGanttTaskExecutionCueMeta(projectId,task);
+  const cueMeta=getGanttTaskExecutionCueMeta(projectId,task,getGanttProjectPendingDocSummary(projectId));
   if(variant==='focus'){
+    const progress=getGanttTaskProgressValue(task);
     return ''
       +'<div class="gantt-task-focus-item is-'+rowTone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
         +'<div class="gantt-task-focus-top"><span class="gantt-task-focus-cue is-'+cueMeta.tone+'">'+esc(cueMeta.label)+'</span><span class="badge '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span></div>'
@@ -2764,22 +2843,18 @@ function renderGanttTaskCard(projectId,task,variant='list'){
   }
   return ''
     +'<div class="gantt-task-row is-'+rowTone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
-      +'<div class="gantt-task-main">'
-        +'<div class="gantt-task-title-row"><div class="gantt-task-title">'+esc(task?.title||'제목 없는 업무')+'</div>'+getGanttTaskContextBadges(projectId,task)+'</div>'
-        +'<div class="gantt-task-meta-row gantt-task-meta-row--compact"><span class="gantt-task-meta-pill">'+esc(assignee)+'</span><span class="gantt-task-meta-pill is-'+dueMeta.tone+'">'+esc(getGanttTaskDueDisplayText(task,dueMeta,dateMeta))+'</span></div>'
-      +'</div>'
-      +'<div class="gantt-task-side">'
-        +'<div class="gantt-task-side-top"><span class="badge '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span><div class="gantt-task-progress-inline"><strong>'+progress+'%</strong><div class="gantt-task-progress-track"><div class="gantt-task-progress-fill" style="width:'+progress+'%"></div></div></div></div>'
-        +'<div class="gantt-task-row-actions">'+renderGanttTaskRowActions(projectId,task)+'</div>'
-      +'</div>'
+      +'<div class="gantt-task-row-cell gantt-task-row-cell--title"><span class="gantt-task-row-cell-label">업무</span><div><div class="gantt-task-row-title">'+esc(task?.title||'제목 없는 업무')+'</div>'+renderGanttTaskProgressMini(task)+'</div></div>'
+      +'<div class="gantt-task-row-cell gantt-task-row-cell--assignee"><span class="gantt-task-row-cell-label">담당자</span><span class="gantt-task-row-value">'+esc(assignee)+'</span></div>'
+      +'<div class="gantt-task-row-cell gantt-task-row-cell--due"><span class="gantt-task-row-cell-label">기한</span><div class="gantt-task-row-due-wrap"><span class="gantt-task-row-value is-'+dueMeta.tone+'">'+esc(dateMeta.dueText)+'</span>'+(getGanttTaskDateValue(task?.due_date)&&dueMeta.tone!=='neutral'?'<span class="gantt-task-row-subhint is-'+dueMeta.tone+'">'+esc(dueMeta.label)+'</span>':'')+'</div></div>'
+      +'<div class="gantt-task-row-cell gantt-task-row-cell--status"><span class="gantt-task-row-cell-label">상태</span><div class="gantt-task-row-status-line" onclick="event.stopPropagation()"><select class="gantt-task-status-quick" onclick="event.stopPropagation()" onchange="event.stopPropagation();updateProjectTaskQuickStatus(\''+projectId+'\',\''+task.id+'\',this.value)">'+getGanttTaskQuickStatusOptions(task)+'</select>'+(String(task?.status||'').trim()!=='완료'?'<button type="button" class="btn ghost sm gantt-task-row-complete-btn" onclick="event.stopPropagation();completeProjectTask(\''+projectId+'\',\''+task.id+'\')">완료</button>':'')+'</div></div>'
     +'</div>';
 }
 
 function renderGanttProjectNextActionsSection(projectId){
-  const focusTasks=getGanttProjectFocusTasks(projectId,4);
+  const focusTasks=getGanttProjectFocusTasks(projectId,5);
   return ''
     +'<div class="gantt-work-focus">'
-      +'<div class="gantt-work-focus-head"><div><div class="gantt-panel-title">다음 액션</div><div class="gantt-detail-meta">지금 바로 확인할 우선순위 높은 업무만 먼저 보여줍니다.</div></div><div class="gantt-work-focus-count">우선 '+focusTasks.length+'건</div></div>'
+      +'<div class="gantt-work-focus-head"><div><div class="gantt-panel-title">다음 액션</div><div class="gantt-detail-meta">지연, 오늘·내일 마감, 이슈, 프로젝트 자료 요청 영향 신호가 있는 업무를 먼저 보여줍니다.</div></div><div class="gantt-work-focus-count">우선 '+focusTasks.length+'건</div></div>'
       +(focusTasks.length
         ?'<div class="gantt-work-focus-list">'+focusTasks.map(task=>renderGanttTaskCard(projectId,task,'focus')).join('')+'</div>'
         :'<div class="gantt-detail-empty-state gantt-work-focus-empty"><div class="gantt-detail-value">지금 바로 처리할 열린 업무가 없습니다.</div><div class="gantt-detail-meta">모든 업무가 완료됐거나 아직 등록된 업무가 없습니다. 새 업무를 추가하거나 아래 전체 목록에서 다음 작업을 확인하세요.</div></div>')
@@ -2948,6 +3023,7 @@ function renderGanttTaskRows(projectId){
 function renderGanttProjectWorkSection(project,memberSchedules){
   const taskSummary=getGanttProjectTaskSummary(project?.id);
   const loadMeta=getGanttProjectTaskLoadMeta(project?.id);
+  loadGanttProjectPendingDocSummary(project?.id,false);
   return ''
     +'<div class="gantt-detail-pane gantt-work-pane">'
       +'<div class="gantt-task-summary-grid gantt-task-summary-grid--ops">'
@@ -2960,7 +3036,7 @@ function renderGanttProjectWorkSection(project,memberSchedules){
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
         +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">전체 업무</div><div class="gantt-detail-meta">긴 설명보다 담당자, 기한, 상태, 진행률만 빠르게 보고 실행을 이어갑니다.</div></div><button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button></div>'
         +((getGanttProjectTasks(project?.id)||[]).length
-          ?'<div class="gantt-task-list-head"><span>업무</span><span>상태 · 진행률 · 액션</span></div><div class="gantt-task-list">'+renderGanttTaskRows(project.id)+'</div>'
+          ?'<div class="gantt-task-list-head"><span>업무</span><span>담당자</span><span>기한</span><span>상태 / 실행</span></div><div class="gantt-task-list">'+renderGanttTaskRows(project.id)+'</div>'
           :renderGanttTaskEmptyState(project.id,loadMeta))
       +'</div>'
       +'<div class="gantt-detail-section gantt-work-schedule-section">'
