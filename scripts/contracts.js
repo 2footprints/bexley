@@ -215,9 +215,15 @@ function getContractRemainingDaysMeta(row){
       tone:'warn'
     };
   }
+  if(diff<=30){
+    return {
+      text:'갱신 검토 D-'+diff,
+      tone:'warn'
+    };
+  }
   if(diff<=60){
     return {
-      text:'D-'+diff,
+      text:'만료 확인 D-'+diff,
       tone:'warn'
     };
   }
@@ -227,6 +233,18 @@ function getContractRemainingDaysMeta(row){
   };
 }
 
+function getContractExpirySupportText(row){
+  const endDate=row?.contract?.contract_end_date;
+  if(!endDate)return '만료일 미정';
+  if(!row?.isActive)return '종료일 '+endDate;
+  const diff=row?.renewalDiffDays;
+  if(diff===null||diff===undefined)return '종료일 '+endDate;
+  if(diff<0)return '종료 전 정리 필요';
+  if(diff<=30)return '종료일 '+endDate+' · 갱신 검토 필요';
+  if(diff<=60)return '종료일 '+endDate+' · 만료 확인';
+  return '종료일 '+endDate;
+}
+
 function getContractAttentionMeta(row){
   const remainingMeta=getContractRemainingDaysMeta(row);
   if(Number(row?.receivableAmount||0)>0){
@@ -234,8 +252,8 @@ function getContractAttentionMeta(row){
       label:'위험',
       tone:'danger',
       detail:row.agedReceivableCount>0
-        ?'수금 미확인 · 30일+ '+row.agedReceivableCount+'건'
-        :'수금 미확인'
+        ?'수금 확인 필요 · 30일+ '+row.agedReceivableCount+'건'
+        :'수금 확인 필요'
     };
   }
   if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<0){
@@ -249,21 +267,21 @@ function getContractAttentionMeta(row){
     return {
       label:'주의',
       tone:'warn',
-      detail:'미청구 잔액 있음'
+      detail:'미청구 잔액 남음'
     };
   }
   if(Number(row?.pendingDocCount||0)>0){
     return {
       label:'주의',
       tone:'warn',
-      detail:'자료 대기 '+row.pendingDocCount+'건'
+      detail:'자료 확인 필요'
     };
   }
   if(Number(row?.openIssueCount||0)>0){
     return {
       label:'주의',
       tone:'warn',
-      detail:'이슈 미해결 '+row.openIssueCount+'건'
+      detail:'관련 이슈 미해결'
     };
   }
   if(remainingMeta?.tone==='warn'){
@@ -271,40 +289,41 @@ function getContractAttentionMeta(row){
       label:'주의',
       tone:'warn',
       detail:(row.renewalDiffDays!==null&&row.renewalDiffDays<=30)
-        ?'30일 내 만료'
+        ?'만료 임박 · 갱신 검토'
         :'만료 임박'
     };
   }
   return {
     label:'정상',
     tone:'ok',
-    detail:'운영 리스크 신호 없음'
+    detail:'현재 상태 안정적'
   };
 }
 
 function getContractNextActionLabel(row){
   if(Number(row?.receivableAmount||0)>0){
-    return '수금 확인';
+    return '수금 확인 필요';
   }
-  if(Number(row?.unbilledBalance||0)>0)return '청구 발행';
-  if(Number(row?.pendingDocCount||0)>0)return '자료 회수';
-  if(Number(row?.openIssueCount||0)>0)return '이슈 점검';
-  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=30)return '갱신 확인';
-  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=60)return '계약 일정 점검';
-  if(row?.isActive)return '청구 리듬 점검';
+  if(Number(row?.unbilledBalance||0)>0)return '청구 발행 확인';
+  if(Number(row?.pendingDocCount||0)>0)return '자료 요청 follow-up';
+  if(Number(row?.openIssueCount||0)>0)return '관련 이슈 확인';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<0)return '종료 전 정리 필요';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=30)return '갱신 검토 필요';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=60)return '계약 조건 확인';
+  if(row?.isActive)return '청구 일정 점검';
   return '종료 기록 확인';
 }
 
 function getContractNextActionText(row){
-  if(Number(row?.receivableAmount||0)>0)return '리마인드 발송 · 수금 일정 확인';
-  if(Number(row?.unbilledBalance||0)>0)return '인보이스 발행 여부 확인';
-  if(Number(row?.pendingDocCount||0)>0)return '필수 자료 회수 팔로업';
-  if(Number(row?.openIssueCount||0)>0)return '미해결 이슈 상태 확인';
-  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<0)return '종료 처리 또는 갱신 여부 결정';
-  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=30)return '갱신 조건 · 일정 확인';
-  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=60)return '만료 전 커뮤니케이션 점검';
-  if(row?.isActive)return '다음 청구 일정만 확인';
-  return '상세 기록과 종료 상태 확인';
+  if(Number(row?.receivableAmount||0)>0)return '수금 일정과 리마인드 여부 확인';
+  if(Number(row?.unbilledBalance||0)>0)return '청구 일정과 발행 여부 확인';
+  if(Number(row?.pendingDocCount||0)>0)return '필수 자료 회수 일정 확인';
+  if(Number(row?.openIssueCount||0)>0)return '관련 이슈 담당과 처리 경로 확인';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<0)return '종료 처리 또는 갱신 방향 정리';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=30)return '갱신 조건과 종료일 검토';
+  if(row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays<=60)return '만료 전 조건과 담당 일정 확인';
+  if(row?.isActive)return '다음 청구 일정 확인';
+  return '종료 기록과 상태 확인';
 }
 
 function getContractRiskTags(row){
@@ -1347,10 +1366,10 @@ function renderContractKpis(rows){
       tone:attentionRows.length?'danger':'quiet'
     },
     {
-      label:'미수금',
+      label:'수금 확인',
       value:formatContractCurrency(receivableAmount),
-      sub:'장기 미수 '+agedReceivableCount+'건',
-      helper:receivableAmount?'수금 확인과 리마인드가 필요한 금액입니다.':'회수 추적 중인 금액이 없습니다.',
+      sub:'미수 추적 '+agedReceivableCount+'건',
+      helper:receivableAmount?'수금 일정과 회수 확인이 필요한 금액입니다.':'현재 회수 확인이 필요한 금액이 없습니다.',
       tone:receivableAmount>0?'danger':'quiet'
     },
     {
@@ -1419,6 +1438,7 @@ function renderContractRowItem(row){
     (remainingMeta?'<span class="contract-inline-chip '+(remainingMeta.tone==='danger'?'is-danger':remainingMeta.tone==='warn'?'is-warn':'')+'">'+remainingMeta.text+'</span>':'')
   ].filter(Boolean);
   const progressText='청구 '+billingPercent+'%';
+  const reasonLabel=attentionMeta.tone==='ok'?'상태 요약':'주의 이유';
   return '<div class="contract-inline-row is-'+attentionMeta.tone+(isEnded?' is-ended':'')+'" onclick="openContractDetail(\''+contract.id+'\')">'
     +'<div class="contract-inline-main">'
       +'<div class="contract-inline-name-row"><div class="contract-inline-name" title="'+esc(contract?.contract_name||'')+'">'+esc(contract?.contract_name||'계약명 없음')+'</div><span class="contract-inline-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div>'
@@ -1428,8 +1448,8 @@ function renderContractRowItem(row){
         +'<div class="contract-inline-progress-track"><div class="contract-inline-progress-fill" style="width:'+billingPercent+'%"></div></div>'
         +'<span class="contract-inline-progress-label">'+progressText+'</span>'
       +'</div>'
-      +'<div class="contract-inline-reason">이유 · '+esc(attentionMeta.detail)+'</div>'
-      +'<div class="contract-inline-next is-'+attentionMeta.tone+'"><span class="contract-inline-next-label">'+esc(getContractNextActionLabel(row))+'</span>'+esc(getContractNextActionText(row))+'</div>'
+      +'<div class="contract-inline-reason">'+esc(reasonLabel)+' · '+esc(attentionMeta.detail)+'</div>'
+      +'<div class="contract-inline-next is-'+attentionMeta.tone+'"><span class="contract-inline-next-label is-'+attentionMeta.tone+'">다음 액션</span><strong class="contract-inline-next-text">'+esc(getContractNextActionLabel(row))+'</strong><span>'+esc(getContractNextActionText(row))+'</span></div>'
     +'</div>'
     +'<div class="contract-inline-actions">'
       +'<button type="button" class="contract-mini-btn" onclick="event.stopPropagation();toggleContractManaged(\''+contract.id+'\','+(!contract.is_managed)+')" title="우리 팀 관리 여부">'+(contract.is_managed?'팀':'외부')+'</button>'
@@ -1546,8 +1566,8 @@ function renderContractListView(rows){
         +'<td><span class="badge '+getContractStatusBadgeClass(row.contract?.contract_status)+'">'+esc(row.contract?.contract_status||'검토중')+'</span></td>'
         +'<td><div class="contract-list-money">'+formatContractCurrency(row.billedTotal)+'</div><div class="contract-list-progress-mini"><span>청구 '+billingPercent+'%</span><div class="contract-list-progress-mini-track"><div class="contract-list-progress-mini-fill" style="width:'+billingPercent+'%"></div></div></div><div class="contract-list-chip-row">'+metricChips+'</div></td>'
         +'<td><div class="contract-list-period">'+esc(attentionMeta.detail)+'</div><div class="contract-list-sub">'+(row.receivableAmount>0?('미수금 '+formatContractCurrency(row.receivableAmount)):(row.unbilledBalance>0?'청구 후속 필요':'운영 리스크 낮음'))+'</div></td>'
-        +'<td><div class="contract-list-next-label">'+esc(getContractNextActionLabel(row))+'</div><div class="contract-list-sub contract-list-action">'+esc(getContractNextActionText(row))+'</div></td>'
-        +'<td>'+(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'<span class="contract-list-sub">만료 정보 없음</span>')+'<div class="contract-list-sub">'+esc(getContractPeriodText(row.contract))+'</div></td>'
+        +'<td><div class="contract-list-next-label is-'+attentionMeta.tone+'">다음 액션</div><div class="contract-list-sub contract-list-action"><strong class="contract-list-next-text">'+esc(getContractNextActionLabel(row))+'</strong><span>'+esc(getContractNextActionText(row))+'</span></div></td>'
+        +'<td>'+(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'<span class="contract-list-sub">만료 정보 없음</span>')+'<div class="contract-list-sub">'+esc(getContractExpirySupportText(row))+'</div></td>'
       +'</tr>';
     }).join('')
     +'</tbody></table></div></div>';
