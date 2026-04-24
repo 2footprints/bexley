@@ -297,7 +297,9 @@
   background:linear-gradient(180deg,#FFFFFF 0%,#FFF8F8 100%)!important;
 }
 .client-card-head{
-  gap:12px;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:12px;
 }
 .client-card-identity{
   display:flex;
@@ -305,23 +307,35 @@
   gap:12px;
   min-width:0;
 }
+.client-name{
+  margin:0!important;
+  font-weight:800!important;
+  line-height:1.35!important;
+}
+.client-industry{
+  margin:3px 0 0!important;
+  font-size:11px!important;
+  line-height:1.45!important;
+}
 .client-card-health{
   display:flex;
   align-items:center;
   gap:8px;
   flex-shrink:0;
+  padding-top:1px;
 }
 .client-card-health-label{
   display:inline-flex;
   align-items:center;
-  min-height:26px;
-  padding:4px 9px;
+  min-height:24px;
+  padding:4px 10px;
   border-radius:999px;
   border:1px solid var(--border);
   background:#fff;
   font-size:11px;
   font-weight:800;
   color:var(--text2);
+  line-height:1.2;
 }
 .client-card-health-label.is-warning{
   color:#B45309;
@@ -334,9 +348,9 @@
   background:#FEF2F2;
 }
 .client-owner{
-  margin-top:6px;
+  margin-top:7px;
   font-size:11px;
-  color:var(--text2);
+  color:var(--text3);
   line-height:1.5;
 }
 .client-card-stats{
@@ -374,7 +388,7 @@
 .client-card-summary{
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:5px;
   margin-top:12px;
 }
 .client-signal-row{
@@ -402,8 +416,8 @@
   border:none;
   background:transparent;
   display:grid;
-  grid-template-columns:64px minmax(0,1fr);
-  gap:10px;
+  grid-template-columns:58px minmax(0,1fr);
+  gap:8px;
   align-items:start;
 }
 .client-card-reason-label,
@@ -412,7 +426,7 @@
   font-size:10px;
   font-weight:800;
   color:var(--text3);
-  letter-spacing:.08em;
+  letter-spacing:.06em;
   text-transform:uppercase;
   padding-top:2px;
 }
@@ -430,21 +444,23 @@
   font-weight:700;
 }
 .client-footer{
-  margin-top:10px;
-  padding-top:10px;
+  margin-top:12px;
+  padding-top:12px;
   border-top:1px solid rgba(10,37,64,.05);
-  align-items:center;
-  gap:8px;
+  align-items:flex-start;
+  gap:10px;
 }
 .client-footer-meta{
-  font-size:10.5px;
+  font-size:11px;
   color:var(--text3);
   font-weight:600;
+  line-height:1.5;
 }
 .client-recent{
-  font-size:10.5px;
+  font-size:11px;
   color:var(--text3)!important;
   font-weight:600;
+  line-height:1.5;
 }
 .client-empty-state{
   grid-column:1 / -1;

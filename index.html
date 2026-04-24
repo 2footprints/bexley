@@ -3839,7 +3839,7 @@ function scheduleRow(s,days){
   const sS=toDate(s.start),sE=toDate(s.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=sS<mFirst?1:sS.getDate();const barE=sE>mLast?days:sE.getDate();const span=barE-barS+1;
-  const rowCls='row-label';
+  const rowCls='row-label gantt-support-row-label';
   const memberLabel=getScheduleMemberLabel(s);
   const scheduleMemberNames=getScheduleMemberNames(s);
   const inProgressCount=typeof countInProgressProjectsForMembers==='function'
@@ -3857,7 +3857,7 @@ function scheduleRow(s,days){
       cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(displayTitle+(subtitle?' | '+subtitle:'')+(s.memo?' | '+s.memo:''))+'">'+(span>=3?esc(displayTitle):'')+'</div></td>';
     } else cells+='<td class="'+cls+'"></td>';
   }
-  return '<tr><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-support-row"><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
 }
 
 // ── Project Modal ──
@@ -8585,7 +8585,11 @@ window.doAuth = async function(){
 })();
 
 const GANTT_HIDE_COMPLETED_KEY='bexley_gantt_hide_completed';
+const GANTT_SHOW_PERSONAL_OVERLAY_KEY='bexley_gantt_show_personal_overlay';
+const GANTT_SHOW_PERSONAL_ROWS_KEY='bexley_gantt_show_personal_rows';
 let ganttHideCompleted=readStoredGanttToggle(GANTT_HIDE_COMPLETED_KEY,false);
+let ganttShowPersonalOverlay=readStoredGanttToggle(GANTT_SHOW_PERSONAL_OVERLAY_KEY,true);
+let ganttShowPersonalRows=readStoredGanttToggle(GANTT_SHOW_PERSONAL_ROWS_KEY,false);
 
 function readStoredGanttToggle(key,fallback){
   try{
@@ -8609,7 +8613,9 @@ function ensureGanttVisibilityToggles(){
     wrap.id='ganttVisibilityToggleWrap';
     wrap.className='toggle-wrap gantt-visibility-toggle';
     wrap.innerHTML=''
-      +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완료 항목 숨기기</button>';
+      +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완료 항목 숨기기</button>'
+      +'<button class="toggle-btn" id="ganttPersonalOverlayBtn" onclick="setGanttPersonalOverlayToggle(!ganttShowPersonalOverlay)">개인 일정 레이어</button>'
+      +'<button class="toggle-btn" id="ganttPersonalRowsBtn" onclick="setGanttPersonalRowsToggle(!ganttShowPersonalRows)">개인 일정 행</button>';
     const scheduleBtn=document.getElementById('scheduleAddBtn');
     if(scheduleBtn&&scheduleBtn.parentNode===actionZone)actionZone.insertBefore(wrap,scheduleBtn);
     else actionZone.appendChild(wrap);
@@ -8632,15 +8638,36 @@ function ensureGanttVisibilitySummary(){
 function updateGanttVisibilityToggleButtons(){
   const completedBtn=document.getElementById('ganttHideCompletedBtn');
   if(completedBtn)completedBtn.classList.toggle('active',ganttHideCompleted);
+  const personalOverlayBtn=document.getElementById('ganttPersonalOverlayBtn');
+  if(personalOverlayBtn)personalOverlayBtn.classList.toggle('active',ganttShowPersonalOverlay);
+  const personalRowsBtn=document.getElementById('ganttPersonalRowsBtn');
+  if(personalRowsBtn)personalRowsBtn.classList.toggle('active',ganttShowPersonalRows);
 }
 function updateGanttVisibilitySummary(hiddenCompletedCount){
   const summary=ensureGanttVisibilitySummary();
   if(!summary)return;
-  summary.textContent=ganttHideCompleted?'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 '+hiddenCompletedCount+'\uAC74 \uC228\uAE40':'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 \uD45C\uC2DC \uC911';
+  const parts=[
+    ganttHideCompleted?'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 '+hiddenCompletedCount+'\uAC74 \uC228\uAE40':'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 \uD45C\uC2DC \uC911',
+    ganttShowPersonalOverlay?'\uAC1C\uC778 \uC77C\uC815 \uC81C\uC57D \uB808\uC774\uC5B4 \uD45C\uC2DC \uC911':'\uAC1C\uC778 \uC77C\uC815 \uC81C\uC57D \uB808\uC774\uC5B4 \uC228\uAE40',
+    ganttShowPersonalRows?'\uAC1C\uC778 \uC77C\uC815 \uD589 \uD45C\uC2DC \uC911':'\uAC1C\uC778 \uC77C\uC815 \uD589 \uC228\uAE40'
+  ];
+  summary.textContent=parts.join(' · ');
 }
 function setGanttVisibilityToggle(value){
   ganttHideCompleted=!!value;
   writeStoredGanttToggle(GANTT_HIDE_COMPLETED_KEY,ganttHideCompleted);
+  updateGanttVisibilityToggleButtons();
+  renderGantt();
+}
+function setGanttPersonalOverlayToggle(value){
+  ganttShowPersonalOverlay=!!value;
+  writeStoredGanttToggle(GANTT_SHOW_PERSONAL_OVERLAY_KEY,ganttShowPersonalOverlay);
+  updateGanttVisibilityToggleButtons();
+  renderGantt();
+}
+function setGanttPersonalRowsToggle(value){
+  ganttShowPersonalRows=!!value;
+  writeStoredGanttToggle(GANTT_SHOW_PERSONAL_ROWS_KEY,ganttShowPersonalRows);
   updateGanttVisibilityToggleButtons();
   renderGantt();
 }
@@ -9051,7 +9078,7 @@ window.gRow=function(p,days){
     const cellCls='cell '+(weekend?'weekend ':'')+(todayCell?'today-c':'');
     const overlays=overlaysByDay[day]||[];
     let overlayHtml='';
-    if(overlays.length&&day>=barS&&day<=barE){
+    if(ganttShowPersonalOverlay&&overlays.length&&day>=barS&&day<=barE){
       const icons=overlays.map(overlay=>overlay.type==='leave'?'L':'F').join(' ');
       const tooltip=overlays.map(overlay=>overlay.member+' '+overlay.title+' '+overlay.start+'~'+overlay.end+', '+overlay.hint).join(' / ');
       const hasLeave=overlays.some(overlay=>overlay.type==='leave');
@@ -9059,7 +9086,7 @@ window.gRow=function(p,days){
       const markerStyle=hasLeave&&!hasFieldwork
         ?'left:1px;right:1px;background:repeating-linear-gradient(45deg, #e2e8f0, #e2e8f0 4px, #f1f5f9 4px, #f1f5f9 8px);border-left:3px solid var(--color-text-muted);color:var(--color-text-secondary)'
         :'left:1px;right:1px;background:repeating-linear-gradient(45deg, #fef3c7, #fef3c7 4px, #fefce8 4px, #fefce8 8px);border-left:3px solid var(--color-warning);color:#92400e';
-      overlayHtml='<div class="leave-marker" style="'+markerStyle+'" title="'+esc(tooltip)+'">'+icons+'</div>';
+      overlayHtml='<div class="leave-marker is-support-layer" style="'+markerStyle+'" title="'+esc(tooltip)+'">'+icons+'</div>';
     }
     if(day===barS){
       const barText=span>=6?esc(p.name)+(p.members.length?' ('+esc(p.members.join(', '))+')':''):span>=3?esc(p.name):'';
@@ -9125,15 +9152,16 @@ function renderFilteredGanttTimeline(projs,schs){
           +'</td></tr>';
         if(!isCollapsed)clientProjects.forEach(project=>{html+=gRow(project,days);});
       });
-      if(schs.length){
+      if(schs.length&&ganttShowPersonalRows){
         const scheduleGroups={};
         schs.forEach(schedule=>{
           const type=schedule.schedule_type||'internal';
           if(!scheduleGroups[type])scheduleGroups[type]=[];
           scheduleGroups[type].push(schedule);
         });
+        html+='<tr class="sec-row gantt-support-section"><td colspan="'+(days+1)+'">개인 일정 · 지원 레이어 · 휴가/필드웍은 프로젝트 일정에 대한 제약으로만 봅니다.</td></tr>';
         Object.entries(scheduleGroups).forEach(([type,items])=>{
-          html+='<tr class="sec-row"><td colspan="'+(days+1)+'">일정 · '+scheduleLabel(type)+' · '+items.length+'건</td></tr>';
+          html+='<tr class="sec-row gantt-support-section"><td colspan="'+(days+1)+'">개인 일정 · '+scheduleLabel(type)+' · '+items.length+'건</td></tr>';
           items.sort((a,b)=>toDate(a.start)-toDate(b.start)).forEach(schedule=>{html+=scheduleRow(schedule,days);});
         });
       }
@@ -9149,7 +9177,10 @@ function renderFilteredGanttTimeline(projs,schs){
         if(!memberProjects.length&&!memberSchedules.length)return;
         html+='<tr class="sec-row"><td colspan="'+(days+1)+'"><span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(name)+'</span> <span style="color:var(--text3);font-weight:400">프로젝트 '+memberProjects.length+'건 · 일정 '+memberSchedules.length+'건</span></td></tr>';
         memberProjects.sort((a,b)=>toDate(a.end)-toDate(b.end)).forEach(project=>{html+=gRow(project,days);});
-        memberSchedules.sort((a,b)=>toDate(a.start)-toDate(b.start)).forEach(schedule=>{html+=scheduleRow(schedule,days);});
+        if(ganttShowPersonalRows&&memberSchedules.length){
+          html+='<tr class="sec-row gantt-support-section"><td colspan="'+(days+1)+'">개인 일정 · '+esc(name)+' · '+memberSchedules.length+'건</td></tr>';
+          memberSchedules.sort((a,b)=>toDate(a.start)-toDate(b.start)).forEach(schedule=>{html+=scheduleRow(schedule,days);});
+        }
       });
     }
   }finally{

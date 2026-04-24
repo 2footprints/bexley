@@ -73,11 +73,11 @@
 .contract-filter-tag button{border:none;background:none;padding:0;color:inherit;font-size:14px;line-height:1;cursor:pointer}
 
 .contract-group-card{margin-bottom:12px}
-.contract-group-head{display:flex;align-items:center;gap:12px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--border);cursor:pointer}
-.contract-group-avatar{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.contract-group-head{display:flex;align-items:flex-start;gap:14px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--border);cursor:pointer}
+.contract-group-avatar{width:44px;height:44px;border-radius:12px;background:var(--navy);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:.02em;box-shadow:0 10px 20px rgba(10,37,64,.12)}
 .contract-group-meta{flex:1;min-width:0}
-.contract-group-title{font-size:15px;font-weight:800;color:var(--navy)}
-.contract-group-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.contract-group-title{font-size:15px;font-weight:800;color:var(--navy);line-height:1.35;letter-spacing:-.02em}
+.contract-group-sub{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.45}
 .contract-group-finance{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;flex-wrap:wrap}
 .contract-group-rate{min-width:220px;flex:1}
 .contract-group-rate-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:6px}
@@ -87,7 +87,7 @@
 .contract-group-finance-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .contract-group-finance-meta span{font-size:11px;color:var(--text3)}
 .contract-group-danger-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red)!important;font-weight:800;border:1px solid rgba(239,68,68,.16)}
-.contract-group-link{font-size:11px;color:var(--text3);flex-shrink:0}
+.contract-group-link{font-size:11px;color:var(--text3);flex-shrink:0;line-height:1.45}
 .contract-group-list{display:flex;flex-direction:column;gap:8px}
 
 .contract-inline-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all .15s}
@@ -427,10 +427,11 @@
 }
 .contract-group-head{
   align-items:flex-start;
+  gap:14px;
 }
 .contract-group-sub{
-  font-size:12px;
-  line-height:1.55;
+  font-size:11px;
+  line-height:1.45;
 }
 .contract-group-finance-meta{
   gap:6px;
@@ -456,7 +457,7 @@
 .contract-inline-name-row{
   display:flex;
   align-items:flex-start;
-  gap:8px;
+  gap:10px;
   flex-wrap:wrap;
 }
 .contract-inline-attention,
@@ -464,12 +465,25 @@
   display:inline-flex;
   align-items:center;
   min-height:24px;
-  padding:4px 8px;
+  padding:4px 10px;
   border-radius:999px;
+  border:1px solid transparent;
   font-size:11px;
   font-weight:800;
   line-height:1.2;
   white-space:nowrap;
+}
+.contract-inline-name,
+.contract-list-name{
+  font-weight:800;
+  line-height:1.35;
+  letter-spacing:-.02em;
+}
+.contract-inline-sub,
+.contract-list-sub{
+  margin-top:3px;
+  line-height:1.45;
+  color:var(--text3);
 }
 .contract-inline-attention.is-danger,
 .contract-list-attention.is-danger{
@@ -516,30 +530,31 @@
 }
 .contract-inline-reason{
   font-size:11px;
-  line-height:1.45;
+  line-height:1.5;
   color:var(--text3);
   font-weight:600;
 }
 .contract-inline-next{
   font-size:11px;
-  line-height:1.45;
+  line-height:1.5;
   color:var(--text3);
   display:flex;
   align-items:center;
-  gap:7px;
+  gap:6px;
   flex-wrap:wrap;
 }
 .contract-inline-next-label{
   display:inline-flex;
   align-items:center;
-  min-height:22px;
-  padding:3px 8px;
+  min-height:24px;
+  padding:4px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.18);
   background:#F8FAFC;
   color:var(--text2);
-  font-size:10px;
+  font-size:11px;
   font-weight:800;
+  line-height:1.2;
   letter-spacing:0;
   text-transform:none;
 }
@@ -564,7 +579,7 @@
 .contract-inline-next-text,
 .contract-list-next-text{
   font-weight:800;
-  color:var(--text2);
+  color:var(--navy);
 }
 .contract-inline-next.is-danger,
 .contract-inline-next.is-warn,
@@ -579,14 +594,15 @@
 .contract-list-name-row{
   display:flex;
   align-items:flex-start;
-  gap:8px;
+  gap:10px;
   flex-wrap:wrap;
 }
 .contract-list-action{
-  margin-top:2px;
-  line-height:1.4;
+  margin-top:3px;
+  line-height:1.45;
   display:grid;
-  gap:2px;
+  gap:3px;
+  color:var(--text3);
 }
 .contract-list-money,
 .contract-list-period{
@@ -625,14 +641,15 @@
 .contract-list-next-label{
   display:inline-flex;
   align-items:center;
-  min-height:22px;
-  padding:3px 8px;
+  min-height:24px;
+  padding:4px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.18);
   background:#F8FAFC;
-  font-size:10px;
+  font-size:11px;
   font-weight:800;
   color:var(--text2);
+  line-height:1.2;
   letter-spacing:0;
   text-transform:none;
   margin-bottom:4px;

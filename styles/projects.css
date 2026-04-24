@@ -107,6 +107,10 @@ table{border-collapse:collapse;min-width:100%}
 .legend-dot{width:8px;height:8px;border-radius:3px;flex-shrink:0}
 
 .gantt-visibility-toggle{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
   background:transparent!important;
   border:none!important;
   padding:0!important;
@@ -257,21 +261,47 @@ td{
   display:flex!important;
   align-items:flex-start!important;
   justify-content:space-between!important;
-  gap:10px!important;
+  gap:12px!important;
+}
+.gantt-project-top>div{
+  min-width:0!important;
 }
 .gantt-project-name{
-  font-size:14px!important;
+  font-size:15px!important;
   font-weight:800!important;
   color:var(--navy)!important;
+  line-height:1.35!important;
+  letter-spacing:-.02em!important;
 }
-.gantt-project-client,
+.gantt-project-client{
+  display:block!important;
+  margin-top:3px!important;
+  font-size:11px!important;
+  line-height:1.45!important;
+  color:var(--text3)!important;
+}
 .gantt-project-meta,
 .gantt-empty-copy{
   font-size:12px!important;
   color:var(--text3)!important;
 }
 .gantt-project-meta{
-  margin-top:8px!important;
+  margin-top:6px!important;
+  font-size:11px!important;
+  line-height:1.5!important;
+}
+.gantt-project-top .badge,
+.gantt-list-task-drill-side .badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:24px!important;
+  padding:4px 10px!important;
+  border-radius:999px!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  line-height:1.2!important;
+  white-space:nowrap!important;
 }
 .gantt-project-warn{
   margin-top:8px!important;
@@ -342,6 +372,8 @@ td{
   font-size:12px!important;
   font-weight:800!important;
   color:var(--navy)!important;
+  line-height:1.35!important;
+  letter-spacing:-.02em!important;
 }
 .gantt-support-task-sub{
   margin-top:4px!important;
@@ -1524,22 +1556,193 @@ td{
 .gantt-list-row.is-due-today td{
   background:#FFFCF2!important;
 }
+.gantt-list-child-row td{
+  padding:0 12px 12px!important;
+  border-top:none!important;
+  background:#fff!important;
+}
+.gantt-list-child-row .gantt-list-check-col{
+  background:#fff!important;
+}
 .gantt-list-project-name{
   font-size:13px!important;
   font-weight:800!important;
   color:var(--navy)!important;
+  line-height:1.35!important;
+  letter-spacing:-.02em!important;
 }
 .gantt-list-project-sub{
   margin-top:4px!important;
   font-size:11px!important;
   color:var(--text3)!important;
-  line-height:1.45!important;
+  line-height:1.5!important;
 }
 .gantt-list-project-metachips{
   display:flex!important;
   flex-wrap:wrap!important;
   gap:5px!important;
   margin-top:5px!important;
+}
+.gantt-list-project-actions{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  margin-top:8px!important;
+}
+.gantt-list-drill-toggle{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-height:28px!important;
+  padding:0 10px!important;
+  border:1px solid #E2E8F0!important;
+  border-radius:999px!important;
+  background:#F8FAFC!important;
+  color:#475569!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+  transition:border-color .15s ease, background .15s ease, color .15s ease!important;
+}
+.gantt-list-drill-toggle:hover{
+  border-color:#CBD5E1!important;
+  background:#F1F5F9!important;
+}
+.gantt-list-drill-toggle.active{
+  border-color:#BFDBFE!important;
+  background:#EFF6FF!important;
+  color:#1D4ED8!important;
+}
+.gantt-list-drill-count{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:18px!important;
+  min-height:18px!important;
+  padding:0 5px!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.9)!important;
+  border:1px solid rgba(148,163,184,.22)!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  color:inherit!important;
+}
+.gantt-list-task-drill-shell{
+  display:grid!important;
+  gap:10px!important;
+  padding:12px 0 2px!important;
+  border-top:1px dashed #E2E8F0!important;
+}
+.gantt-list-task-drill-head{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-list-task-drill-title{
+  font-size:12px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+  line-height:1.35!important;
+  letter-spacing:-.02em!important;
+}
+.gantt-list-task-drill-sub{
+  margin-top:3px!important;
+  font-size:11px!important;
+  color:var(--text3)!important;
+  line-height:1.5!important;
+}
+.gantt-list-task-drill-items{
+  display:grid!important;
+  gap:8px!important;
+}
+.gantt-list-task-drill-item{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:12px!important;
+  padding:10px 12px!important;
+  border:1px solid #E2E8F0!important;
+  border-radius:14px!important;
+  background:#FCFDFE!important;
+  text-align:left!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+  transition:border-color .15s ease, background .15s ease!important;
+}
+.gantt-list-task-drill-item:hover{
+  border-color:#CBD5E1!important;
+  background:#F8FBFF!important;
+}
+.gantt-list-task-drill-item.is-danger{
+  background:#FFFBF5!important;
+  border-color:#FDE68A!important;
+}
+.gantt-list-task-drill-item.is-warn{
+  background:#FFFEFA!important;
+  border-color:#FED7AA!important;
+}
+.gantt-list-task-drill-item.is-issue{
+  background:#FBFCFF!important;
+  border-color:#BFDBFE!important;
+}
+.gantt-list-task-drill-main{
+  min-width:0!important;
+}
+.gantt-list-task-drill-name{
+  font-size:12px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+  line-height:1.4!important;
+  letter-spacing:-.02em!important;
+}
+.gantt-list-task-drill-meta{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+  margin-top:4px!important;
+  font-size:11px!important;
+  color:var(--text3)!important;
+}
+.gantt-list-task-drill-side{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:6px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-list-task-drill-empty{
+  padding:12px 14px!important;
+  border:1px dashed #E2E8F0!important;
+  border-radius:14px!important;
+  background:#F8FAFC!important;
+  font-size:12px!important;
+  color:var(--text3)!important;
+  line-height:1.6!important;
+}
+.gantt-list-task-drill-footer{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-list-drill-more{
+  border:none!important;
+  background:transparent!important;
+  color:#1D4ED8!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  font-family:inherit!important;
+  padding:0!important;
+  cursor:pointer!important;
+}
+.gantt-list-task-drill-note{
+  font-size:11px!important;
+  color:var(--text3)!important;
 }
 .gantt-list-member-cell,
 .gantt-list-period-cell{
@@ -1661,6 +1864,26 @@ td{
   background:#EFF6FF!important;
   color:#1D4ED8!important;
 }
+.gantt-support-row td{
+  background:#FCFDFE!important;
+}
+.gantt-support-row .row-label{
+  background:#FCFDFE!important;
+}
+.gantt-support-row .gantt-row-name{
+  font-size:12px!important;
+  color:var(--text2)!important;
+}
+.gantt-support-row .bar{
+  opacity:.58!important;
+}
+.gantt-support-section td{
+  background:#F8FAFC!important;
+  color:var(--text3)!important;
+}
+.leave-marker.is-support-layer{
+  opacity:.5!important;
+}
 .gantt-top-note:empty,
 .gantt-top-note[hidden]{
   display:none!important;
@@ -1727,6 +1950,8 @@ td{
   .gantt-list-search{min-width:0!important;width:100%!important}
   .gantt-list-bulkbar{align-items:flex-start!important}
   .gantt-list-toolbar-main{flex:1 1 100%!important}
+  .gantt-list-task-drill-item{grid-template-columns:1fr!important}
+  .gantt-list-task-drill-side{justify-content:flex-start!important}
 }
 
 .gantt-shell.is-reverted{

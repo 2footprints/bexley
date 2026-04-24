@@ -6,6 +6,8 @@ let ganttListSortKey='period';
 let ganttListSortDir='asc';
 let ganttListSearchQuery='';
 let ganttListSelectedIds=[];
+let ganttListExpandedProjectIds=[];
+let ganttListExpandedMoreProjectIds=[];
 let ganttDetailTab='overview';
 let ganttProjectTasksByProjectId={};
 let ganttProjectTaskLoadMetaByProjectId={};
@@ -17,6 +19,7 @@ let ganttListTaskIssueSummaryLoadingProjectIds=new Set();
 let ganttListExecutionRiskFilters=[];
 let editingProjectTaskProjectId='';
 let editingProjectTaskId='';
+const GANTT_LIST_TASK_DRILL_LIMIT=3;
 
 const GANTT_STATUS_OPTIONS=[
   {value:'all',label:'전체'},
@@ -1020,6 +1023,177 @@ function getGanttListProjectMetaItems(row){
   return items.slice(0,3);
 }
 
+function toggleGanttListTaskDrilldown(projectId){
+  const key=String(projectId||'').trim();
+  if(!key)return;
+  if(ganttListExpandedProjectIds.includes(key)){
+    ganttListExpandedProjectIds=ganttListExpandedProjectIds.filter(id=>id!==key);
+    ganttListExpandedMoreProjectIds=ganttListExpandedMoreProjectIds.filter(id=>id!==key);
+    renderGantt();
+    return;
+  }
+  ganttListExpandedProjectIds=[...ganttListExpandedProjectIds,key];
+  renderGantt();
+  Promise.all([
+    loadGanttProjectTasks(key,false),
+    loadGanttProjectTaskIssueCounts(key,false)
+  ]).finally(()=>{
+    if(curGanttLayout==='list')renderGantt();
+  });
+}
+
+function toggleGanttListTaskDrilldownMore(projectId){
+  const key=String(projectId||'').trim();
+  if(!key)return;
+  if(ganttListExpandedMoreProjectIds.includes(key))ganttListExpandedMoreProjectIds=ganttListExpandedMoreProjectIds.filter(id=>id!==key);
+  else ganttListExpandedMoreProjectIds=[...ganttListExpandedMoreProjectIds,key];
+  renderGantt();
+}
+
+function getGanttListTaskTextBlob(task){
+  return [
+    task?.title||'',
+    task?.description||'',
+    task?.status||'',
+    task?.priority||''
+  ].join(' ').toLowerCase();
+}
+
+function isGanttListLeadershipRelevantTask(task){
+  return /감사|audit|보고|report|결산|패키지|자료|문서|증빙|제출|고객|미팅|커뮤니케이션|컨펌|청구|수금|계약|invoice|billing|collection/i.test(getGanttListTaskTextBlob(task));
+}
+
+function getGanttListTaskFocusMeta(task,row){
+  const dueMeta=getGanttTaskDueMeta(task);
+  const issueCount=getGanttTaskLinkedIssueCount(row?.project?.id,task?.id);
+  const status=String(task?.status||'').trim();
+  const textBlob=getGanttListTaskTextBlob(task);
+  const hasPendingDocs=Number(row?.pendingDocSummary?.total||0)>0;
+  const reasons=[];
+  let score=0;
+  if(dueMeta.tone==='danger'){
+    score+=100;
+    reasons.push('지연');
+  }else if(dueMeta.label==='오늘 마감'){
+    score+=85;
+    reasons.push('오늘 마감');
+  }else if(dueMeta.tone==='warn'){
+    score+=70;
+    reasons.push('기한 임박');
+  }
+  if(issueCount>0){
+    score+=60;
+    reasons.push('이슈 연결');
+  }
+  if((status==='대기'||status==='보류')&&hasPendingDocs){
+    score+=55;
+    reasons.push('자료 확인 필요');
+  }else if(status==='대기'||status==='보류'){
+    score+=38;
+    reasons.push(status==='대기'?'대기':'보류');
+  }
+  if(isGanttListLeadershipRelevantTask(task)){
+    score+=25;
+    if(/청구|수금|계약|invoice|billing|collection/i.test(textBlob))reasons.push('계약/청구 영향');
+    else if(/고객|미팅|커뮤니케이션|컨펌/i.test(textBlob))reasons.push('고객 대응 영향');
+    else if(/자료|문서|증빙|제출/i.test(textBlob))reasons.push('자료 영향');
+    else reasons.push('주요 업무');
+  }
+  if(!String(task?.assignee_member_id||'').trim()&&score>0){
+    score+=12;
+    reasons.push('담당 확인');
+  }
+  return {
+    score,
+    issueCount,
+    dueMeta,
+    reasons:[...new Set(reasons)]
+  };
+}
+
+function getGanttListProjectKeyTasks(row){
+  const projectId=String(row?.project?.id||'').trim();
+  if(!projectId)return [];
+  const tasks=getGanttProjectTasks(projectId).filter(task=>String(task?.status||'').trim()!=='완료');
+  return tasks.map(task=>{
+    const focusMeta=getGanttListTaskFocusMeta(task,row);
+    if(focusMeta.score<45)return null;
+    return {
+      task,
+      focusMeta
+    };
+  }).filter(Boolean).sort((a,b)=>{
+    if(b.focusMeta.score!==a.focusMeta.score)return b.focusMeta.score-a.focusMeta.score;
+    const dueA=getGanttTaskDateValue(a.task?.due_date)||'9999-12-31';
+    const dueB=getGanttTaskDateValue(b.task?.due_date)||'9999-12-31';
+    if(dueA!==dueB)return dueA.localeCompare(dueB);
+    return String(a.task?.title||'').localeCompare(String(b.task?.title||''),'ko');
+  });
+}
+
+function getGanttListTaskDrillTone(task,focusMeta){
+  if(focusMeta?.dueMeta?.tone==='danger')return 'danger';
+  if(focusMeta?.issueCount>0)return 'issue';
+  if(focusMeta?.dueMeta?.tone==='warn'||task?.status==='대기'||task?.status==='보류')return 'warn';
+  return 'neutral';
+}
+
+function renderGanttListTaskDrilldownRow(row){
+  const projectId=String(row?.project?.id||'').trim();
+  if(!projectId)return '';
+  const loadMeta=getGanttProjectTaskLoadMeta(projectId);
+  const hasTaskRows=Array.isArray(ganttProjectTasksByProjectId[projectId]);
+  const keyTasks=hasTaskRows?getGanttListProjectKeyTasks(row):[];
+  const showAll=ganttListExpandedMoreProjectIds.includes(projectId);
+  const visibleTasks=showAll?keyTasks:keyTasks.slice(0,GANTT_LIST_TASK_DRILL_LIMIT);
+  const hiddenCount=Math.max(0,keyTasks.length-visibleTasks.length);
+  let bodyHtml='';
+  if(loadMeta.loading&&!hasTaskRows){
+    bodyHtml='<div class="gantt-list-task-drill-empty">핵심 업무를 불러오는 중입니다.</div>';
+  }else if(loadMeta.error){
+    bodyHtml='<div class="gantt-list-task-drill-empty">'+esc(loadMeta.error)+'</div>';
+  }else if(!visibleTasks.length){
+    bodyHtml='<div class="gantt-list-task-drill-empty">지금 이 목록에서 따로 펼칠 핵심 업무는 없습니다. 상세 조정은 Work 탭에서 이어집니다.</div>';
+  }else{
+    bodyHtml='<div class="gantt-list-task-drill-items">'
+      +visibleTasks.map(item=>{
+        const task=item.task;
+        const focusMeta=item.focusMeta;
+        const tone=getGanttListTaskDrillTone(task,focusMeta);
+        const assignee=getGanttTaskMemberName(task?.assignee_member_id)||'담당자 미지정';
+        const dateMeta=getGanttTaskDateDisplayMeta(task);
+        const cueLabel=focusMeta.reasons[0]||focusMeta.dueMeta?.label||'확인 필요';
+        return '<button type="button" class="gantt-list-task-drill-item is-'+tone+'" onclick="event.stopPropagation();openGanttProjectWorkTab(\''+projectId+'\')">'
+          +'<div class="gantt-list-task-drill-main">'
+            +'<div class="gantt-list-task-drill-name">'+esc(task?.title||'제목 없는 업무')+'</div>'
+            +'<div class="gantt-list-task-drill-meta"><span>'+esc(assignee)+'</span><span>'+esc(dateMeta.dueText)+'</span></div>'
+          +'</div>'
+          +'<div class="gantt-list-task-drill-side">'
+            +'<span class="badge '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span>'
+            +'<span class="gantt-list-mini-chip is-'+tone+'">'+esc(cueLabel)+'</span>'
+          +'</div>'
+        +'</button>';
+      }).join('')
+    +'</div>';
+  }
+  return '<tr class="gantt-list-child-row">'
+    +'<td class="gantt-list-check-col"></td>'
+    +'<td colspan="8">'
+      +'<div class="gantt-list-task-drill-shell">'
+        +'<div class="gantt-list-task-drill-head">'
+          +'<div><div class="gantt-list-task-drill-title">관련 업무</div><div class="gantt-list-task-drill-sub">프로젝트 수준 스캔을 유지하고, 리스크를 설명하는 핵심 업무만 보여줍니다.</div></div>'
+          +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();openGanttProjectWorkTab(\''+projectId+'\')">Work 보기</button>'
+        +'</div>'
+        +bodyHtml
+        +'<div class="gantt-list-task-drill-footer">'
+          +(hiddenCount?'<button type="button" class="gantt-list-drill-more" onclick="event.stopPropagation();toggleGanttListTaskDrilldownMore(\''+projectId+'\')">'+(showAll?'핵심 업무 접기':'핵심 업무 '+hiddenCount+'건 더 보기')+'</button>':'<span class="gantt-list-task-drill-note">상세 관리와 조정은 Work 탭에서 이어집니다.</span>')
+          +(visibleTasks.length?'<span class="gantt-list-task-drill-note">세부 조정은 Work 탭에서 이어집니다.</span>':'')
+        +'</div>'
+      +'</div>'
+    +'</td>'
+  +'</tr>';
+}
+
 function getGanttListExecutionSignalItems(row){
   const items=[];
   if(row?.riskMeta?.label&&row.riskMeta.label!=='정상')items.push({label:row.riskMeta.label,tone:row.riskMeta.tone});
@@ -1241,6 +1415,8 @@ function renderGanttListView(projs,schs){
   const rows=sortGanttListRows(filterGanttListRows(getGanttListProjectRows(projs)));
   const visibleProjectIds=new Set(rows.map(row=>String(row.project?.id||'')));
   ganttListSelectedIds=ganttListSelectedIds.filter(id=>visibleProjectIds.has(String(id)));
+  ganttListExpandedProjectIds=ganttListExpandedProjectIds.filter(id=>visibleProjectIds.has(String(id)));
+  ganttListExpandedMoreProjectIds=ganttListExpandedMoreProjectIds.filter(id=>visibleProjectIds.has(String(id)));
   const selectableRows=rows.filter(row=>canManageGanttListProject(row.project));
   const selectedSet=new Set(ganttListSelectedIds.map(id=>String(id)));
   const allSelected=!!selectableRows.length&&selectableRows.every(row=>selectedSet.has(String(row.project?.id||'')));
@@ -1292,9 +1468,14 @@ function renderGanttListView(projs,schs){
       +'<tbody>'
       +rows.map(row=>{
         const project=row.project;
+        const projectId=String(project?.id||'');
         const selected=selectedSet.has(String(project.id));
         const canManage=canManageGanttListProject(project);
         const metaItems=getGanttListProjectMetaItems(row);
+        const hasTaskSummary=Number(row?.taskSummary?.total||0)>0;
+        const isExpanded=ganttListExpandedProjectIds.includes(projectId);
+        const loadedKeyTaskCount=Array.isArray(ganttProjectTasksByProjectId[projectId])?getGanttListProjectKeyTasks(row).length:0;
+        const drillCount=loadedKeyTaskCount||Number(row?.taskSummary?.openCount||row?.taskSummary?.total||0);
         const rowStateClass=isGanttProjectOverdue(project)
           ?' is-overdue'
           :isDueToday(project)
@@ -1304,10 +1485,10 @@ function renderGanttListView(projs,schs){
               :row.riskMeta?.tone==='warn'
                 ?' is-attention'
                 :'';
-        return '<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
+        const mainRow='<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
           +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+project.id+'\')" /></td>'
           +'<td>'+esc(row.clientName)+'</td>'
-          +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div><div class="gantt-list-project-sub">'+esc(row.typeText)+'</div>'+(metaItems.length?'<div class="gantt-list-project-metachips" title="'+esc(row.taskSummaryTitle||'')+'">'+renderGanttListMetaChips(metaItems)+'</div>':'')+'</td>'
+          +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div><div class="gantt-list-project-sub">'+esc(row.typeText)+'</div>'+(metaItems.length?'<div class="gantt-list-project-metachips" title="'+esc(row.taskSummaryTitle||'')+'">'+renderGanttListMetaChips(metaItems)+'</div>':'')+(hasTaskSummary?'<div class="gantt-list-project-actions"><button type="button" class="gantt-list-drill-toggle'+(isExpanded?' active':'')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+project.id+'\')">관련 업무'+(drillCount?'<span class="gantt-list-drill-count">'+drillCount+'</span>':'')+'</button></div>':'')+'</td>'
           +'<td><div class="gantt-list-member-cell">'+esc(row.memberText)+'</div></td>'
           +'<td><div class="gantt-list-period-cell">'+esc(row.periodText)+'</div></td>'
           +'<td><span class="badge '+getGanttListStatusBadgeClass(row.status)+'">'+esc(row.status)+'</span></td>'
@@ -1315,6 +1496,7 @@ function renderGanttListView(projs,schs){
           +'<td><div class="gantt-list-attention-cell" title="'+esc(getGanttListAttentionSubtext(row)||row.riskMeta?.detail||'')+'">'+renderGanttListAttentionBadges(row)+'</div></td>'
           +'<td><div class="gantt-list-billing-cell"><span class="badge '+getGanttListBillingBadgeClass(row.billingStatus)+'">'+esc(row.billingStatus)+'</span>'+(row.billingAmount>0?'<div class="gantt-list-billing-sub">'+formatGanttCurrency(row.billingAmount)+'</div>':'')+'</div></td>'
         +'</tr>';
+        return mainRow+(isExpanded?renderGanttListTaskDrilldownRow(row):'');
       }).join('')
       +'</tbody>'
     +'</table></div>'

@@ -1236,6 +1236,55 @@ function toggleLadderMember(el){
   el.style.borderColor=el.classList.contains('active')?'var(--navy)':'var(--border)';
 }
 
+const HOME_LUNCH_FALLBACK_OPTIONS=[
+  {name:'김치찌개',category:'한식',memo:'무난하게 선택하기 좋은 메뉴'},
+  {name:'제육볶음',category:'한식',memo:'든든하게 먹기 좋은 메뉴'},
+  {name:'짜장면',category:'중식',memo:'빠르게 해결하기 좋은 메뉴'},
+  {name:'짬뽕',category:'중식',memo:'국물 있는 메뉴가 필요할 때'},
+  {name:'초밥',category:'일식',memo:'가볍지만 만족도가 높은 메뉴'},
+  {name:'돈카츠',category:'일식',memo:'호불호가 적은 편입니다'},
+  {name:'파스타',category:'양식',memo:'분위기 전환이 필요할 때'},
+  {name:'샌드위치',category:'양식',memo:'짧은 점심 시간에 무난합니다'},
+  {name:'떡볶이',category:'분식',memo:'가볍게 즐기기 좋은 메뉴'},
+  {name:'김밥',category:'분식',memo:'빠르고 편하게 먹기 좋습니다'},
+  {name:'샐러드볼',category:'기타',memo:'가볍게 먹고 싶을 때'},
+  {name:'쌀국수',category:'기타',memo:'부담이 적은 따뜻한 메뉴'}
+];
+let homeLastLunchPickKey='';
+
+function getLunchPickerCategories(){
+  return ['한식','중식','일식','양식','분식','기타'];
+}
+
+function renderLunchPickerFeedback(html){
+  const el=document.getElementById('lunchResult');
+  if(el)el.innerHTML=html;
+}
+
+async function getLunchPickerOptions(activeCats){
+  const categories=Array.isArray(activeCats)?activeCats.filter(Boolean):[];
+  const fallbackList=HOME_LUNCH_FALLBACK_OPTIONS.filter(item=>!categories.length||categories.includes(item.category));
+  try{
+    let q='restaurants?select=*';
+    if(categories.length) q+='&category=in.('+categories.map(c=>'"'+c+'"').join(',')+')';
+    const list=await api('GET',q);
+    if(Array.isArray(list)&&list.length)return {list,usedFallback:false};
+  }catch(e){}
+  return {list:fallbackList,usedFallback:true};
+}
+
+function pickStableLunchItem(list){
+  const rows=Array.isArray(list)?list.filter(Boolean):[];
+  if(!rows.length)return null;
+  if(rows.length===1)return rows[0];
+  const nextPool=rows.filter(item=>{
+    const key=[item?.category||'',item?.name||''].join('::');
+    return key!==homeLastLunchPickKey;
+  });
+  const pool=nextPool.length?nextPool:rows;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
 async function openLunchPicker(){
   document.getElementById('modalArea').innerHTML=
     '<div class="overlay" onclick="if(event.target===this)closeModal()">'
@@ -1243,28 +1292,40 @@ async function openLunchPicker(){
     +'<div class="modal-title">🍱 오늘 점심 뭐 먹지?</div>'
     +'<div style="font-size:12px;color:var(--text3);margin-bottom:16px">카테고리를 선택하면 랜덤으로 추천해드려요</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px" id="lunchCatWrap">'
-    +['한식','중식','일식','양식','분식','기타'].map(c=>'<button class="btn sm lunch-cat '+(c==='한식'?'active':'')+'" data-cat="'+c+'" onclick="toggleLunchCat(this)" style="border-radius:20px">'+c+'</button>').join('')
+    +getLunchPickerCategories().map(c=>'<button class="btn sm lunch-cat '+(c==='한식'?'active':'')+'" data-cat="'+c+'" onclick="toggleLunchCat(this)" style="border-radius:20px">'+c+'</button>').join('')
     +'</div>'
     +'<div id="lunchResult" style="min-height:80px;display:flex;align-items:center;justify-content:center"></div>'
     +'<div class="modal-footer">'
     +'<button class="btn ghost sm" onclick="openRestaurantManager()">식당 관리</button>'
     +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn primary" onclick="pickLunch()">추천받기 🎲</button></div>'
     +'</div></div></div>';
+  renderLunchPickerFeedback('<div style="color:var(--text3);font-size:13px;text-align:center">추천받기를 누르면 오늘 점심 후보를 바로 보여드립니다.</div>');
+  setTimeout(()=>{if(document.getElementById('lunchResult'))pickLunch();},0);
 }
 
-function toggleLunchCat(btn){btn.classList.toggle('active');}
+function toggleLunchCat(btn){
+  btn.classList.toggle('active');
+  const hasActive=document.querySelectorAll('.lunch-cat.active').length>0;
+  if(!hasActive)btn.classList.add('active');
+  if(document.getElementById('lunchResult'))pickLunch();
+}
 
 async function pickLunch(){
   const activeCats=[...document.querySelectorAll('.lunch-cat.active')].map(b=>b.dataset.cat);
-  const el=document.getElementById('lunchResult');
-  el.innerHTML='<div style="color:var(--text3);font-size:13px">고르는 중...</div>';
+  renderLunchPickerFeedback('<div style="color:var(--text3);font-size:13px">고르는 중...</div>');
   try{
-    let q='restaurants?select=*';
-    if(activeCats.length) q+='&category=in.('+activeCats.map(c=>'"'+c+'"').join(',')+')';
-    const list=await api('GET',q);
-    if(!list||!list.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center">선택한 카테고리의 식당이 없어요.<br>식당을 먼저 추가해주세요!</div>';return;}
-    const pick=list[Math.floor(Math.random()*list.length)];
-    el.innerHTML='<div style="text-align:center;width:100%">'
+    const {list,usedFallback}=await getLunchPickerOptions(activeCats);
+    if(!list||!list.length){
+      renderLunchPickerFeedback('<div style="color:var(--text3);font-size:13px;text-align:center">선택한 카테고리의 식당이 없어요.<br>식당을 먼저 추가해주세요!</div>');
+      return;
+    }
+    const pick=pickStableLunchItem(list);
+    if(!pick){
+      renderLunchPickerFeedback('<div style="color:var(--text3);font-size:13px;text-align:center">추천할 메뉴를 찾지 못했습니다.<br>잠시 후 다시 시도해주세요.</div>');
+      return;
+    }
+    homeLastLunchPickKey=[pick?.category||'',pick?.name||''].join('::');
+    renderLunchPickerFeedback('<div style="text-align:center;width:100%">'
       +'<div style="font-size:32px;margin-bottom:8px">🎉</div>'
       +'<div style="font-size:22px;font-weight:800;color:var(--navy);letter-spacing:-.5px">'+esc(pick.name)+'</div>'
       +'<div style="margin-top:6px;display:flex;gap:6px;justify-content:center">'
@@ -1272,8 +1333,11 @@ async function pickLunch(){
       +(pick.distance?'<span class="badge" style="background:var(--bg);color:var(--text2)">🚶 '+esc(pick.distance)+'</span>':'')
       +'</div>'
       +(pick.memo?'<div style="font-size:12px;color:var(--text3);margin-top:8px">'+esc(pick.memo)+'</div>':'')
-      +'</div>';
-  }catch(e){el.innerHTML='<div style="color:var(--red);font-size:12px">오류: '+esc(e.message)+'</div>';}
+      +(usedFallback?'<div style="font-size:11px;color:var(--text3);margin-top:10px">등록된 식당이 없거나 조회되지 않아 기본 메뉴 후보에서 추천했습니다.</div>':'')
+      +'</div>');
+  }catch(e){
+    renderLunchPickerFeedback('<div style="color:var(--text3);font-size:12px;text-align:center">추천을 불러오지 못했습니다.<br>기본 메뉴 후보도 확인해보세요.</div>');
+  }
 }
 
 async function openRestaurantManager(){
