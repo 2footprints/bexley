@@ -334,22 +334,26 @@
   background:#FEF2F2;
 }
 .client-owner{
-  margin-top:4px;
-  font-size:12px;
+  margin-top:6px;
+  font-size:11px;
   color:var(--text2);
   line-height:1.5;
 }
 .client-card-stats{
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
   margin-top:14px;
+  padding:12px 0;
+  border-top:1px solid rgba(10,37,64,.06);
+  border-bottom:1px solid rgba(10,37,64,.06);
 }
 .client-card-stat{
-  padding:11px 12px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  background:#FBFCFE;
+  min-width:0;
+  padding:0;
+  border:none;
+  border-radius:0;
+  background:transparent;
 }
 .client-card-stat span{
   display:block;
@@ -361,11 +365,17 @@
 }
 .client-card-stat strong{
   display:block;
-  margin-top:6px;
-  font-size:15px;
+  margin-top:4px;
+  font-size:14px;
   font-weight:800;
   color:var(--navy);
   line-height:1.3;
+}
+.client-card-summary{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:12px;
 }
 .client-signal-row{
   display:flex;
@@ -387,14 +397,14 @@
 }
 .client-card-reason,
 .client-card-next{
-  margin-top:12px;
-  padding:11px 12px;
-  border-radius:14px;
-  border:1px solid rgba(10,37,64,.08);
-  background:#FAFBFD;
-}
-.client-card-next{
-  background:#F7FAFD;
+  margin-top:0;
+  padding:0;
+  border:none;
+  background:transparent;
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr);
+  gap:10px;
+  align-items:start;
 }
 .client-card-reason-label,
 .client-card-next-label{
@@ -404,11 +414,12 @@
   color:var(--text3);
   letter-spacing:.08em;
   text-transform:uppercase;
+  padding-top:2px;
 }
 .client-card-reason strong,
 .client-card-next-text{
   display:block;
-  margin-top:5px;
+  margin-top:0;
   font-size:12px;
   font-weight:700;
   color:var(--text2);
@@ -416,17 +427,24 @@
 }
 .client-card-next-text{
   color:var(--navy);
-  font-weight:800;
+  font-weight:700;
 }
 .client-footer{
-  margin-top:12px;
-  align-items:flex-start;
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(10,37,64,.05);
+  align-items:center;
   gap:8px;
 }
 .client-footer-meta{
-  font-size:11px;
+  font-size:10.5px;
   color:var(--text3);
-  font-weight:700;
+  font-weight:600;
+}
+.client-recent{
+  font-size:10.5px;
+  color:var(--text3)!important;
+  font-weight:600;
 }
 .client-empty-state{
   grid-column:1 / -1;

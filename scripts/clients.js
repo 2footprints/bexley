@@ -2463,7 +2463,6 @@ renderClientCard=function(detail){
   const cardHealth=detail.cardHealthMeta||getClientCardHealthMeta(detail);
   const recentActivity=detail.recentActivityMeta||getClientRecentActivityMeta(detail.recentActivityAt);
   const managerText=detail.managerNames.length?detail.managerNames.join(', '):'미배정';
-  const tags=getClientPortfolioTags(detail);
   const reasonText=getClientPortfolioReasonText(detail);
   const actionMeta=getClientPortfolioActionMeta(detail);
   return '<div class="client-card is-'+cardHealth.tone+'" onclick="openClientDetail(this.dataset.id)" data-id="'+detail.client.id+'">'
@@ -2478,9 +2477,10 @@ renderClientCard=function(detail){
       +'<div class="client-card-stat"><span>미청구</span><strong>'+(detail.unbilledAmount?formatClientCompactCurrency(detail.unbilledAmount):'없음')+'</strong></div>'
       +'<div class="client-card-stat"><span>자료</span><strong>'+detail.pendingDocCount+'건</strong></div>'
     +'</div>'
-    +(tags.length?'<div class="client-signal-row">'+tags.map(tag=>'<span class="client-signal-chip">'+esc(tag)+'</span>').join('')+'</div>':'')
-    +'<div class="client-card-reason"><span class="client-card-reason-label">'+esc(cardHealth.tone==='normal'?'현재 상태':'주의 이유')+'</span><strong>'+esc(reasonText)+'</strong></div>'
-    +'<div class="client-card-next"><span class="client-card-next-label">'+esc(actionMeta.label)+'</span><strong class="client-card-next-text">'+esc(actionMeta.text)+'</strong></div>'
+    +'<div class="client-card-summary">'
+      +'<div class="client-card-reason"><span class="client-card-reason-label">'+esc(cardHealth.tone==='normal'?'현재 상태':'주의 이유')+'</span><strong>'+esc(reasonText)+'</strong></div>'
+      +'<div class="client-card-next"><span class="client-card-next-label">'+esc(actionMeta.label)+'</span><strong class="client-card-next-text">'+esc(actionMeta.text)+'</strong></div>'
+    +'</div>'
     +'<div class="client-footer"><span class="client-footer-meta">'+(detail.activeContractCount?'활성 계약 '+detail.activeContractCount+'건':'활성 계약 없음')+'</span><span class="client-recent'+(recentActivity.isStale?' is-stale':'')+'">'+esc(recentActivity.text)+'</span></div>'
   +'</div>';
 };
