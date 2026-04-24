@@ -4,6 +4,159 @@ function getHomeBaseDate(){
   return today;
 }
 
+async function renderHomeRiskSummary(){
+  const el=document.getElementById('homeRiskWrap');
+  if(!el)return;
+  const loadingLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+  el.innerHTML='<div class="home-risk-grid">'
+    +loadingLabels.map(label=>
+      '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">불러오는 중...</div></div>'
+    ).join('')
+    +'</div>';
+  try{
+    const today=getHomeBaseDate();
+    const dueLimit=new Date(today);
+    dueLimit.setDate(today.getDate()+3);
+    const isCompletedProject=project=>{
+      const statusRaw=String(project?.status||'').trim();
+      const statusKey=statusRaw.toLowerCase().replace(/[\s-]+/g,'_');
+      return statusRaw==='완료'||statusKey==='completed'||statusKey==='done';
+    };
+    const todayDueProjects=(projects||[]).filter(project=>{
+      const endDateRaw=project.end||project.end_date;
+      if(!endDateRaw||isCompletedProject(project))return false;
+      return toDate(endDateRaw).getTime()===today.getTime();
+    }).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+    const overdueProjects=(projects||[]).filter(project=>{
+      const endDateRaw=project.end||project.end_date;
+      if(!endDateRaw||isCompletedProject(project))return false;
+      return toDate(endDateRaw)<today;
+    }).sort((a,b)=>{
+      const diff=toDate(a.end||a.end_date)-toDate(b.end||b.end_date);
+      if(diff)return diff;
+      return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+    });
+    const [issueRows,pendingDocs]=await Promise.all([
+      (currentMember?.id||currentMember?.name)
+        ?api('GET','project_issues?select=id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
+        :Promise.resolve([]),
+      api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
+    ]);
+    const myOpenIssues=(issueRows||[]).filter(issue=>{
+      const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
+        ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
+      return matchesAssignee&&isIssueActiveStatus(issue?.status);
+    });
+    const myHighPriorityIssues=myOpenIssues.filter(issue=>String(issue?.priority||'').trim().toLowerCase()==='high');
+    const unbilledProjects=(projects||[]).filter(project=>
+      isCompletedProject(project)
+      &&project?.is_billable
+      &&String(project?.billing_status||'').trim()==='미청구'
+    );
+    const pendingBillingAmount=unbilledProjects.reduce((sum,project)=>sum+getHomeProjectBillingAmount(project),0);
+    const pendingDocRows=(pendingDocs||[]).filter(row=>{
+      if(!row?.due_date)return false;
+      return toDate(row.due_date)<=dueLimit;
+    }).sort((a,b)=>{
+      const diff=toDate(a.due_date)-toDate(b.due_date);
+      if(diff)return diff;
+      return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
+    });
+    const firstPendingProjectId=pendingDocRows[0]?.project_id||'';
+    const activeMembers=(members||[]).filter(member=>{
+      const isActive=member?.is_active===undefined?true:!!member.is_active;
+      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
+      return isActive&&!/projectschedule|system|test/.test(identity);
+    });
+    const getTodayScheduleMemberNames=type=>[...new Set((schedules||[])
+      .filter(schedule=>{
+        const scheduleType=String(schedule?.schedule_type||'').trim();
+        if(scheduleType!==type)return false;
+        const startDate=toDate(schedule.start||schedule.start_date);
+        const endDate=toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date);
+        return startDate<=today&&endDate>=today;
+      })
+      .flatMap(schedule=>getScheduleMemberNames(schedule))
+      .filter(Boolean))];
+    const todayLeaveCount=getTodayScheduleMemberNames('leave').length;
+    const todayFieldworkCount=getTodayScheduleMemberNames('fieldwork').length;
+    const activeMemberCount=activeMembers.length;
+    const availableMemberCount=Math.max(activeMemberCount-todayLeaveCount,0);
+    const leaveRatio=activeMemberCount?todayLeaveCount/activeMemberCount:0;
+    const oldestOverdue=overdueProjects[0]||null;
+    const oldestOverdueDiff=oldestOverdue?Math.max(1,Math.round((today.getTime()-toDate(oldestOverdue.end||oldestOverdue.end_date).getTime())/86400000)):0;
+    const cards=[
+      {
+        label:'오늘 마감',
+        value:todayDueProjects.length?todayDueProjects.length+'건':'없음',
+        tone:todayDueProjects.length?'warning':'neutral',
+        quiet:!todayDueProjects.length,
+        emphasis:'action',
+        meta:todayDueProjects.length?('프로젝트 관리에서 '+todayDueProjects.length+'건 확인'):'오늘 마감 프로젝트 없음',
+        action:"setPage('projects')"
+      },
+      {
+        label:'지연 중',
+        value:overdueProjects.length?overdueProjects.length+'건':'없음',
+        tone:overdueProjects.length?'danger':'neutral',
+        quiet:!overdueProjects.length,
+        emphasis:'action',
+        meta:oldestOverdue?('프로젝트 관리에서 D+'+oldestOverdueDiff+' 확인'):'지연 프로젝트 없음',
+        action:"setPage('projects')"
+      },
+      {
+        label:'자료 확인 필요',
+        value:pendingDocRows.length?pendingDocRows.length+'건':'없음',
+        tone:pendingDocRows.length?'warning':'neutral',
+        quiet:!pendingDocRows.length,
+        emphasis:'action',
+        meta:pendingDocRows.length?('프로젝트 문서 탭에서 '+pendingDocRows.length+'건 확인'):'기한 자료 요청 없음',
+        action:pendingDocRows.length&&firstPendingProjectId
+          ?"openProjModal('"+firstPendingProjectId+"',null,null,'documents')"
+          :"alert('기한 자료 요청이 없습니다.')"
+      },
+      {
+        label:'내 이슈',
+        value:myOpenIssues.length?myOpenIssues.length+'건':'없음',
+        tone:myOpenIssues.length?'warning':'neutral',
+        quiet:!myOpenIssues.length,
+        emphasis:'action',
+        meta:myOpenIssues.length
+          ?(myHighPriorityIssues.length?('Issues에서 우선 확인 '+myHighPriorityIssues.length+'건'):'Issues에서 '+myOpenIssues.length+'건 확인')
+          :(currentMember?.name?'내 담당 열린 이슈 없음':'담당자 정보 없음'),
+        action:"setPage('issues')"
+      },
+      {
+        label:'미청구',
+        value:pendingBillingAmount?pendingBillingAmount.toLocaleString()+'원':'없음',
+        tone:pendingBillingAmount?'danger':'neutral',
+        quiet:!pendingBillingAmount,
+        emphasis:'action',
+        meta:unbilledProjects.length?('계약 탭에서 '+unbilledProjects.length+'건 확인'):'미청구 프로젝트 없음',
+        action:"setPage('contracts')"
+      },
+      {
+        label:'오늘 휴가',
+        value:activeMemberCount?(todayLeaveCount+'/'+activeMemberCount+'명'):(todayLeaveCount+'명'),
+        tone:todayLeaveCount&&leaveRatio>=0.3?'warning':'neutral',
+        quiet:!(todayLeaveCount&&leaveRatio>=0.3),
+        meta:todayLeaveCount
+          ?('팀 일정에서 가용 '+availableMemberCount+'명 확인'+(todayFieldworkCount?' · 필드 '+todayFieldworkCount+'명':''))
+          :('팀 일정에서 전체 '+activeMemberCount+'명 확인'+(todayFieldworkCount?' · 필드 '+todayFieldworkCount+'명':'')),
+        action:"openDashDrilldown('leave')"
+      }
+    ];
+    el.innerHTML='<div class="home-risk-grid">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>';
+  }catch(e){
+    const fallbackLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+    el.innerHTML='<div class="home-risk-grid">'
+      +fallbackLabels.map(label=>
+        '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">상단 요약을 불러오지 못했습니다.</div></div>'
+      ).join('')
+      +'</div>';
+  }
+}
+
 let homeTodayScheduleExpanded=false;
 
 function formatHomeShortDate(dateLike){
@@ -466,11 +619,20 @@ function getHomeRecentWorkItems(limit=4){
     .slice(0,limit);
 }
 
+function getHomeDailyWorkDestinationLabel(item){
+  if(item?.sourceType==='issue'||item?.kind==='issue')return '이슈 상세';
+  if(item?.sourceType==='schedule'||item?.kind==='schedule')return '일정 상세';
+  return '프로젝트 상세';
+}
+
 function renderHomeDailyWorkCard(item){
   const badgeLabel=item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정');
   const badgeClass=item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule');
   const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
-  return '<button type="button" class="home-daily-work-card" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+  const toneClass=item.dueMeta?.tone==='urgent'
+    ?' is-urgent'
+    :(item.dueMeta?.tone==='warn'||item.kind==='issue'?' is-warn':'');
+  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
     +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
     +'<span class="home-daily-work-context">'+esc(item.context)+'</span>'
     +'<span class="home-daily-work-divider">—</span>'
@@ -537,7 +699,10 @@ function renderHomeDailyWorkCard(item){
     +'<span class="home-daily-work-context">'+esc(item.context)+'</span>'
     +'<span class="home-daily-work-divider">·</span>'
     +'<span class="home-daily-work-summary">'+esc(item.summary)+'</span>'
-    +'<span class="home-daily-work-due'+dueClass+'">'+esc(dueLabel)+'</span>'
+    +'<span class="home-daily-work-due-wrap">'
+      +'<span class="home-daily-work-due'+dueClass+'">'+esc(dueLabel||'확인 필요')+'</span>'
+      +'<span class="home-daily-work-destination">'+esc(getHomeDailyWorkDestinationLabel(item))+'</span>'
+    +'</span>'
     +'</button>';
 }
 
@@ -660,6 +825,32 @@ function renderHomeDailyWorkCard(item){
       +'<span class="home-daily-work-summary">'+esc(item.summary||'')+'</span>'
     +'</span>'
     +'<span class="home-daily-work-due'+dueClass+'">'+esc(dueLabel)+'</span>'
+    +'</button>';
+}
+
+function renderHomeDailyWorkCard(item){
+  const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
+  const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
+  const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
+  const dueLabel=item.dueMeta?.diff===0?'오늘 마감':(item.dueMeta?.label||'');
+  const contextLead=item.contextLead||'';
+  const contextTitle=item.contextTitle||item.context||'';
+  const toneClass=item.dueMeta?.tone==='urgent'
+    ?' is-urgent'
+    :(item.dueMeta?.tone==='warn'||item.kind==='issue'?' is-warn':'');
+  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+    +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
+    +'<span class="home-daily-work-copy">'
+      +'<span class="home-daily-work-topline">'
+        +(contextLead?'<span class="home-daily-work-context-lead">'+esc(contextLead)+'</span>':'')
+        +'<span class="home-daily-work-context-title">'+esc(contextTitle)+'</span>'
+      +'</span>'
+      +'<span class="home-daily-work-summary">'+esc(item.summary||'')+'</span>'
+    +'</span>'
+    +'<span class="home-daily-work-due-wrap">'
+      +'<span class="home-daily-work-due'+dueClass+'">'+esc(dueLabel||'확인 필요')+'</span>'
+      +'<span class="home-daily-work-destination">'+esc(getHomeDailyWorkDestinationLabel(item))+'</span>'
+    +'</span>'
     +'</button>';
 }
 
@@ -1627,7 +1818,57 @@ async function renderHomeRiskSummaryLegacy(){
       }
     ];
 
-    el.innerHTML='<div class="home-risk-grid">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>';
+    const normalizedCards=cards.map((card,index)=>{
+      if(index===0){
+        return {
+          ...card,
+          label:'오늘 마감',
+          meta:todayDueProjects.length?('프로젝트 관리에서 '+todayDueProjects.length+'건 확인'):'오늘 마감 프로젝트 없음'
+        };
+      }
+      if(index===1){
+        return {
+          ...card,
+          label:'지연 중',
+          meta:oldestOverdue?('프로젝트 관리에서 D+'+oldestOverdueDiff+' 확인'):'지연 프로젝트 없음'
+        };
+      }
+      if(index===2){
+        return {
+          ...card,
+          label:'자료 확인 필요',
+          meta:pendingDocRows.length?('프로젝트 문서 탭에서 '+pendingDocRows.length+'건 확인'):'기한 자료 요청 없음'
+        };
+      }
+      if(index===3){
+        return {
+          ...card,
+          label:'내 이슈',
+          meta:myOpenIssues.length
+            ?(myHighPriorityIssues.length?('Issues에서 우선 확인 '+myHighPriorityIssues.length+'건'):'Issues에서 '+myOpenIssues.length+'건 확인')
+            :(currentMember?.name?'내 담당 열린 이슈 없음':'담당자 정보 없음')
+        };
+      }
+      if(index===4){
+        return {
+          ...card,
+          label:'미청구',
+          meta:unbilledProjects.length?('계약 탭에서 '+unbilledProjects.length+'건 확인'):'미청구 프로젝트 없음'
+        };
+      }
+      if(index===5){
+        return {
+          ...card,
+          label:'오늘 휴가',
+          meta:todayLeaveCount
+            ?('팀 일정에서 가용 '+availableMemberCount+'명 확인'+(todayFieldworkCount?' · 필드 '+todayFieldworkCount+'명':''))
+            :('팀 일정에서 전체 '+activeMemberCount+'명 확인'+(todayFieldworkCount?' · 필드 '+todayFieldworkCount+'명':''))
+        };
+      }
+      return card;
+    });
+
+    el.innerHTML='<div class="home-risk-grid">'+normalizedCards.map(renderHomeRiskSummaryCard).join('')+'</div>';
   }catch(e){
     el.innerHTML='<div class="home-risk-grid">'
       +['오늘 마감','지연중','내 이슈','미청구','자료 대기','팀 가용성'].map(label=>
@@ -2126,3 +2367,182 @@ async function renderHomeRiskSummary(){
       +'</div>';
   }
 }
+
+renderHomeDailyWorkCard = function(item){
+  const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
+  const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
+  const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
+  const dueLabel=item.dueMeta?.diff===0?'오늘 마감':(item.dueMeta?.label||'');
+  const contextLead=item.contextLead||'';
+  const contextTitle=item.contextTitle||item.context||'';
+  const toneClass=item.dueMeta?.tone==='urgent'
+    ?' is-urgent'
+    :(item.dueMeta?.tone==='warn'||item.kind==='issue'?' is-warn':'');
+  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+    +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
+    +'<span class="home-daily-work-copy">'
+      +'<span class="home-daily-work-topline">'
+        +(contextLead?'<span class="home-daily-work-context-lead">'+esc(contextLead)+'</span>':'')
+        +'<span class="home-daily-work-context-title">'+esc(contextTitle)+'</span>'
+      +'</span>'
+      +'<span class="home-daily-work-summary">'+esc(item.summary||'')+'</span>'
+    +'</span>'
+    +'<span class="home-daily-work-due-wrap">'
+      +'<span class="home-daily-work-due'+dueClass+'">'+esc(dueLabel||'확인 필요')+'</span>'
+      +'<span class="home-daily-work-destination">'+esc(getHomeDailyWorkDestinationLabel(item))+'</span>'
+    +'</span>'
+    +'</button>';
+};
+
+renderHomeRiskSummary = async function(){
+  const el=document.getElementById('homeRiskWrap');
+  if(!el)return;
+  const loadingLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+  el.innerHTML='<div class="home-risk-grid">'
+    +loadingLabels.map(label=>
+      '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">불러오는 중...</div></div>'
+    ).join('')
+    +'</div>';
+  try{
+    const today=getHomeBaseDate();
+    const dueLimit=new Date(today);
+    dueLimit.setDate(today.getDate()+3);
+    const isCompletedProject=project=>{
+      const statusRaw=String(project?.status||'').trim();
+      const statusKey=statusRaw.toLowerCase().replace(/[\s-]+/g,'_');
+      return statusRaw==='완료'||statusKey==='completed'||statusKey==='done';
+    };
+    const todayDueProjects=(projects||[]).filter(project=>{
+      const endDateRaw=project.end||project.end_date;
+      if(!endDateRaw||isCompletedProject(project))return false;
+      return toDate(endDateRaw).getTime()===today.getTime();
+    }).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+    const overdueProjects=(projects||[]).filter(project=>{
+      const endDateRaw=project.end||project.end_date;
+      if(!endDateRaw||isCompletedProject(project))return false;
+      return toDate(endDateRaw)<today;
+    }).sort((a,b)=>{
+      const diff=toDate(a.end||a.end_date)-toDate(b.end||b.end_date);
+      if(diff)return diff;
+      return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+    });
+    const [issueRows,pendingDocs]=await Promise.all([
+      (currentMember?.id||currentMember?.name)
+        ?api('GET','project_issues?select=id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
+        :Promise.resolve([]),
+      api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
+    ]);
+    const myOpenIssues=(issueRows||[]).filter(issue=>{
+      const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
+        ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
+      return matchesAssignee&&isIssueActiveStatus(issue?.status);
+    });
+    const myHighPriorityIssues=myOpenIssues.filter(issue=>String(issue?.priority||'').trim().toLowerCase()==='high');
+    const unbilledProjects=(projects||[]).filter(project=>
+      isCompletedProject(project)
+      &&project?.is_billable
+      &&String(project?.billing_status||'').trim()==='미청구'
+    );
+    const pendingBillingAmount=unbilledProjects.reduce((sum,project)=>sum+getHomeProjectBillingAmount(project),0);
+    const pendingDocRows=(pendingDocs||[]).filter(row=>{
+      if(!row?.due_date)return false;
+      return toDate(row.due_date)<=dueLimit;
+    }).sort((a,b)=>{
+      const diff=toDate(a.due_date)-toDate(b.due_date);
+      if(diff)return diff;
+      return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
+    });
+    const firstPendingProjectId=pendingDocRows[0]?.project_id||'';
+    const activeMembers=(members||[]).filter(member=>{
+      const isActive=member?.is_active===undefined?true:!!member.is_active;
+      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
+      return isActive&&!/projectschedule|system|test/.test(identity);
+    });
+    const getTodayScheduleMemberNames=type=>[...new Set((schedules||[])
+      .filter(schedule=>{
+        const scheduleType=String(schedule?.schedule_type||'').trim();
+        if(scheduleType!==type)return false;
+        const startDate=toDate(schedule.start||schedule.start_date);
+        const endDate=toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date);
+        return startDate<=today&&endDate>=today;
+      })
+      .flatMap(schedule=>getScheduleMemberNames(schedule))
+      .filter(Boolean))];
+    const todayLeaveCount=getTodayScheduleMemberNames('leave').length;
+    const todayFieldworkCount=getTodayScheduleMemberNames('fieldwork').length;
+    const activeMemberCount=activeMembers.length;
+    const availableMemberCount=Math.max(activeMemberCount-todayLeaveCount,0);
+    const leaveRatio=activeMemberCount?todayLeaveCount/activeMemberCount:0;
+    const oldestOverdue=overdueProjects[0]||null;
+    const oldestOverdueDiff=oldestOverdue?Math.max(1,Math.round((today.getTime()-toDate(oldestOverdue.end||oldestOverdue.end_date).getTime())/86400000)):0;
+    const cards=[
+      {
+        label:'오늘 마감',
+        value:todayDueProjects.length?todayDueProjects.length+'건':'없음',
+        tone:todayDueProjects.length?'warning':'neutral',
+        quiet:!todayDueProjects.length,
+        emphasis:'action',
+        meta:todayDueProjects.length?('프로젝트 관리에서 '+todayDueProjects.length+'건 확인'):'오늘 마감 프로젝트 없음',
+        action:"setPage('projects')"
+      },
+      {
+        label:'지연 중',
+        value:overdueProjects.length?overdueProjects.length+'건':'없음',
+        tone:overdueProjects.length?'danger':'neutral',
+        quiet:!overdueProjects.length,
+        emphasis:'action',
+        meta:oldestOverdue?('프로젝트 관리에서 D+'+oldestOverdueDiff+' 확인'):'지연 프로젝트 없음',
+        action:"setPage('projects')"
+      },
+      {
+        label:'자료 확인 필요',
+        value:pendingDocRows.length?pendingDocRows.length+'건':'없음',
+        tone:pendingDocRows.length?'warning':'neutral',
+        quiet:!pendingDocRows.length,
+        emphasis:'action',
+        meta:pendingDocRows.length?('프로젝트 문서 탭에서 '+pendingDocRows.length+'건 확인'):'기한 자료 요청 없음',
+        action:pendingDocRows.length&&firstPendingProjectId
+          ?"openProjModal('"+firstPendingProjectId+"',null,null,'documents')"
+          :"alert('기한 자료 요청이 없습니다.')"
+      },
+      {
+        label:'내 이슈',
+        value:myOpenIssues.length?myOpenIssues.length+'건':'없음',
+        tone:myOpenIssues.length?'warning':'neutral',
+        quiet:!myOpenIssues.length,
+        emphasis:'action',
+        meta:myOpenIssues.length
+          ?(myHighPriorityIssues.length?('Issues에서 우선 확인 '+myHighPriorityIssues.length+'건'):'Issues에서 '+myOpenIssues.length+'건 확인')
+          :(currentMember?.name?'내 담당 열린 이슈 없음':'담당자 정보 없음'),
+        action:"setPage('issues')"
+      },
+      {
+        label:'미청구',
+        value:pendingBillingAmount?pendingBillingAmount.toLocaleString()+'원':'없음',
+        tone:pendingBillingAmount?'danger':'neutral',
+        quiet:!pendingBillingAmount,
+        emphasis:'action',
+        meta:unbilledProjects.length?('계약 탭에서 '+unbilledProjects.length+'건 확인'):'미청구 프로젝트 없음',
+        action:"setPage('contracts')"
+      },
+      {
+        label:'오늘 휴가',
+        value:activeMemberCount?(todayLeaveCount+'/'+activeMemberCount+'명'):(todayLeaveCount+'명'),
+        tone:todayLeaveCount&&leaveRatio>=0.3?'warning':'neutral',
+        quiet:!(todayLeaveCount&&leaveRatio>=0.3),
+        meta:todayLeaveCount
+          ?('팀 일정에서 가용 '+availableMemberCount+'명 확인'+(todayFieldworkCount?' · 필드 '+todayFieldworkCount+'명':''))
+          :('팀 일정에서 전체 '+activeMemberCount+'명 확인'+(todayFieldworkCount?' · 필드 '+todayFieldworkCount+'명':'')),
+        action:"openDashDrilldown('leave')"
+      }
+    ];
+    el.innerHTML='<div class="home-risk-grid">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>';
+  }catch(e){
+    const fallbackLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+    el.innerHTML='<div class="home-risk-grid">'
+      +fallbackLabels.map(label=>
+        '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">상단 요약을 불러오지 못했습니다.</div></div>'
+      ).join('')
+      +'</div>';
+  }
+};

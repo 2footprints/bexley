@@ -502,6 +502,14 @@
   font-family:inherit;
   transition:box-shadow .15s ease,transform .15s ease;
 }
+#pageTeam .home-daily-work-card.is-urgent{
+  background:#FFF8F8;
+  border-color:#FECACA;
+}
+#pageTeam .home-daily-work-card.is-warn{
+  background:#FFFDF7;
+  border-color:#FDE7B0;
+}
 #pageTeam .home-daily-work-card:last-child{
   margin-bottom:0;
 }
@@ -552,14 +560,20 @@
 #pageTeam .home-daily-work-context-lead{display:inline-flex;align-items:center;min-width:0;max-width:100%;font-size:11px;color:#64748B;font-weight:700;white-space:nowrap}
 #pageTeam .home-daily-work-context-title{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#0F172A;font-weight:700}
 #pageTeam .home-daily-work-summary{min-width:0;font-size:12px;color:#475569;line-height:1.5;display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-#pageTeam .home-daily-work-due{
+#pageTeam .home-daily-work-due-wrap{
   margin-left:auto;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:4px;
+  min-width:72px;
+}
+#pageTeam .home-daily-work-due{
   font-size:12px;
   color:#94A3B8;
   white-space:nowrap;
   text-align:right;
   line-height:1.35;
-  align-self:flex-start;
 }
 #pageTeam .home-daily-work-due.urgent{
   color:#EF4444;
@@ -567,6 +581,12 @@
 }
 #pageTeam .home-daily-work-due.warn{
   color:#F59E0B;
+}
+#pageTeam .home-daily-work-destination{
+  font-size:11px;
+  color:#94A3B8;
+  white-space:nowrap;
+  text-align:right;
 }
 #pageTeam .home-daily-work-empty{
   text-align:center;
@@ -579,7 +599,7 @@
   padding:16px 0;
 }
 #pageTeam .home-daily-work-empty.is-success{
-  color:#10B981;
+  color:#94A3B8;
 }
 #pageTeam .home-daily-work-more{
   margin-top:10px;
@@ -691,7 +711,7 @@
 }
 #pageTeam .home-risk-grid{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:12px;
   margin-bottom:16px;
 }
@@ -709,7 +729,7 @@
   box-shadow:var(--shadow-lg);
 }
 #pageTeam .home-risk-card.is-action{
-  box-shadow:0 14px 30px rgba(15,23,42,.06);
+  box-shadow:0 16px 32px rgba(15,23,42,.07);
 }
 #pageTeam .home-risk-card.is-danger{
   border-color:rgba(239,68,68,.18);
@@ -777,6 +797,8 @@
 #pageTeam .team-fun-section .home-card,
 #pageTeam .home-kudos-section > #teamKudosReviewWrap > .home-card{
   border-color:rgba(148,163,184,.22)!important;
+  background:rgba(248,250,252,.94)!important;
+  box-shadow:none!important;
 }
 #pageTeam .home-dashboard-grid{
   display:grid;
@@ -874,7 +896,7 @@
   padding:18px;
 }
 #pageTeam .team-notice-panel.home-card{
-  padding:16px var(--spacing-lg)!important;
+  padding:14px var(--spacing-lg)!important;
   background:rgba(250,251,253,.96)!important;
   box-shadow:none!important;
 }
@@ -1014,11 +1036,19 @@
 #pageTeam .team-fun-section .home-card{
   background:rgba(250,251,253,.96)!important;
   box-shadow:none!important;
-  padding:16px var(--spacing-lg)!important;
+  padding:14px var(--spacing-lg)!important;
 }
 #pageTeam .team-fun-card{
   background:rgba(255,255,255,.78);
   box-shadow:none!important;
+  padding:14px 16px;
+  border-color:rgba(148,163,184,.18);
+}
+#pageTeam .team-fun-title{
+  font-size:13px;
+}
+#pageTeam .team-fun-desc{
+  font-size:11px;
 }
 
 @media(max-width:768px){
@@ -1077,11 +1107,20 @@
   #pageTeam .home-daily-work-copy{
     gap:4px;
   }
-  #pageTeam .home-daily-work-due{
+  #pageTeam .home-daily-work-due-wrap{
     grid-column:2;
-    justify-self:end;
-    padding-left:0;
+    margin-left:0;
+    min-width:0;
+    flex-direction:row;
+    justify-content:space-between;
+    align-items:center;
+  }
+  #pageTeam .home-daily-work-due{
+    text-align:left;
     white-space:nowrap;
+  }
+  #pageTeam .home-daily-work-destination{
+    text-align:right;
   }
   #pageTeam .home-daily-work-topline{
     flex-direction:column;
