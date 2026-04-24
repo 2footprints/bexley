@@ -474,6 +474,78 @@ function getPreviousMonth(year=curYear,month=curMonth){
   return {year,month:month-1};
 }
 
+function getGanttViewRoleMeta(){
+  if(curGanttLayout==='list'){
+    return {
+      topNote:'상단은 프로젝트 비교, 하단은 선택한 프로젝트 상세입니다.',
+      sidebarTitle:'프로젝트 선택',
+      sidebarSub:'목록에서 본 프로젝트를 다시 선택해 하단 상세로 이어갑니다.',
+      mainTitle:'프로젝트 비교 목록',
+      mainCopy:'프로젝트 단위로 비교하고, 필요할 때만 관련 업무를 가볍게 펼쳐 봅니다. 세부 관리와 조정은 하단 상세의 Work 탭에서 이어집니다.',
+      detailPlaceholder:'위 목록에서 프로젝트를 선택하면 Overview / Work / Issues / Memo가 여기에서 열립니다. 실제 업무 관리는 Work 탭에서 이어집니다.',
+      supportCue:''
+    };
+  }
+  if(curGanttLayout==='calendar'){
+    return {
+      topNote:'상단은 날짜 기준 일정 보기, 하단은 선택한 프로젝트 상세입니다.',
+      sidebarTitle:'프로젝트 선택',
+      sidebarSub:'달력에서 본 프로젝트를 다시 선택해 하단 상세로 이어갑니다.',
+      mainTitle:'프로젝트 일정 달력',
+      mainCopy:'날짜별 일정 밀도와 마감 분포를 확인하는 보기입니다. 셀에서는 요약만 보고, 실제 업무 관리는 하단 상세의 Work 탭에서 이어집니다.',
+      detailPlaceholder:'위 달력에서 프로젝트를 선택하면 상세가 여기에서 한 번 열립니다. 날짜 확인은 위에서, 업무 관리는 Work 탭에서 이어집니다.',
+      supportCue:'달력에서는 날짜가 있는 업무만 가볍게 보이고, 자세한 조정은 아래 상세의 Work 탭에서 이어집니다.'
+    };
+  }
+  if(curGView==='member'){
+    return {
+      topNote:'상단은 인력 기준 일정 보기, 하단은 선택한 프로젝트 상세입니다.',
+      sidebarTitle:'프로젝트 선택',
+      sidebarSub:'인력 흐름에서 본 프로젝트를 다시 선택해 하단 상세로 이어갑니다.',
+      mainTitle:'인력별 일정 흐름',
+      mainCopy:'담당자 기준으로 프로젝트와 개인 일정을 함께 훑어보는 보기입니다. 개인 일정은 제약 레이어로만 보고, 실제 프로젝트 관리는 하단 상세에서 이어갑니다.',
+      detailPlaceholder:'위 인력 흐름에서 프로젝트를 선택하면 상세가 여기에서 한 번 열립니다. 개인 일정은 지원 제약으로만 보고, 업무 관리는 Work 탭에서 이어갑니다.',
+      supportCue:'인력별 보기에서는 개인 일정이 제약 레이어로만 보입니다. 선택한 프로젝트의 조정은 아래 상세의 Work 탭에서 이어집니다.'
+    };
+  }
+  return {
+    topNote:'상단은 일정 흐름 보기, 하단은 선택한 프로젝트 상세입니다.',
+    sidebarTitle:'프로젝트 선택',
+    sidebarSub:'간트에서 본 프로젝트를 다시 선택해 하단 상세로 이어갑니다.',
+    mainTitle:'프로젝트 일정 흐름',
+    mainCopy:'프로젝트 기간과 지연 위험을 시간축으로 확인하는 보기입니다. 개인 일정은 지원 레이어로만 보이며, 실제 업무 관리는 하단 상세의 Work 탭에서 이어집니다.',
+    detailPlaceholder:'위 간트에서 프로젝트를 선택하면 상세가 여기에서 한 번 열립니다. 일정은 위에서 보고, 업무 관리는 Work 탭에서 이어갑니다.',
+    supportCue:'간트는 일정 흐름 확인용이고, 선택한 프로젝트의 자세한 조정은 아래 상세의 Work 탭에서 이어집니다.'
+  };
+}
+
+function renderGanttEntryViewChromeV2(){
+  const shell=document.querySelector('#pageGantt .gantt-shell');
+  const topNote=document.getElementById('ganttTopNote');
+  const sidebarTitle=document.getElementById('ganttSidebarTitle');
+  const sidebarSub=document.getElementById('ganttSidebarSub');
+  const mainTitle=document.getElementById('ganttMainTitle');
+  const mainCopy=document.getElementById('ganttMainCopy');
+  const roleMeta=getGanttViewRoleMeta();
+  if(shell){
+    shell.classList.toggle('is-list-entry',curGanttLayout==='list');
+    shell.classList.toggle('is-support-view',curGanttLayout!=='list');
+    shell.classList.toggle('is-calendar-mode',curGanttLayout==='calendar');
+    shell.classList.toggle('is-timeline-mode',curGanttLayout==='timeline');
+    shell.classList.toggle('is-member-view',curGView==='member');
+    shell.classList.toggle('is-project-view',curGView!=='member');
+  }
+  if(topNote){
+    topNote.textContent=roleMeta.topNote||'';
+    topNote.hidden=!roleMeta.topNote;
+  }
+  if(sidebarTitle)sidebarTitle.textContent=roleMeta.sidebarTitle;
+  if(sidebarSub)sidebarSub.textContent=roleMeta.sidebarSub;
+  if(mainTitle)mainTitle.textContent=roleMeta.mainTitle;
+  if(mainCopy)mainCopy.textContent=roleMeta.mainCopy;
+  renderGanttSupportViewCueV2();
+}
+
 function getGanttKpiBaseProjects(year=curYear,month=curMonth){
   const {projs}=getGanttMonthData(year,month);
   return projs.filter(projectMatchesTopFilters);
@@ -481,7 +553,7 @@ function getGanttKpiBaseProjects(year=curYear,month=curMonth){
 
 function renderGanttOverviewCards(projs,schs){
   ensureGanttTopAreaControls();
-  renderGanttEntryViewChrome();
+  renderGanttEntryViewChromeV2();
   const el=document.getElementById('ganttOverview');
   if(!el)return;
   const activeCount=projs.filter(isGanttProjectInProgress).length;
@@ -567,10 +639,28 @@ renderGanttSidebarList=function(projs){
   }).join('');
 };
 
+function renderGanttDetailPlaceholder(){
+  const roleMeta=getGanttViewRoleMeta();
+  return ''
+    +'<div class="gantt-detail-placeholder">'
+      +'<div class="gantt-detail-context">선택한 프로젝트 상세</div>'
+      +'<div class="gantt-panel-title">프로젝트를 선택하면 여기에서 상세를 봅니다.</div>'
+      +'<div class="gantt-panel-sub">'+esc(roleMeta.detailPlaceholder)+'</div>'
+      +'<div class="gantt-detail-placeholder-roles">'
+        +'<span class="gantt-detail-placeholder-chip">Overview는 요약</span>'
+        +'<span class="gantt-detail-placeholder-chip">Work는 업무 관리</span>'
+      +'</div>'
+    +'</div>';
+}
+
 renderGanttDetailPanel=function(projs,schs){
   const el=document.getElementById('ganttDetail');
   if(!el)return;
   const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  if(!project){
+    el.innerHTML=renderGanttDetailPlaceholder();
+    return;
+  }
   if(!project){
     el.innerHTML='<div class="gantt-detail-empty-state"><div class="gantt-detail-context">선택된 프로젝트</div><div class="gantt-panel-title">프로젝트 상세</div><div class="gantt-panel-sub">왼쪽 리스트나 간트, 달력, 리스트 뷰에서 프로젝트를 선택하면 여기에서 같은 상세 정보와 후속 작업을 이어서 볼 수 있습니다.</div></div>';
     return;
@@ -1181,13 +1271,13 @@ function renderGanttListTaskDrilldownRow(row){
     +'<td colspan="8">'
       +'<div class="gantt-list-task-drill-shell">'
         +'<div class="gantt-list-task-drill-head">'
-          +'<div><div class="gantt-list-task-drill-title">관련 업무</div><div class="gantt-list-task-drill-sub">프로젝트 수준 스캔을 유지하고, 리스크를 설명하는 핵심 업무만 보여줍니다.</div></div>'
+        +'<div><div class="gantt-list-task-drill-title">핵심 업무</div><div class="gantt-list-task-drill-sub">프로젝트 비교는 그대로 두고, 리스크나 다음 확인이 필요한 업무만 가볍게 펼쳐 봅니다.</div></div>'
           +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();openGanttProjectWorkTab(\''+projectId+'\')">Work 보기</button>'
         +'</div>'
         +bodyHtml
         +'<div class="gantt-list-task-drill-footer">'
           +(hiddenCount?'<button type="button" class="gantt-list-drill-more" onclick="event.stopPropagation();toggleGanttListTaskDrilldownMore(\''+projectId+'\')">'+(showAll?'핵심 업무 접기':'핵심 업무 '+hiddenCount+'건 더 보기')+'</button>':'<span class="gantt-list-task-drill-note">상세 관리와 조정은 Work 탭에서 이어집니다.</span>')
-          +(visibleTasks.length?'<span class="gantt-list-task-drill-note">세부 조정은 Work 탭에서 이어집니다.</span>':'')
+          +(!hiddenCount&&visibleTasks.length?'<span class="gantt-list-task-drill-note">세부 조정은 Work 탭에서 이어집니다.</span>':'')
         +'</div>'
       +'</div>'
     +'</td>'
@@ -1433,7 +1523,7 @@ function renderGanttListView(projs,schs){
     +'<div class="gantt-list-toolbar">'
       +'<div class="gantt-list-toolbar-main">'
         +'<input id="ganttListSearchInput" class="gantt-list-search" value="'+esc(ganttListSearchQuery)+'" placeholder="프로젝트명 / 고객사명 / 담당자명 검색" />'
-        +'<div class="gantt-list-count">총 '+rows.length+'건 · 프로젝트를 선택하면 아래 상세 패널로 이어집니다.</div>'
+        +'<div class="gantt-list-count">총 '+rows.length+'건 · 위에서 프로젝트를 비교하고, 아래에서 선택한 프로젝트 상세를 확인합니다.</div>'
       +'</div>'
       +(ganttListSelectedIds.length?'<div class="gantt-list-selection-summary">'+ganttListSelectedIds.length+'건 선택됨</div>':'')
     +'</div>'
@@ -2579,6 +2669,8 @@ renderGanttDetailPanel=function(projs,schs){
     +'</div>'
     +renderGanttDetailTabBar()
     +sectionHtml;
+  const detailContext=el.querySelector('.gantt-detail-context');
+  if(detailContext)detailContext.textContent='선택한 프로젝트 상세';
   loadGanttDetailAsync(project);
   if(ganttDetailTab==='work')loadGanttProjectTasks(project.id);
   return;
@@ -2606,6 +2698,20 @@ renderGanttDetailPanel=function(projs,schs){
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">팀 일정 충돌</div></div><div class="gantt-detail-list">'+(memberSchedules.map(schedule=>'<div class="gantt-detail-item is-clickable" onclick="openScheduleModal(\''+schedule.id+'\')"><div><div class="gantt-detail-item-title">'+esc(getScheduleMemberLabel(schedule))+' '+esc(scheduleLabel(schedule.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((schedule.start||'')+' ~ '+(schedule.end||'')+(schedule.location?' · '+schedule.location:''))+'</div></div><span class="badge '+(schedule.schedule_type==='leave'?'badge-orange':'badge-blue')+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span></div>').join('')||'<div class="gantt-detail-empty">담당자 휴가/필드웍 일정이 없습니다.</div>')+'</div></div>'
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">메모 미리보기</div></div>'+(project.memo?'<button type="button" class="gantt-detail-memo" onclick="openProjModal(\''+project.id+'\')">'+esc(project.memo)+'</button>':'<div class="gantt-detail-empty">등록된 메모가 없습니다.</div>')+'</div>';
   loadGanttDetailAsync(project);
+};
+
+const baseRenderGanttDetailPanel=renderGanttDetailPanel;
+renderGanttDetailPanel=function(projs,schs){
+  const el=document.getElementById('ganttDetail');
+  if(!el)return;
+  const project=(projs||[]).find(item=>item?.id===ganttFocusProjectId)||null;
+  if(!project){
+    el.innerHTML=renderGanttDetailPlaceholder();
+    return;
+  }
+  baseRenderGanttDetailPanel(projs,schs);
+  const detailContext=el.querySelector('.gantt-detail-context');
+  if(detailContext)detailContext.textContent='선택한 프로젝트 상세';
 };
 
 function buildGanttCalendarItemHtml(item){
@@ -2645,6 +2751,7 @@ function ensureGanttSupportTaskCueElement(){
 }
 
 function renderGanttSupportViewCue(){
+  return renderGanttSupportViewCueV2();
   const cue=ensureGanttSupportTaskCueElement();
   if(!cue)return;
   const project=getGanttSupportCueProject();
@@ -2716,10 +2823,66 @@ function renderGanttSupportViewCue(){
     +'<button type="button" class="gantt-support-task-action" onclick="openGanttProjectWorkTab(\''+projectId+'\')">Work 탭 보기</button>';
 }
 
+function renderGanttSupportViewCueV2(){
+  const cue=ensureGanttSupportTaskCueElement();
+  if(!cue)return;
+  const project=getGanttSupportCueProject();
+  const roleMeta=getGanttViewRoleMeta();
+  const isSupportView=curGanttLayout!=='list';
+  if(!isSupportView||!project){
+    cue.hidden=true;
+    cue.innerHTML='';
+    return;
+  }
+  const projectId=String(project.id||'');
+  const loadMeta=getGanttProjectTaskLoadMeta(projectId);
+  const hasTaskRows=Array.isArray(ganttProjectTasksByProjectId[projectId]);
+  if(!hasTaskRows&&!loadMeta.loading){
+    loadGanttProjectTasks(projectId,false);
+  }
+  const tasks=hasTaskRows?getGanttProjectTasks(projectId):[];
+  const summary=getGanttProjectTaskSummary(projectId);
+  const listSummary=buildGanttListTaskSummary(tasks);
+  const chips=[];
+  if(summary.active>0)chips.push('<span class="gantt-support-task-chip">열린 업무 '+summary.active+'건</span>');
+  if(summary.overdue>0)chips.push('<span class="gantt-support-task-chip is-danger">지연 '+summary.overdue+'건</span>');
+  else if(summary.issueLinked>0)chips.push('<span class="gantt-support-task-chip is-warn">이슈 연결 '+summary.issueLinked+'건</span>');
+  else if(listSummary?.nearestDueLabel)chips.push('<span class="gantt-support-task-chip is-soft">다음 마감 '+esc(listSummary.nearestDueLabel)+'</span>');
+  cue.hidden=false;
+  cue.className='gantt-support-task-cue is-quiet';
+  if(loadMeta.loading&&!tasks.length){
+    cue.classList.add('is-loading');
+    cue.innerHTML=''
+      +'<div class="gantt-support-task-copy">'
+        +'<div class="gantt-support-task-title">선택 프로젝트 업무 연결</div>'
+        +'<div class="gantt-support-task-sub">'+esc(project.name||'프로젝트')+' 업무를 불러오는 중입니다.</div>'
+      +'</div>'
+      +'<div class="gantt-support-task-meta">세부 관리는 아래 상세의 Work 탭에서 이어집니다.</div>';
+    return;
+  }
+  if(loadMeta.error){
+    cue.classList.add('is-danger');
+    cue.innerHTML=''
+      +'<div class="gantt-support-task-copy">'
+        +'<div class="gantt-support-task-title">선택 프로젝트 업무 연결</div>'
+        +'<div class="gantt-support-task-sub">'+esc(loadMeta.error)+'</div>'
+      +'</div>'
+      +'<button type="button" class="gantt-support-task-action" onclick="openGanttProjectWorkTab(\''+projectId+'\')">Work 탭 열기</button>';
+    return;
+  }
+  cue.innerHTML=''
+    +'<div class="gantt-support-task-copy">'
+      +'<div class="gantt-support-task-title">선택 프로젝트 업무 연결</div>'
+      +'<div class="gantt-support-task-sub">'+esc(tasks.length?roleMeta.supportCue:'아직 등록된 업무가 없습니다. 세부 조정은 아래 상세의 Work 탭에서 이어집니다.')+'</div>'
+    +'</div>'
+    +(chips.length?'<div class="gantt-support-task-chips">'+chips.join('')+'</div>':'<div class="gantt-support-task-meta">하단 상세의 Work 탭에서 업무를 추가하고 관리합니다.</div>')
+    +'<button type="button" class="gantt-support-task-action" onclick="openGanttProjectWorkTab(\''+projectId+'\')">Work 탭 열기</button>';
+}
+
 function refreshGanttSupportTaskCompatibility(projectId){
   const key=String(projectId||ganttFocusProjectId||'').trim();
   if(!key||String(ganttFocusProjectId||'')!==key)return;
-  renderGanttSupportViewCue();
+  renderGanttSupportViewCueV2();
   if(curGanttLayout==='calendar'){
     const currentData=getGanttFilteredData();
     renderGanttCalendarGrid(currentData.projs,currentData.schs);
@@ -2819,6 +2982,7 @@ function buildGanttCalendarItemHtml(item){
 }
 
 function renderGanttEntryViewChrome(){
+  return renderGanttEntryViewChromeV2();
   const shell=document.querySelector('#pageGantt .gantt-shell');
   const topNote=document.getElementById('ganttTopNote');
   const sidebarTitle=document.getElementById('ganttSidebarTitle');
