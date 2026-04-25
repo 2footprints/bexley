@@ -1733,6 +1733,396 @@ function renderGanttListView(projs,schs){
   if(searchInput)searchInput.oninput=e=>setGanttListSearchQuery(e.target.value);
 }
 
+const GANTT_QUICK_LIFECYCLE_OPTIONS=[
+  {value:'planned',label:'예정'},
+  {value:'in_progress',label:'진행중'},
+  {value:'execution_done',label:'실행 완료'},
+  {value:'follow_up',label:'후속관리'}
+];
+
+function getGanttProjectLifecycleSupportData(project){
+  const projectId=String(project?.id||'').trim();
+  return {
+    taskSummary:ganttListTaskSummaryByProjectId[projectId],
+    taskIssueSummary:ganttListTaskIssueSummaryByProjectId[projectId],
+    pendingDocSummary:(window.ganttProjectPendingDocSummaryByProjectId||{})[projectId],
+    issueCount:Number(openIssuesByProject[projectId]||0)
+  };
+}
+
+function ensureGanttProjectLifecycleSupport(projectId){
+  const key=String(projectId||'').trim();
+  if(!key)return;
+  if(ganttListTaskSummaryByProjectId[key]===undefined)loadGanttListTaskSummaries([key]);
+  if(ganttListTaskIssueSummaryByProjectId[key]===undefined)loadGanttListTaskIssueSummaries([key]);
+  if(((window.ganttProjectPendingDocSummaryByProjectId||{})[key])===undefined)loadGanttListPendingDocSummaries([key]);
+}
+
+function getGanttProjectCurrentLifecycleMeta(project){
+  return getGanttProjectLifecycleMeta(project,getGanttProjectLifecycleSupportData(project));
+}
+
+function getGanttProjectQuickLifecycleValue(project){
+  const lifecycleMeta=getGanttProjectCurrentLifecycleMeta(project);
+  const rawStatus=getGanttProjectRawStatusKey(project);
+  if(lifecycleMeta.key==='follow_up')return 'follow_up';
+  if(lifecycleMeta.key==='execution_done'||lifecycleMeta.key==='fully_closed')return 'execution_done';
+  if(rawStatus==='planned')return 'planned';
+  return 'in_progress';
+}
+
+function getGanttProjectClosureMeta(project){
+  const support=getGanttProjectLifecycleSupportData(project);
+  const blockers=[];
+  const loading=[];
+  const taskSummary=support.taskSummary;
+  const pendingDocSummary=support.pendingDocSummary;
+  const issueCount=Number(support.issueCount||0);
+  const billingPending=project?.is_billable!==false&&String(project?.billing_status||'').trim()==='미청구';
+  if(taskSummary===undefined)loading.push('업무');
+  else if(Number(taskSummary?.openCount||0)>0)blockers.push('후속 Task '+Number(taskSummary.openCount||0)+'건');
+  if(issueCount>0)blockers.push('열린 이슈 '+issueCount+'건');
+  if(pendingDocSummary===undefined)loading.push('자료 요청');
+  else if(Number(pendingDocSummary?.total||0)>0)blockers.push('자료 요청 '+Number(pendingDocSummary.total||0)+'건');
+  if(billingPending)blockers.push('미청구');
+  if(project?.follow_up_needed)blockers.push('후속관리');
+  return {
+    ready:!loading.length,
+    loading,
+    blockers,
+    canFullyClose:!loading.length&&!blockers.length
+  };
+}
+
+function getGanttProjectQuickLifecycleOptionsHtml(project){
+  const currentValue=getGanttProjectQuickLifecycleValue(project);
+  return GANTT_QUICK_LIFECYCLE_OPTIONS.map(option=>'<option value="'+option.value+'"'+(option.value===currentValue?' selected':'')+'>'+option.label+'</option>').join('');
+}
+
+function buildGanttProjectQuickStatusPatch(project,nextValue){
+  const today=new Date().toISOString().slice(0,10);
+  switch(String(nextValue||'')){
+    case 'planned':
+      return {status:'예정',follow_up_needed:false};
+    case 'in_progress':
+      return {status:'진행중',follow_up_needed:false};
+    case 'execution_done':
+      return {
+        status:'완료',
+        follow_up_needed:false,
+        actual_end_date:project?.actual_end_date||today
+      };
+    case 'follow_up':
+      return {
+        status:'완료',
+        follow_up_needed:true,
+        actual_end_date:project?.actual_end_date||today
+      };
+    default:
+      return null;
+  }
+}
+
+async function updateGanttProjectQuickLifecycle(projectId,nextValue){
+  const key=String(projectId||'').trim();
+  const project=(projects||[]).find(item=>String(item?.id||'')===key);
+  if(!key||!project)return;
+  if(typeof canEdit==='function'&&!canEdit(project)){
+    alert('상태를 변경할 권한이 없습니다.');
+    return;
+  }
+  const patchBody=buildGanttProjectQuickStatusPatch(project,nextValue);
+  if(!patchBody)return;
+  const currentValue=getGanttProjectQuickLifecycleValue(project);
+  if(String(currentValue)===String(nextValue))return;
+  try{
+    await api('PATCH','projects?id=eq.'+key,patchBody);
+    if(typeof logActivity==='function'){
+      await logActivity('프로젝트 상태 변경','project',key,project?.name||'');
+    }
+    await loadAll();
+    renderGantt();
+  }catch(error){
+    alert('상태 변경 중 오류가 발생했습니다: '+error.message);
+  }
+}
+
+window.applyGanttProjectQuickLifecycleSelection=async function(projectId){
+  const select=document.getElementById('ganttProjectQuickStatusSelect');
+  if(!select)return;
+  await updateGanttProjectQuickLifecycle(projectId,select.value);
+};
+
+window.requestGanttProjectFullyClose=async function(projectId){
+  const key=String(projectId||'').trim();
+  const project=(projects||[]).find(item=>String(item?.id||'')===key);
+  if(!key||!project)return;
+  if(typeof canEdit==='function'&&!canEdit(project)){
+    alert('프로젝트 종료 상태를 변경할 권한이 없습니다.');
+    return;
+  }
+  ensureGanttProjectLifecycleSupport(key);
+  const closureMeta=getGanttProjectClosureMeta(project);
+  if(!closureMeta.ready){
+    alert('완전 종료 기준을 확인하는 중입니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+  if(!closureMeta.canFullyClose){
+    alert('완전 종료 전 확인이 필요합니다.\n- '+closureMeta.blockers.join('\n- '));
+    return;
+  }
+  if(!confirm('이 프로젝트를 완전 종료로 변경할까요? 완전 종료된 프로젝트는 기본 목록에서 숨길 수 있습니다.'))return;
+  try{
+    await api('PATCH','projects?id=eq.'+key,{
+      status:'완전 종료',
+      follow_up_needed:false,
+      actual_end_date:project?.actual_end_date||new Date().toISOString().slice(0,10)
+    });
+    if(typeof logActivity==='function'){
+      await logActivity('프로젝트 완전 종료','project',key,project?.name||'');
+    }
+    await loadAll();
+    renderGantt();
+  }catch(error){
+    alert('완전 종료 처리 중 오류가 발생했습니다: '+error.message);
+  }
+};
+
+function renderGanttProjectLifecycleActionPanel(project){
+  const lifecycleMeta=getGanttProjectCurrentLifecycleMeta(project);
+  const closureMeta=getGanttProjectClosureMeta(project);
+  const editable=typeof canEdit==='function'?canEdit(project):canManageGanttListProject(project);
+  const currentLabel=lifecycleMeta?.label||'진행중';
+  const currentBadgeClass=getGanttListStatusBadgeClass(currentLabel);
+  const noteText=lifecycleMeta?.key==='fully_closed'
+    ?'완전 종료된 프로젝트입니다. 실행과 후속 정리가 모두 끝난 상태입니다.'
+    :!closureMeta.ready
+      ?'완전 종료 기준을 확인하는 중입니다. 필요한 업무·이슈·자료 요청을 불러오고 있습니다.'
+      :closureMeta.canFullyClose
+        ?'완전 종료 기준을 모두 충족했습니다. 지금 종료해도 후속 항목이 남지 않습니다.'
+        :'완전 종료 전 확인: '+closureMeta.blockers.join(' · ');
+  const noteTone=lifecycleMeta?.key==='fully_closed'
+    ?'good'
+    :!closureMeta.ready
+      ?'neutral'
+      :closureMeta.canFullyClose
+        ?'good'
+        :'warn';
+  const closeDisabled=!editable||lifecycleMeta?.key==='fully_closed'||!closureMeta.canFullyClose;
+  return ''
+    +'<div class="gantt-detail-lifecycle-panel">'
+      +'<div class="gantt-detail-lifecycle-top">'
+        +'<div class="gantt-detail-lifecycle-copy">'
+          +'<div class="gantt-detail-label">프로젝트 상태</div>'
+          +'<div class="gantt-detail-lifecycle-state-line"><span class="badge '+currentBadgeClass+'">'+esc(currentLabel)+'</span><span class="gantt-detail-meta">상태는 수명주기를, 보조 칩은 남은 확인 이유를 보여줍니다.</span></div>'
+        +'</div>'
+        +(editable&&lifecycleMeta?.key!=='fully_closed'
+          ?'<div class="gantt-detail-lifecycle-controls">'
+              +'<select id="ganttProjectQuickStatusSelect" class="gantt-detail-lifecycle-select">'+getGanttProjectQuickLifecycleOptionsHtml(project)+'</select>'
+              +'<button type="button" class="btn sm" onclick="applyGanttProjectQuickLifecycleSelection(\''+project.id+'\')">상태 변경</button>'
+              +'<button type="button" class="btn ghost sm gantt-detail-close-btn"'+(closeDisabled?' disabled':'')+' onclick="requestGanttProjectFullyClose(\''+project.id+'\')">완전 종료</button>'
+            +'</div>'
+          :editable
+            ?'<div class="gantt-detail-lifecycle-controls"><button type="button" class="btn ghost sm gantt-detail-close-btn" disabled>완전 종료됨</button></div>'
+            :'<div class="gantt-detail-meta">상태 변경 권한이 없습니다.</div>')
+      +'</div>'
+      +'<div class="gantt-detail-lifecycle-note is-'+noteTone+'">'+esc(noteText)+'</div>'
+    +'</div>';
+}
+
+function ensureGanttViewSettingsBar(){
+  const memberTabs=document.getElementById('memberFilterTabs');
+  if(!memberTabs||!memberTabs.parentNode)return null;
+  let bar=document.getElementById('ganttViewSettingsBar');
+  if(!bar){
+    bar=document.createElement('div');
+    bar.id='ganttViewSettingsBar';
+    bar.className='gantt-view-settings';
+    memberTabs.parentNode.insertBefore(bar,memberTabs);
+  }
+  return bar;
+}
+
+function renderGanttViewSettingsBar(){
+  const bar=ensureGanttViewSettingsBar();
+  if(!bar)return;
+  let title='보기 설정';
+  let sub='현재 보기에서 필요한 옵션만 남겨 두었습니다.';
+  const groups=[];
+  if(curGanttLayout==='list'){
+    sub='리스트에서는 프로젝트 비교와 선택에 필요한 설정만 보입니다.';
+    groups.push(
+      '<div class="gantt-view-settings-group">'
+        +'<div class="gantt-view-settings-label">표시</div>'
+        +'<div class="toggle-wrap gantt-view-settings-toggle">'
+          +'<button type="button" class="toggle-btn'+(ganttHideCompleted?' active':'')+'" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
+        +'</div>'
+      +'</div>'
+    );
+  }else if(curGanttLayout==='calendar'){
+    title='달력 설정';
+    sub='달력에서는 날짜 밀도와 일정 분포만 가볍게 조정합니다.';
+    groups.push(
+      '<div class="gantt-view-settings-group">'
+        +'<div class="gantt-view-settings-label">표시</div>'
+        +'<div class="toggle-wrap gantt-view-settings-toggle">'
+          +'<button type="button" class="toggle-btn'+(ganttHideCompleted?' active':'')+'" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
+        +'</div>'
+      +'</div>'
+    );
+    groups.push(
+      '<div class="gantt-view-settings-group">'
+        +'<div class="gantt-view-settings-label">일정</div>'
+        +'<button type="button" class="btn sm" onclick="openScheduleModal()">+ 개인 일정</button>'
+      +'</div>'
+    );
+  }else{
+    title='간트 설정';
+    sub='간트에서는 프로젝트 흐름과 개인 일정 제약만 나눠서 봅니다.';
+    groups.push(
+      '<div class="gantt-view-settings-group">'
+        +'<div class="gantt-view-settings-label">보기 방식</div>'
+        +'<div class="toggle-wrap gantt-view-settings-toggle">'
+          +'<button type="button" class="toggle-btn'+(curGView!=='member'?' active':'')+'" onclick="setGView(\'project\')">프로젝트별</button>'
+          +'<button type="button" class="toggle-btn'+(curGView==='member'?' active':'')+'" onclick="setGView(\'member\')">인력별</button>'
+        +'</div>'
+      +'</div>'
+    );
+    groups.push(
+      '<div class="gantt-view-settings-group">'
+        +'<div class="gantt-view-settings-label">개인 일정</div>'
+        +'<div class="toggle-wrap gantt-view-settings-toggle">'
+          +'<button type="button" class="toggle-btn'+(ganttShowPersonalOverlay?' active':'')+'" onclick="setGanttPersonalOverlayToggle(!ganttShowPersonalOverlay)">제약 레이어</button>'
+          +'<button type="button" class="toggle-btn'+(ganttShowPersonalRows?' active':'')+'" onclick="setGanttPersonalRowsToggle(!ganttShowPersonalRows)">별도 행</button>'
+        +'</div>'
+      +'</div>'
+    );
+    groups.push(
+      '<div class="gantt-view-settings-group">'
+        +'<div class="gantt-view-settings-label">표시</div>'
+        +'<div class="toggle-wrap gantt-view-settings-toggle">'
+          +'<button type="button" class="toggle-btn'+(ganttHideCompleted?' active':'')+'" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
+        +'</div>'
+      +'</div>'
+    );
+    groups.push(
+      '<div class="gantt-view-settings-group">'
+        +'<div class="gantt-view-settings-label">일정</div>'
+        +'<button type="button" class="btn sm" onclick="openScheduleModal()">+ 개인 일정</button>'
+      +'</div>'
+    );
+  }
+  if(!groups.length){
+    bar.hidden=true;
+    bar.innerHTML='';
+    return;
+  }
+  bar.hidden=false;
+  bar.innerHTML=''
+    +'<div class="gantt-view-settings-head">'
+      +'<div class="gantt-view-settings-title">'+title+'</div>'
+      +'<div class="gantt-view-settings-sub">'+sub+'</div>'
+    +'</div>'
+    +'<div class="gantt-view-settings-groups">'+groups.join('')+'</div>';
+}
+
+function syncGanttPrimaryToolbarVisibility(){
+  const scheduleBtn=document.getElementById('scheduleAddBtn');
+  const projectViewBtn=document.getElementById('gvp');
+  const memberViewBtn=document.getElementById('gvm');
+  const visibilityWrap=document.getElementById('ganttVisibilityToggleWrap');
+  const summary=document.getElementById('ganttVisibilitySummary');
+  const memberTabs=document.getElementById('memberFilterTabs');
+  if(scheduleBtn){
+    scheduleBtn.hidden=true;
+    scheduleBtn.style.display='none';
+  }
+  [projectViewBtn,memberViewBtn].forEach(btn=>{
+    if(!btn)return;
+    btn.hidden=true;
+    btn.style.display='none';
+  });
+  if(visibilityWrap){
+    visibilityWrap.hidden=true;
+    visibilityWrap.style.display='none';
+  }
+  if(summary)summary.classList.add('is-quiet');
+  if(memberTabs){
+    const shouldShowMemberTabs=curGanttLayout==='timeline'&&curGView==='member';
+    memberTabs.hidden=!shouldShowMemberTabs;
+    memberTabs.classList.toggle('is-gantt-secondary',shouldShowMemberTabs);
+  }
+}
+
+const baseEnsureGanttTopAreaControlsV3=ensureGanttTopAreaControls;
+ensureGanttTopAreaControls=function(){
+  baseEnsureGanttTopAreaControlsV3();
+  syncGanttPrimaryToolbarVisibility();
+  renderGanttViewSettingsBar();
+};
+
+const baseRenderGanttEntryViewChromeV4=renderGanttEntryViewChromeV2;
+renderGanttEntryViewChromeV2=function(){
+  baseRenderGanttEntryViewChromeV4();
+  syncGanttPrimaryToolbarVisibility();
+  renderGanttViewSettingsBar();
+};
+renderGanttEntryViewChrome=renderGanttEntryViewChromeV2;
+
+const baseRenderGanttDetailPanelV5=renderGanttDetailPanel;
+renderGanttDetailPanel=function(projs,schs){
+  baseRenderGanttDetailPanelV5(projs,schs);
+  const el=document.getElementById('ganttDetail');
+  const project=(projs||[]).find(item=>String(item?.id||'')===String(ganttFocusProjectId||''))||null;
+  if(!el||!project)return;
+  ensureGanttProjectLifecycleSupport(project.id);
+  const lifecycleMeta=getGanttProjectCurrentLifecycleMeta(project);
+  const badges=el.querySelectorAll('.gantt-detail-badges .badge');
+  if(badges[1]){
+    badges[1].className='badge '+getGanttListStatusBadgeClass(lifecycleMeta.label||'진행중');
+    badges[1].textContent=lifecycleMeta.label||'진행중';
+  }
+  const editBtn=el.querySelector('.gantt-detail-actions .btn.primary');
+  if(editBtn)editBtn.textContent='전체 수정';
+  const tabBar=el.querySelector('.gantt-detail-tabbar');
+  const existingPanel=el.querySelector('.gantt-detail-lifecycle-panel');
+  if(existingPanel)existingPanel.remove();
+  if(tabBar)tabBar.insertAdjacentHTML('beforebegin',renderGanttProjectLifecycleActionPanel(project));
+};
+
+getGanttProjectActionButtons=function(project,isCompleted){
+  const canUpdate=typeof canEdit==='function'?canEdit(project):true;
+  const canRemove=typeof canDeleteProject==='function'?canDeleteProject(project):true;
+  const buttons=[];
+  if(!isCompleted&&canUpdate){
+    buttons.push('<button class="gantt-action-btn complete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();markGanttProjectComplete(this.dataset.pid)" title="실행 완료">✅</button>');
+  }
+  buttons.push('<button class="gantt-action-btn edit-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();openProjModal(this.dataset.pid)" title="전체 수정">✏️</button>');
+  if(canRemove){
+    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid)" title="삭제">🗑️</button>');
+  }
+  return buttons.length?'<div class="gantt-row-actions">'+buttons.join('')+'</div>':'';
+};
+
+window.markGanttProjectComplete=async function(projectId){
+  await updateGanttProjectQuickLifecycle(projectId,'execution_done');
+};
+
+updateGanttVisibilitySummary=function(hiddenCompletedCount){
+  const summary=ensureGanttVisibilitySummary();
+  if(!summary)return;
+  const parts=[
+    ganttHideCompleted
+      ?'완전 종료 '+hiddenCompletedCount+'건 숨김 중'
+      :'완전 종료 표시 중'
+  ];
+  if(curGanttLayout==='timeline'){
+    parts.push(ganttShowPersonalOverlay?'개인 일정 레이어 표시 중':'개인 일정 레이어 숨김');
+    parts.push(ganttShowPersonalRows?'개인 일정 행 표시 중':'개인 일정 행 숨김');
+  }
+  summary.textContent=parts.join(' · ');
+};
+
 function shouldPreloadGanttLifecycleSupport(){
   return ganttStatusFilter==='execution_done'
     ||ganttStatusFilter==='follow_up'
