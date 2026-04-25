@@ -59,14 +59,7 @@ function populateMemberFilter(){
 }
 
 function getAvailableGanttMembers(){
-  return (members||[])
-    .filter(member=>{
-      const isActive=member?.is_active===undefined?true:!!member.is_active;
-      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-      const isSystemAccount=/projectschedule|system|test/.test(identity);
-      return isActive&&!isSystemAccount;
-    })
-    .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  return getOperationalMembers();
 }
 
 function renderMemberFilterTabs(){
@@ -2066,14 +2059,9 @@ function renderGanttTaskEmptyState(projectId,loadMeta){
 function getProjectTaskModalMemberOptions(selectedId){
   const normalized=String(selectedId||'');
   return '<option value="">담당자 미지정</option>'
-    +(members||[])
-      .filter(member=>{
-        const isActive=member?.is_active===undefined?true:!!member.is_active;
-        const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-        const isSystemAccount=/projectschedule|system|test/.test(identity);
-        return isActive&&!isSystemAccount;
-      })
-      .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'))
+    +getOperationalMembers()
+
+
       .map(member=>'<option value="'+member.id+'"'+(String(member.id)===normalized?' selected':'')+'>'+esc(member.name||'이름 없음')+'</option>').join('');
 }
 

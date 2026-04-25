@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="styles/base.css">
 <link rel="stylesheet" href="styles/layout.css">
 <link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/admin.css">
 <style>
 .btn.lunch-cat.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .issue-card{margin-bottom:8px;padding:14px}
@@ -2009,14 +2010,14 @@ let projectChecklistDraft=[],projectModalEditable=false;
 
 
 function getRoleLabel(role){
-  return role==='admin'?'관리자':role==='member'?'멤버':role==='observer'?'Observer':'미승인';
+  return role==='admin'?'관리자':role==='manager'?'매니저':role==='member'?'멤버':role==='observer'?'Observer':'미승인';
 }
 function getRequestedRoleLabel(role){
-  return role==='admin'?'관리자':role==='member'?'멤버':role==='observer'?'Observer':'미지정';
+  return role==='admin'?'관리자':role==='manager'?'매니저':role==='member'?'멤버':role==='observer'?'Observer':'미지정';
 }
-function isApprovedRole(){return ['observer','member','admin'].includes(currentRole);}
+function isApprovedRole(){return ['observer','member','manager','admin'].includes(currentRole);}
 function isObserverRole(){return currentRole==='observer';}
-function canManageCore(){return currentRole==='member'||currentRole==='admin';}
+function canManageCore(){return currentRole==='member'||currentRole==='manager'||currentRole==='admin';}
 function canCreateIssueRole(){return isApprovedRole();}
 function canPostCommentsRole(){return isApprovedRole();}
 function roleIsAdmin(){return currentRole==='admin'||isAdmin===true;}

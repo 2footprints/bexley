@@ -63,11 +63,7 @@ async function renderHomeRiskSummary(){
       return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
     });
     const firstPendingProjectId=pendingDocRows[0]?.project_id||'';
-    const activeMembers=(members||[]).filter(member=>{
-      const isActive=member?.is_active===undefined?true:!!member.is_active;
-      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-      return isActive&&!/projectschedule|system|test/.test(identity);
-    });
+    const activeMembers=getOperationalMembers();
     const getTodayScheduleMemberNames=type=>[...new Set((schedules||[])
       .filter(schedule=>{
         const scheduleType=String(schedule?.schedule_type||'').trim();
@@ -76,7 +72,7 @@ async function renderHomeRiskSummary(){
         const endDate=toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date);
         return startDate<=today&&endDate>=today;
       })
-      .flatMap(schedule=>getScheduleMemberNames(schedule))
+      .flatMap(schedule=>getOperationalScheduleMemberNames(schedule))
       .filter(Boolean))];
     const todayLeaveCount=getTodayScheduleMemberNames('leave').length;
     const todayFieldworkCount=getTodayScheduleMemberNames('fieldwork').length;
@@ -861,12 +857,7 @@ function renderTeamWorkload(){
   const {start:weekStart,end:weekEnd}=getWeekBounds(0);
   const normalizeStatus=value=>String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
   const activeStatuses=new Set(['in_progress','active','진행중','진행_중']);
-  const activeMembers=(members||[]).filter(member=>{
-    const isActive=member?.is_active===undefined?true:!!member.is_active;
-    const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-    const isSystemAccount=/projectschedule|system|test/.test(identity);
-    return isActive&&!isSystemAccount;
-  });
+  const activeMembers=getOperationalMembers();
   const activeProjects=(projects||[]).filter(project=>{
     const statusRaw=String(project?.status||'').trim();
     const statusKey=normalizeStatus(statusRaw);
@@ -960,11 +951,7 @@ function renderTeamWorkload(){
 let homeTeamScheduleViewMode='type';
 
 function getHomePanelActiveMembers(){
-  return (members||[]).filter(member=>{
-    const isActive=member?.is_active===undefined?true:!!member.is_active;
-    const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-    return isActive&&!/projectschedule|system|test/.test(identity);
-  });
+  return getOperationalMembers();
 }
 
 function getHomeWeekdayShortLabel(date){
@@ -984,7 +971,7 @@ function setHomeTeamScheduleViewMode(mode){
 function getHomeScheduleWeekData(offsetWeeks=0){
   const {start,end}=getWeekBounds(offsetWeeks);
   const items=(schedules||[])
-    .filter(schedule=>toDate(schedule.start)<=end&&toDate(schedule.end)>=start)
+    .filter(schedule=>toDate(schedule.start)<=end&&toDate(schedule.end)>=start&&scheduleHasOperationalMember(schedule))
     .sort((a,b)=>toDate(a.start)-toDate(b.start)||getScheduleMemberLabel(a).localeCompare(getScheduleMemberLabel(b),'ko'));
   const grouped={};
   items.forEach(schedule=>{
@@ -1094,8 +1081,8 @@ async function renderTeamWorkload(){
     const durationDays=Math.max(1,Math.round((endDate.getTime()-startDate.getTime())/86400000)+1);
     return durationDays*8;
   };
-  const todayLeave=(schedules||[]).filter(schedule=>String(schedule.schedule_type||'').trim().toLowerCase()==='leave'&&toDate(schedule.start)<=today&&toDate(schedule.end)>=today);
-  const todayFieldwork=(schedules||[]).filter(schedule=>String(schedule.schedule_type||'').trim().toLowerCase()==='fieldwork'&&toDate(schedule.start)<=today&&toDate(schedule.end)>=today);
+  const todayLeave=(schedules||[]).filter(schedule=>String(schedule.schedule_type||'').trim().toLowerCase()==='leave'&&toDate(schedule.start)<=today&&toDate(schedule.end)>=today&&scheduleHasOperationalMember(schedule));
+  const todayFieldwork=(schedules||[]).filter(schedule=>String(schedule.schedule_type||'').trim().toLowerCase()==='fieldwork'&&toDate(schedule.start)<=today&&toDate(schedule.end)>=today&&scheduleHasOperationalMember(schedule));
   const rows=activeMembers.map(member=>{
     const totalHours=activeProjects.reduce((sum,project)=>{
       const assignedMembers=getProjectAssignedMembers(project);
@@ -1813,12 +1800,7 @@ async function renderHomeRiskSummaryLegacy(){
     const firstPendingDoc=pendingDocRows[0]||null;
     const firstPendingProjectId=firstPendingDoc?.project_id||'';
 
-    const activeMembers=(members||[]).filter(member=>{
-      const isActive=member?.is_active===undefined?true:!!member.is_active;
-      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-      const isSystemAccount=/projectschedule|system|test/.test(identity);
-      return isActive&&!isSystemAccount;
-    });
+    const activeMembers=getOperationalMembers();
     const todayLeaveNames=[...new Set((schedules||[])
       .filter(schedule=>{
         const type=String(schedule?.schedule_type||'').trim();
@@ -1827,7 +1809,7 @@ async function renderHomeRiskSummaryLegacy(){
         const endDate=toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date);
         return startDate<=today&&endDate>=today;
       })
-      .flatMap(schedule=>getScheduleMemberNames(schedule))
+      .flatMap(schedule=>getOperationalScheduleMemberNames(schedule))
       .filter(Boolean))];
     const todayLeaveCount=todayLeaveNames.length;
     const activeMemberCount=activeMembers.length;
@@ -2336,12 +2318,7 @@ async function renderHomeRiskSummary(){
     const firstPendingDoc=pendingDocRows[0]||null;
     const firstPendingProjectId=firstPendingDoc?.project_id||'';
 
-    const activeMembers=(members||[]).filter(member=>{
-      const isActive=member?.is_active===undefined?true:!!member.is_active;
-      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-      const isSystemAccount=/projectschedule|system|test/.test(identity);
-      return isActive&&!isSystemAccount;
-    });
+    const activeMembers=getOperationalMembers();
     const getTodayScheduleMemberNames=type=>[...new Set((schedules||[])
       .filter(schedule=>{
         const scheduleType=String(schedule?.schedule_type||'').trim();
@@ -2350,7 +2327,7 @@ async function renderHomeRiskSummary(){
         const endDate=toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date);
         return startDate<=today&&endDate>=today;
       })
-      .flatMap(schedule=>getScheduleMemberNames(schedule))
+      .flatMap(schedule=>getOperationalScheduleMemberNames(schedule))
       .filter(Boolean))];
     const todayLeaveNames=getTodayScheduleMemberNames('leave');
     const todayFieldworkNames=getTodayScheduleMemberNames('fieldwork');
@@ -2517,11 +2494,7 @@ renderHomeRiskSummary = async function(){
       return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
     });
     const firstPendingProjectId=pendingDocRows[0]?.project_id||'';
-    const activeMembers=(members||[]).filter(member=>{
-      const isActive=member?.is_active===undefined?true:!!member.is_active;
-      const identity=[member?.name,member?.email,member?.auth_user_id].filter(Boolean).join(' ').toLowerCase();
-      return isActive&&!/projectschedule|system|test/.test(identity);
-    });
+    const activeMembers=getOperationalMembers();
     const getTodayScheduleMemberNames=type=>[...new Set((schedules||[])
       .filter(schedule=>{
         const scheduleType=String(schedule?.schedule_type||'').trim();
@@ -2530,7 +2503,7 @@ renderHomeRiskSummary = async function(){
         const endDate=toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date);
         return startDate<=today&&endDate>=today;
       })
-      .flatMap(schedule=>getScheduleMemberNames(schedule))
+      .flatMap(schedule=>getOperationalScheduleMemberNames(schedule))
       .filter(Boolean))];
     const todayLeaveCount=getTodayScheduleMemberNames('leave').length;
     const todayFieldworkCount=getTodayScheduleMemberNames('fieldwork').length;

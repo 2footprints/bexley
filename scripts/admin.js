@@ -1,188 +1,647 @@
+let adminUserRoleRows=[];
+let adminManagementFilters={
+  search:'',
+  permission:'all',
+  team:'all',
+  rank:'all',
+  inclusion:'all',
+  status:'active'
+};
+
 function accessStatusBadge(status){
   if(status==='approved')return '<span class="badge badge-green">승인</span>';
-  if(status==='rejected')return '<span class="badge badge-red">반려</span>';
-  return '<span class="badge badge-orange">대기</span>';
+  if(status==='rejected')return '<span class="badge badge-gray">반려</span>';
+  return '<span class="badge badge-orange">확인 대기</span>';
 }
 
 function accessRoleSelectOptions(selected){
-  return ['observer','member','admin'].map(role=>'<option value="'+role+'" '+(selected===role?'selected':'')+'>'+getRoleLabel(role)+'</option>').join('');
+  return ['observer','member','manager','admin']
+    .map(role=>'<option value="'+role+'" '+(selected===role?'selected':'')+'>'+getRoleLabel(role)+'</option>')
+    .join('');
 }
 
 async function openAccessRequestManager(targetRequestId=''){
   if(!roleIsAdmin())return;
   try{
     accessRequests=await api('GET','access_requests?select=*&order=status.asc,created_at.desc')||[];
-  }catch(e){accessRequests=[];}
-  const pending=accessRequests.filter(r=>r.status==='pending');
-  const history=accessRequests.filter(r=>r.status!=='pending');
+  }catch(e){
+    accessRequests=[];
+  }
+  const pending=accessRequests.filter(request=>request.status==='pending');
+  const history=accessRequests.filter(request=>request.status!=='pending');
   document.getElementById('modalArea').innerHTML=''
     +'<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:760px"><div class="modal-title">접근 권한 요청</div>'
-    +'<div style="font-size:12px;color:var(--text3);margin-bottom:16px">회원가입 후 들어온 권한 요청을 승인하거나 반려할 수 있습니다.</div>'
-    +'<div style="max-height:68vh;overflow-y:auto">'
-    +'<div class="divider" style="margin-top:0">대기 중 요청 ('+pending.length+'건)</div>'
-    +(pending.length?pending.map(req=>'<div id="access-request-'+req.id+'" class="card-sm" style="margin-bottom:10px">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">'
-      +'<div><div style="font-size:14px;font-weight:800;color:var(--navy)">'+esc(req.name||inferNameFromEmail(req.email)||'이름 미입력')+'</div>'
-      +'<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(req.email||'')+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:5px">희망 권한: '+getRequestedRoleLabel(req.requested_role||'observer')+' · '+esc(formatPendingDate(req.created_at))+'</div></div>'
-      +accessStatusBadge(req.status)
+      +'<div class="modal" style="width:760px">'
+        +'<div class="modal-title">접근 권한 요청</div>'
+        +'<div style="font-size:12px;color:var(--text3);margin-bottom:16px">회원가입 이후 들어온 접근 요청을 승인하거나 반려할 수 있습니다.</div>'
+        +'<div style="max-height:68vh;overflow-y:auto">'
+          +'<div class="divider" style="margin-top:0">확인 대기 ('+pending.length+'건)</div>'
+          +(pending.length?pending.map(request=>''
+            +'<div id="access-request-'+request.id+'" class="card-sm" style="margin-bottom:10px">'
+              +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">'
+                +'<div>'
+                  +'<div style="font-size:14px;font-weight:800;color:var(--navy)">'+esc(request.name||inferNameFromEmail(request.email)||'이름 미입력')+'</div>'
+                  +'<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(request.email||'')+'</div>'
+                  +'<div style="font-size:11px;color:var(--text3);margin-top:5px">희망 권한: '+getRequestedRoleLabel(request.requested_role||'observer')+' · '+esc(formatPendingDate(request.created_at))+'</div>'
+                +'</div>'
+                +accessStatusBadge(request.status)
+              +'</div>'
+              +(request.note?'<div style="font-size:12px;color:var(--text2);line-height:1.6;background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:10px">'+esc(request.note)+'</div>':'')
+              +'<div style="display:grid;grid-template-columns:1fr 170px;gap:10px;margin-bottom:10px">'
+                +'<input id="access-name-'+request.id+'" value="'+esc(request.name||inferNameFromEmail(request.email)||'')+'" placeholder="이름" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit"/>'
+                +'<select id="access-role-'+request.id+'" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit">'+accessRoleSelectOptions(request.requested_role||'observer')+'</select>'
+              +'</div>'
+              +'<div style="display:flex;justify-content:flex-end;gap:8px">'
+                +'<button class="btn ghost sm" onclick="rejectAccessRequest(\''+request.id+'\')">반려</button>'
+                +'<button class="btn primary sm" onclick="approveAccessRequest(\''+request.id+'\')">승인</button>'
+              +'</div>'
+            +'</div>'
+          ).join(''):'<div style="font-size:12px;color:var(--text3);padding:12px 0">확인 대기 중인 요청이 없습니다.</div>')
+          +'<div class="divider">처리 이력 ('+history.length+'건)</div>'
+          +(history.length?history.map(request=>''
+            +'<div class="card-sm" style="margin-bottom:10px">'
+              +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">'
+                +'<div>'
+                  +'<div style="font-size:13px;font-weight:700;color:var(--navy)">'+esc(request.name||inferNameFromEmail(request.email)||request.email||'')+'</div>'
+                  +'<div style="font-size:11px;color:var(--text3);margin-top:3px">'+esc(request.email||'')+'</div>'
+                  +'<div style="font-size:11px;color:var(--text3);margin-top:5px">처리 권한: '+getRoleLabel(request.reviewed_role||request.requested_role||'observer')+' · '+esc(formatPendingDate(request.reviewed_at||request.created_at))+'</div>'
+                +'</div>'
+                +accessStatusBadge(request.status)
+              +'</div>'
+              +(request.note?'<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-top:8px">'+esc(request.note)+'</div>':'')
+            +'</div>'
+          ).join(''):'<div style="font-size:12px;color:var(--text3);padding:12px 0">처리 이력이 없습니다.</div>')
+        +'</div>'
+        +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
       +'</div>'
-      +(req.note?'<div style="font-size:12px;color:var(--text2);line-height:1.6;background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:10px">'+esc(req.note)+'</div>':'')
-      +'<div style="display:grid;grid-template-columns:1fr 160px;gap:10px;margin-bottom:10px"><input id="access-name-'+req.id+'" value="'+esc(req.name||inferNameFromEmail(req.email)||'')+'" placeholder="이름" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit"/><select id="access-role-'+req.id+'" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit">'+accessRoleSelectOptions(req.requested_role||'observer')+'</select></div>'
-      +'<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn danger sm" onclick="rejectAccessRequest(\''+req.id+'\')">반려</button><button class="btn primary sm" onclick="approveAccessRequest(\''+req.id+'\')">승인</button></div>'
-      +'</div>').join(''):'<div style="font-size:12px;color:var(--text3);padding:12px 0">대기 중 요청이 없습니다.</div>')
-    +'<div class="divider">처리 내역 ('+history.length+'건)</div>'
-    +(history.length?history.map(req=>'<div class="card-sm" style="margin-bottom:10px">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">'
-      +'<div><div style="font-size:13px;font-weight:700;color:var(--navy)">'+esc(req.name||inferNameFromEmail(req.email)||req.email||'')+'</div><div style="font-size:11px;color:var(--text3);margin-top:3px">'+esc(req.email||'')+'</div><div style="font-size:11px;color:var(--text3);margin-top:5px">처리 권한: '+getRoleLabel(req.reviewed_role||req.requested_role||'observer')+' · '+esc(formatPendingDate(req.reviewed_at||req.created_at))+'</div></div>'
-      +accessStatusBadge(req.status)
-      +'</div>'
-      +(req.note?'<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-top:8px">'+esc(req.note)+'</div>':'')
-      +'</div>').join(''):'<div style="font-size:12px;color:var(--text3);padding:12px 0">아직 처리된 요청이 없습니다.</div>')
-    +'</div>'
-    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
-    +'</div></div>';
+    +'</div>';
   if(targetRequestId)focusTargetElement('access-request-'+targetRequestId);
 }
 
 async function approveAccessRequest(requestId){
-  const req=accessRequests.find(r=>r.id===requestId);if(!req)return;
+  const request=accessRequests.find(row=>row.id===requestId);
+  if(!request)return;
   const role=document.getElementById('access-role-'+requestId)?.value||'observer';
-  const name=(document.getElementById('access-name-'+requestId)?.value||'').trim()||req.name||inferNameFromEmail(req.email);
+  const name=(document.getElementById('access-name-'+requestId)?.value||'').trim()||request.name||inferNameFromEmail(request.email);
   const reviewedAt=new Date().toISOString();
   try{
-    const existingMembers=await api('GET','members?email=eq.'+encodeURIComponent(req.email)+'&select=id,email,name,auth_user_id').catch(()=>[]);
+    const existingMembers=await api('GET','members?email=eq.'+encodeURIComponent(request.email)+'&select=id,email,name,auth_user_id').catch(()=>[]);
     if(existingMembers?.length){
-      await api('PATCH','members?id=eq.'+existingMembers[0].id,{name,email:req.email,auth_user_id:req.user_id});
+      await api('PATCH','members?id=eq.'+existingMembers[0].id,{name,email:request.email,auth_user_id:request.user_id});
     }else{
-      await api('POST','members',{name,email:req.email,auth_user_id:req.user_id});
+      await api('POST','members',{
+        name,
+        email:request.email,
+        auth_user_id:request.user_id
+      });
     }
-    const existingRoles=await api('GET','user_roles?id=eq.'+req.user_id+'&select=id').catch(()=>[]);
-    const roleBody={id:req.user_id,role,is_admin:role==='admin',approved_by:currentUser.id,approved_at:reviewedAt};
-    if(existingRoles?.length) await api('PATCH','user_roles?id=eq.'+req.user_id,roleBody);
+    const existingRoles=await api('GET','user_roles?id=eq.'+request.user_id+'&select=id').catch(()=>[]);
+    const roleBody={
+      id:request.user_id,
+      role,
+      is_admin:role==='admin',
+      approved_by:currentUser.id,
+      approved_at:reviewedAt
+    };
+    if(existingRoles?.length)await api('PATCH','user_roles?id=eq.'+request.user_id,roleBody);
     else await apiEx('POST','user_roles',roleBody,'return=representation');
-    await api('PATCH','access_requests?id=eq.'+requestId,{name,status:'approved',reviewed_role:role,reviewed_by:currentUser.id,reviewed_at:reviewedAt,updated_at:reviewedAt});
-    await createNotification(req.user_id,'access_approved','접근 요청이 승인되었습니다. ('+getRoleLabel(role)+')','access_request',requestId);
+    await api('PATCH','access_requests?id=eq.'+requestId,{
+      name,
+      status:'approved',
+      reviewed_role:role,
+      reviewed_by:currentUser.id,
+      reviewed_at:reviewedAt,
+      updated_at:reviewedAt
+    });
+    await createNotification(request.user_id,'access_approved','접근 권한 요청이 승인되었습니다. ('+getRoleLabel(role)+')','access_request',requestId);
+    await loadAll();
+    await loadAdminManagementData();
     await openAccessRequestManager(requestId);
-  }catch(e){alert('승인 처리 오류: '+e.message);}
+  }catch(e){
+    alert('승인 처리 오류: '+e.message);
+  }
 }
 
 async function rejectAccessRequest(requestId){
-  const req=accessRequests.find(r=>r.id===requestId);if(!req)return;
+  const request=accessRequests.find(row=>row.id===requestId);
+  if(!request)return;
   if(!confirm('이 요청을 반려할까요?'))return;
   try{
     const reviewedAt=new Date().toISOString();
-    await api('PATCH','access_requests?id=eq.'+requestId,{status:'rejected',reviewed_role:null,reviewed_by:currentUser.id,reviewed_at:reviewedAt,updated_at:reviewedAt});
-    await createNotification(req.user_id,'access_rejected','접근 요청이 반려되었습니다. 다시 요청 내용을 작성해 주세요.','access_request',requestId);
+    await api('PATCH','access_requests?id=eq.'+requestId,{
+      status:'rejected',
+      reviewed_role:null,
+      reviewed_by:currentUser.id,
+      reviewed_at:reviewedAt,
+      updated_at:reviewedAt
+    });
+    await createNotification(request.user_id,'access_rejected','접근 권한 요청이 반려되었습니다. 내용을 보완해 다시 요청해 주세요.','access_request',requestId);
+    await loadAdminManagementData();
     await openAccessRequestManager(requestId);
-  }catch(e){alert('반려 처리 오류: '+e.message);}
+  }catch(e){
+    alert('반려 처리 오류: '+e.message);
+  }
 }
 
-function openMemberManager(){
-  if(!isAdmin)return;
-  const rows=members.map(m=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">'
-    +'<div><div style="font-size:14px;font-weight:700;color:var(--navy)">'+m.name+'</div><div style="font-size:12px;color:var(--text3);margin-top:2px">'+(m.email||'이메일 미설정')+'</div></div>'
-    +'<button class="btn danger sm" data-id="'+m.id+'" data-name="'+m.name+'" onclick="deleteMember(this.dataset.id,this.dataset.name)">삭제</button>'
-    +'</div>').join('');
-  document.getElementById('modalArea').innerHTML=
-    '<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal"><div class="modal-title">인력 관리</div>'
-    +'<div style="max-height:280px;overflow-y:auto;margin-bottom:20px">'+(rows||'<div style="color:var(--text3);padding:20px 0;text-align:center">등록된 인력이 없습니다</div>')+'</div>'
-    +'<div class="divider">새 인력 추가</div>'
-    +'<div class="form-half"><div class="form-row"><label class="form-label">이름</label><input id="nMN" placeholder="이름"/></div>'
-    +'<div class="form-row"><label class="form-label">이메일</label><input id="nME" placeholder="hong@bexleyintl.com"/></div></div>'
-    +'<div id="mms" style="font-size:12px;min-height:18px;margin-top:4px"></div>'
-    +'<div class="modal-footer" style="justify-content:space-between">'
-    +'<div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn primary" onclick="addNewMember()">추가</button></div></div>'
-    +'</div></div>';
-  document.getElementById('nMN').focus();
+function getAdminRoleRowMap(){
+  return new Map((adminUserRoleRows||[]).map(roleRow=>[String(roleRow?.id||''),roleRow]));
 }
 
-async function addNewMember(){
-  const name=document.getElementById('nMN')?.value.trim(),email=document.getElementById('nME')?.value.trim()||null;
-  if(!name)return;
-  if(members.find(m=>m.name===name)){const s=document.getElementById('mms');s.textContent='이미 등록된 이름입니다.';s.style.color='var(--red)';return;}
-  try{await api('POST','members',{name,email});await loadAll();openMemberManager();}
-  catch(e){const s=document.getElementById('mms');s.textContent='오류: '+e.message;s.style.color='var(--red)';}
+function getAdminMemberPermissionValue(member,roleRow){
+  if(roleRow?.role)return normalizeMemberPermissionLevel(roleRow.role);
+  if(roleRow?.is_admin===true)return 'admin';
+  if(member?.auth_user_id)return 'observer';
+  return '';
 }
 
-async function deleteMember(id,name){
-  if(projects.some(p=>p.members.includes(name))){alert('"'+name+'"은 프로젝트에 배정되어 있어 삭제할 수 없습니다.');return;}
-  if(!confirm('"'+name+'"을 삭제할까요?'))return;
-  try{await api('DELETE','members?id=eq.'+id);await loadAll();openMemberManager();}catch(e){alert('오류: '+e.message);}
+function getAdminMemberPermissionLabel(member,roleRow){
+  const permission=getAdminMemberPermissionValue(member,roleRow);
+  return permission?getMemberPermissionLabel(permission):'미연결';
+}
+
+function getAdminManagedMembers(){
+  const roleMap=getAdminRoleRowMap();
+  return (members||[]).map(member=>{
+    const authUserId=String(member?.auth_user_id||'').trim();
+    const roleRow=authUserId?roleMap.get(authUserId)||null:null;
+    const permission=getAdminMemberPermissionValue(member,roleRow);
+    const isActiveNow=isMemberActive(member);
+    const operationalIncluded=isMemberOperationallyIncluded(member,{activeOnly:false});
+    const team=getMemberTeamLabel(member?.team);
+    const rank=getMemberRankLabel(member?.rank);
+    const note=String(member?.note||'').trim();
+    const isSystemAccount=isSystemAccountMember(member);
+    return {
+      id:String(member?.id||''),
+      name:String(member?.name||'').trim()||'이름 없음',
+      email:String(member?.email||'').trim(),
+      authUserId,
+      isActive:isActiveNow,
+      permission,
+      permissionLabel:getAdminMemberPermissionLabel(member,roleRow),
+      team,
+      rank,
+      operationalIncluded,
+      note,
+      isSystemAccount,
+      roleRow
+    };
+  }).sort((a,b)=>{
+    const inclusionDiff=Number(b.operationalIncluded)-Number(a.operationalIncluded);
+    if(inclusionDiff)return inclusionDiff;
+    const activeDiff=Number(b.isActive)-Number(a.isActive);
+    if(activeDiff)return activeDiff;
+    const systemDiff=Number(a.isSystemAccount)-Number(b.isSystemAccount);
+    if(systemDiff)return systemDiff;
+    return a.name.localeCompare(b.name,'ko');
+  });
+}
+
+function getAdminTeamsInUse(users){
+  return [...new Set((users||[]).map(user=>user.team).filter(label=>label&&label!=='미지정'))].sort((a,b)=>a.localeCompare(b,'ko'));
+}
+
+function getAdminRanksInUse(users){
+  return [...new Set((users||[]).map(user=>user.rank).filter(label=>label&&label!=='미지정'))].sort((a,b)=>a.localeCompare(b,'ko'));
+}
+
+function getAdminFilteredMembers(users){
+  const filters=adminManagementFilters||{};
+  const query=String(filters.search||'').trim().toLowerCase();
+  return (users||[]).filter(user=>{
+    if(query){
+      const haystack=[
+        user.name,
+        user.email,
+        user.permissionLabel,
+        user.team,
+        user.rank,
+        user.note
+      ].join(' ').toLowerCase();
+      if(!haystack.includes(query))return false;
+    }
+    if(filters.permission&&filters.permission!=='all'){
+      if(filters.permission==='unlinked'){
+        if(user.authUserId)return false;
+      }else if(user.permission!==filters.permission){
+        return false;
+      }
+    }
+    if(filters.team&&filters.team!=='all'&&user.team!==filters.team)return false;
+    if(filters.rank&&filters.rank!=='all'&&user.rank!==filters.rank)return false;
+    if(filters.inclusion&&filters.inclusion!=='all'){
+      if(filters.inclusion==='included'&&!user.operationalIncluded)return false;
+      if(filters.inclusion==='excluded'&&user.operationalIncluded)return false;
+    }
+    if(filters.status&&filters.status!=='all'){
+      if(filters.status==='active'&&!user.isActive)return false;
+      if(filters.status==='inactive'&&user.isActive)return false;
+    }
+    return true;
+  });
+}
+
+function setAdminManagementFilter(key,value){
+  adminManagementFilters={
+    ...adminManagementFilters,
+    [key]:value
+  };
+  renderAdminPageContent();
+}
+
+function getAdminInitial(name){
+  return String(name||'?').trim().charAt(0).toUpperCase()||'?';
+}
+
+function renderAdminSummaryCards(users){
+  const totalCount=(users||[]).length;
+  const activeCount=(users||[]).filter(user=>user.isActive).length;
+  const includedCount=(users||[]).filter(user=>user.isActive&&user.operationalIncluded).length;
+  const excludedCount=(users||[]).filter(user=>user.isSystemAccount||!user.operationalIncluded).length;
+  const teamCount=getAdminTeamsInUse(users).length;
+  return ''
+    +'<div class="admin-summary-grid">'
+      +'<div class="admin-summary-card"><div class="admin-summary-label">전체 사용자</div><div class="admin-summary-value">'+totalCount+'</div><div class="admin-summary-sub">멤버 테이블 기준</div></div>'
+      +'<div class="admin-summary-card"><div class="admin-summary-label">활성 사용자</div><div class="admin-summary-value">'+activeCount+'</div><div class="admin-summary-sub">로그인/운영 대상 상태</div></div>'
+      +'<div class="admin-summary-card"><div class="admin-summary-label">운영 집계 포함</div><div class="admin-summary-value">'+includedCount+'</div><div class="admin-summary-sub">Home · Weekly Review · 일정 집계 기준</div></div>'
+      +'<div class="admin-summary-card is-attention"><div class="admin-summary-label">시스템/운영 제외</div><div class="admin-summary-value">'+excludedCount+'</div><div class="admin-summary-sub">집계 제외 또는 System 팀</div></div>'
+      +'<div class="admin-summary-card"><div class="admin-summary-label">등록 팀</div><div class="admin-summary-value">'+teamCount+'</div><div class="admin-summary-sub">조직 구분 수</div></div>'
+    +'</div>';
+}
+
+function renderAdminFilterToolbar(users){
+  const teamOptions=[...new Set(MEMBER_TEAM_OPTIONS.concat(getAdminTeamsInUse(users)))];
+  const rankOptions=[...new Set(MEMBER_RANK_OPTIONS.concat(getAdminRanksInUse(users)))];
+  return ''
+    +'<div class="card admin-toolbar-card">'
+      +'<div class="admin-toolbar-head">'
+        +'<div><div class="admin-toolbar-title">사용자 관리</div><div class="admin-toolbar-sub">권한, 팀, 직급, 운영 집계 포함 여부를 분리해 관리합니다.</div></div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+          +'<button class="btn sm" onclick="openAccessRequestManager()">권한 요청</button>'
+          +'<button class="btn sm" onclick="openPortalManager()">포털 관리</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="admin-filter-grid">'
+        +'<input type="search" value="'+esc(adminManagementFilters.search||'')+'" placeholder="이름, 이메일, 팀, 직급, 비고 검색" oninput="setAdminManagementFilter(\'search\',this.value)">'
+        +'<select onchange="setAdminManagementFilter(\'permission\',this.value)">'
+          +'<option value="all"'+(adminManagementFilters.permission==='all'?' selected':'')+'>권한 전체</option>'
+          +'<option value="admin"'+(adminManagementFilters.permission==='admin'?' selected':'')+'>관리자</option>'
+          +'<option value="manager"'+(adminManagementFilters.permission==='manager'?' selected':'')+'>매니저</option>'
+          +'<option value="member"'+(adminManagementFilters.permission==='member'?' selected':'')+'>멤버</option>'
+          +'<option value="observer"'+(adminManagementFilters.permission==='observer'?' selected':'')+'>Observer</option>'
+          +'<option value="unlinked"'+(adminManagementFilters.permission==='unlinked'?' selected':'')+'>권한 미연결</option>'
+        +'</select>'
+        +'<select onchange="setAdminManagementFilter(\'team\',this.value)">'
+          +'<option value="all"'+(adminManagementFilters.team==='all'?' selected':'')+'>팀 전체</option>'
+          +teamOptions.map(team=>'<option value="'+esc(team)+'"'+(adminManagementFilters.team===team?' selected':'')+'>'+esc(team)+'</option>').join('')
+        +'</select>'
+        +'<select onchange="setAdminManagementFilter(\'rank\',this.value)">'
+          +'<option value="all"'+(adminManagementFilters.rank==='all'?' selected':'')+'>직급 전체</option>'
+          +rankOptions.map(rank=>'<option value="'+esc(rank)+'"'+(adminManagementFilters.rank===rank?' selected':'')+'>'+esc(rank)+'</option>').join('')
+        +'</select>'
+        +'<select onchange="setAdminManagementFilter(\'inclusion\',this.value)">'
+          +'<option value="all"'+(adminManagementFilters.inclusion==='all'?' selected':'')+'>운영 집계 전체</option>'
+          +'<option value="included"'+(adminManagementFilters.inclusion==='included'?' selected':'')+'>운영 집계 포함</option>'
+          +'<option value="excluded"'+(adminManagementFilters.inclusion==='excluded'?' selected':'')+'>운영 집계 제외</option>'
+        +'</select>'
+        +'<select onchange="setAdminManagementFilter(\'status\',this.value)">'
+          +'<option value="all"'+(adminManagementFilters.status==='all'?' selected':'')+'>상태 전체</option>'
+          +'<option value="active"'+(adminManagementFilters.status==='active'?' selected':'')+'>활성</option>'
+          +'<option value="inactive"'+(adminManagementFilters.status==='inactive'?' selected':'')+'>비활성</option>'
+        +'</select>'
+      +'</div>'
+    +'</div>';
+}
+
+function getAdminActiveBadge(isActiveNow){
+  return isActiveNow
+    ? '<span class="badge badge-green">활성</span>'
+    : '<span class="badge badge-gray">비활성</span>';
+}
+
+function getAdminOperationalBadge(included){
+  return included
+    ? '<span class="badge badge-green">포함</span>'
+    : '<span class="badge badge-gray">제외</span>';
+}
+
+function getAdminPermissionBadge(user){
+  if(!user.authUserId)return '<span class="admin-meta-pill is-muted">계정 미연결</span>';
+  return '<span class="admin-meta-pill">'+esc(user.permissionLabel)+'</span>';
+}
+
+function renderAdminUserRow(user){
+  const noteText=user.note||'비고 없음';
+  const identityMeta=[];
+  if(user.isSystemAccount)identityMeta.push('<span class="admin-meta-pill is-muted">시스템 계정</span>');
+  if(!user.operationalIncluded)identityMeta.push('<span class="admin-meta-pill is-muted">운영 집계 제외</span>');
+  if(!user.authUserId)identityMeta.push('<span class="admin-meta-pill is-muted">로그인 계정 미연결</span>');
+  return ''
+    +'<div class="admin-table-row">'
+      +'<div class="admin-user-cell">'
+        +'<div class="admin-user-main">'
+          +'<div class="admin-user-avatar">'+esc(getAdminInitial(user.name))+'</div>'
+          +'<div class="admin-user-copy">'
+            +'<div class="admin-user-name">'+esc(user.name)+'</div>'
+            +'<div class="admin-user-email">'+esc(user.email||'이메일 미등록')+'</div>'
+            +(identityMeta.length?'<div class="admin-user-meta">'+identityMeta.join('')+'</div>':'')
+          +'</div>'
+        +'</div>'
+      +'</div>'
+      +'<div data-label="상태">'+getAdminActiveBadge(user.isActive)+'</div>'
+      +'<div data-label="권한">'+getAdminPermissionBadge(user)+'</div>'
+      +'<div data-label="팀"><div class="admin-table-value">'+esc(user.team)+'</div></div>'
+      +'<div data-label="직급"><div class="admin-table-value">'+esc(user.rank)+'</div></div>'
+      +'<div data-label="운영 집계">'+getAdminOperationalBadge(user.operationalIncluded)+'</div>'
+      +'<div data-label="비고"><div class="admin-note-text'+(user.note?'':' is-muted')+'">'+esc(noteText)+'</div></div>'
+      +'<div data-label="관리"><button class="btn sm" onclick="openAdminUserEditor(\''+user.id+'\')">편집</button></div>'
+    +'</div>';
+}
+
+function renderAdminUserTable(users){
+  const filteredUsers=getAdminFilteredMembers(users);
+  return ''
+    +'<div class="card admin-table-card">'
+      +'<div class="admin-toolbar-head" style="margin-bottom:14px">'
+        +'<div><div class="admin-toolbar-title">사용자 관리 테이블</div><div class="admin-toolbar-sub">권한은 시스템 접근 기준, 팀/직급은 조직 기준, 운영 집계 포함은 대시보드 반영 기준입니다.</div></div>'
+        +'<div class="admin-meta-pill">'+filteredUsers.length+'명 표시</div>'
+      +'</div>'
+      +'<div class="admin-table-head">'
+        +'<div>사용자</div>'
+        +'<div>상태</div>'
+        +'<div>권한</div>'
+        +'<div>팀</div>'
+        +'<div>직급</div>'
+        +'<div>운영 집계</div>'
+        +'<div>비고</div>'
+        +'<div>관리</div>'
+      +'</div>'
+      +(filteredUsers.length
+        ? filteredUsers.map(renderAdminUserRow).join('')
+        : '<div class="admin-table-empty">현재 필터 조건에 맞는 사용자가 없습니다.</div>')
+    +'</div>';
+}
+
+function renderAdminSupportCards(users){
+  const pending=(accessRequests||[]).filter(request=>request.status==='pending');
+  const pendingPreview=pending.slice(0,4).map(request=>''
+    +'<div class="admin-support-item">'
+      +'<div class="admin-support-item-title">'+esc(request.name||inferNameFromEmail(request.email)||request.email||'요청자')+'</div>'
+      +'<div class="admin-support-item-meta">'+getRequestedRoleLabel(request.requested_role||'observer')+' · '+esc(formatPendingDate(request.created_at))+'</div>'
+    +'</div>'
+  ).join('')||'<div class="ui-empty-copy">확인 대기 중인 요청이 없습니다.</div>';
+  const activePortals=(clients||[]).filter(client=>client.portal_email);
+  const portalPreview=activePortals.slice(0,4).map(client=>{
+    const assigned=getAssignedMemberNames(client.id);
+    return ''
+      +'<div class="admin-support-item">'
+        +'<div class="admin-support-item-title">'+esc(client.name)+'</div>'
+        +'<div class="admin-support-item-meta">'+esc(client.portal_email||'포털 미설정')+(assigned.length?' · 담당 '+esc(assigned.join(', ')):' · 담당 미배정')+'</div>'
+      +'</div>';
+  }).join('')||'<div class="ui-empty-copy">활성 포털 계정이 없습니다.</div>';
+  const operationalGuide=[
+    '권한은 시스템에서 할 수 있는 행동을 의미합니다.',
+    '팀과 직급은 내부 조직 구조를 의미합니다.',
+    '운영 집계 포함 여부는 Home · Weekly Review · 팀 일정 집계에만 영향을 줍니다.',
+    'System 팀 계정은 운영 집계 제외와 함께 관리하는 것이 안전합니다.'
+  ].map(text=>'<div class="admin-support-item"><div class="admin-support-item-meta" style="margin-top:0">'+esc(text)+'</div></div>').join('');
+  return ''
+    +'<div class="admin-support-grid">'
+      +'<div class="card admin-support-card">'
+        +'<div class="admin-support-head">'
+          +'<div><div class="admin-support-title">권한 요청</div><div class="admin-support-sub">신규 가입자의 접근 권한을 승인하거나 반려합니다.</div></div>'
+          +accessStatusBadge(pending.length?'pending':'approved')
+        +'</div>'
+        +'<div class="admin-support-list">'+pendingPreview+'</div>'
+        +'<div class="ui-card-actions"><button class="btn primary sm" onclick="openAccessRequestManager()">권한 요청 관리</button></div>'
+      +'</div>'
+      +'<div class="card admin-support-card">'
+        +'<div class="admin-support-head">'
+          +'<div><div class="admin-support-title">고객사 포털 관리</div><div class="admin-support-sub">포털 계정과 담당자 연결 상태를 함께 확인합니다.</div></div>'
+          +'<span class="admin-meta-pill">'+activePortals.length+'개</span>'
+        +'</div>'
+        +'<div class="admin-support-list">'+portalPreview+'</div>'
+        +'<div class="ui-card-actions-row"><button class="btn primary sm" onclick="openPortalManager()">포털 관리</button><button class="btn sm" onclick="openActivityLog()">활동 로그</button></div>'
+      +'</div>'
+      +'<div class="card admin-support-card">'
+        +'<div class="admin-support-head">'
+          +'<div><div class="admin-support-title">운영 구조 기준</div><div class="admin-support-sub">권한, 팀, 직급, 운영 집계 기준을 분리해 관리합니다.</div></div>'
+          +'<span class="admin-meta-pill">'+users.filter(user=>!user.operationalIncluded).length+'명 제외</span>'
+        +'</div>'
+        +'<div class="admin-support-list">'+operationalGuide+'</div>'
+      +'</div>'
+    +'</div>';
+}
+
+function renderAdminPageContent(){
+  const el=document.getElementById('pageAdmin');
+  if(!el)return;
+  if(!roleIsAdmin()){
+    el.innerHTML='<div class="card"><div class="ui-admin-gate-title">관리자 전용</div><div class="ui-page-desc">이 화면은 관리자만 볼 수 있습니다.</div></div>';
+    return;
+  }
+  const users=getAdminManagedMembers();
+  el.innerHTML=''
+    +'<div class="admin-page-head">'
+      +'<div class="admin-page-title-wrap">'
+        +'<div class="admin-page-title">Management</div>'
+        +'<div class="admin-page-sub">사용자 권한, 팀, 직급, 운영 집계 포함 여부를 분리해 관리하는 내부 운영 기준 화면입니다.</div>'
+      +'</div>'
+    +'</div>'
+    +renderAdminSummaryCards(users)
+    +renderAdminFilterToolbar(users)
+    +renderAdminUserTable(users)
+    +renderAdminSupportCards(users);
+}
+
+async function loadAdminManagementData(){
+  const [requests,assignments,roleRows]=await Promise.all([
+    api('GET','access_requests?select=*&order=status.asc,created_at.desc').catch(()=>accessRequests||[]),
+    api('GET','client_assignments?select=*').catch(()=>clientAssignments||[]),
+    api('GET','user_roles?select=id,role,is_admin,approved_at,approved_by').catch(()=>adminUserRoleRows||[])
+  ]);
+  accessRequests=requests||[];
+  clientAssignments=assignments||[];
+  adminUserRoleRows=roleRows||[];
+}
+
+async function renderAdminPage(){
+  const el=document.getElementById('pageAdmin');
+  if(!el)return;
+  if(!roleIsAdmin()){
+    renderAdminPageContent();
+    return;
+  }
+  el.innerHTML='<div class="card"><div class="ui-loading-card">불러오는 중...</div></div>';
+  try{
+    await loadAdminManagementData();
+  }catch(e){}
+  renderAdminPageContent();
+}
+
+function getAdminModalSelectOptions(options,selected,emptyLabel){
+  const base=emptyLabel?'<option value="">'+esc(emptyLabel)+'</option>':'';
+  return base+(options||[]).map(option=>'<option value="'+esc(option)+'"'+(selected===option?' selected':'')+'>'+esc(option)+'</option>').join('');
+}
+
+function openAdminUserEditor(memberId){
+  if(!roleIsAdmin())return;
+  const member=(members||[]).find(row=>String(row?.id||'')===String(memberId||''));
+  if(!member)return;
+  const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===String(member?.auth_user_id||''))||null;
+  const permission=getAdminMemberPermissionValue(member,roleRow)||'observer';
+  const authLinked=!!String(member?.auth_user_id||'').trim();
+  document.getElementById('modalArea').innerHTML=''
+    +getInputModalOverlayHtml()
+    +'<div class="modal" style="width:560px">'
+      +'<div class="modal-title">사용자 관리 수정</div>'
+      +'<div class="form-half">'
+        +'<div class="form-row"><label class="form-label">이름</label><input id="adminUserName" value="'+esc(member?.name||'')+'" placeholder="이름"></div>'
+        +'<div class="form-row"><label class="form-label">이메일</label><input id="adminUserEmail" value="'+esc(member?.email||'')+'" placeholder="name@bexleyintl.com"></div>'
+      +'</div>'
+      +'<div class="form-half">'
+        +'<div class="form-row"><label class="form-label">상태</label><select id="adminUserActive"><option value="true"'+(isMemberActive(member)?' selected':'')+'>활성</option><option value="false"'+(!isMemberActive(member)?' selected':'')+'>비활성</option></select></div>'
+        +'<div class="form-row"><label class="form-label">권한</label><select id="adminUserPermission" '+(authLinked?'':'disabled')+'>'+accessRoleSelectOptions(permission)+'</select></div>'
+      +'</div>'
+      +'<div class="form-half">'
+        +'<div class="form-row"><label class="form-label">팀</label><select id="adminUserTeam">'+getAdminModalSelectOptions(MEMBER_TEAM_OPTIONS,normalizeMemberTeam(member?.team),'미지정')+'</select></div>'
+        +'<div class="form-row"><label class="form-label">직급</label><select id="adminUserRank">'+getAdminModalSelectOptions(MEMBER_RANK_OPTIONS,normalizeMemberRank(member?.rank),'미지정')+'</select></div>'
+      +'</div>'
+      +'<div class="form-half">'
+        +'<div class="form-row"><label class="form-label">운영 집계 포함 여부</label><select id="adminUserInclusion"><option value="true"'+(isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>포함</option><option value="false"'+(!isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>제외</option></select></div>'
+        +'<div class="form-row"><label class="form-label">비고</label><input id="adminUserNote" value="'+esc(member?.note||'')+'" placeholder="시스템 계정, 테스트 계정, 예외 사유 등을 기록"></div>'
+      +'</div>'
+      +'<div class="admin-user-modal-link">계정 연결: '+(authLinked?esc(member.auth_user_id):'로그인 계정 미연결')+'</div>'
+      +(!authLinked?'<div class="admin-user-modal-note">로그인 계정이 연결되지 않은 멤버 행은 권한을 바로 부여할 수 없습니다. 먼저 회원가입/권한 요청을 통해 auth 계정을 연결해 주세요.</div>':'<div class="admin-user-modal-note">권한은 시스템 접근 수준, 팀과 직급은 조직 구조, 운영 집계 포함 여부는 대시보드 반영 기준입니다.</div>')
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveAdminUserProfile(\''+member.id+'\')">저장</button></div></div>'
+    +'</div>';
+}
+
+async function saveAdminUserProfile(memberId){
+  if(!roleIsAdmin())return;
+  const member=(members||[]).find(row=>String(row?.id||'')===String(memberId||''));
+  if(!member)return;
+  const name=(document.getElementById('adminUserName')?.value||'').trim();
+  const email=(document.getElementById('adminUserEmail')?.value||'').trim();
+  const isActiveNow=(document.getElementById('adminUserActive')?.value||'true')==='true';
+  const permission=document.getElementById('adminUserPermission')?.value||getAdminMemberPermissionValue(member);
+  const team=(document.getElementById('adminUserTeam')?.value||'').trim();
+  const rank=(document.getElementById('adminUserRank')?.value||'').trim();
+  const included=(document.getElementById('adminUserInclusion')?.value||'true')==='true';
+  const note=(document.getElementById('adminUserNote')?.value||'').trim();
+  if(!name){
+    alert('이름을 입력해 주세요.');
+    return;
+  }
+  try{
+    await api('PATCH','members?id=eq.'+memberId,{
+      name,
+      email:email||null,
+      is_active:isActiveNow,
+      team:team||null,
+      rank:rank||null,
+      include_in_operational_dashboards:included,
+      note:note||null
+    });
+    const authUserId=String(member?.auth_user_id||'').trim();
+    if(authUserId){
+      const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===authUserId)||null;
+      const body={
+        id:authUserId,
+        role:permission||'observer',
+        is_admin:(permission||'observer')==='admin',
+        approved_by:currentUser?.id||null,
+        approved_at:roleRow?.approved_at||new Date().toISOString()
+      };
+      if(roleRow){
+        await api('PATCH','user_roles?id=eq.'+authUserId,body);
+      }else{
+        await apiEx('POST','user_roles',body,'return=representation');
+      }
+    }
+    await loadAll();
+    await loadAdminManagementData();
+    closeModal();
+    renderAdminPageContent();
+  }catch(e){
+    alert('저장 오류: '+e.message);
+  }
 }
 
 async function openPortalManager(){
   if(!canManagePortalSettings())return;
   const el=document.getElementById('modalArea');
   el.innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()">'
-    +'<div class="modal" style="width:680px"><div class="modal-title">🔐 고객사 페이지 관리</div>'
+    +'<div class="modal" style="width:680px"><div class="modal-title">고객사 포털 관리</div>'
     +'<div id="portalManagerBody"><div style="color:var(--text3);text-align:center;padding:20px">불러오는 중...</div></div>'
     +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
     +'</div></div>';
-  try{clientAssignments=await api('GET','client_assignments?select=*')||[];}catch{}
+  try{
+    clientAssignments=await api('GET','client_assignments?select=*')||[];
+  }catch(e){}
   renderPortalManagerBody();
 }
 
 function renderPortalManagerBody(){
-  const el=document.getElementById('portalManagerBody');if(!el)return;
-  const sorted=[...clients].sort((a,b)=>a.name.localeCompare(b.name));
-  const withPortal=sorted.filter(c=>c.portal_email);
-  const withoutPortal=sorted.filter(c=>!c.portal_email);
-
-  const assignedNames=(clientId)=>{
-    const assigned=clientAssignments.filter(a=>a.client_id===clientId);
-    return assigned.map(a=>members.find(m=>m.id===a.member_id)?.name||'?').filter(Boolean);
+  const el=document.getElementById('portalManagerBody');
+  if(!el)return;
+  const sorted=[...(clients||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  const withPortal=sorted.filter(client=>client.portal_email);
+  const withoutPortal=sorted.filter(client=>!client.portal_email);
+  const activeMembers=getActiveMembers().filter(member=>!isSystemAccountMember(member));
+  const assignedNames=clientId=>{
+    const assigned=(clientAssignments||[]).filter(row=>row.client_id===clientId);
+    return assigned.map(row=>members.find(member=>member.id===row.member_id)?.name||'?').filter(Boolean);
   };
-
   let html='<div style="font-size:12px;color:var(--text3);margin-bottom:12px">'
-    +'고객사 페이지 활성: <strong style="color:var(--green)">'+withPortal.length+'개사</strong> · 미설정: <strong>'+withoutPortal.length+'개사</strong>'
+    +'고객사 포털 활성: <strong style="color:var(--green)">'+withPortal.length+'개사</strong> · 미설정 <strong>'+withoutPortal.length+'개사</strong>'
     +'</div>';
-
   if(withPortal.length){
-    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">✓ 활성 계정</div>';
-    html+=withPortal.map(c=>{
-      const names=assignedNames(c.id);
-      return '<div style="padding:12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border)">'
-        +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
-        +'<div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
-        +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:13px;font-weight:700;color:var(--navy)">'+esc(c.name)+'</div>'
-        +'<div style="font-size:11px;color:var(--text3);margin-top:1px">'+esc(c.portal_email)+'</div>'
-        +'</div>'
-        +'<div style="display:flex;gap:6px;flex-shrink:0">'
-        +'<button class="btn primary sm" style="font-size:11px" onclick="openPortalAsClient(\''+c.id+'\')">👀 접속</button>'
-        +'<button class="btn sm" style="font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">수정</button>'
-        +'<button class="btn ghost sm" style="font-size:11px" onclick="resetPortalAccount(\''+c.id+'\',\''+esc(c.name)+'\')">초기화</button>'
-        +'</div></div>'
-        +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        +'<span style="font-size:11px;color:var(--text3);font-weight:600">담당자:</span>'
-        +(names.length?names.map(n=>'<span style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:600">'+esc(n)
-          +'<button onclick="removeAssignment(\''+c.id+'\',\''+n+'\')" style="margin-left:4px;background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;padding:0">×</button></span>').join('')
-          :'<span style="font-size:11px;color:var(--text3)">미배정</span>')
-        +'<select id="assignSel-'+c.id+'" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-family:inherit">'
-        +'<option value="">+ 담당자 추가</option>'
-        +members.filter(m=>!clientAssignments.find(a=>a.client_id===c.id&&a.member_id===m.id))
-          .map(m=>'<option value="'+m.id+'">'+esc(m.name)+'</option>').join('')
-        +'</select>'
-        +'<button class="btn sm" style="font-size:11px" onclick="addAssignment(\''+c.id+'\')">추가</button>'
-        +'</div>'
+    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">활성 계정</div>';
+    html+=withPortal.map(client=>{
+      const names=assignedNames(client.id);
+      return ''
+        +'<div style="padding:12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border)">'
+          +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+            +'<div style="width:32px;height:32px;border-radius:8px;background:var(--navy);color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(getAdminInitial(client.name))+'</div>'
+            +'<div style="flex:1;min-width:0">'
+              +'<div style="font-size:13px;font-weight:700;color:var(--navy)">'+esc(client.name)+'</div>'
+              +'<div style="font-size:11px;color:var(--text3);margin-top:1px">'+esc(client.portal_email)+'</div>'
+            +'</div>'
+            +'<div style="display:flex;gap:6px;flex-shrink:0">'
+              +'<button class="btn primary sm" style="font-size:11px" onclick="openPortalAsClient(\''+client.id+'\')">포털 보기</button>'
+              +'<button class="btn sm" style="font-size:11px" onclick="openPortalAccountEdit(\''+client.id+'\')">수정</button>'
+              +'<button class="btn ghost sm" style="font-size:11px" onclick="resetPortalAccount(\''+client.id+'\',\''+esc(client.name)+'\')">초기화</button>'
+            +'</div>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+            +'<span style="font-size:11px;color:var(--text3);font-weight:600">담당</span>'
+            +(names.length?names.map(name=>'<span style="font-size:11px;background:var(--bg2);color:var(--text2);padding:2px 8px;border-radius:10px;font-weight:600">'+esc(name)
+              +'<button onclick="removeAssignment(\''+client.id+'\',\''+name+'\')" style="margin-left:4px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0">×</button></span>').join('')
+              :'<span style="font-size:11px;color:var(--text3)">미배정</span>')
+            +'<select id="assignSel-'+client.id+'" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-family:inherit">'
+              +'<option value="">+ 담당자 추가</option>'
+              +activeMembers
+                .filter(member=>!(clientAssignments||[]).find(row=>row.client_id===client.id&&row.member_id===member.id))
+                .map(member=>'<option value="'+member.id+'">'+esc(member.name)+'</option>').join('')
+            +'</select>'
+            +'<button class="btn sm" style="font-size:11px" onclick="addAssignment(\''+client.id+'\')">추가</button>'
+          +'</div>'
         +'</div>';
     }).join('');
   }
-
   if(withoutPortal.length){
-    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:16px 0 8px">미설정 거래처</div>';
-    html+=withoutPortal.map(c=>{
-      const names=assignedNames(c.id);
-      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:4px">'
-        +'<div style="width:32px;height:32px;border-radius:8px;background:var(--bg2);color:var(--text3);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(c.name.charAt(0))+'</div>'
-        +'<div style="flex:1;min-width:0">'
-        +'<div style="font-size:13px;color:var(--text2)">'+esc(c.name)+'</div>'
-        +(names.length?'<div style="font-size:11px;color:var(--text3)">담당: '+names.join(', ')+'</div>':'')
-        +'</div>'
-        +'<button class="btn primary sm" style="flex-shrink:0;font-size:11px" onclick="openPortalAccountEdit(\''+c.id+'\')">페이지 설정</button>'
+    html+='<div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;text-transform:uppercase;margin:16px 0 8px">미설정 고객사</div>';
+    html+=withoutPortal.map(client=>{
+      const names=assignedNames(client.id);
+      return ''
+        +'<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:4px">'
+          +'<div style="width:32px;height:32px;border-radius:8px;background:var(--bg2);color:var(--text3);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+esc(getAdminInitial(client.name))+'</div>'
+          +'<div style="flex:1;min-width:0">'
+            +'<div style="font-size:13px;color:var(--text2)">'+esc(client.name)+'</div>'
+            +(names.length?'<div style="font-size:11px;color:var(--text3)">담당: '+esc(names.join(', '))+'</div>':'')
+          +'</div>'
+          +'<button class="btn primary sm" style="flex-shrink:0;font-size:11px" onclick="openPortalAccountEdit(\''+client.id+'\')">포털 설정</button>'
         +'</div>';
     }).join('');
   }
@@ -190,143 +649,119 @@ function renderPortalManagerBody(){
 }
 
 function openPortalAsClient(clientId){
-  const c=clients.find(x=>x.id===clientId);if(!c||!c.portal_email)return;
+  const client=(clients||[]).find(row=>row.id===clientId);
+  if(!client||!client.portal_email)return;
   previewPortal(clientId);
   closeModal();
-}
-
-async function renderAdminPage(){
-  const el=document.getElementById('pageAdmin');if(!el)return;
-  if(!roleIsAdmin()){
-    el.innerHTML='<div class="card"><div class="ui-admin-gate-title">관리자 전용</div><div class="ui-page-desc">이 페이지는 관리자만 볼 수 있습니다.</div></div>';
-    return;
-  }
-  el.innerHTML='<div class="section-header ui-section-stack"><h2 class="section-title">관리자 페이지</h2><span class="ui-page-desc">권한, 인력, 고객사 포털을 한곳에서 관리합니다.</span></div><div class="card"><div class="ui-loading-card">불러오는 중...</div></div>';
-  try{
-    const [reqs,assigns]=await Promise.all([
-      api('GET','access_requests?select=*&order=status.asc,created_at.desc').catch(()=>accessRequests||[]),
-      api('GET','client_assignments?select=*').catch(()=>clientAssignments||[])
-    ]);
-    accessRequests=reqs||[];
-    clientAssignments=assigns||[];
-  }catch(e){}
-  const pending=(accessRequests||[]).filter(r=>r.status==='pending');
-  const portalActive=clients.filter(c=>c.portal_email).length;
-  const assignedClients=clients.filter(c=>getAssignedMemberNames(c.id).length).length;
-  const recentPending=pending.slice(0,5).map(req=>'<div class="info-row"><span class="info-label">'+esc(req.name||inferNameFromEmail(req.email)||req.email||'요청자')+'</span><span class="info-value">'+getRequestedRoleLabel(req.requested_role||'observer')+'</span></div>').join('')||'<div class="ui-empty-copy">대기 중인 요청이 없습니다.</div>';
-  const memberPreview=(members||[]).slice(0,8).map(m=>'<div class="info-row"><span class="info-label">'+esc(m.name)+'</span><span class="info-value">'+esc(m.email||'이메일 미설정')+'</span></div>').join('')||'<div class="ui-empty-copy">등록된 인력이 없습니다.</div>';
-  const portalPreview=[...clients].filter(c=>c.portal_email).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,8).map(c=>{
-    const assigned=getAssignedMemberNames(c.id);
-    return '<div class="ui-admin-preview-card">'
-      +'<div class="ui-admin-preview-head">'
-      +'<div><div class="ui-admin-preview-title">'+esc(c.name)+'</div><div class="ui-admin-preview-meta">내부 담당: '+esc(assigned.join(', ')||'미배정')+'</div></div>'
-      +'<div class="ui-admin-preview-actions">'
-      +'<button class="btn primary sm" onclick="previewPortal(\''+c.id+'\')">포털 접속</button>'
-      +'<button class="btn sm" onclick="openPortalAccountEdit(\''+c.id+'\')">설정</button>'
-      +'</div></div></div>';
-  }).join('')||'<div class="ui-empty-copy">활성화된 고객사 페이지가 없습니다.</div>';
-  el.innerHTML=
-    '<div class="section-header ui-section-stack"><h2 class="section-title">관리자 페이지</h2><span class="ui-page-desc">권한, 인력, 고객사 포털을 한곳에서 관리합니다.</span></div>'
-    +'<div class="stat-grid">'
-    +'<div class="stat-card"><div class="stat-label">권한 요청</div><div class="stat-num" style="color:'+(pending.length?'var(--orange)':'var(--navy)')+'">'+pending.length+'</div><div class="stat-sub">확인 대기</div></div>'
-    +'<div class="stat-card"><div class="stat-label">인력</div><div class="stat-num">'+members.length+'</div><div class="stat-sub">등록 인원</div></div>'
-    +'<div class="stat-card"><div class="stat-label">고객사 포털</div><div class="stat-num" style="color:var(--blue)">'+portalActive+'</div><div class="stat-sub">활성 계정</div></div>'
-    +'<div class="stat-card"><div class="stat-label">담당 지정</div><div class="stat-num">'+assignedClients+'</div><div class="stat-sub">담당 배정 고객사</div></div>'
-    +'</div>'
-    +'<div class="detail-grid ui-detail-grid-stack">'
-    +'<div class="card"><div class="section-label">권한 요청</div>'+recentPending+'<div class="ui-card-actions"><button class="btn primary sm" onclick="openAccessRequestManager()">권한 요청 관리</button></div></div>'
-    +'<div class="card"><div class="section-label">인력 관리</div>'+memberPreview+'<div class="ui-card-actions-row"><button class="btn primary sm" onclick="openMemberManager()">인력 관리 열기</button><button class="btn sm" onclick="openActivityLog()">활동 로그</button></div></div>'
-    +'</div>'
-    +'<div class="card"><div class="section-label">고객사 페이지 관리</div><div class="ui-admin-note">설정과 수정은 관리자만 가능하고, 각 고객사의 접속 상태와 내부 담당 현황을 확인할 수 있습니다.</div>'+portalPreview+'<div class="ui-card-actions"><button class="btn primary sm" onclick="openPortalManager()">전체 관리 열기</button></div></div>';
-  el.insertAdjacentHTML('afterbegin','<div id="adminDashMount" style="margin-bottom:14px"></div>');
-  renderDash();
 }
 
 async function addAssignment(clientId){
   if(!canManagePortalSettings())return;
   const sel=document.getElementById('assignSel-'+clientId);
-  const memberId=sel?.value;if(!memberId)return;
+  const memberId=sel?.value;
+  if(!memberId)return;
   try{
     await api('POST','client_assignments',{client_id:clientId,member_id:memberId,assigned_by:currentUser.id});
     clientAssignments=await api('GET','client_assignments?select=*')||[];
     renderPortalManagerBody();
-  }catch(e){alert('오류: '+e.message);}
+  }catch(e){
+    alert('오류: '+e.message);
+  }
 }
 
 async function removeAssignment(clientId,memberName){
   if(!canManagePortalSettings())return;
-  const member=members.find(m=>m.name===memberName);if(!member)return;
-  const assign=clientAssignments.find(a=>a.client_id===clientId&&a.member_id===member.id);if(!assign)return;
+  const member=(members||[]).find(row=>row.name===memberName);
+  if(!member)return;
+  const assignment=(clientAssignments||[]).find(row=>row.client_id===clientId&&row.member_id===member.id);
+  if(!assignment)return;
   try{
-    await api('DELETE','client_assignments?id=eq.'+assign.id);
+    await api('DELETE','client_assignments?id=eq.'+assignment.id);
     clientAssignments=await api('GET','client_assignments?select=*')||[];
     renderPortalManagerBody();
-  }catch(e){alert('오류: '+e.message);}
+  }catch(e){
+    alert('오류: '+e.message);
+  }
 }
 
 function openPortalAccountEdit(clientId){
   if(!canManagePortalSettings())return;
-  const c=clients.find(x=>x.id===clientId);if(!c)return;
-  document.getElementById('modalArea').innerHTML=
-    getInputModalOverlayHtml()
+  const client=(clients||[]).find(row=>row.id===clientId);
+  if(!client)return;
+  document.getElementById('modalArea').innerHTML=''
+    +getInputModalOverlayHtml()
     +'<div class="modal" style="width:440px">'
-    +'<div class="modal-title">고객사 페이지 설정 — '+esc(c.name)+'</div>'
-    +'<div class="form-row"><label class="form-label">로그인 이메일</label><input id="peEmail" type="email" value="'+esc(c.portal_email||'')+'" placeholder="고객사 담당자 이메일"/></div>'
-    +'<div class="form-row"><label class="form-label">비밀번호</label><input id="pePw" type="text" value="'+esc(c.portal_password||'')+'" placeholder="임시 비밀번호"/></div>'
-    +'<div class="form-row"><label class="form-label">OneDrive 문서함 URL</label><input id="peOnedrive" value="'+esc(c.onedrive_url||'')+'" placeholder="https://onedrive.live.com/..."/></div>'
-    +'<div class="modal-footer"><div></div>'
-    +'<div class="modal-footer-right"><button class="btn ghost" onclick="openPortalManager()">취소</button>'
-    +'<button class="btn primary" data-id="'+c.id+'" onclick="savePortalAccount(this.dataset.id)">저장</button>'
-    +'</div></div></div></div>';
+      +'<div class="modal-title">고객사 포털 설정 — '+esc(client.name)+'</div>'
+      +'<div class="form-row"><label class="form-label">로그인 이메일</label><input id="peEmail" type="email" value="'+esc(client.portal_email||'')+'" placeholder="고객사 포털 로그인 이메일"></div>'
+      +'<div class="form-row"><label class="form-label">비밀번호</label><input id="pePw" type="text" value="'+esc(client.portal_password||'')+'" placeholder="임시 비밀번호"></div>'
+      +'<div class="form-row"><label class="form-label">OneDrive 문서함 URL</label><input id="peOnedrive" value="'+esc(client.onedrive_url||'')+'" placeholder="https://onedrive.live.com/..."></div>'
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="openPortalManager()">취소</button><button class="btn primary" onclick="savePortalAccount(\''+client.id+'\')">저장</button></div></div>'
+    +'</div>';
   document.getElementById('peEmail').focus();
 }
 
 async function savePortalAccount(clientId){
   if(!canManagePortalSettings())return;
-  const email=document.getElementById('peEmail').value.trim();
-  const pw=document.getElementById('pePw').value;
-  const onedrive=document.getElementById('peOnedrive').value.trim();
-  if(!email||!pw){alert('이메일과 비밀번호를 입력해주세요.');return;}
+  const email=(document.getElementById('peEmail')?.value||'').trim();
+  const password=document.getElementById('pePw')?.value||'';
+  const onedrive=(document.getElementById('peOnedrive')?.value||'').trim();
+  if(!email||!password){
+    alert('이메일과 비밀번호를 입력해 주세요.');
+    return;
+  }
   try{
     await api('PATCH','clients?id=eq.'+clientId,{
       portal_email:email,
-      portal_password:pw,
+      portal_password:password,
       onedrive_url:onedrive||null
     });
-    const c=clients.find(x=>x.id===clientId);
-    if(c){c.portal_email=email;c.portal_password=pw;c.onedrive_url=onedrive||null;}
+    const client=(clients||[]).find(row=>row.id===clientId);
+    if(client){
+      client.portal_email=email;
+      client.portal_password=password;
+      client.onedrive_url=onedrive||null;
+    }
     openPortalManager();
-  }catch(e){alert('저장 오류: '+e.message);}
+  }catch(e){
+    alert('저장 오류: '+e.message);
+  }
 }
 
 async function resetPortalAccount(clientId,name){
   if(!canManagePortalSettings())return;
-  if(!confirm(name+' 고객사 페이지 계정을 초기화할까요?\n로그인이 불가능해집니다.'))return;
+  if(!confirm(name+' 고객사 포털 계정을 초기화할까요?\n로그인이 불가능해집니다.'))return;
   try{
     await api('PATCH','clients?id=eq.'+clientId,{portal_email:null,portal_password:null});
-    const c=clients.find(x=>x.id===clientId);
-    if(c){c.portal_email=null;c.portal_password=null;}
+    const client=(clients||[]).find(row=>row.id===clientId);
+    if(client){
+      client.portal_email=null;
+      client.portal_password=null;
+    }
     renderPortalManagerBody();
-  }catch(e){alert('오류: '+e.message);}
+  }catch(e){
+    alert('오류: '+e.message);
+  }
 }
 
 async function openActivityLog(){
-  if(!isAdmin)return;
+  if(!roleIsAdmin())return;
   const el=document.getElementById('modalArea');
   el.innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="width:600px"><div class="modal-title">활동 로그</div><div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">불러오는 중...</div></div></div>';
   try{
     const logs=await api('GET','activity_logs?select=*&order=created_at.desc&limit=100');
-    const rows=(logs||[]).map(l=>'<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">'
-      +'<div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">'+(l.user_name||'?').charAt(0)+'</div>'
-      +'<div style="flex:1;min-width:0">'
-      +'<div style="font-size:13px;color:var(--navy)"><span style="font-weight:700">'+esc(l.user_name||'unknown')+'</span> · '+esc(l.action)+'</div>'
-      +(l.target_name?'<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(l.target_type)+' · '+esc(l.target_name)+'</div>':'')
+    const rows=(logs||[]).map(log=>''
+      +'<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">'
+        +'<div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--bg2);color:var(--navy);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">'+esc(String(log?.user_name||'?').charAt(0))+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;color:var(--navy)"><span style="font-weight:700">'+esc(log?.user_name||'unknown')+'</span> · '+esc(log?.action||'활동')+'</div>'
+          +(log?.target_name?'<div style="font-size:12px;color:var(--text3);margin-top:2px">'+esc(log.target_type||'target')+' · '+esc(log.target_name)+'</div>':'')
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text3);flex-shrink:0">'+esc(formatCommentDate(log?.created_at||''))+'</div>'
       +'</div>'
-      +'<div style="font-size:11px;color:var(--text3);flex-shrink:0">'+formatCommentDate(l.created_at)+'</div>'
-      +'</div>').join('');
+    ).join('');
     el.innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()">'
       +'<div class="modal" style="width:600px"><div class="modal-title">활동 로그</div>'
-      +'<div style="max-height:60vh;overflow-y:auto">'+(rows||'<div style="color:var(--text3);text-align:center;padding:20px">로그가 없습니다.</div>')+'</div>'
+      +'<div style="max-height:60vh;overflow-y:auto">'+(rows||'<div style="color:var(--text3);text-align:center;padding:20px">활동 로그가 없습니다.</div>')+'</div>'
       +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
       +'</div></div>';
   }catch(e){

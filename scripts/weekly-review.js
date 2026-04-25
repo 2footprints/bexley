@@ -609,7 +609,7 @@ function renderWeeklyReviewMemberSummaryGridMarkup(summaries){
 }
 function getWeeklyReviewVisibleMembersForScope(scope,adminCanViewAll,currentMemberName){
   return (adminCanViewAll&&(scope==='all'||!currentMemberName)
-    ? [...(members||[])].filter(member=>String(member?.name||'').trim())
+    ? getOperationalMembers()
     : currentMemberName
       ? [{id:currentMember?.id||currentMemberName,name:currentMemberName}]
       : []
@@ -1193,27 +1193,29 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     if(type!=='leave')return false;
     const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
     const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
-    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start;
+    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start&&scheduleHasOperationalMember(schedule);
   });
   const currentWeekFieldwork=(schedules||[]).filter(schedule=>{
     const type=String(schedule?.schedule_type||'').trim();
     if(type!=='fieldwork')return false;
     const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
     const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
-    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start;
+    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start&&scheduleHasOperationalMember(schedule);
   });
   const nextWeekLeaves=(schedules||[]).filter(schedule=>{
     const type=String(schedule?.schedule_type||'').trim();
     if(type!=='leave')return false;
     const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
     const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
-    return !!startDate&&!!endDate&&startDate<=nextBounds.end&&endDate>=nextBounds.start;
+    return !!startDate&&!!endDate&&startDate<=nextBounds.end&&endDate>=nextBounds.start&&scheduleHasOperationalMember(schedule);
   });
-  const currentLeaveNames=[...new Set(currentWeekLeaves.flatMap(schedule=>getScheduleMemberNames(schedule)))];
-  const currentFieldworkNames=[...new Set(currentWeekFieldwork.flatMap(schedule=>getScheduleMemberNames(schedule)))];
-  const nextLeaveNames=[...new Set(nextWeekLeaves.flatMap(schedule=>getScheduleMemberNames(schedule)))];
+  const operationalMembers=getOperationalMembers();
+  const operationalMemberCount=operationalMembers.length;
+  const currentLeaveNames=[...new Set(currentWeekLeaves.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
+  const currentFieldworkNames=[...new Set(currentWeekFieldwork.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
+  const nextLeaveNames=[...new Set(nextWeekLeaves.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
   const unavailableMemberNames=new Set([...currentLeaveNames,...currentFieldworkNames]);
-  const availableMemberCount=Math.max(0,(members||[]).length-unavailableMemberNames.size);
+  const availableMemberCount=Math.max(0,operationalMemberCount-unavailableMemberNames.size);
   const clientIssueMap=new Map();
   activeIssues.forEach(issue=>{
     const project=getWeeklyReviewIssueProject(issue);
@@ -1312,7 +1314,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       badge:'이번 주',
       value:`${Number(availableMemberCount||0).toLocaleString()}명`,
       meta:`휴가 ${formatWeeklyReviewNameSummary(currentLeaveNames)} · 필드웍 ${currentFieldworkNames.length}명 · 다음 주 휴가 ${nextLeaveNames.length}명`,
-      tone:availableMemberCount<(members||[]).length?'warning':'success'
+      tone:availableMemberCount<operationalMemberCount?'warning':'success'
     },
     {
       title:'고객 이슈',

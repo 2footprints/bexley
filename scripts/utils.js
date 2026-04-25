@@ -7,6 +7,99 @@ function inferNameFromEmail(email){
     .trim();
 }
 
+const MEMBER_PERMISSION_OPTIONS=['admin','manager','member','observer'];
+const MEMBER_TEAM_OPTIONS=['CPA Team','BPO Team','Management','System'];
+const MEMBER_RANK_OPTIONS=['Staff','Senior','Manager','Director','Partner','N/A'];
+
+window.MEMBER_PERMISSION_OPTIONS=MEMBER_PERMISSION_OPTIONS;
+window.MEMBER_TEAM_OPTIONS=MEMBER_TEAM_OPTIONS;
+window.MEMBER_RANK_OPTIONS=MEMBER_RANK_OPTIONS;
+
+function normalizeMemberPermissionLevel(role){
+  const normalized=String(role||'').trim().toLowerCase();
+  return MEMBER_PERMISSION_OPTIONS.includes(normalized)?normalized:'observer';
+}
+
+function getMemberPermissionLabel(role){
+  const normalized=normalizeMemberPermissionLevel(role);
+  if(normalized==='admin')return '관리자';
+  if(normalized==='manager')return '매니저';
+  if(normalized==='member')return '멤버';
+  return 'Observer';
+}
+
+function normalizeMemberTeam(team){
+  const normalized=String(team||'').trim();
+  return normalized||'';
+}
+
+function getMemberTeamLabel(team){
+  const normalized=normalizeMemberTeam(team);
+  return normalized||'미지정';
+}
+
+function normalizeMemberRank(rank){
+  const normalized=String(rank||'').trim();
+  return normalized||'';
+}
+
+function getMemberRankLabel(rank){
+  const normalized=normalizeMemberRank(rank);
+  return normalized||'미지정';
+}
+
+function isMemberActive(member){
+  return member?.is_active===undefined?true:!!member?.is_active;
+}
+
+function getActiveMembers(options={}){
+  const sort=options.sort!==false;
+  const rows=(members||[]).filter(member=>String(member?.name||'').trim()&&isMemberActive(member));
+  if(sort){
+    rows.sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  }
+  return rows;
+}
+
+function isMemberOperationallyIncluded(member,options={}){
+  if(!member)return false;
+  const activeOnly=options.activeOnly===undefined?false:!!options.activeOnly;
+  if(activeOnly&&!isMemberActive(member))return false;
+  return member?.include_in_operational_dashboards===undefined
+    ? true
+    : !!member?.include_in_operational_dashboards;
+}
+
+function getOperationalMembers(options={}){
+  const activeOnly=options.activeOnly===undefined?true:!!options.activeOnly;
+  const sort=options.sort!==false;
+  const rows=(members||[]).filter(member=>{
+    if(!String(member?.name||'').trim())return false;
+    return isMemberOperationallyIncluded(member,{activeOnly});
+  });
+  if(sort){
+    rows.sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  }
+  return rows;
+}
+
+function getOperationalMemberNameSet(options={}){
+  return new Set(getOperationalMembers(options).map(member=>String(member?.name||'').trim()).filter(Boolean));
+}
+
+function getOperationalScheduleMemberNames(schedule,options={}){
+  const allowedNames=getOperationalMemberNameSet(options);
+  return getScheduleMemberNames(schedule).filter(name=>allowedNames.has(name));
+}
+
+function scheduleHasOperationalMember(schedule,options={}){
+  return getOperationalScheduleMemberNames(schedule,options).length>0;
+}
+
+function isSystemAccountMember(member){
+  return normalizeMemberTeam(member?.team)==='System';
+}
+
 function setElementDisplay(id,visible,display='inline-block'){
   const el=document.getElementById(id);
   if(el)el.style.display=visible?display:'none';
