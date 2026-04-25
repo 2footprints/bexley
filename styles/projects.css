@@ -528,6 +528,9 @@ td{
   flex-wrap:wrap!important;
   margin:14px 0 18px!important;
 }
+.gantt-detail-work-shortcut{
+  margin-right:auto!important;
+}
 .gantt-detail-section{
   border-top:1px solid var(--border)!important;
   padding-top:14px!important;
@@ -2623,6 +2626,9 @@ td{
   gap:6px!important;
   min-width:0!important;
 }
+.gantt-view-settings-group-wide{
+  min-width:min(100%,420px)!important;
+}
 .gantt-view-settings-label{
   font-size:11px!important;
   font-weight:700!important;
@@ -2630,6 +2636,13 @@ td{
 }
 .gantt-view-settings-toggle{
   background:#F8FAFC!important;
+}
+.gantt-view-settings .gantt-list-quickfilters{
+  margin:0!important;
+  gap:6px!important;
+}
+.gantt-view-settings .gantt-list-filter-chip{
+  min-height:28px!important;
 }
 .member-filter-tabs.is-gantt-secondary{
   margin-top:10px!important;

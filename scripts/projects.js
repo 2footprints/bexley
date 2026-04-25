@@ -1751,7 +1751,6 @@ function renderGanttListView(projs,schs){
       +'</div>'
       +(ganttListSelectedIds.length?'<div class="gantt-list-selection-summary">'+ganttListSelectedIds.length+'건 선택됨</div>':'')
     +'</div>'
-    +renderGanttListExecutionRiskFilterRow()
     +'<div class="gantt-list-signalbar">'
       +getGanttListSignalBarMarkup(overdueRows,dueTodayRows,issueAttentionRows,overdueTaskCount)
     +'</div>'
@@ -2043,6 +2042,12 @@ function renderGanttViewSettingsBar(){
         +'<div class="toggle-wrap gantt-view-settings-toggle">'
           +'<button type="button" class="toggle-btn'+(ganttHideCompleted?' active':'')+'" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
         +'</div>'
+      +'</div>'
+    );
+    groups.push(
+      '<div class="gantt-view-settings-group gantt-view-settings-group-wide">'
+        +'<div class="gantt-view-settings-label">추가 필터</div>'
+        +renderGanttListExecutionRiskFilterRow()
       +'</div>'
     );
   }else if(curGanttLayout==='calendar'){
@@ -3406,6 +3411,7 @@ renderGanttDetailPanel=function(projs,schs){
   baseRenderGanttDetailPanel(projs,schs);
   const detailContext=el.querySelector('.gantt-detail-context');
   if(detailContext)detailContext.textContent='선택한 프로젝트 상세';
+  syncGanttDetailWorkShortcut(project);
   el.dataset.renderSignature=renderSignature;
 };
 
@@ -4677,6 +4683,31 @@ function syncGanttListWorkShortcuts(rows){
     };
     actions.appendChild(button);
   });
+}
+
+function syncGanttDetailWorkShortcut(project){
+  const detail=document.getElementById('ganttDetail');
+  if(!detail)return;
+  const actions=detail.querySelector('.gantt-detail-actions');
+  if(!actions)return;
+  const existing=actions.querySelector('.gantt-detail-work-shortcut');
+  if(ganttDetailTab==='work'){
+    if(existing)existing.remove();
+    return;
+  }
+  if(existing)return;
+  const projectId=String(project?.id||'').trim();
+  if(!projectId)return;
+  const button=document.createElement('button');
+  button.type='button';
+  button.className='btn ghost sm gantt-detail-work-shortcut';
+  button.textContent='전체 업무';
+  button.title='Work 탭에서 전체 업무 보기';
+  button.onclick=event=>{
+    event.stopPropagation();
+    openGanttProjectWorkTab(projectId);
+  };
+  actions.insertBefore(button,actions.firstChild||null);
 }
 
 function renderGanttListView(projs,schs){
