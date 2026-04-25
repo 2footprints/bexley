@@ -1710,6 +1710,8 @@ applyWeeklyReviewEmptyStateLabels=function(){
 };
 getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   const data=await getWeeklyReviewPageDataBase(offsetWeeks);
+  const reviewBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
+  const nextBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks+1);
   const completedSection=getWeeklyReviewDataSection(data,'completed');
   const risksSection=getWeeklyReviewDataSection(data,'risks');
   const billingSection=getWeeklyReviewDataSection(data,'billing');
@@ -1732,6 +1734,30 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   const nextStartItems=getWeeklyReviewSectionGroupItems(nextSection,1);
   const nextScheduleItems=getWeeklyReviewSectionGroupItems(nextSection,2);
   const documentItems=getWeeklyReviewSectionGroupItems(documentsSection,0);
+  const currentWeekLeaves=(schedules||[]).filter(schedule=>{
+    const type=String(schedule?.schedule_type||'').trim();
+    if(type!=='leave')return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start&&scheduleHasOperationalMember(schedule);
+  });
+  const currentWeekFieldwork=(schedules||[]).filter(schedule=>{
+    const type=String(schedule?.schedule_type||'').trim();
+    if(type!=='fieldwork')return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=reviewBounds.end&&endDate>=reviewBounds.start&&scheduleHasOperationalMember(schedule);
+  });
+  const nextWeekFieldwork=(schedules||[]).filter(schedule=>{
+    const type=String(schedule?.schedule_type||'').trim();
+    if(type!=='fieldwork')return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=nextBounds.end&&endDate>=nextBounds.start&&scheduleHasOperationalMember(schedule);
+  });
+  const currentLeaveCount=[...new Set(currentWeekLeaves.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))].length;
+  const currentFieldworkCount=[...new Set(currentWeekFieldwork.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))].length;
+  const nextFieldworkCount=[...new Set(nextWeekFieldwork.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))].length;
 
   const completedAmount=completedItems.reduce((sum,item)=>sum+parseWeeklyReviewMetricNumber(item?.columns?.[4]),0);
   const unbilledAmount=unbilledItems.reduce((sum,item)=>sum+parseWeeklyReviewMetricNumber(item?.sideText),0);
