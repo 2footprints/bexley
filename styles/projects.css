@@ -1628,6 +1628,24 @@ td{
   gap:8px!important;
   margin-top:8px!important;
 }
+.gantt-list-work-link{
+  display:inline-flex!important;
+  align-items:center!important;
+  min-height:28px!important;
+  padding:0 2px!important;
+  border:none!important;
+  background:transparent!important;
+  color:var(--blue)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+  text-decoration:none!important;
+}
+.gantt-list-work-link:hover{
+  color:var(--navy)!important;
+  text-decoration:underline!important;
+}
 .gantt-list-drill-toggle{
   display:inline-flex!important;
   align-items:center!important;

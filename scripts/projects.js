@@ -371,8 +371,9 @@ function scrollGanttDetailIntoView(){
 
 function openGanttProjectDetail(projectId,scrollIntoPanel=true){
   const prevProjectId=ganttFocusProjectId;
+  const shouldKeepWorkTab=ganttDetailTab==='work';
   ganttFocusProjectId=projectId||null;
-  if(projectId&&String(prevProjectId||'')!==String(projectId||''))ganttDetailTab='overview';
+  if(projectId&&String(prevProjectId||'')!==String(projectId||''))ganttDetailTab=shouldKeepWorkTab?'work':'overview';
   renderGantt();
   if(scrollIntoPanel&&projectId){
     requestAnimationFrame(()=>requestAnimationFrame(scrollGanttDetailIntoView));
@@ -4520,6 +4521,34 @@ function renderGanttProjectOverviewSection(project,client,linkedContract,project
     +'</div>';
 }
 
+function syncGanttListWorkShortcuts(rows){
+  const rowElements=[...document.querySelectorAll('.gantt-list-table tbody tr.gantt-list-row')];
+  rowElements.forEach((rowElement,index)=>{
+    const row=rows[index];
+    const projectId=String(row?.project?.id||'').trim();
+    if(!projectId)return;
+    const projectCell=rowElement.children[2];
+    if(!projectCell)return;
+    let actions=projectCell.querySelector('.gantt-list-project-actions');
+    if(!actions){
+      actions=document.createElement('div');
+      actions.className='gantt-list-project-actions';
+      projectCell.appendChild(actions);
+    }
+    if(actions.querySelector('.gantt-list-work-link'))return;
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='gantt-list-work-link';
+    button.textContent='전체 업무';
+    button.title='Work 탭에서 전체 업무 보기';
+    button.onclick=event=>{
+      event.stopPropagation();
+      openGanttProjectWorkTab(projectId);
+    };
+    actions.appendChild(button);
+  });
+}
+
 function renderGanttListView(projs,schs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
@@ -4620,4 +4649,5 @@ function renderGanttListView(projs,schs){
     +'</div>';
   const searchInput=document.getElementById('ganttListSearchInput');
   if(searchInput)searchInput.oninput=e=>setGanttListSearchQuery(e.target.value);
+  syncGanttListWorkShortcuts(rows);
 }
