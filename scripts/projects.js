@@ -184,7 +184,6 @@ function getGanttProjectLifecycleMeta(project,options={}){
   const overdue=isGanttProjectOverdue(project)||rawStatusKey==='overdue';
   const hasClosureEvidence=
     taskSummary!==undefined&&taskSummary!==null
-    &&taskIssueSummary!==undefined&&taskIssueSummary!==null
     &&pendingDocSummary!==undefined&&pendingDocSummary!==null;
   const hasFollowUpSignals=
     openTaskCount>0
@@ -194,7 +193,7 @@ function getGanttProjectLifecycleMeta(project,options={}){
     ||billingPending
     ||followUpNeeded;
 
-  if(isCompletedLike&&hasClosureEvidence&&!hasFollowUpSignals){
+  if((rawStatusKey==='fully_closed'&&!hasFollowUpSignals)||(isCompletedLike&&hasClosureEvidence&&!hasFollowUpSignals)){
     return {
       key:'fully_closed',
       label:'완전 종료',
@@ -204,7 +203,7 @@ function getGanttProjectLifecycleMeta(project,options={}){
     };
   }
 
-  if(rawStatusKey==='follow_up'||(isCompletedLike&&openTaskCount===0&&(issueCount>0||issueLinkedTaskCount>0||pendingDocCount>0||billingPending||followUpNeeded))){
+  if(rawStatusKey==='follow_up'||(rawStatusKey==='fully_closed'&&hasFollowUpSignals)||(isCompletedLike&&openTaskCount===0&&(issueCount>0||issueLinkedTaskCount>0||pendingDocCount>0||billingPending||followUpNeeded))){
     return {
       key:'follow_up',
       label:'후속관리',
