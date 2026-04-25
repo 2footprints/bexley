@@ -9,6 +9,7 @@ let ganttListSelectedIds=[];
 let ganttListExpandedProjectIds=[];
 let ganttListExpandedMoreProjectIds=[];
 let ganttDetailTab='overview';
+let ganttScheduledRefreshRafId=0;
 let ganttProjectTasksByProjectId={};
 let ganttProjectTaskLoadMetaByProjectId={};
 let ganttProjectTaskIssueCountsByProjectId={};
@@ -362,6 +363,31 @@ window.applyProjectTopFilters=applyProjectTopFilters;
 function getGanttFilteredData(){
   const {projs,schs}=getGanttMonthData(curYear,curMonth);
   return applyProjectTopFilters(projs,schs);
+}
+
+function scheduleGanttFullRefresh(){
+  if(ganttScheduledRefreshRafId)return;
+  ganttScheduledRefreshRafId=requestAnimationFrame(()=>{
+    ganttScheduledRefreshRafId=0;
+    renderGantt();
+  });
+}
+
+function refreshGanttActiveViewOnly(){
+  const currentData=getGanttFilteredData();
+  if(curGanttLayout==='list'&&typeof renderGanttListView==='function'){
+    renderGanttListView(currentData.projs,currentData.schs);
+    return;
+  }
+  if(curGanttLayout==='calendar'&&typeof renderGanttCalendarGrid==='function'){
+    renderGanttCalendarGrid(currentData.projs,currentData.schs);
+    return;
+  }
+  if(typeof renderFilteredGanttTimeline==='function'){
+    renderFilteredGanttTimeline(currentData.projs,currentData.schs);
+    return;
+  }
+  renderGantt();
 }
 
 function scrollGanttDetailIntoView(){
@@ -883,6 +909,64 @@ function buildGanttCalendarItemsForDate(cellDate,projs,schs){
   });
 }
 
+function buildGanttCalendarItemMap(projs,schs){
+  const itemMap={};
+  const monthBounds=getGanttMonthBounds();
+  const monthFirst=new Date(monthBounds.first.getFullYear(),monthBounds.first.getMonth(),monthBounds.first.getDate());
+  const monthLast=new Date(monthBounds.last.getFullYear(),monthBounds.last.getMonth(),monthBounds.last.getDate());
+  const pushItem=(dateValue,item)=>{
+    if(!itemMap[dateValue])itemMap[dateValue]=[];
+    itemMap[dateValue].push(item);
+  };
+  (projs||[]).forEach(project=>{
+    const startDate=toDate(project?.start||project?.start_date||'');
+    const endDate=toDate(project?.end||project?.end_date||'');
+    if(Number.isNaN(startDate.getTime())||Number.isNaN(endDate.getTime()))return;
+    if(startDate>monthLast||endDate<monthFirst)return;
+    const visibleStart=startDate<monthFirst?new Date(monthFirst):new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate());
+    const visibleEnd=endDate>monthLast?new Date(monthLast):new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate());
+    for(let cursor=new Date(visibleStart);cursor<=visibleEnd;cursor.setDate(cursor.getDate()+1)){
+      const dateValue=getGanttCalendarDateValue(cursor);
+      if(!dateValue)continue;
+      pushItem(dateValue,{
+        kind:'project',
+        id:project.id,
+        label:project.name,
+        title:[project.name,project.type||'',(project.members||[]).join(', ')].filter(Boolean).join(' | '),
+        color:TYPES[project.type]||'#4e5968',
+        dueToday:isDueToday(project)&&getGanttCalendarDateValue(endDate)===dateValue
+      });
+    }
+  });
+  (schs||[]).forEach(schedule=>{
+    const startDate=toDate(schedule?.start||'');
+    const endDate=toDate(schedule?.end||'');
+    if(Number.isNaN(startDate.getTime())||Number.isNaN(endDate.getTime()))return;
+    if(startDate>monthLast||endDate<monthFirst)return;
+    const labelBase=schedule.title||scheduleLabel(schedule.schedule_type);
+    const visibleStart=startDate<monthFirst?new Date(monthFirst):new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate());
+    const visibleEnd=endDate>monthLast?new Date(monthLast):new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate());
+    for(let cursor=new Date(visibleStart);cursor<=visibleEnd;cursor.setDate(cursor.getDate()+1)){
+      const dateValue=getGanttCalendarDateValue(cursor);
+      if(!dateValue)continue;
+      pushItem(dateValue,{
+        kind:'schedule',
+        id:schedule.id,
+        label:(schedule.member_name?schedule.member_name+' 쨌 ':'')+labelBase,
+        title:[labelBase,schedule.member_name||'',schedule.location||'',schedule.memo||''].filter(Boolean).join(' | '),
+        color:scheduleColor(schedule.schedule_type)
+      });
+    }
+  });
+  Object.keys(itemMap).forEach(dateValue=>{
+    itemMap[dateValue].sort((a,b)=>{
+      if(a.kind!==b.kind)return a.kind==='project'?-1:1;
+      return a.label.localeCompare(b.label,'ko');
+    });
+  });
+  return itemMap;
+}
+
 function renderGanttCalendarGrid(projs,schs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
@@ -896,6 +980,7 @@ function renderGanttCalendarGrid(projs,schs){
     renderLegend();
     return;
   }
+  const itemMap=buildGanttCalendarItemMap(projs,schs);
   const weekdayHead=weekdayLabels.map(label=>'<div class="gantt-calendar-weekday">'+label+'</div>').join('');
   let cells='';
   for(let i=0;i<totalCells;i++){
@@ -906,7 +991,7 @@ function renderGanttCalendarGrid(projs,schs){
     }
     const cellDate=new Date(curYear,curMonth-1,dayNumber);
     cellDate.setHours(0,0,0,0);
-    const items=buildGanttCalendarItemsForDate(cellDate,projs,schs);
+    const items=itemMap[getGanttCalendarDateValue(cellDate)]||[];
     const preview=items.slice(0,4).map(buildGanttCalendarItemHtml).join('');
     const overflow=items.length>4?'<div class="gantt-calendar-item more">+'+(items.length-4)+'건</div>':'';
     const isWeekendCell=cellDate.getDay()===0||cellDate.getDay()===6;
@@ -1110,7 +1195,7 @@ async function loadGanttListTaskSummaries(projectIds){
     missingIds.forEach(id=>ganttListTaskSummaryLoadingProjectIds.delete(id));
   }
   if(curGanttLayout==='list'){
-    renderGantt();
+    refreshGanttActiveViewOnly();
   }
   refreshGanttOverviewDetailIfNeeded(ids);
 }
@@ -1144,7 +1229,7 @@ async function loadGanttListTaskIssueSummaries(projectIds){
   }finally{
     missingIds.forEach(id=>ganttListTaskIssueSummaryLoadingProjectIds.delete(id));
   }
-  if(curGanttLayout==='list')renderGantt();
+  if(curGanttLayout==='list')refreshGanttActiveViewOnly();
   refreshGanttOverviewDetailIfNeeded(ids);
 }
 
@@ -1189,7 +1274,8 @@ async function loadGanttListPendingDocSummaries(projectIds){
   }finally{
     missingIds.forEach(id=>loadingIds.delete(id));
   }
-  if(curGanttLayout==='list')renderGantt();
+  if(curGanttLayout==='list')refreshGanttActiveViewOnly();
+  refreshGanttOverviewDetailIfNeeded(ids);
 }
 
 function getGanttListRiskMeta(project,issueCount,taskSummary,taskIssueSummary,pendingDocSummary){
@@ -1267,7 +1353,7 @@ function toggleGanttListTaskDrilldown(projectId){
     loadGanttProjectTasks(key,false),
     loadGanttProjectTaskIssueCounts(key,false)
   ]).finally(()=>{
-    if(curGanttLayout==='list')renderGantt();
+    if(curGanttLayout==='list')refreshGanttActiveViewOnly();
   });
 }
 
@@ -2150,19 +2236,19 @@ window.applyProjectTopFilters=applyProjectTopFilters;
 const baseLoadGanttListTaskSummaries=loadGanttListTaskSummaries;
 loadGanttListTaskSummaries=async function(projectIds){
   await baseLoadGanttListTaskSummaries(projectIds);
-  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')renderGantt();
+  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
 };
 
 const baseLoadGanttListTaskIssueSummaries=loadGanttListTaskIssueSummaries;
 loadGanttListTaskIssueSummaries=async function(projectIds){
   await baseLoadGanttListTaskIssueSummaries(projectIds);
-  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')renderGantt();
+  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
 };
 
 const baseLoadGanttListPendingDocSummaries=loadGanttListPendingDocSummaries;
 loadGanttListPendingDocSummaries=async function(projectIds){
   await baseLoadGanttListPendingDocSummaries(projectIds);
-  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')renderGantt();
+  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
 };
 
 function getGanttDetailStatusBadgeClass(status){
@@ -3265,18 +3351,63 @@ renderGanttDetailPanel=function(projs,schs){
   loadGanttDetailAsync(project);
 };
 
+function getGanttDetailRenderSignature(projs){
+  const project=(projs||[]).find(item=>String(item?.id||'')===String(ganttFocusProjectId||''))||null;
+  if(!project)return 'placeholder:'+String(ganttFocusProjectId||'');
+  const baseParts=[
+    String(project.id||''),
+    String(ganttDetailTab||'overview'),
+    String(project.name||''),
+    String(project.status||''),
+    String(project.type||''),
+    String(project.client_id||''),
+    String(project.contract_id||''),
+    String(project.start||project.start_date||''),
+    String(project.end||project.end_date||''),
+    JSON.stringify(project.members||[]),
+    String(project.follow_up_needed||''),
+    String(project.follow_up_note||'')
+  ];
+  if(ganttDetailTab==='overview'){
+    baseParts.push(JSON.stringify(getGanttOverviewTaskSummary(project.id)||{}));
+    baseParts.push(String(getGanttOverviewIssueLinkedCount(project.id)??''));
+    baseParts.push(JSON.stringify(getGanttProjectPendingDocSummary(project.id)||{}));
+    baseParts.push(JSON.stringify(getGanttProjectCurrentLifecycleMeta(project)||{}));
+  }else if(ganttDetailTab==='work'){
+    const tasks=getGanttProjectTasks(project.id);
+    const taskDigest=tasks.map(task=>[
+      task?.id||'',
+      task?.status||'',
+      task?.due_date||'',
+      task?.assignee_member_id||'',
+      task?.progress_percent||''
+    ].join(':')).join('|');
+    baseParts.push(taskDigest);
+    baseParts.push(JSON.stringify(getGanttProjectTaskLoadMeta(project.id)||{}));
+    baseParts.push(JSON.stringify(getGanttProjectPendingDocSummary(project.id)||{}));
+    baseParts.push(String(getGanttProjectTaskIssueTotal(project.id)||0));
+  }
+  return baseParts.join('||');
+}
+
 const baseRenderGanttDetailPanel=renderGanttDetailPanel;
 renderGanttDetailPanel=function(projs,schs){
   const el=document.getElementById('ganttDetail');
   if(!el)return;
   const project=(projs||[]).find(item=>item?.id===ganttFocusProjectId)||null;
   if(!project){
+    const placeholderKey='placeholder:'+String(ganttFocusProjectId||'');
+    if(el.dataset.renderSignature===placeholderKey)return;
     el.innerHTML=renderGanttDetailPlaceholder();
+    el.dataset.renderSignature=placeholderKey;
     return;
   }
+  const renderSignature=getGanttDetailRenderSignature(projs);
+  if(el.dataset.renderSignature===renderSignature)return;
   baseRenderGanttDetailPanel(projs,schs);
   const detailContext=el.querySelector('.gantt-detail-context');
   if(detailContext)detailContext.textContent='선택한 프로젝트 상세';
+  el.dataset.renderSignature=renderSignature;
 };
 
 function buildGanttCalendarItemHtml(item){
