@@ -8614,7 +8614,7 @@ function ensureGanttVisibilityToggles(){
     wrap.id='ganttVisibilityToggleWrap';
     wrap.className='toggle-wrap gantt-visibility-toggle';
     wrap.innerHTML=''
-      +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완료 항목 숨기기</button>'
+      +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
       +'<button class="toggle-btn" id="ganttPersonalOverlayBtn" onclick="setGanttPersonalOverlayToggle(!ganttShowPersonalOverlay)">개인 일정 레이어</button>'
       +'<button class="toggle-btn" id="ganttPersonalRowsBtn" onclick="setGanttPersonalRowsToggle(!ganttShowPersonalRows)">개인 일정 행</button>';
     const scheduleBtn=document.getElementById('scheduleAddBtn');
@@ -8648,7 +8648,7 @@ function updateGanttVisibilitySummary(hiddenCompletedCount){
   const summary=ensureGanttVisibilitySummary();
   if(!summary)return;
   const parts=[
-    ganttHideCompleted?'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 '+hiddenCompletedCount+'\uAC74 \uC228\uAE40':'\uC644\uB8CC/\uC9C0\uB09C \uC77C\uC815 \uD45C\uC2DC \uC911',
+    ganttHideCompleted?'\uC644\uC804 \uC885\uB8CC/\uC9C0\uB09C \uC77C\uC815 '+hiddenCompletedCount+'\uAC74 \uC228\uAE40':'\uC644\uC804 \uC885\uB8CC/\uC9C0\uB09C \uC77C\uC815 \uD45C\uC2DC \uC911',
     ganttShowPersonalOverlay?'\uAC1C\uC778 \uC77C\uC815 \uC81C\uC57D \uB808\uC774\uC5B4 \uD45C\uC2DC \uC911':'\uAC1C\uC778 \uC77C\uC815 \uC81C\uC57D \uB808\uC774\uC5B4 \uC228\uAE40',
     ganttShowPersonalRows?'\uAC1C\uC778 \uC77C\uC815 \uD589 \uD45C\uC2DC \uC911':'\uAC1C\uC778 \uC77C\uC815 \uD589 \uC228\uAE40'
   ];
@@ -8797,9 +8797,13 @@ function getScheduleEndDateTime(item){
 }
 function isCompletedGanttStatus(status){
   const normalized=String(status||'').trim().toLowerCase();
-  return status==='완료'||normalized==='completed'||normalized==='done';
+  return status==='완료'||status==='실행 완료'||status==='후속관리'||status==='완전 종료'||normalized==='completed'||normalized==='done'||normalized==='execution_done'||normalized==='follow_up'||normalized==='fully_closed';
 }
 function getGanttCompletedLikeMeta(item){
+  if(item&&typeof window.isGanttProjectFullyClosedForVisibility==='function'&&!isGanttScheduleLikeItem(item)){
+    const isCompleted=isCompletedGanttStatus(item?.status);
+    return {isCompleted,isScheduleLike:false,isCompletedLike:window.isGanttProjectFullyClosedForVisibility(item)};
+  }
   const isCompleted=isCompletedGanttStatus(item?.status);
   const isScheduleLike=isGanttScheduleLikeItem(item);
   if(isCompleted){
@@ -8868,7 +8872,7 @@ window.deleteGanttProject=async function(projectId){
 };
 isCompletedGanttStatus=function(status){
   const normalized=String(status||'').trim().toLowerCase();
-  return status==='\uC644\uB8CC'||normalized==='completed'||normalized==='done';
+  return status==='\uC644\uB8CC'||status==='\uC2E4\uD589 \uC644\uB8CC'||status==='\uD6C4\uC18D\uAD00\uB9AC'||status==='\uC644\uC804 \uC885\uB8CC'||normalized==='completed'||normalized==='done'||normalized==='execution_done'||normalized==='follow_up'||normalized==='fully_closed';
 };
 function getBaseGanttMonthData(){
   const days=daysInMonth(curYear,curMonth);
