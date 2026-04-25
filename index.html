@@ -1606,8 +1606,9 @@ input,textarea{border-radius:12px!important}
         <div class="client-toolbar-grid">
           <div class="filter-row client-toolbar-primary">
             <div class="toggle-wrap">
-              <button class="toggle-btn active" id="myFilterBtn" onclick="toggleMyFilter()">내 고객사</button>
-              <button class="toggle-btn" id="allFilterBtn" onclick="toggleMyFilter()">전체</button>
+              <button class="toggle-btn active" id="teamFilterBtn" onclick="setClientScope('team')">우리 팀 고객사</button>
+              <button class="toggle-btn" id="myFilterBtn" onclick="setClientScope('mine')">내 고객사</button>
+              <button class="toggle-btn" id="allFilterBtn" onclick="setClientScope('all')">전체</button>
             </div>
             <select id="projStatusFilter" onchange="renderClients()">
               <option value="active">진행중</option>

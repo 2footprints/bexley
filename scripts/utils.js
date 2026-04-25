@@ -191,8 +191,22 @@ function daysInMonth(y,m){
 
 function toDate(s){
   if(!s)return new Date(0);
-  const [y,mo,d]=s.split('-').map(Number);
-  return new Date(y,mo-1,d);
+  if(s instanceof Date)return new Date(s.getTime());
+  if(typeof s==='number')return new Date(s);
+  const raw=String(s).trim();
+  if(!raw)return new Date(0);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+    const [y,mo,d]=raw.split('-').map(Number);
+    return new Date(y,mo-1,d);
+  }
+  const parsed=new Date(raw);
+  if(!Number.isNaN(parsed.getTime()))return parsed;
+  const dateMatch=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(dateMatch){
+    const [,y,mo,d]=dateMatch;
+    return new Date(Number(y),Number(mo)-1,Number(d));
+  }
+  return new Date(0);
 }
 
 function isWeekend(y,m,d){

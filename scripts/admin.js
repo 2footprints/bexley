@@ -8,6 +8,21 @@ let adminManagementFilters={
   status:'active'
 };
 
+const ADMIN_OPERATIONAL_INCLUSION_COLUMN='include_in_operational_dashboards';
+
+function adminMemberSupportsOperationalInclusion(member){
+  return !!member&&Object.prototype.hasOwnProperty.call(member,ADMIN_OPERATIONAL_INCLUSION_COLUMN);
+}
+
+function getAdminOperationalInclusionSchemaMessage(){
+  return '운영 집계 포함 여부 컬럼이 아직 DB에 없습니다. sql/20260425_fix_operational_inclusion_column.sql을 적용한 뒤 다시 저장해 주세요.';
+}
+
+function isAdminOperationalInclusionSchemaError(error){
+  const message=String(error?.message||error||'');
+  return /include_in_operational_dashboards/i.test(message)&&/(schema cache|column)/i.test(message);
+}
+
 function accessStatusBadge(status){
   if(status==='approved')return '<span class="badge badge-green">승인</span>';
   if(status==='rejected')return '<span class="badge badge-gray">반려</span>';
@@ -491,6 +506,12 @@ function openAdminUserEditor(memberId){
   const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===String(member?.auth_user_id||''))||null;
   const permission=getAdminMemberPermissionValue(member,roleRow)||'observer';
   const authLinked=!!String(member?.auth_user_id||'').trim();
+  const operationalInclusionSupported=adminMemberSupportsOperationalInclusion(member);
+  const inclusionNote=!authLinked
+    ?'로그인 계정이 연결되지 않은 멤버 행은 권한을 바로 부여할 수 없습니다. 먼저 회원가입/권한 요청을 통해 auth 계정을 연결해 주세요.'
+    :!operationalInclusionSupported
+      ?getAdminOperationalInclusionSchemaMessage()
+      :'권한은 시스템 접근 수준, 팀과 직급은 조직 구조, 운영 집계 포함 여부는 대시보드 반영 기준입니다.';
   document.getElementById('modalArea').innerHTML=''
     +getInputModalOverlayHtml()
     +'<div class="modal" style="width:560px">'
@@ -508,11 +529,11 @@ function openAdminUserEditor(memberId){
         +'<div class="form-row"><label class="form-label">직급</label><select id="adminUserRank">'+getAdminModalSelectOptions(MEMBER_RANK_OPTIONS,normalizeMemberRank(member?.rank),'미지정')+'</select></div>'
       +'</div>'
       +'<div class="form-half">'
-        +'<div class="form-row"><label class="form-label">운영 집계 포함 여부</label><select id="adminUserInclusion"><option value="true"'+(isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>포함</option><option value="false"'+(!isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>제외</option></select></div>'
+        +'<div class="form-row"><label class="form-label">운영 집계 포함 여부</label><select id="adminUserInclusion"'+(operationalInclusionSupported?'':' disabled')+'><option value="true"'+(isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>포함</option><option value="false"'+(!isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>제외</option></select></div>'
         +'<div class="form-row"><label class="form-label">비고</label><input id="adminUserNote" value="'+esc(member?.note||'')+'" placeholder="시스템 계정, 테스트 계정, 예외 사유 등을 기록"></div>'
       +'</div>'
       +'<div class="admin-user-modal-link">계정 연결: '+(authLinked?esc(member.auth_user_id):'로그인 계정 미연결')+'</div>'
-      +(!authLinked?'<div class="admin-user-modal-note">로그인 계정이 연결되지 않은 멤버 행은 권한을 바로 부여할 수 없습니다. 먼저 회원가입/권한 요청을 통해 auth 계정을 연결해 주세요.</div>':'<div class="admin-user-modal-note">권한은 시스템 접근 수준, 팀과 직급은 조직 구조, 운영 집계 포함 여부는 대시보드 반영 기준입니다.</div>')
+      +'<div class="admin-user-modal-note">'+esc(inclusionNote)+'</div>'
       +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveAdminUserProfile(\''+member.id+'\')">저장</button></div></div>'
     +'</div>';
 }
@@ -534,15 +555,25 @@ async function saveAdminUserProfile(memberId){
     return;
   }
   try{
-    await api('PATCH','members?id=eq.'+memberId,{
+    const memberBody={
       name,
       email:email||null,
       is_active:isActiveNow,
       team:team||null,
       rank:rank||null,
-      include_in_operational_dashboards:included,
       note:note||null
-    });
+    };
+    if(adminMemberSupportsOperationalInclusion(member)){
+      memberBody[ADMIN_OPERATIONAL_INCLUSION_COLUMN]=included;
+    }
+    try{
+      await api('PATCH','members?id=eq.'+memberId,memberBody);
+    }catch(error){
+      if(isAdminOperationalInclusionSchemaError(error)){
+        throw new Error(getAdminOperationalInclusionSchemaMessage());
+      }
+      throw error;
+    }
     const authUserId=String(member?.auth_user_id||'').trim();
     if(authUserId){
       const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===authUserId)||null;

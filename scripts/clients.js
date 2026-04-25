@@ -756,6 +756,7 @@ let clientTableSortDir='asc';
 let clientPendingDocRequests=[];
 let clientPendingDocRequestsLoaded=false;
 let clientPendingDocRequestsLoading=false;
+let clientScopeFilter='team';
 const clientToolbarState={industry:'',manager:'',health:'all',search:'',sort:'name'};
 const clientTableSelectedIds=new Set();
 let clientTableLastRows=[];
@@ -790,15 +791,84 @@ function canManageClientBulkActions(){
   return !!(canManageCore()||roleIsAdmin());
 }
 
+function getClientScopeLabel(scope=clientScopeFilter){
+  if(scope==='mine')return '내 고객사';
+  if(scope==='all')return '전체';
+  return '우리 팀 고객사';
+}
+
+function getClientCurrentMemberRecord(){
+  const currentId=String(currentMember?.id||'').trim();
+  const currentName=String(currentMember?.name||'').trim();
+  return (members||[]).find(member=>
+    (currentId&&String(member?.id||'').trim()===currentId)
+    ||(currentName&&String(member?.name||'').trim()===currentName)
+  )||currentMember||null;
+}
+
+function getClientCurrentTeamName(){
+  const member=getClientCurrentMemberRecord();
+  return typeof normalizeMemberTeam==='function'
+    ? normalizeMemberTeam(member?.team)
+    : String(member?.team||'').trim();
+}
+
+function getClientScopeTeamMemberNames(){
+  const teamName=getClientCurrentTeamName();
+  if(!teamName)return [];
+  const source=typeof getOperationalMembers==='function'
+    ? getOperationalMembers()
+    : (members||[]).filter(member=>String(member?.name||'').trim());
+  return [...new Set(
+    source
+      .filter(member=>{
+        const memberTeam=typeof normalizeMemberTeam==='function'
+          ? normalizeMemberTeam(member?.team)
+          : String(member?.team||'').trim();
+        return memberTeam===teamName;
+      })
+      .map(member=>String(member?.name||'').trim())
+      .filter(Boolean)
+  )];
+}
+
+function clientProjectMatchesScope(project,scope=clientScopeFilter){
+  const projectMembers=Array.isArray(project?.members)?project.members.filter(Boolean):[];
+  if(scope==='all')return true;
+  if(scope==='mine'){
+    return !!(currentMember?.name&&projectMembers.includes(currentMember.name));
+  }
+  const teamMemberNames=getClientScopeTeamMemberNames();
+  if(teamMemberNames.length){
+    return teamMemberNames.some(name=>projectMembers.includes(name));
+  }
+  return currentMember?.name?projectMembers.includes(currentMember.name):true;
+}
+
+function clientMatchesScope(clientProjects,scope=clientScopeFilter){
+  if(scope==='all')return true;
+  return (clientProjects||[]).some(project=>clientProjectMatchesScope(project,scope));
+}
+
 function syncClientPrimaryToggle(){
-  document.getElementById('myFilterBtn')?.classList.toggle('active',myFilterActive);
-  document.getElementById('allFilterBtn')?.classList.toggle('active',!myFilterActive);
+  document.getElementById('teamFilterBtn')?.classList.toggle('active',clientScopeFilter==='team');
+  document.getElementById('myFilterBtn')?.classList.toggle('active',clientScopeFilter==='mine');
+  document.getElementById('allFilterBtn')?.classList.toggle('active',clientScopeFilter==='all');
+}
+
+function setClientScope(scope){
+  const normalized=['team','mine','all'].includes(String(scope||''))?String(scope):'team';
+  if(clientScopeFilter===normalized){
+    syncClientPrimaryToggle();
+    return;
+  }
+  clientScopeFilter=normalized;
+  syncClientPrimaryToggle();
+  renderClients();
 }
 
 toggleMyFilter=function(){
-  myFilterActive=!myFilterActive;
-  syncClientPrimaryToggle();
-  renderClients();
+  setClientScope(clientScopeFilter==='mine'?'all':'mine');
 };
 
 function setClientSearch(value){
@@ -826,7 +896,7 @@ function setClientViewMode(mode){
 }
 
 function clearClientFilterTag(key){
-  if(key==='myOnly')myFilterActive=false;
+  if(key==='scope')clientScopeFilter='team';
   if(key==='status'){
     const el=document.getElementById('projStatusFilter');
     if(el)el.value='';
@@ -1077,7 +1147,7 @@ function getClientBaseRows(){
   return (clients||[])
     .filter(client=>{
       const clientProjects=(projects||[]).filter(project=>project?.client_id===client.id);
-      if(myFilterActive&&currentMember&&!clientProjects.some(project=>Array.isArray(project?.members)&&project.members.includes(currentMember.name)))return false;
+      if(!clientMatchesScope(clientProjects))return false;
       if(statusFilter==='active'&&!clientProjects.some(isClientProjectActive))return false;
       return true;
     })
@@ -1244,7 +1314,7 @@ function renderClientFilterTags(){
   if(!el)return;
   const tags=[];
   const statusFilter=document.getElementById('projStatusFilter')?.value||'';
-  if(myFilterActive)tags.push({key:'myOnly',label:'내 고객사'});
+  if(clientScopeFilter!=='team')tags.push({key:'scope',label:getClientScopeLabel(clientScopeFilter)});
   if(statusFilter==='active')tags.push({key:'status',label:'진행중 프로젝트만'});
   if(clientToolbarState.industry)tags.push({key:'industry',label:'업종 · '+clientToolbarState.industry});
   if(clientToolbarState.manager)tags.push({key:'manager',label:'담당자 · '+clientToolbarState.manager});
@@ -1511,7 +1581,7 @@ renderClients=function(){
   clientToolbarState.sort=document.getElementById('clientSortFilter')?.value||clientToolbarState.sort||'name';
 
   const title=document.getElementById('boardTitle');
-  if(title)title.textContent='거래처';
+  if(title)title.textContent=getClientScopeLabel(clientScopeFilter);
 
   const baseRows=getClientBaseRows();
   renderClientFilterOptions(baseRows);
@@ -1785,7 +1855,7 @@ renderClients=function(){
   clientToolbarState.sort=document.getElementById('clientSortFilter')?.value||clientToolbarState.sort||'name';
 
   const title=document.getElementById('boardTitle');
-  if(title)title.textContent='거래처';
+  if(title)title.textContent=getClientScopeLabel(clientScopeFilter);
 
   const baseRows=getClientBaseRows();
   renderClientFilterOptions(baseRows);
@@ -2393,17 +2463,24 @@ function getClientPortfolioActionMeta(row){
 
 function renderClientOverviewIntro(rows){
   const summary=getClientPortfolioSummary(rows);
+  const scopeLabel=getClientScopeLabel(clientScopeFilter);
+  const scopeCopy=clientScopeFilter==='all'
+    ?'조직 전체 거래처 기준'
+    :clientScopeFilter==='mine'
+      ?'개인 담당 거래처 기준'
+      :'우리 팀 거래처 기준';
   const title=clientViewMode==='table'
     ?'거래처 비교 테이블'
     :clientViewMode==='health'
       ?'리스크 우선순위 보드'
       :'거래처 포트폴리오';
   const copy=clientViewMode==='table'
-    ?'비교와 정렬 중심 보기입니다. 정상은 막힘 없음, 주의는 후속 필요, 위험은 지연·긴급 기준으로 비교합니다.'
+    ?scopeCopy+' 비교와 정렬 중심 보기입니다. 정상은 막힘 없음, 주의는 후속 필요, 위험은 지연·긴급 기준으로 비교합니다.'
     :clientViewMode==='health'
-      ?'건강 상태 중심 보기입니다. 위험은 지연·긴급, 주의는 후속 확인, 정상은 의미 있는 막힘이 없는 상태입니다.'
-      :'관계와 운영 맥락을 함께 보는 포트폴리오 보기입니다. 건강 상태의 이유와 다음 액션을 거래처 단위로 확인합니다.';
+      ?scopeCopy+' 건강 상태 중심 보기입니다. 위험은 지연·긴급, 주의는 후속 확인, 정상은 의미 있는 막힘이 없는 상태입니다.'
+      :scopeCopy+' 관계와 운영 맥락을 함께 보는 포트폴리오 보기입니다. 건강 상태의 이유와 다음 액션을 거래처 단위로 확인합니다.';
   const chips=[
+    '<span class="client-overview-chip is-muted">'+scopeLabel+'</span>',
     '<span class="client-overview-chip '+(summary.attentionCount?'is-danger':'is-muted')+'">주의 '+summary.attentionCount+'곳</span>'
   ];
   if(summary.unbilledClientCount>0)chips.push('<span class="client-overview-chip is-warn">미청구 '+summary.unbilledClientCount+'곳</span>');

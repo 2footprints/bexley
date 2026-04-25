@@ -1209,11 +1209,19 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
     return !!startDate&&!!endDate&&startDate<=nextBounds.end&&endDate>=nextBounds.start&&scheduleHasOperationalMember(schedule);
   });
+  const nextWeekFieldwork=(schedules||[]).filter(schedule=>{
+    const type=String(schedule?.schedule_type||'').trim();
+    if(type!=='fieldwork')return false;
+    const startDate=getWeeklyReviewDate(schedule?.start||schedule?.start_date);
+    const endDate=getWeeklyReviewDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    return !!startDate&&!!endDate&&startDate<=nextBounds.end&&endDate>=nextBounds.start&&scheduleHasOperationalMember(schedule);
+  });
   const operationalMembers=getOperationalMembers();
   const operationalMemberCount=operationalMembers.length;
   const currentLeaveNames=[...new Set(currentWeekLeaves.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
   const currentFieldworkNames=[...new Set(currentWeekFieldwork.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
   const nextLeaveNames=[...new Set(nextWeekLeaves.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
+  const nextFieldworkNames=[...new Set(nextWeekFieldwork.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
   const unavailableMemberNames=new Set([...currentLeaveNames,...currentFieldworkNames]);
   const availableMemberCount=Math.max(0,operationalMemberCount-unavailableMemberNames.size);
   const clientIssueMap=new Map();
@@ -1257,6 +1265,16 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     .filter(project=>!!project?.follow_up_needed)
     .sort(sortWeeklyReviewProjectsByCompletion);
   const activeProjectsNow=(projects||[]).filter(project=>isWeeklyReviewActiveProject(project));
+  const currentLeaveCount=currentLeaveNames.length;
+  const currentFieldworkCount=currentFieldworkNames.length;
+  const nextFieldworkCount=nextFieldworkNames.length;
+  const absenceImpactCount=operationalMembers.filter(member=>{
+    const memberName=String(member?.name||'').trim();
+    if(!memberName||!unavailableMemberNames.has(memberName))return false;
+    const hasActiveProject=activeProjectsNow.some(project=>(project?.members||[]).includes(memberName));
+    const hasNextWeekDeadline=nextWeekEnds.some(project=>(project?.members||[]).includes(memberName));
+    return hasActiveProject||hasNextWeekDeadline;
+  }).length;
   const adminCanViewAll=roleIsAdmin();
   const currentMemberName=String(currentMember?.name||'').trim();
   const memberSectionContext={
@@ -1313,7 +1331,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       title:'인력 현황',
       badge:'이번 주',
       value:`${Number(availableMemberCount||0).toLocaleString()}명`,
-      meta:`휴가 ${formatWeeklyReviewNameSummary(currentLeaveNames)} · 필드웍 ${currentFieldworkNames.length}명 · 다음 주 휴가 ${nextLeaveNames.length}명`,
+      meta:`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 다음 주 필드웍 ${nextFieldworkCount}명`,
       tone:availableMemberCount<operationalMemberCount?'warning':'success'
     },
     {
@@ -1351,9 +1369,22 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       : '다음 주 주요 일정은 비교적 안정적입니다.';
   }
   if(cards[4]){
-    cards[4].helper=currentLeaveNames.length||currentFieldworkNames.length
-      ? '부재와 필드웍에 따른 업무 커버 계획이 필요합니다.'
-      : '이번 주 인력 가용성은 안정적인 편입니다.';
+    cards[4].title='인력 가용성';
+    cards[4].badge=absenceImpactCount?'확인':'이번 주';
+    cards[4].value=absenceImpactCount
+      ? `부재 영향 ${absenceImpactCount}명`
+      : currentLeaveCount
+        ? `휴가 ${currentLeaveCount}명`
+        : currentFieldworkCount
+          ? `필드웍 ${currentFieldworkCount}명`
+          : '안정';
+    cards[4].meta=`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 다음 주 필드웍 ${nextFieldworkCount}명`;
+    cards[4].helper=absenceImpactCount
+      ? '휴가·필드웍이 진행 프로젝트와 겹치는 인원을 먼저 확인합니다.'
+      : currentLeaveCount||currentFieldworkCount||nextFieldworkCount
+        ? '휴가와 필드웍 기준으로 팀 가용성을 간단히 확인합니다.'
+        : '이번 주 인력 가용성은 안정적인 편입니다.';
+    cards[4].tone=absenceImpactCount||currentLeaveCount||currentFieldworkCount||nextFieldworkCount?'warning':'success';
   }
   if(cards[5]){
     cards[5].helper=clientIssueSummary.length
@@ -1539,42 +1570,50 @@ function getWeeklyReviewOperationalMemberState(summary){
   const nextDeadlineCount=Number(summary?.nextWeekDeadlineCount||0);
   const leaveDays=Number(summary?.leaveDays||0);
   const fieldworkDays=Number(summary?.fieldworkDays||0);
-  const absenceDays=leaveDays+fieldworkDays;
-  const workloadScore=Number(summary?.workloadScore||0);
-  if(absenceDays>0&&(activeCount>0||nextDeadlineCount>0)){
+  const hasCurrentLoad=activeCount>0||nextDeadlineCount>0;
+  if(leaveDays>0&&hasCurrentLoad){
     return {
-      level:'coverage',
-      label:'커버 조정',
+      level:'leave-impact',
+      label:'휴가 영향',
       badgeClass:'badge-orange',
-      note:`휴가 ${leaveDays}일 · 현장 ${fieldworkDays}일 영향`,
-      followUp:'대체 담당과 일정 공유 여부를 확인하세요.'
+      note:`이번 주 휴가 ${leaveDays}일`,
+      followUp:'휴가 기간 담당 공백과 일정 공유 여부를 확인하세요.'
     };
   }
-  if(workloadScore>=7||activeCount>=4||nextDeadlineCount>=2){
+  if(fieldworkDays>0&&hasCurrentLoad){
     return {
-      level:'overloaded',
-      label:'과부하 점검',
-      badgeClass:'badge-red',
-      note:`진행 ${activeCount}건 · 차주 마감 ${nextDeadlineCount}건`,
-      followUp:'업무 재배분 또는 우선순위 조정이 필요한지 검토하세요.'
+      level:'fieldwork-impact',
+      label:'필드웍 영향',
+      badgeClass:'badge-orange',
+      note:`이번 주 필드웍 ${fieldworkDays}일`,
+      followUp:'현장 일정과 프로젝트 마감 일정이 겹치는지 확인하세요.'
     };
   }
-  if(activeCount===0&&nextDeadlineCount===0&&absenceDays===0){
-    return {
-      level:'available',
-      label:'지원 가능',
-      badgeClass:'badge-blue',
-      note:'당장 큰 마감 부담이 없습니다.',
-      followUp:'차주 지원 투입이 필요한지 함께 검토하세요.'
-    };
-  }
-  if(absenceDays>0){
+  if(leaveDays>0){
     return {
       level:'leave',
-      label:'부재 반영',
+      label:'휴가',
+      badgeClass:'badge-gray',
+      note:`이번 주 휴가 ${leaveDays}일`,
+      followUp:'인수인계가 필요한 일정이 있는지 확인하세요.'
+    };
+  }
+  if(fieldworkDays>0){
+    return {
+      level:'fieldwork',
+      label:'필드웍',
       badgeClass:'badge-orange',
-      note:`휴가 ${leaveDays}일 · 현장 ${fieldworkDays}일`,
-      followUp:'인수인계와 일정 공유 여부를 확인하세요.'
+      note:`이번 주 필드웍 ${fieldworkDays}일`,
+      followUp:'현장 일정 공유와 커버 필요 여부를 확인하세요.'
+    };
+  }
+  if(activeCount>=4||nextDeadlineCount>=2){
+    return {
+      level:'schedule-check',
+      label:'일정 확인',
+      badgeClass:'badge-orange',
+      note:`진행 ${activeCount}건 · 다음 주 마감 ${nextDeadlineCount}건`,
+      followUp:'다음 주 마감 준비 상태만 간단히 점검하세요.'
     };
   }
   return {
@@ -1591,7 +1630,6 @@ function renderWeeklyReviewOperationalMemberSummaryGridMarkup(summaries){
   return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">'
     +items.map(summary=>{
       const state=summary?._operationalState||getWeeklyReviewOperationalMemberState(summary);
-      const absenceDays=Number(summary?.leaveDays||0)+Number(summary?.fieldworkDays||0);
       return '<div class="card-sm" style="padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--bg)">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">'
           +'<div style="font-size:14px;font-weight:800;color:var(--navy)">'+esc(summary?.name||'이름 없음')+'</div>'
@@ -1600,8 +1638,8 @@ function renderWeeklyReviewOperationalMemberSummaryGridMarkup(summaries){
         +'<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px">'
           +'<div><div style="font-size:11px;color:var(--text3)">진행 프로젝트</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+Number(summary?.activeProjectCount||0)+'건</div></div>'
           +'<div><div style="font-size:11px;color:var(--text3)">다음 주 마감</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+Number(summary?.nextWeekDeadlineCount||0)+'건</div></div>'
-          +'<div><div style="font-size:11px;color:var(--text3)">이번 주 완료</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+Number(summary?.completedCount||0)+'건</div></div>'
-          +'<div><div style="font-size:11px;color:var(--text3)">부재 영향</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+absenceDays+'일</div></div>'
+          +'<div><div style="font-size:11px;color:var(--text3)">이번 주 휴가</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+Number(summary?.leaveDays||0)+'일</div></div>'
+          +'<div><div style="font-size:11px;color:var(--text3)">이번 주 필드웍</div><div style="font-size:15px;font-weight:800;color:var(--navy)">'+Number(summary?.fieldworkDays||0)+'일</div></div>'
         +'</div>'
         +'<div style="margin-top:12px;padding-top:10px;border-top:1px dashed rgba(148,163,184,.28)">'
           +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px">'+esc(state.note||'')+'</div>'
@@ -1703,16 +1741,16 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     const diff=getWeeklyReviewDayDiff(item?.columns?.[3],getHomeBaseDate());
     return diff!==null&&diff<=0&&diff>=-7;
   }).length;
-  const overloadedCount=memberSummaries.filter(summary=>summary?._operationalState?.level==='overloaded').length;
-  const coverageCount=memberSummaries.filter(summary=>['coverage','leave'].includes(summary?._operationalState?.level)).length;
-  const availableCount=memberSummaries.filter(summary=>summary?._operationalState?.level==='available').length;
-  const staffingValue=overloadedCount
-    ? `과부하 ${overloadedCount}명`
-    : coverageCount
-      ? `조정 ${coverageCount}명`
-      : availableCount
-        ? `지원 ${availableCount}명`
-        : '안정';
+  const absenceImpactMemberCount=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact'].includes(summary?._operationalState?.level)).length;
+  const staffingValue=absenceImpactMemberCount
+    ? `부재 영향 ${absenceImpactMemberCount}명`
+    : currentLeaveCount
+      ? `휴가 ${currentLeaveCount}명`
+      : currentFieldworkCount
+        ? `필드웍 ${currentFieldworkCount}명`
+        : nextFieldworkCount
+          ? `다음 주 필드웍 ${nextFieldworkCount}명`
+          : '안정';
   const nextAttentionCount=nextEndItems.length+nextStartItems.length+nextScheduleItems.length;
   const riskValue=overdueItems.length
     ? `지연 ${overdueItems.length}건`
@@ -1767,14 +1805,16 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     },
     {
       key:'resources',
-      title:'인력 상태',
-      badge:overloadedCount||coverageCount?'조정':'안정',
+      title:'인력 가용성',
+      badge:absenceImpactMemberCount||currentLeaveCount||currentFieldworkCount||nextFieldworkCount?'확인':'안정',
       value:staffingValue,
-      helper:overloadedCount||coverageCount
-        ? '과부하, 부재 영향, 지원 여력을 함께 확인합니다.'
-        : '이번 주 팀 운영 범위는 안정적입니다.',
-      meta:`과부하 점검 ${overloadedCount}명 · 부재 영향 ${coverageCount}명 · 지원 가능 ${availableCount}명`,
-      tone:overloadedCount?'danger':coverageCount?'warning':'success'
+      helper:absenceImpactMemberCount
+        ? '휴가·필드웍이 진행 프로젝트와 겹치는 인원을 먼저 확인합니다.'
+        : currentLeaveCount||currentFieldworkCount||nextFieldworkCount
+          ? '휴가와 필드웍 기준으로 팀 가용성을 간단히 확인합니다.'
+          : '이번 주 팀 가용성은 안정적인 편입니다.',
+      meta:`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 다음 주 필드웍 ${nextFieldworkCount}명`,
+      tone:absenceImpactMemberCount||currentLeaveCount||currentFieldworkCount||nextFieldworkCount?'warning':'success'
     },
     {
       key:'next',
@@ -1855,11 +1895,11 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     }
   }
   if(membersSection){
-    membersSection.title='인력 / 부재 / 과부하';
-    membersSection.sub='과부하, 부재 영향, 지원 여력을 팀 운영 관점에서 함께 확인합니다.';
-    membersSection.collapsedSummary=`과부하 점검 ${overloadedCount}명 · 부재 영향 ${coverageCount}명`;
+    membersSection.title='인력 / 가용성';
+    membersSection.sub='휴가와 필드웍 중심으로 이번 주와 다음 주 가용성을 간단히 확인합니다.';
+    membersSection.collapsedSummary=`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 부재 영향 ${absenceImpactMemberCount}명`;
     if(membersSection.groups?.[0]){
-      membersSection.groups[0].title=weeklyReviewMemberScope==='all'?'팀 인력 상태':'내 인력 상태';
+      membersSection.groups[0].title=weeklyReviewMemberScope==='all'?'팀 가용성 요약':'내 가용성 요약';
       membersSection.groups[0].items=memberSummaries;
       membersSection.groups[0].html=renderWeeklyReviewOperationalMemberSummaryGridMarkup(memberSummaries);
       membersSection.groups[0].emptyText='표시할 인력 요약이 없습니다.';

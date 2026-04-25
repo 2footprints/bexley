@@ -839,22 +839,38 @@ renderGanttDetailPanel=function(projs,schs){
   el.innerHTML='<div class="gantt-panel-head"><div><div class="gantt-panel-title">'+esc(project.name)+'</div><div class="gantt-panel-sub">'+esc(client?.name||'No client')+' | '+esc(project.type||'No type')+'</div></div><span class="badge '+(project.status==='진행중'?'badge-blue':project.status==='완료'?'badge-green':'badge-orange')+'">'+esc(project.status||'No status')+'</span></div><div class="gantt-detail-grid"><div><div class="gantt-detail-label">Period</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div><div><div class="gantt-detail-label">Owners</div><div class="gantt-detail-value">'+esc(projectMembers.join(', ')||'Unassigned')+'</div></div><div><div class="gantt-detail-label">Billing</div><div class="gantt-detail-value">'+esc(project.is_billable?(project.billing_status||'No status'):'Non-billable')+'</div></div><div><div class="gantt-detail-label">Issue / Comment</div><div class="gantt-detail-value">'+issueCount+' issues | '+commentCount+' comments</div></div></div><div class="gantt-main-copy">The left side is not a priority engine. It is simply the visible project list for this month. Select a project to see team schedules and quick actions here.</div><div class="gantt-detail-actions"><button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">Open Project</button><button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">Open Issues</button><button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Add to Outlook</button></div><div class="gantt-detail-section"><div class="gantt-panel-title">Team Schedule</div><div class="gantt-detail-list">'+(memberSchedules.map(s=>'<div class="gantt-detail-item"><div><div class="gantt-detail-item-title">'+esc(s.title||scheduleLabel(s.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((s.start||'')+' ~ '+(s.end||'')+' | '+getScheduleMemberLabel(s))+'</div></div><span class="badge badge-gray">'+esc(scheduleLabel(s.schedule_type))+'</span></div>').join('')||'<div class="gantt-empty-copy">No leave, fieldwork, or internal schedule found for this team in the current filter.</div>')+'</div></div>';
 };
 
-function fixBars(){
+let ganttBarFixRetryFrame=null;
+function measureGanttCellWidth(cell){
+  if(!cell)return 0;
+  const rectWidth=cell.getBoundingClientRect?.().width||0;
+  return rectWidth||cell.offsetWidth||0;
+}
+function fixBars(retryPass){
+  let needsRetry=false;
   document.querySelectorAll('.bar[data-span]').forEach(bar=>{
     const span=parseInt(bar.dataset.span,10);
     const td=bar.closest('td');
-    if(!td)return;
+    if(!td||!Number.isFinite(span)||span<1)return;
     let w=0;
     let t=td;
     for(let i=0;i<span;i++){
-      if(t){
-        w+=t.offsetWidth;
-        t=t.nextElementSibling;
-      }
+      if(!t)break;
+      w+=measureGanttCellWidth(t);
+      t=t.nextElementSibling;
+    }
+    if(w<=4){
+      needsRetry=true;
+      return;
     }
     bar.style.width=(w-4)+'px';
     bar.style.right='auto';
   });
+  if(needsRetry&&!retryPass&&ganttBarFixRetryFrame==null){
+    ganttBarFixRetryFrame=requestAnimationFrame(()=>{
+      ganttBarFixRetryFrame=null;
+      fixBars(true);
+    });
+  }
 }
 
 function renderLegend(){
@@ -1789,15 +1805,7 @@ function renderGanttListView(projs,schs){
         const isExpanded=ganttListExpandedProjectIds.includes(projectId);
         const loadedKeyTaskCount=Array.isArray(ganttProjectTasksByProjectId[projectId])?getGanttListProjectKeyTasks(row).length:0;
         const drillCount=loadedKeyTaskCount||Number(row?.taskSummary?.openCount||row?.taskSummary?.total||0);
-        const rowStateClass=isGanttProjectOverdue(project)
-          ?' is-overdue'
-          :isDueToday(project)
-            ?' is-due-today'
-            :row.riskMeta?.tone==='issue'
-              ?' is-issue-risk'
-              :row.riskMeta?.tone==='warn'
-                ?' is-attention'
-                :'';
+        const rowStateClass=getGanttListRowStateClass(row);
         const mainRow='<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
           +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+project.id+'\')" /></td>'
           +'<td>'+esc(row.clientName)+'</td>'
@@ -4574,6 +4582,14 @@ function getGanttListAttentionSubtext(row){
   return row?.lifecycleMeta?.detail||row?.riskMeta?.detail||'현재 운영상 큰 막힘이 없습니다.';
 }
 
+function getGanttListRowStateClass(row){
+  if(!row)return '';
+  if(row?.riskMeta?.tone==='danger'||row?.lifecycleMeta?.key==='overdue'||isGanttProjectOverdue(row?.project))return ' is-overdue';
+  if(isGanttProjectDueToday(row?.project))return ' is-due-today';
+  if(row?.riskMeta?.tone==='issue')return ' is-issue-risk';
+  return '';
+}
+
 function compareGanttListValues(a,b,key){
   if(key==='client_name')return a.clientName.localeCompare(b.clientName,'ko');
   if(key==='name')return String(a.project?.name||'').localeCompare(String(b.project?.name||''),'ko');
@@ -4783,15 +4799,7 @@ function renderGanttListView(projs,schs){
         const isExpanded=ganttListExpandedProjectIds.includes(projectId);
         const loadedKeyTaskCount=Array.isArray(ganttProjectTasksByProjectId[projectId])?getGanttListProjectKeyTasks(row).length:0;
         const drillCount=loadedKeyTaskCount||Math.min(Number(row?.taskSummary?.openCount||row?.taskSummary?.total||0),GANTT_LIST_TASK_DRILL_LIMIT);
-        const rowStateClass=row.lifecycleMeta?.key==='overdue'
-          ?' is-overdue'
-          :isGanttProjectDueToday(project)
-            ?' is-due-today'
-            :row.riskMeta?.tone==='issue'
-              ?' is-issue-risk'
-              :row.riskMeta?.tone==='warn'
-                ?' is-attention'
-                :'';
+        const rowStateClass=getGanttListRowStateClass(row);
         const mainRow='<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
           +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+project.id+'\')" /></td>'
           +'<td>'+esc(row.clientName)+'</td>'
