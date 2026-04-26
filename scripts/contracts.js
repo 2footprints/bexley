@@ -1109,6 +1109,259 @@ function renderContractListView(rows){
     +'</tbody></table></div></div>';
 }
 
+function getContractBillingStatusMeta(row){
+  const receivableAmount=Number(row?.receivableAmount||0);
+  const unbilledBalance=Number(row?.unbilledBalance||0);
+  const billedTotal=Number(row?.billedTotal||0);
+  const billingPercent=getContractBillingProgressPercent(row);
+  if(receivableAmount>0){
+    return {
+      label:'수금 확인 필요',
+      tone:'danger',
+      detail:'미수금 '+formatContractCurrency(receivableAmount)
+    };
+  }
+  if(unbilledBalance>0){
+    return {
+      label:'미청구',
+      tone:'warn',
+      detail:'미청구 '+formatContractCurrency(unbilledBalance)
+    };
+  }
+  if(billedTotal>0){
+    return {
+      label:'청구 완료',
+      tone:'ok',
+      detail:'청구율 '+billingPercent+'%'
+    };
+  }
+  return {
+    label:'청구 대기',
+    tone:'neutral',
+    detail:'청구 이력 없음'
+  };
+}
+
+function getContractAdditionalWorkCount(row){
+  return Array.isArray(row?.relatedProjects)
+    ?row.relatedProjects.filter(project=>!!project?.follow_up_needed).length
+    :0;
+}
+
+function renderContractKpis(rows){
+  const el=document.getElementById('contractKpiGrid');
+  if(!el)return;
+  const activeRows=rows.filter(row=>row.isActive);
+  const totalAmount=rows.reduce((sum,row)=>sum+Number(row.contractAmount||0),0);
+  const unbilledBalance=Math.max(0,activeRows.reduce((sum,row)=>sum+Number(row.unbilledBalance||0),0));
+  const attentionRows=rows.filter(row=>getContractAttentionMeta(row).tone!=='ok');
+  const renewalRows=activeRows.filter(row=>row.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60);
+  const cards=[
+    {
+      label:'전체 계약 수',
+      value:rows.length+'건',
+      sub:'운영 계약 '+activeRows.length+'건',
+      helper:'현재 조건에서 관리 중인 계약 포트폴리오입니다.',
+      tone:'quiet'
+    },
+    {
+      label:'총 계약금액',
+      value:formatContractCurrency(totalAmount),
+      sub:'활성 계약 기준 합계',
+      helper:'계약 규모를 한눈에 보는 기준 금액입니다.',
+      tone:'quiet'
+    },
+    {
+      label:'미청구 금액',
+      value:formatContractCurrency(unbilledBalance),
+      sub:'청구 확인 필요 '+rows.filter(row=>Number(row.unbilledBalance||0)>0).length+'건',
+      helper:unbilledBalance?'지금 확인하지 않으면 수익 인식이 늦어질 수 있습니다.':'현재 미청구 금액이 없습니다.',
+      tone:unbilledBalance>0?'warn':'quiet'
+    },
+    {
+      label:'갱신 예정',
+      value:renewalRows.length+'건',
+      sub:renewalRows.length?'60일 내 종료 예정 계약':'가까운 갱신 예정 없음',
+      helper:renewalRows.length?'만료 전 갱신 방향과 조건 검토가 필요한 계약입니다.':'급한 갱신 검토 계약은 없습니다.',
+      tone:renewalRows.length?'warn':'ok'
+    },
+    {
+      label:'주의 필요 계약',
+      value:attentionRows.length+'건',
+      sub:'수금, 미청구, 자료, 갱신 이슈 포함',
+      helper:attentionRows.length
+        ?attentionRows.slice(0,2).map(row=>(row.contract?.contract_name||'계약')+' · '+getContractAttentionMeta(row).detail).join(' / ')
+        :'즉시 확인이 필요한 계약은 없습니다.',
+      tone:attentionRows.length?'danger':'quiet'
+    }
+  ];
+  el.innerHTML=cards.map(card=>
+    '<div class="contract-kpi-card'+(card.tone?' is-'+card.tone:'')+'">'
+      +'<div class="contract-kpi-label">'+esc(card.label)+'</div>'
+      +'<div class="contract-kpi-value">'+esc(card.value)+'</div>'
+      +'<div class="contract-kpi-sub">'+esc(card.sub)+'</div>'
+      +(card.helper?'<div class="contract-kpi-helper">'+esc(card.helper)+'</div>':'')
+    +'</div>'
+  ).join('');
+}
+
+function renderContractOverviewIntro(rows){
+  const summary=getContractPortfolioSummary(rows);
+  const followUpContracts=rows.filter(row=>getContractAdditionalWorkCount(row)>0).length;
+  const attentionCount=rows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length;
+  const title=contractViewMode==='grouped'
+    ?'계약 포트폴리오'
+    :contractViewMode==='list'
+      ?'계약 비교 보드'
+      :'청구 / 수금 보드';
+  const copy=contractViewMode==='grouped'
+    ?'계약 건강, 청구 상태, 갱신 시점을 거래처 단위로 빠르게 점검합니다.'
+    :contractViewMode==='list'
+      ?'계약별 주의 이유와 다음 액션을 같은 축에서 비교합니다.'
+      :'청구 가능, 미수금, 수금 완료 흐름을 운영 보드처럼 확인합니다.';
+  const chips=[
+    '<span class="contract-overview-chip '+(attentionCount?'is-danger':'is-muted')+'">주의 '+attentionCount+'건</span>',
+    '<span class="contract-overview-chip '+(summary.unbilledCount?'is-warn':'is-muted')+'">미청구 '+summary.unbilledCount+'건</span>'
+  ];
+  if(summary.receivableCount>0)chips.push('<span class="contract-overview-chip is-danger">수금 확인 '+summary.receivableCount+'건</span>');
+  if(summary.expiringCount>0)chips.push('<span class="contract-overview-chip is-warn">갱신 예정 '+summary.expiringCount+'건</span>');
+  if(followUpContracts>0)chips.push('<span class="contract-overview-chip is-warn">추가업무 '+followUpContracts+'건</span>');
+  return ''
+    +'<div class="contract-overview-head">'
+      +'<div>'
+        +'<div class="contract-overview-title">'+title+'</div>'
+        +'<div class="contract-overview-sub">'+copy+'</div>'
+      +'</div>'
+      +'<div class="contract-overview-chips">'+chips.join('')+'</div>'
+    +'</div>';
+}
+
+function renderContractRowItem(row){
+  const contract=row.contract;
+  const attentionMeta=getContractAttentionMeta(row);
+  const billingMeta=getContractBillingStatusMeta(row);
+  const remainingMeta=getContractRemainingDaysMeta(row);
+  const followUpCount=getContractAdditionalWorkCount(row);
+  const chips=[
+    '<span class="contract-inline-chip">계약 '+formatContractCurrency(row.contractAmount)+'</span>',
+    '<span class="contract-inline-chip '+(billingMeta.tone==='danger'?'is-danger':billingMeta.tone==='warn'?'is-warn':'')+'">'+esc(billingMeta.label)+'</span>',
+    (remainingMeta?'<span class="contract-inline-chip '+(remainingMeta.tone==='danger'?'is-danger':remainingMeta.tone==='warn'?'is-warn':'')+'">'+remainingMeta.text+'</span>':'')
+  ].filter(Boolean);
+  return ''
+    +'<div class="contract-inline-row is-'+attentionMeta.tone+'" onclick="openContractDetail(\''+contract.id+'\')">'
+      +'<div class="contract-inline-main">'
+        +'<div class="contract-inline-name-row"><div class="contract-inline-name" title="'+esc(contract?.contract_name||'')+'">'+esc(contract?.contract_name||'계약명 없음')+'</div><span class="contract-inline-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div>'
+        +'<div class="contract-inline-sub">담당 '+esc(row.managerNames.join(', ')||'미지정')+' · '+esc(getContractPeriodText(contract))+'</div>'
+        +'<div class="contract-inline-finance-row">'+chips.join('')+'</div>'
+        +'<div class="contract-inline-summary"><span class="contract-inline-summary-label">현재 문제</span><strong class="contract-inline-summary-value is-'+attentionMeta.tone+'">'+esc(attentionMeta.detail)+'</strong><span class="contract-inline-summary-meta">'+(followUpCount?('추가업무/후속관리 '+followUpCount+'건'):'운영 범위 내 진행')+'</span></div>'
+        +'<div class="contract-inline-summary"><span class="contract-inline-summary-label">다음 액션</span><strong class="contract-inline-summary-value is-'+attentionMeta.tone+'">'+esc(getContractNextActionLabel(row))+'</strong><span class="contract-inline-summary-meta">'+esc(getContractNextActionText(row))+'</span></div>'
+      +'</div>'
+      +'<div class="contract-inline-actions">'
+        +'<span class="badge '+getContractStatusBadgeClass(contract?.contract_status)+'">'+esc(contract?.contract_status||'검토중')+'</span>'
+        +'<button type="button" class="btn sm" onclick="event.stopPropagation();openContractDetail(\''+contract.id+'\')">상세보기</button>'
+      +'</div>'
+    +'</div>';
+}
+
+function renderContractGroupedView(rows){
+  const groups=[];
+  const groupMap=new Map();
+  rows.forEach(row=>{
+    const key=row.client?.id||'orphans';
+    if(!groupMap.has(key)){
+      const group={key,client:row.client,rows:[]};
+      groupMap.set(key,group);
+      groups.push(group);
+    }
+    groupMap.get(key).rows.push(row);
+  });
+  groups.sort((a,b)=>{
+    const aAttention=a.rows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length;
+    const bAttention=b.rows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length;
+    if(aAttention!==bAttention)return bAttention-aAttention;
+    const aName=String(a.client?.name||'미등록 거래처');
+    const bName=String(b.client?.name||'미등록 거래처');
+    return aName.localeCompare(bName,'ko');
+  });
+  return groups.map(group=>{
+    const totalAmount=group.rows.reduce((sum,row)=>sum+Number(row.contractAmount||0),0);
+    const activeCount=group.rows.filter(row=>row.isActive).length;
+    const unbilledBalance=group.rows.reduce((sum,row)=>sum+Number(row.unbilledBalance||0),0);
+    const receivableAmount=group.rows.reduce((sum,row)=>sum+Number(row.receivableAmount||0),0);
+    const expiringCount=group.rows.filter(row=>row.isActive&&row.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60).length;
+    const followUpCount=group.rows.reduce((sum,row)=>sum+getContractAdditionalWorkCount(row),0);
+    const summaryChips=['<span class="contract-group-chip">활성 '+activeCount+'건</span>'];
+    if(unbilledBalance>0)summaryChips.push('<span class="contract-group-chip is-warn">미청구 '+formatContractCurrency(unbilledBalance)+'</span>');
+    if(receivableAmount>0)summaryChips.push('<span class="contract-group-chip is-danger">수금 확인 '+formatContractCurrency(receivableAmount)+'</span>');
+    if(expiringCount>0)summaryChips.push('<span class="contract-group-chip is-warn">갱신 예정 '+expiringCount+'건</span>');
+    if(followUpCount>0)summaryChips.push('<span class="contract-group-chip is-warn">추가업무 '+followUpCount+'건</span>');
+    return ''
+      +'<div class="card contract-group-card">'
+        +'<div class="contract-group-head"'+(group.client?' onclick="openClientDetail(\''+group.client.id+'\',\'contracts\')"':'')+'>'
+          +'<div class="contract-group-avatar">'+esc((group.client?.name||'미')[0]||'미')+'</div>'
+          +'<div class="contract-group-meta">'
+            +'<div class="contract-group-title">'+esc(group.client?.name||'미등록 거래처')+'</div>'
+            +'<div class="contract-group-sub">계약 '+group.rows.length+'건 · 총 계약금액 '+formatContractCurrency(totalAmount)+'</div>'
+            +'<div class="contract-group-finance"><div class="contract-group-finance-meta">'+summaryChips.join('')+'</div></div>'
+          +'</div>'
+          +(group.client?'<span class="contract-group-link">거래처 보기</span>':'')
+        +'</div>'
+        +'<div class="contract-group-list">'+group.rows.map(renderContractRowItem).join('')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function renderContractListView(rows){
+  const manageable=canManageContractBulkActions();
+  const tableRows=sortContractListRows(rows);
+  const visibleIds=tableRows.map(row=>String(row.contract?.id||'')).filter(Boolean);
+  window.__contractListRows=tableRows;
+  window.__contractListVisibleIds=visibleIds;
+  const allSelected=!!(visibleIds.length&&visibleIds.every(id=>contractListSelectedIds.has(id)));
+  const selectedRows=getSelectedContractRows(tableRows);
+  return ''
+    +'<div class="contract-list-shell">'
+      +'<div class="contract-list-head">'
+        +'<div><div class="contract-list-title">계약 비교 보드</div><div class="muted">건강 상태, 청구 현황, 갱신 시점과 다음 액션을 같은 구조로 비교합니다.</div></div>'
+        +(manageable&&selectedRows.length
+          ?'<div class="contract-bulk-actions"><span class="contract-bulk-count">'+selectedRows.length+'건 선택</span><select id="contractBulkStatusSelect"><option value="">상태 변경</option><option value="진행중">진행중</option><option value="검토중">검토중</option><option value="완료">완료</option><option value="해지">해지</option></select><button type="button" class="btn sm" onclick="applyContractBulkStatus(document.getElementById(\'contractBulkStatusSelect\').value)">일괄 상태 변경</button><button type="button" class="btn ghost sm" onclick="clearContractListSelection()">선택 해제</button></div>'
+          :'')
+      +'</div>'
+      +'<div class="contract-list-wrap"><table class="contract-list-table"><thead><tr>'
+        +(manageable?'<th><input type="checkbox" '+(allSelected?'checked ':'')+'onclick="event.stopPropagation();toggleAllContractListSelections(window.__contractListVisibleIds||[],this.checked)"/></th>':'')
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'client\')">거래처'+getContractListSortIndicator('client')+'</button></th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'name\')">계약명'+getContractListSortIndicator('name')+'</button></th>'
+        +'<th>담당자</th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'remaining\')">계약 기간'+getContractListSortIndicator('remaining')+'</button></th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'amount\')">계약 금액'+getContractListSortIndicator('amount')+'</button></th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'receivable\')">청구 상태'+getContractListSortIndicator('receivable')+'</button></th>'
+        +'<th>갱신 예정</th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'status\')">위험 상태'+getContractListSortIndicator('status')+'</button></th>'
+        +'<th>다음 액션</th>'
+      +'</tr></thead><tbody>'
+      +tableRows.map(row=>{
+        const remainingMeta=getContractRemainingDaysMeta(row);
+        const attentionMeta=getContractAttentionMeta(row);
+        const billingMeta=getContractBillingStatusMeta(row);
+        const followUpCount=getContractAdditionalWorkCount(row);
+        return ''
+          +'<tr class="contract-list-row is-'+attentionMeta.tone+'" onclick="openContractDetail(\''+row.contract.id+'\')">'
+            +(manageable?'<td><input type="checkbox" '+(contractListSelectedIds.has(String(row.contract?.id||''))?'checked ':'')+'onclick="event.stopPropagation();toggleContractListSelection(\''+row.contract.id+'\',this.checked)"/></td>':'')
+            +'<td><div class="contract-list-name">'+esc(row.client?.name||'거래처 미지정')+'</div><div class="contract-list-sub">'+(row.isActive?'운영 계약':'종료/해지 포함')+'</div></td>'
+            +'<td><div class="contract-list-name-row"><div class="contract-list-name">'+esc(row.contract?.contract_name||'계약명 없음')+'</div><span class="contract-list-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div><div class="contract-list-sub">'+esc(row.contract?.contract_type||'기타')+'</div></td>'
+            +'<td><div class="contract-list-name">'+esc(row.managerNames.join(', ')||'담당자 미지정')+'</div><div class="contract-list-sub">상태 '+esc(row.contract?.contract_status||'검토중')+'</div></td>'
+            +'<td><div class="contract-list-period">'+esc(getContractPeriodText(row.contract))+'</div><div class="contract-list-sub">'+esc(getContractExpirySupportText(row))+'</div></td>'
+            +'<td><div class="contract-list-money">'+formatContractCurrency(row.contractAmount)+'</div><div class="contract-list-sub">'+(followUpCount?('추가업무/후속관리 '+followUpCount+'건'):'범위 내 진행')+'</div></td>'
+            +'<td><div class="contract-list-summary"><span class="contract-list-summary-label">청구 상태</span><strong class="contract-list-summary-value is-'+(billingMeta.tone==='danger'?'danger':billingMeta.tone==='warn'?'warn':billingMeta.tone==='ok'?'ok':'neutral')+'">'+esc(billingMeta.label)+'</strong><span class="contract-list-summary-meta">'+esc(billingMeta.detail)+'</span></div></td>'
+            +'<td>'+(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'<span class="contract-list-sub">종료일 미정</span>')+'<div class="contract-list-sub">'+esc(row.contract?.contract_end_date||'종료일 미정')+'</div></td>'
+            +'<td><div class="contract-list-summary"><span class="contract-list-summary-label">현재 문제</span><strong class="contract-list-summary-value is-'+attentionMeta.tone+'">'+esc(attentionMeta.detail)+'</strong><span class="contract-list-summary-meta">'+esc(row.contract?.contract_status||'검토중')+'</span></div></td>'
+            +'<td><div class="contract-list-summary"><span class="contract-list-summary-label">다음 액션</span><strong class="contract-list-summary-value is-'+attentionMeta.tone+'">'+esc(getContractNextActionLabel(row))+'</strong><span class="contract-list-summary-meta">'+esc(getContractNextActionText(row))+'</span></div></td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div>'
+    +'</div>';
+}
+
 function getContractBoardReasonTags(row){
   const tags=[];
   if(row.unbilledBalance>0)tags.push('미청구 '+formatContractCurrency(row.unbilledBalance));
@@ -1891,4 +2144,311 @@ function renderContractListView(rows){
       +'</tr>';
     }).join('')
     +'</tbody></table></div></div>';
+}
+
+// Final active contracts render path. Keep these definitions last.
+// Legacy duplicate definitions above remain for now, but the functions below are the single active path.
+window.__contractsActiveRenderPath='canonical-recovery-2026-04-27';
+
+function getContractBillingStatusMeta(row){
+  const receivableAmount=Number(row?.receivableAmount||0);
+  const unbilledBalance=Number(row?.unbilledBalance||0);
+  const billedTotal=Number(row?.billedTotal||0);
+  const billingPercent=getContractBillingProgressPercent(row);
+  if(receivableAmount>0){
+    return {
+      label:'수금 확인 필요',
+      tone:'danger',
+      detail:'미수금 '+formatContractCurrency(receivableAmount)
+    };
+  }
+  if(unbilledBalance>0){
+    return {
+      label:'미청구',
+      tone:'warn',
+      detail:'미청구 '+formatContractCurrency(unbilledBalance)
+    };
+  }
+  if(billedTotal>0){
+    return {
+      label:'청구 완료',
+      tone:'ok',
+      detail:'청구율 '+billingPercent+'%'
+    };
+  }
+  return {
+    label:'청구 대기',
+    tone:'neutral',
+    detail:'청구 이력 없음'
+  };
+}
+
+function getContractAdditionalWorkCount(row){
+  return Array.isArray(row?.relatedProjects)
+    ?row.relatedProjects.filter(project=>!!project?.follow_up_needed).length
+    :0;
+}
+
+function renderContractKpis(rows){
+  const el=document.getElementById('contractKpiGrid');
+  if(!el)return;
+  const activeRows=rows.filter(row=>row.isActive);
+  const totalAmount=rows.reduce((sum,row)=>sum+Number(row.contractAmount||0),0);
+  const unbilledBalance=Math.max(0,activeRows.reduce((sum,row)=>sum+Number(row.unbilledBalance||0),0));
+  const attentionRows=rows.filter(row=>getContractAttentionMeta(row).tone!=='ok');
+  const renewalRows=activeRows.filter(row=>row.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60);
+  const cards=[
+    {
+      label:'전체 계약 수',
+      value:rows.length+'건',
+      sub:'운영 계약 '+activeRows.length+'건',
+      helper:'현재 조건에서 관리 중인 계약 포트폴리오입니다.',
+      tone:'quiet'
+    },
+    {
+      label:'총 계약금액',
+      value:formatContractCurrency(totalAmount),
+      sub:'활성 계약 기준 합계',
+      helper:'계약 규모를 한눈에 보는 기준 금액입니다.',
+      tone:'quiet'
+    },
+    {
+      label:'미청구 금액',
+      value:formatContractCurrency(unbilledBalance),
+      sub:'청구 확인 필요 '+rows.filter(row=>Number(row.unbilledBalance||0)>0).length+'건',
+      helper:unbilledBalance?'지금 확인하지 않으면 수익 인식이 늦어질 수 있습니다.':'현재 미청구 금액이 없습니다.',
+      tone:unbilledBalance>0?'warn':'quiet'
+    },
+    {
+      label:'갱신 예정',
+      value:renewalRows.length+'건',
+      sub:renewalRows.length?'60일 내 종료 예정 계약':'가까운 갱신 예정 없음',
+      helper:renewalRows.length?'만료 전 갱신 방향과 조건 검토가 필요한 계약입니다.':'급한 갱신 검토 계약은 없습니다.',
+      tone:renewalRows.length?'warn':'ok'
+    },
+    {
+      label:'주의 필요 계약',
+      value:attentionRows.length+'건',
+      sub:'수금, 미청구, 자료, 갱신 이슈 포함',
+      helper:attentionRows.length
+        ?attentionRows.slice(0,2).map(row=>(row.contract?.contract_name||'계약')+' · '+getContractAttentionMeta(row).detail).join(' / ')
+        :'즉시 확인이 필요한 계약은 없습니다.',
+      tone:attentionRows.length?'danger':'quiet'
+    }
+  ];
+  el.innerHTML=cards.map(card=>
+    '<div class="contract-kpi-card'+(card.tone?' is-'+card.tone:'')+'">'
+      +'<div class="contract-kpi-label">'+esc(card.label)+'</div>'
+      +'<div class="contract-kpi-value">'+esc(card.value)+'</div>'
+      +'<div class="contract-kpi-sub">'+esc(card.sub)+'</div>'
+      +(card.helper?'<div class="contract-kpi-helper">'+esc(card.helper)+'</div>':'')
+    +'</div>'
+  ).join('');
+}
+
+function renderContractOverviewIntro(rows){
+  const summary=getContractPortfolioSummary(rows);
+  const followUpContracts=rows.filter(row=>getContractAdditionalWorkCount(row)>0).length;
+  const attentionCount=rows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length;
+  const title=contractViewMode==='grouped'
+    ?'계약 포트폴리오'
+    :contractViewMode==='list'
+      ?'계약 비교 보드'
+      :'청구 / 수금 보드';
+  const copy=contractViewMode==='grouped'
+    ?'계약 건강, 청구 상태, 갱신 시점을 거래처 단위로 빠르게 점검합니다.'
+    :contractViewMode==='list'
+      ?'계약별 주의 이유와 다음 액션을 같은 구조에서 비교합니다.'
+      :'청구 가능, 미수금, 수금 완료 흐름을 운영 보드처럼 확인합니다.';
+  const chips=[
+    '<span class="contract-overview-chip '+(attentionCount?'is-danger':'is-muted')+'">주의 '+attentionCount+'건</span>',
+    '<span class="contract-overview-chip '+(summary.unbilledCount?'is-warn':'is-muted')+'">미청구 '+summary.unbilledCount+'건</span>'
+  ];
+  if(summary.receivableCount>0)chips.push('<span class="contract-overview-chip is-danger">수금 확인 '+summary.receivableCount+'건</span>');
+  if(summary.expiringCount>0)chips.push('<span class="contract-overview-chip is-warn">갱신 예정 '+summary.expiringCount+'건</span>');
+  if(followUpContracts>0)chips.push('<span class="contract-overview-chip is-warn">추가업무 '+followUpContracts+'건</span>');
+  return ''
+    +'<div class="contract-overview-head">'
+      +'<div>'
+        +'<div class="contract-overview-title">'+title+'</div>'
+        +'<div class="contract-overview-sub">'+copy+'</div>'
+      +'</div>'
+      +'<div class="contract-overview-chips">'+chips.join('')+'</div>'
+    +'</div>';
+}
+
+function renderContractRowItem(row){
+  const contract=row.contract;
+  const isEnded=isContractEndedStatus(contract?.contract_status);
+  const attentionMeta=getContractAttentionMeta(row);
+  const billingMeta=getContractBillingStatusMeta(row);
+  const remainingMeta=getContractRemainingDaysMeta(row);
+  const followUpCount=getContractAdditionalWorkCount(row);
+  const chips=[
+    '<span class="contract-inline-chip">계약 '+formatContractCurrency(row.contractAmount)+'</span>',
+    '<span class="contract-inline-chip '+(billingMeta.tone==='danger'?'is-danger':billingMeta.tone==='warn'?'is-warn':'')+'">'+esc(billingMeta.label)+'</span>',
+    (remainingMeta?'<span class="contract-inline-chip '+(remainingMeta.tone==='danger'?'is-danger':remainingMeta.tone==='warn'?'is-warn':'')+'">'+remainingMeta.text+'</span>':'')
+  ].filter(Boolean);
+  return ''
+    +'<div class="contract-inline-row is-'+attentionMeta.tone+(isEnded?' is-ended':'')+'" onclick="openContractDetail(\''+contract.id+'\')">'
+      +'<div class="contract-inline-main">'
+        +'<div class="contract-inline-name-row"><div class="contract-inline-name" title="'+esc(contract?.contract_name||'')+'">'+esc(contract?.contract_name||'계약명 없음')+'</div><span class="contract-inline-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div>'
+        +'<div class="contract-inline-sub">담당 '+esc(row.managerNames.join(', ')||'미지정')+' · '+esc(getContractPeriodText(contract))+'</div>'
+        +'<div class="contract-inline-finance-row">'+chips.join('')+'</div>'
+        +'<div class="contract-inline-summary"><span class="contract-inline-summary-label">현재 문제</span><strong class="contract-inline-summary-value is-'+attentionMeta.tone+'">'+esc(attentionMeta.detail)+'</strong><span class="contract-inline-summary-meta">'+(followUpCount?('추가업무/후속관리 '+followUpCount+'건'):'운영 범위 내 진행')+'</span></div>'
+        +'<div class="contract-inline-summary"><span class="contract-inline-summary-label">다음 액션</span><strong class="contract-inline-summary-value is-'+attentionMeta.tone+'">'+esc(getContractNextActionLabel(row))+'</strong><span class="contract-inline-summary-meta">'+esc(getContractNextActionText(row))+'</span></div>'
+      +'</div>'
+      +'<div class="contract-inline-actions">'
+        +'<button type="button" class="contract-mini-btn" onclick="event.stopPropagation();toggleContractManaged(\''+contract.id+'\','+(!contract.is_managed)+')" title="관리 대상 여부">'+(contract.is_managed?'관':'외')+'</button>'
+        +'<button type="button" class="contract-mini-btn" onclick="event.stopPropagation();toggleContractEnded(\''+contract.id+'\',\''+esc(String(contract.contract_status||'검토중')).replace(/'/g,'&#39;')+'\')" title="종료 여부">'+(isEnded?'복':'종')+'</button>'
+        +'<span class="badge '+getContractStatusBadgeClass(contract?.contract_status)+'">'+esc(contract?.contract_status||'검토중')+'</span>'
+      +'</div>'
+    +'</div>';
+}
+
+function renderContractGroupedView(rows){
+  const groups=[];
+  const groupMap=new Map();
+  rows.forEach(row=>{
+    const key=row.client?.id||'orphans';
+    if(!groupMap.has(key)){
+      const group={key,client:row.client,rows:[]};
+      groupMap.set(key,group);
+      groups.push(group);
+    }
+    groupMap.get(key).rows.push(row);
+  });
+  groups.sort((a,b)=>{
+    const aAttention=a.rows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length;
+    const bAttention=b.rows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length;
+    if(aAttention!==bAttention)return bAttention-aAttention;
+    const aName=String(a.client?.name||'미등록 거래처');
+    const bName=String(b.client?.name||'미등록 거래처');
+    return aName.localeCompare(bName,'ko');
+  });
+  return groups.map(group=>{
+    const totalAmount=group.rows.reduce((sum,row)=>sum+Number(row.contractAmount||0),0);
+    const activeCount=group.rows.filter(row=>row.isActive).length;
+    const unbilledBalance=group.rows.reduce((sum,row)=>sum+Number(row.unbilledBalance||0),0);
+    const receivableAmount=group.rows.reduce((sum,row)=>sum+Number(row.receivableAmount||0),0);
+    const expiringCount=group.rows.filter(row=>row.isActive&&row.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60).length;
+    const followUpCount=group.rows.reduce((sum,row)=>sum+getContractAdditionalWorkCount(row),0);
+    const summaryChips=['<span class="contract-group-chip">활성 '+activeCount+'건</span>'];
+    if(unbilledBalance>0)summaryChips.push('<span class="contract-group-chip is-warn">미청구 '+formatContractCurrency(unbilledBalance)+'</span>');
+    if(receivableAmount>0)summaryChips.push('<span class="contract-group-chip is-danger">수금 확인 '+formatContractCurrency(receivableAmount)+'</span>');
+    if(expiringCount>0)summaryChips.push('<span class="contract-group-chip is-warn">갱신 예정 '+expiringCount+'건</span>');
+    if(followUpCount>0)summaryChips.push('<span class="contract-group-chip is-warn">추가업무 '+followUpCount+'건</span>');
+    return ''
+      +'<div class="card contract-group-card">'
+        +'<div class="contract-group-head"'+(group.client?' onclick="openClientDetail(\''+group.client.id+'\',\'contracts\')"':'')+'>'
+          +'<div class="contract-group-avatar">'+esc((group.client?.name||'미')[0]||'미')+'</div>'
+          +'<div class="contract-group-meta">'
+            +'<div class="contract-group-title">'+esc(group.client?.name||'미등록 거래처')+'</div>'
+            +'<div class="contract-group-sub">계약 '+group.rows.length+'건 · 총 계약금액 '+formatContractCurrency(totalAmount)+'</div>'
+            +'<div class="contract-group-finance"><div class="contract-group-finance-meta">'+summaryChips.join('')+'</div></div>'
+          +'</div>'
+          +(group.client?'<span class="contract-group-link">거래처 보기</span>':'')
+        +'</div>'
+        +'<div class="contract-group-list">'+group.rows.map(renderContractRowItem).join('')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function renderContractListView(rows){
+  const manageable=canManageContractBulkActions();
+  const tableRows=sortContractListRows(rows);
+  const visibleIds=tableRows.map(row=>String(row.contract?.id||'')).filter(Boolean);
+  window.__contractListRows=tableRows;
+  window.__contractListVisibleIds=visibleIds;
+  const allSelected=!!(visibleIds.length&&visibleIds.every(id=>contractListSelectedIds.has(id)));
+  const selectedRows=getSelectedContractRows(tableRows);
+  return ''
+    +'<div class="contract-list-shell">'
+      +'<div class="contract-list-head">'
+        +'<div><div class="contract-list-title">계약 비교 보드</div><div class="muted">계약 건강, 청구 현황, 갱신 시점과 다음 액션을 같은 구조로 비교합니다.</div></div>'
+        +(manageable&&selectedRows.length
+          ?'<div class="contract-bulk-actions"><span class="contract-bulk-count">'+selectedRows.length+'건 선택</span><select id="contractBulkStatusSelect"><option value="">상태 변경</option><option value="진행중">진행중</option><option value="검토중">검토중</option><option value="완료">완료</option><option value="해지">해지</option></select><button type="button" class="btn sm" onclick="applyContractBulkStatus(document.getElementById(\'contractBulkStatusSelect\').value)">일괄 상태 변경</button><button type="button" class="btn sm" onclick="applyContractBulkManaged(true)">관리 ON</button><button type="button" class="btn sm" onclick="applyContractBulkManaged(false)">관리 OFF</button><button type="button" class="btn ghost sm" onclick="clearContractListSelection()">선택 해제</button></div>'
+          :'')
+      +'</div>'
+      +'<div class="contract-list-wrap"><table class="contract-list-table"><thead><tr>'
+        +(manageable?'<th><input type="checkbox" '+(allSelected?'checked ':'')+'onclick="event.stopPropagation();toggleAllContractListSelections(window.__contractListVisibleIds||[],this.checked)"/></th>':'')
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'client\')">거래처'+getContractListSortIndicator('client')+'</button></th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'name\')">계약명'+getContractListSortIndicator('name')+'</button></th>'
+        +'<th>담당자</th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'remaining\')">계약 기간'+getContractListSortIndicator('remaining')+'</button></th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'amount\')">계약 금액'+getContractListSortIndicator('amount')+'</button></th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'receivable\')">청구 상태'+getContractListSortIndicator('receivable')+'</button></th>'
+        +'<th>갱신 예정</th>'
+        +'<th><button type="button" class="contract-list-sort-btn" onclick="sortContractListBy(\'status\')">위험 상태'+getContractListSortIndicator('status')+'</button></th>'
+        +'<th>다음 액션</th>'
+      +'</tr></thead><tbody>'
+      +tableRows.map(row=>{
+        const remainingMeta=getContractRemainingDaysMeta(row);
+        const attentionMeta=getContractAttentionMeta(row);
+        const billingMeta=getContractBillingStatusMeta(row);
+        const followUpCount=getContractAdditionalWorkCount(row);
+        return ''
+          +'<tr class="contract-list-row is-'+attentionMeta.tone+'" onclick="openContractDetail(\''+row.contract.id+'\')">'
+            +(manageable?'<td><input type="checkbox" '+(contractListSelectedIds.has(String(row.contract?.id||''))?'checked ':'')+'onclick="event.stopPropagation();toggleContractListSelection(\''+row.contract.id+'\',this.checked)"/></td>':'')
+            +'<td><div class="contract-list-name">'+esc(row.client?.name||'거래처 미지정')+'</div><div class="contract-list-sub">'+(row.isActive?'운영 계약':'종료/해지 포함')+'</div></td>'
+            +'<td><div class="contract-list-name-row"><div class="contract-list-name">'+esc(row.contract?.contract_name||'계약명 없음')+'</div><span class="contract-list-attention is-'+attentionMeta.tone+'">'+attentionMeta.label+'</span></div><div class="contract-list-sub">'+esc(row.contract?.contract_type||'기타')+'</div></td>'
+            +'<td><div class="contract-list-name">'+esc(row.managerNames.join(', ')||'담당자 미지정')+'</div><div class="contract-list-sub">상태 '+esc(row.contract?.contract_status||'검토중')+'</div></td>'
+            +'<td><div class="contract-list-period">'+esc(getContractPeriodText(row.contract))+'</div><div class="contract-list-sub">'+esc(getContractExpirySupportText(row))+'</div></td>'
+            +'<td><div class="contract-list-money">'+formatContractCurrency(row.contractAmount)+'</div><div class="contract-list-sub">'+(followUpCount?('추가업무/후속관리 '+followUpCount+'건'):'범위 내 진행')+'</div></td>'
+            +'<td><div class="contract-list-summary"><span class="contract-list-summary-label">청구 상태</span><strong class="contract-list-summary-value is-'+(billingMeta.tone==='danger'?'danger':billingMeta.tone==='warn'?'warn':billingMeta.tone==='ok'?'ok':'neutral')+'">'+esc(billingMeta.label)+'</strong><span class="contract-list-summary-meta">'+esc(billingMeta.detail)+'</span></div></td>'
+            +'<td>'+(remainingMeta?'<span class="contract-inline-dday is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span>':'<span class="contract-list-sub">종료일 미정</span>')+'<div class="contract-list-sub">'+esc(row.contract?.contract_end_date||'종료일 미정')+'</div></td>'
+            +'<td><div class="contract-list-summary"><span class="contract-list-summary-label">현재 문제</span><strong class="contract-list-summary-value is-'+attentionMeta.tone+'">'+esc(attentionMeta.detail)+'</strong><span class="contract-list-summary-meta">'+esc(row.contract?.contract_status||'검토중')+'</span></div></td>'
+            +'<td><div class="contract-list-summary"><span class="contract-list-summary-label">다음 액션</span><strong class="contract-list-summary-value is-'+attentionMeta.tone+'">'+esc(getContractNextActionLabel(row))+'</strong><span class="contract-list-summary-meta">'+esc(getContractNextActionText(row))+'</span></div></td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div>'
+    +'</div>';
+}
+
+async function renderContractsPage(){
+  const el=document.getElementById('contractsPageContent');
+  const monthlyReportEl=document.getElementById('contractMonthlyReport');
+  if(!el)return;
+  syncManagedContractToggle();
+  syncContractTypeButtons();
+  syncContractViewButtons();
+  document.getElementById('contractSearch')&&(document.getElementById('contractSearch').value=contractToolbarState.search);
+  document.getElementById('contractStatusFilter')&&(document.getElementById('contractStatusFilter').value=contractToolbarState.status);
+  document.getElementById('contractBillingFilter')&&(document.getElementById('contractBillingFilter').value=contractToolbarState.billing);
+  document.getElementById('contractRenewalFilter')&&(document.getElementById('contractRenewalFilter').value=contractToolbarState.renewal);
+  document.getElementById('contractSortFilter')&&(document.getElementById('contractSortFilter').value=contractToolbarState.sort);
+
+  if(!contractBillingRecordsLoaded)await ensureContractBillingRecordsLoaded();
+  if(!contractPendingDocRequestsLoaded)await ensureContractPendingDocRequestsLoaded();
+
+  const baseRows=(contracts||[]).map(buildContractRow);
+  renderContractFilterOptions(baseRows);
+  let rows=baseRows.filter(contractMatchesFilters);
+  rows=sortContractRows(rows);
+
+  renderContractKpis(rows);
+  renderContractFilterTags();
+  if(monthlyReportEl){
+    monthlyReportEl.hidden=contractViewMode!=='billing';
+    monthlyReportEl.innerHTML='';
+    if(contractViewMode==='billing')renderContractMonthlyReport(rows);
+  }
+  syncContractAlertNotifications(baseRows).catch(()=>{});
+
+  if(!rows.length){
+    el.innerHTML=managedFilterActive
+      ?'<div class="contract-empty-state"><div class="contract-empty-icon">📄</div><div class="contract-empty-title">관리 중인 계약이 없습니다</div><div class="contract-empty-sub">계약을 등록하거나 상단 토글을 전체로 바꿔 확인해보세요.</div></div>'
+      :'<div class="contract-empty-state"><div class="contract-empty-icon">📄</div><div class="contract-empty-title">조건에 맞는 계약이 없습니다</div><div class="contract-empty-sub">필터를 조정하거나 계약을 새로 등록해보세요.</div></div>';
+    return;
+  }
+
+  if(contractViewMode==='list'){
+    el.innerHTML=renderContractOverviewIntro(rows)+renderContractListView(rows);
+    return;
+  }
+  if(contractViewMode==='billing'){
+    el.innerHTML=renderContractOverviewIntro(rows)+renderContractBillingBoard(rows);
+    return;
+  }
+  el.innerHTML=renderContractOverviewIntro(rows)+renderContractGroupedView(rows);
 }
