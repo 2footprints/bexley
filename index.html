@@ -1661,16 +1661,13 @@ input,textarea{border-radius:12px!important}
             </div>
             <input id="contractSearch" class="contract-toolbar-search" placeholder="거래처명, 계약명, 담당자 검색" oninput="setContractSearch(this.value)"/>
           </div>
-          <div class="filter-row contract-toolbar-filters">
+          <div class="filter-row contract-toolbar-basic">
             <select id="contractStatusFilter" onchange="setContractStatusFilter(this.value)">
               <option value="all">계약 상태 전체</option>
               <option value="진행중">진행중</option>
               <option value="검토중">검토중</option>
               <option value="완료">완료</option>
               <option value="해지">해지</option>
-            </select>
-            <select id="contractClientFilter" onchange="setContractClientFilter(this.value)">
-              <option value="">거래처 전체</option>
             </select>
             <select id="contractManagerFilter" onchange="setContractManagerFilter(this.value)">
               <option value="">담당자 전체</option>
@@ -1686,25 +1683,33 @@ input,textarea{border-radius:12px!important}
               <option value="due60">60일 내 만료</option>
               <option value="expired">만료됨</option>
             </select>
-            <div class="contract-type-filter-group" id="contractTypeFilterGroup">
-              <button type="button" class="contract-type-chip" id="contractTypeBtn-감사" onclick="toggleContractTypeFilter('감사')">감사</button>
-              <button type="button" class="contract-type-chip" id="contractTypeBtn-세무자문" onclick="toggleContractTypeFilter('세무자문')">세무자문</button>
-              <button type="button" class="contract-type-chip" id="contractTypeBtn-밸류에이션" onclick="toggleContractTypeFilter('밸류에이션')">밸류에이션</button>
-              <button type="button" class="contract-type-chip" id="contractTypeBtn-기타" onclick="toggleContractTypeFilter('기타')">기타</button>
-            </div>
           </div>
+          <details class="contract-advanced-filters">
+            <summary>고급 필터</summary>
+            <div class="contract-advanced-filters-body">
+              <select id="contractClientFilter" onchange="setContractClientFilter(this.value)">
+                <option value="">거래처 전체</option>
+              </select>
+              <select id="contractSortFilter" onchange="setContractSort(this.value)">
+                <option value="client">거래처명순</option>
+                <option value="amount">계약금액순</option>
+                <option value="end">만료일순</option>
+                <option value="receivable">미수금순</option>
+              </select>
+              <div class="contract-type-filter-group" id="contractTypeFilterGroup">
+                <button type="button" class="contract-type-chip" id="contractTypeBtn-감사" onclick="toggleContractTypeFilter('감사')">감사</button>
+                <button type="button" class="contract-type-chip" id="contractTypeBtn-세무자문" onclick="toggleContractTypeFilter('세무자문')">세무자문</button>
+                <button type="button" class="contract-type-chip" id="contractTypeBtn-밸류에이션" onclick="toggleContractTypeFilter('밸류에이션')">밸류에이션</button>
+                <button type="button" class="contract-type-chip" id="contractTypeBtn-기타" onclick="toggleContractTypeFilter('기타')">기타</button>
+              </div>
+            </div>
+          </details>
           <div class="filter-row contract-toolbar-actions">
             <div class="toggle-wrap contract-view-toggle">
               <button class="toggle-btn active" id="contractViewGroupedBtn" onclick="setContractViewMode('grouped')">거래처별</button>
               <button class="toggle-btn" id="contractViewListBtn" onclick="setContractViewMode('list')">리스트</button>
               <button class="toggle-btn" id="contractViewBillingBtn" onclick="setContractViewMode('billing')">빌링 보드</button>
             </div>
-            <select id="contractSortFilter" onchange="setContractSort(this.value)">
-              <option value="client">거래처명순</option>
-              <option value="amount">계약금액순</option>
-              <option value="end">만료일순</option>
-              <option value="receivable">미수금순</option>
-            </select>
             <button class="btn primary sm" id="addContractBtn" onclick="openContractModal()">+ 계약 추가</button>
           </div>
         </div>
@@ -3432,6 +3437,27 @@ async function openContractDetail(id){
     ?'<div class="contract-detail-doc-list">'+contractDocs.map(doc=>'<div class="contract-detail-doc-item"><div class="contract-detail-doc-main"><div class="contract-detail-doc-title">'+esc(doc.title||'문서')+'</div><div class="contract-detail-doc-meta">'+esc(doc.category||'카테고리 없음')+'</div></div><div class="contract-detail-doc-actions"><a class="btn sm" href="'+esc(doc.url||'#')+'" target="_blank" rel="noopener noreferrer">문서 열기</a>'+(canManageCore()?'<button class="btn ghost sm" onclick="openContractDocumentModal(\''+id+'\',\''+doc.id+'\')">수정</button>':'')+'</div></div>').join('')+'</div>'
     :'<div class="contract-detail-empty">등록된 계약 문서가 없습니다. 계약서 원본, 정산 자료, 참고 링크를 여기에 정리할 수 있습니다.</div>';
 
+  const billingStatusMeta=getContractBillingStatusMeta({
+    contractAmount:totalAmt,
+    billedTotal:billedAmt,
+    receivableAmount:receivableAmt,
+    unbilledBalance:unbilledAmt
+  });
+  const followUpProjects=ctProjs.filter(project=>!!project.follow_up_needed);
+  const followUpCount=followUpProjects.length;
+  const scopeBlocks=[
+    ct.description?'<div class="contract-detail-note-block"><div class="contract-detail-note-label">계약 범위</div><div class="contract-detail-note-value">'+esc(ct.description)+'</div></div>':'',
+    ct.deliverables?'<div class="contract-detail-note-block"><div class="contract-detail-note-label">주요 산출물</div><div class="contract-detail-note-value">'+esc(ct.deliverables)+'</div></div>':'',
+    ct.memo?'<div class="contract-detail-note-block"><div class="contract-detail-note-label">운영 메모</div><div class="contract-detail-note-value">'+esc(ct.memo)+'</div></div>':''
+  ].filter(Boolean).join('');
+  const additionalWorkBlocks=followUpCount
+    ?'<div class="contract-detail-project-summary"><span class="contract-detail-summary-chip is-warn">추가업무/후속관리 '+followUpCount+'건</span><span class="contract-detail-summary-chip">청구 영향 '+billingAffectedCount+'건</span></div>'
+      +followUpProjects.slice(0,4).map(project=>
+        '<div class="contract-detail-note-block"><div class="contract-detail-note-label">'+esc(project.name||'프로젝트')+'</div><div class="contract-detail-note-value">'+esc(project.follow_up_note||'완료 후 추가 확인이 필요한 프로젝트입니다.')+'</div></div>'
+      ).join('')
+      +(followUpCount>4?'<div class="contract-detail-empty">추가업무/후속관리 프로젝트가 더 있습니다. 관련 프로젝트 영역에서 전체를 확인하세요.</div>':'')
+    :'<div class="contract-detail-empty">현재 추가업무 또는 후속관리로 표시된 프로젝트가 없습니다.</div>';
+
   const contentParts=[
     '<div class="detail-hero">'
     +'<div class="detail-avatar" style="background:var(--blue-dark)">📄</div>'
@@ -3439,7 +3465,15 @@ async function openContractDetail(id){
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span class="badge '+stCls+'">'+esc(contractStatusText)+'</span><span class="contract-detail-aging is-'+remainingMeta.tone+'">'+renewalStateText+' · '+remainingMeta.text+'</span>'+(isAdmin||ct.created_by===currentUser?.id?'<button class="btn sm" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff" onclick="openContractModal(\''+id+'\')">수정</button>':'')+'</div>'
     +'</div>',
 
-    '<div class="card contract-detail-section" style="margin-bottom:14px"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">계약 재무 요약</div><div class="contract-detail-card-sub">계약 금액, 청구 진행, 수금 상태를 한 번에 확인합니다.</div></div><div class="contract-detail-summary-inline">'+(billedAmt?('청구율 '+pct+'% · 수금률 '+collectionRate+'%'):'아직 청구 내역 없음')+'</div></div>'
+    '<div class="card contract-detail-section" style="margin-bottom:14px"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">계약 핵심 상태</div><div class="contract-detail-card-sub">이 계약이 건강한지, 돈이 빠지고 있는지, 갱신 검토가 필요한지를 먼저 봅니다.</div></div></div>'
+    +'<div class="contract-detail-summary-grid">'
+      +'<div class="contract-detail-summary-card"><div class="contract-detail-summary-label">계약 상태</div><div class="contract-detail-summary-value">'+esc(contractStatusText)+'</div><div class="contract-detail-summary-meta">'+esc(ct.contract_type||'유형 미지정')+' · 담당 '+esc((ctProjs.flatMap(p=>Array.isArray(p.members)?p.members:[]).filter(Boolean).slice(0,2).join(', '))||'미지정')+'</div></div>'
+      +'<div class="contract-detail-summary-card"><div class="contract-detail-summary-label">청구 상태</div><div class="contract-detail-summary-value '+(billingStatusMeta.tone==='danger'?'is-red':billingStatusMeta.tone==='warn'?'is-orange':billingStatusMeta.tone==='ok'?'is-green':'')+'">'+esc(billingStatusMeta.label)+'</div><div class="contract-detail-summary-meta">'+esc(billingStatusMeta.detail)+'</div></div>'
+      +'<div class="contract-detail-summary-card"><div class="contract-detail-summary-label">갱신 상태</div><div class="contract-detail-summary-value '+(remainingMeta.tone==='danger'?'is-red':remainingMeta.tone==='warn'?'is-orange':'')+'">'+renewalStateText+'</div><div class="contract-detail-summary-meta">'+esc(remainingMeta.text)+' · '+esc(ct.contract_end_date||'종료일 미정')+'</div></div>'
+      +'<div class="contract-detail-summary-card"><div class="contract-detail-summary-label">추가업무 점검</div><div class="contract-detail-summary-value '+(followUpCount?'is-orange':'')+'">'+followUpCount+'건</div><div class="contract-detail-summary-meta">'+(followUpCount?'후속관리 등록 프로젝트가 있습니다.':'추가업무/후속관리 등록 없음')+'</div></div>'
+    +'</div></div>',
+
+    '<div class="card contract-detail-section" style="margin-bottom:14px"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">금액 / 청구 현황</div><div class="contract-detail-card-sub">계약 금액, 청구 진행, 수금 상태를 한 번에 확인합니다.</div></div><div class="contract-detail-summary-inline">'+(billedAmt?('청구율 '+pct+'% · 수금률 '+collectionRate+'%'):'아직 청구 내역 없음')+'</div></div>'
     +'<div class="contract-detail-summary-grid">'
       +'<div class="contract-detail-summary-card"><div class="contract-detail-summary-label">계약 총액</div><div class="contract-detail-summary-value">'+(totalAmt?totalAmt.toLocaleString()+'원':'미입력')+'</div><div class="contract-detail-summary-meta">'+esc(contractStatusText)+' 계약 · '+esc(ct.contract_type||'유형 미지정')+'</div></div>'
       +'<div class="contract-detail-summary-card"><div class="contract-detail-summary-label">청구 합계</div><div class="contract-detail-summary-value is-blue">'+billedAmt.toLocaleString()+'원</div><div class="contract-detail-summary-meta">현재까지 청구된 금액</div></div>'
@@ -3453,38 +3487,29 @@ async function openContractDetail(id){
     +'</div>',
 
     '<div class="detail-grid" style="margin-bottom:14px">'
-    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">청구 / 수금 내역</div><div class="contract-detail-card-sub">청구일, 수금 상태, 리마인드 이력을 함께 봅니다.</div></div><button class="btn primary sm" onclick="openBillingRecordModal(\''+id+'\')">+ 청구 추가</button></div>'+billingRows+'</div>'
-    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">연결된 프로젝트</div><div class="contract-detail-card-sub">어떤 프로젝트가 이 계약의 청구와 종료 일정에 영향을 주는지 확인합니다.</div></div><button class="btn primary sm" onclick="openProjModalWithContract(\''+id+'\',\''+ct.client_id+'\')">+ 프로젝트 추가</button></div><div class="contract-detail-project-summary"><span class="contract-detail-summary-chip">진행중 '+activeProjectCount+'건</span><span class="contract-detail-summary-chip">완료 '+completedProjectCount+'건</span><span class="contract-detail-summary-chip '+(billingAffectedCount?'is-warn':'')+'">청구 영향 '+billingAffectedCount+'건</span></div>'+projRows+'</div>'
+    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">청구 / 수금 현황</div><div class="contract-detail-card-sub">청구일, 수금 상태, 리마인드 이력을 함께 봅니다.</div></div><button class="btn primary sm" onclick="openBillingRecordModal(\''+id+'\')">+ 청구 추가</button></div>'+billingRows+'</div>'
+    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">계약 범위</div><div class="contract-detail-card-sub">계약 범위와 납품물, 운영 메모를 먼저 확인합니다.</div></div></div>'+(scopeBlocks||'<div class="contract-detail-empty">등록된 계약 범위 메모가 없습니다. 계약 설명이나 산출물을 입력하면 범위 관리가 더 쉬워집니다.</div>')+'</div>'
     +'</div>',
 
     '<div class="detail-grid" style="margin-bottom:14px">'
-    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">계약 문서</div><div class="contract-detail-card-sub">계약서, 참고 링크, 정산 관련 자료를 모아둡니다.</div></div>'+(canManageCore()?'<button class="btn primary sm" onclick="openContractDocumentModal(\''+id+'\')">+ 문서 추가</button>':'')+'</div>'+documentRows+'</div>'
-    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">갱신 / 만료 관리</div><div class="contract-detail-card-sub">'+renewalHelper+'</div></div><span class="contract-detail-aging is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span></div><div class="contract-detail-renewal-box"><div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">계약 기간</span><span class="contract-detail-renewal-value">'+esc(ct.contract_start_date||'시작 미정')+' ~ '+esc(ct.contract_end_date||'종료 미정')+'</span></div><div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">갱신 상태</span><span class="contract-detail-renewal-value">'+renewalStateText+'</span></div><div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">연결 프로젝트</span><span class="contract-detail-renewal-value">진행중 '+activeProjectCount+'건 · 청구 영향 '+billingAffectedCount+'건</span></div>'+(previousContract?'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">이전 계약</span><button class="btn ghost sm" onclick="openContractDetail(\''+previousContract.id+'\')">'+esc(previousContract.contract_name||'계약')+'</button></div>':'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">이전 계약</span><span class="muted">연결된 이전 계약 없음</span></div>')+'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">갱신 작업</span><button class="btn primary sm" onclick="openRenewalContractFromDetail(\''+id+'\')">갱신 계약 생성</button></div></div></div>'
+    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">추가업무 / 후속관리</div><div class="contract-detail-card-sub">범위 밖으로 번진 업무나 완료 후 후속 확인이 필요한 프로젝트를 점검합니다.</div></div></div>'+additionalWorkBlocks+'</div>'
+    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">갱신 정보</div><div class="contract-detail-card-sub">'+renewalHelper+'</div></div><span class="contract-detail-aging is-'+remainingMeta.tone+'">'+remainingMeta.text+'</span></div><div class="contract-detail-renewal-box"><div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">계약 기간</span><span class="contract-detail-renewal-value">'+esc(ct.contract_start_date||'시작 미정')+' ~ '+esc(ct.contract_end_date||'종료 미정')+'</span></div><div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">갱신 상태</span><span class="contract-detail-renewal-value">'+renewalStateText+'</span></div><div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">추가 점검</span><span class="contract-detail-renewal-value">청구 영향 '+billingAffectedCount+'건 · 후속관리 '+followUpCount+'건</span></div>'+(previousContract?'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">이전 계약</span><button class="btn ghost sm" onclick="openContractDetail(\''+previousContract.id+'\')">'+esc(previousContract.contract_name||'계약')+'</button></div>':'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">이전 계약</span><span class="muted">연결된 이전 계약 없음</span></div>')+'<div class="contract-detail-renewal-row"><span class="contract-detail-renewal-label">갱신 작업</span><button class="btn primary sm" onclick="openRenewalContractFromDetail(\''+id+'\')">갱신 계약 생성</button></div></div></div>'
     +'</div>',
 
+    '<div class="card contract-detail-section" style="margin-bottom:14px"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">관련 프로젝트</div><div class="contract-detail-card-sub">이 계약의 범위, 청구, 종료 일정에 영향을 주는 프로젝트를 함께 봅니다.</div></div><button class="btn primary sm" onclick="openProjModalWithContract(\''+id+'\',\''+ct.client_id+'\')">+ 프로젝트 추가</button></div><div class="contract-detail-project-summary"><span class="contract-detail-summary-chip">진행중 '+activeProjectCount+'건</span><span class="contract-detail-summary-chip">완료 '+completedProjectCount+'건</span><span class="contract-detail-summary-chip '+(billingAffectedCount?'is-warn':'')+'">청구 영향 '+billingAffectedCount+'건</span></div>'+projRows+'</div>',
+
     '<div class="detail-grid" style="margin-bottom:14px">'
-    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">계약 정보</div><div class="contract-detail-card-sub">계약 자체의 기본 값과 정산 기준을 확인합니다.</div></div></div>'
+    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">계약 문서</div><div class="contract-detail-card-sub">계약서, 참고 링크, 정산 자료를 보조 정보로 정리합니다.</div></div>'+(canManageCore()?'<button class="btn sm" onclick="openContractDocumentModal(\''+id+'\')">문서 추가</button>':'')+'</div>'+documentRows+'</div>'
+    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">기본 정보</div><div class="contract-detail-card-sub">계약 코드와 연락처, 과세 정보처럼 정적 기준값을 확인합니다.</div></div></div>'
       +(ct.contract_code?'<div class="info-row"><span class="info-label">계약 코드</span><span class="info-value">'+esc(ct.contract_code)+'</span></div>':'')
       +(ct.contract_type?'<div class="info-row"><span class="info-label">유형</span><span class="info-value">'+esc(ct.contract_type)+'</span></div>':'')
       +'<div class="info-row"><span class="info-label">계약 기간</span><span class="info-value">'+esc(ct.contract_start_date||'시작 미정')+' ~ '+esc(ct.contract_end_date||'종료 미정')+'</span></div>'
       +'<div class="info-row"><span class="info-label">계약 금액</span><span class="info-value">'+(totalAmt?totalAmt.toLocaleString()+'원 ':'미입력 ')+(ct.vat_included?'(VAT포함)':'(VAT별도)')+'</span></div>'
-    +'</div>'
-    +'<div class="card contract-detail-section"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">담당 / 연락처</div><div class="contract-detail-card-sub">청구 담당과 거래처 담당을 빠르게 확인합니다.</div></div></div>'
       +(ct.billing_contact_name?'<div class="info-row"><span class="info-label">빌링 담당</span><span class="info-value">'+esc(ct.billing_contact_name)+(ct.billing_contact_email?'<br><span style="font-size:11px;color:var(--text3)">'+esc(ct.billing_contact_email)+'</span>':'')+'</span></div>':'<div class="info-row"><span class="info-label">빌링 담당</span><span class="info-value muted">미지정</span></div>')
       +(ct.counterparty_contact_name?'<div class="info-row"><span class="info-label">거래처 담당</span><span class="info-value">'+esc(ct.counterparty_contact_name)+(ct.counterparty_contact_email?'<br><span style="font-size:11px;color:var(--text3)">'+esc(ct.counterparty_contact_email)+'</span>':'')+'</span></div>':'<div class="info-row"><span class="info-label">거래처 담당</span><span class="info-value muted">미지정</span></div>')
     +'</div>'
     +'</div>'
   ];
-
-  if(ct.description||ct.deliverables||ct.memo){
-    contentParts.push(
-      '<div class="card contract-detail-section" style="margin-bottom:14px"><div class="contract-detail-card-head"><div><div class="section-label" style="margin:0">계약 내용 / 메모</div><div class="contract-detail-card-sub">실행 범위와 납품물, 운영 메모를 함께 봅니다.</div></div></div>'
-      +(ct.description?'<div class="contract-detail-note-block"><div class="contract-detail-note-label">용역 내용</div><div class="contract-detail-note-value">'+esc(ct.description)+'</div></div>':'')
-      +(ct.deliverables?'<div class="contract-detail-note-block"><div class="contract-detail-note-label">납품물</div><div class="contract-detail-note-value">'+esc(ct.deliverables)+'</div></div>':'')
-      +(ct.memo?'<div class="contract-detail-note-block"><div class="contract-detail-note-label">메모</div><div class="contract-detail-note-value">'+esc(ct.memo)+'</div></div>':'')
-      +'</div>'
-    );
-  }
 
   document.getElementById('contractContent').innerHTML=contentParts.join('');
   setPage('contract');
