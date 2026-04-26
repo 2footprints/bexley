@@ -3,6 +3,7 @@ let weeklyReviewMemberScope='me';
 const WEEKLY_REVIEW_MODE_STORAGE_KEY='weeklyReviewMode:v1';
 const WEEKLY_REVIEW_SECTION_STATE_STORAGE_KEY='weeklyReviewSectionState:v1';
 const WEEKLY_REVIEW_SECTION_KEYS=['risks','billing','next','comments'];
+const WEEKLY_REVIEW_DEBUG_PREFIX='[weekly-review]';
 const WEEKLY_REVIEW_MODE_DEFAULTS={
   management:{
     risks:false,
@@ -26,6 +27,35 @@ const WEEKLY_REVIEW_JUMP_ITEMS=[
 let weeklyReviewLastRenderPayload=null;
 let weeklyReviewMode=loadStoredWeeklyReviewMode();
 let weeklyReviewSectionCollapseState={...getWeeklyReviewModeDefaults(weeklyReviewMode)};
+let weeklyReviewDebugEventsBound=false;
+
+function formatWeeklyReviewDebugDate(value){
+  const date=value instanceof Date?value:new Date(value);
+  if(Number.isNaN(date.getTime()))return null;
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
+}
+function weeklyReviewDebugLog(message,payload){
+  try{
+    if(payload!==undefined)console.log(`${WEEKLY_REVIEW_DEBUG_PREFIX} ${message}`,payload);
+    else console.log(`${WEEKLY_REVIEW_DEBUG_PREFIX} ${message}`);
+  }catch(e){}
+}
+function bindWeeklyReviewDebugEvents(){
+  if(weeklyReviewDebugEventsBound)return;
+  weeklyReviewDebugEventsBound=true;
+  ['navWeeklyReview','mNavWeeklyReview'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el||el.dataset.weeklyReviewDebugBound==='1')return;
+    el.dataset.weeklyReviewDebugBound='1';
+    el.addEventListener('click',()=>weeklyReviewDebugLog('tab clicked'));
+  });
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',bindWeeklyReviewDebugEvents,{once:true});
+}else{
+  bindWeeklyReviewDebugEvents();
+}
+window.addEventListener('load',bindWeeklyReviewDebugEvents,{once:true});
 
 function normalizeWeeklyReviewMode(mode){
   return String(mode||'').trim()==='management'?'management':'team';
@@ -1041,6 +1071,16 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const nextBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks+1);
   const previousBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks-1);
   const today=getHomeBaseDate();
+  weeklyReviewDebugLog('loadWeeklyReview start',{selectedWeek:offsetWeeks});
+  weeklyReviewDebugLog('range',{
+    startDate:formatWeeklyReviewDebugDate(reviewBounds.start),
+    endDate:formatWeeklyReviewDebugDate(reviewBounds.end),
+    selectedWeek:offsetWeeks
+  });
+  weeklyReviewDebugLog('delayed query start',{selectedWeek:offsetWeeks});
+  weeklyReviewDebugLog('unbilled query start',{selectedWeek:offsetWeeks});
+  weeklyReviewDebugLog('pending materials query start',{selectedWeek:offsetWeeks});
+  weeklyReviewDebugLog('overloaded staff query start',{selectedWeek:offsetWeeks});
   await loadContracts();
   const ws=getWeekStart(offsetWeeks);
   const [issueRows,billingRows,pendingDocumentRequests,weeklyReviews,kudosVotes,taskRows]=await Promise.all([
@@ -1118,6 +1158,10 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
   });
   const oldestOverdueProject=overdueProjects[0]||null;
+  weeklyReviewDebugLog('delayed query result',{
+    count:overdueProjects.length,
+    oldestProject:oldestOverdueProject?.name||null
+  });
   const billedOutstandingAmount=(billingRows||[])
     .filter(row=>String(row?.status||'').trim()!=='수금완료')
     .reduce((sum,row)=>sum+Math.round(Number(row?.amount)||0),0);
@@ -1136,6 +1180,14 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       if(aDue!==bDue)return aDue-bDue;
       return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
     });
+  weeklyReviewDebugLog('unbilled query result',{
+    count:unbilledProjects.length,
+    amount:unbilledAmount,
+    outstandingAmount:billedOutstandingAmount
+  });
+  weeklyReviewDebugLog('pending materials query result',{
+    count:pendingDocumentRows.length
+  });
   const weeklyReviewTaskContext={
     baseDate:today,
     nextBounds,
@@ -1215,6 +1267,12 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const nextFieldworkNames=[...new Set(nextWeekFieldwork.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
   const unavailableMemberNames=new Set([...currentLeaveNames,...currentFieldworkNames]);
   const availableMemberCount=Math.max(0,operationalMemberCount-unavailableMemberNames.size);
+  weeklyReviewDebugLog('overloaded staff query result',{
+    count:absenceImpactCount,
+    leaveCount:currentLeaveCount,
+    currentFieldworkCount,
+    nextFieldworkCount
+  });
   const clientIssueMap=new Map();
   activeIssues.forEach(issue=>{
     const project=getWeeklyReviewIssueProject(issue);
@@ -1763,6 +1821,12 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   const data=await getWeeklyReviewPageDataBase(offsetWeeks);
   const reviewBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
   const nextBounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks+1);
+  weeklyReviewDebugLog('init start',{selectedWeek:offsetWeeks});
+  weeklyReviewDebugLog('range',{
+    startDate:formatWeeklyReviewDebugDate(reviewBounds.start),
+    endDate:formatWeeklyReviewDebugDate(reviewBounds.end),
+    selectedWeek:offsetWeeks
+  });
   const completedSection=getWeeklyReviewDataSection(data,'completed');
   const risksSection=getWeeklyReviewDataSection(data,'risks');
   const billingSection=getWeeklyReviewDataSection(data,'billing');
@@ -1785,6 +1849,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   const nextStartItems=getWeeklyReviewSectionGroupItems(nextSection,1);
   const nextScheduleItems=getWeeklyReviewSectionGroupItems(nextSection,2);
   const documentItems=getWeeklyReviewSectionGroupItems(documentsSection,0);
+  const commentItems=getWeeklyReviewSectionGroupItems(commentsSection,0);
   const currentWeekLeaves=(schedules||[]).filter(schedule=>{
     const type=String(schedule?.schedule_type||'').trim();
     if(type!=='leave')return false;
@@ -2026,7 +2091,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   if(commentsSection){
     commentsSection.title='회의 메모';
     commentsSection.sub='결정 사항과 코멘트는 참고용으로만 간단히 확인합니다.';
-    commentsSection.collapsedSummary=`메모 ${weeklyReviews.length}건`;
+    commentsSection.collapsedSummary=`메모 ${commentItems.length}건`;
     commentsSection.actionsHtml=commentsSection.actionsHtml||'';
     if(commentsSection.groups?.[0]){
       commentsSection.groups[0].title='회의 메모';
@@ -2046,11 +2111,23 @@ async function getWeeklyReviewSummaryCards(offsetWeeks=weeklyReviewWeekOffset){
   return data.cards;
 }
 async function renderWeeklyReviewPage(offset){
+  bindWeeklyReviewDebugEvents();
   if(offset!==undefined)weeklyReviewWeekOffset=offset;
+  weeklyReviewDebugLog('init start',{selectedWeek:weeklyReviewWeekOffset});
   const el=document.getElementById('pageWeeklyReview');
-  if(!el)return;
+  if(!el){
+    weeklyReviewDebugLog('render target missing',{targetId:'pageWeeklyReview'});
+    return;
+  }
   const requestedOffset=weeklyReviewWeekOffset;
   const rangeLabel=getWeeklyReviewWeekRangeLabel();
+  const requestedBounds=getWeeklyReviewBusinessWeekBounds(requestedOffset);
+  weeklyReviewDebugLog('loadWeeklyReview start',{selectedWeek:requestedOffset});
+  weeklyReviewDebugLog('range',{
+    startDate:formatWeeklyReviewDebugDate(requestedBounds.start),
+    endDate:formatWeeklyReviewDebugDate(requestedBounds.end),
+    selectedWeek:requestedOffset
+  });
   const navLabel=weeklyReviewWeekOffset===0
     ? '이번 주'
     : weeklyReviewWeekOffset>0
@@ -2063,18 +2140,37 @@ async function renderWeeklyReviewPage(offset){
     {title:'과부하 인력',badge:'인력 확인',value:'...',meta:'불러오는 중...'}
   ];
   el.innerHTML=renderWeeklyReviewPageMarkup(rangeLabel,navLabel,loadingCards,[]);
-  const data=await getWeeklyReviewPageData(requestedOffset).catch(()=>({
-    cards:[
+  const data=await getWeeklyReviewPageData(requestedOffset).catch(error=>{
+    weeklyReviewDebugLog('loadWeeklyReview error',{
+      selectedWeek:requestedOffset,
+      message:error?.message||String(error)
+    });
+    console.error(`${WEEKLY_REVIEW_DEBUG_PREFIX} load failed`,error);
+    return ({
+      cards:[
       {title:'지연 프로젝트',badge:'이번 주 경고',value:'-',meta:'데이터를 불러오지 못했습니다.'},
       {title:'미청구',badge:'계약 확인',value:'-',meta:'데이터를 불러오지 못했습니다.'},
       {title:'자료 미수령',badge:'고객 대기',value:'-',meta:'데이터를 불러오지 못했습니다.'},
       {title:'과부하 인력',badge:'인력 확인',value:'-',meta:'데이터를 불러오지 못했습니다.'}
-    ],
-    sections:[]
-  }));
-  if(curPage!=='weeklyReview'||weeklyReviewWeekOffset!==requestedOffset)return;
+      ],
+      sections:[]
+    });
+  });
+  if(curPage!=='weeklyReview'||weeklyReviewWeekOffset!==requestedOffset){
+    weeklyReviewDebugLog('render aborted',{
+      currentPage:curPage,
+      requestedWeek:requestedOffset,
+      activeWeek:weeklyReviewWeekOffset
+    });
+    return;
+  }
   weeklyReviewSectionCollapseState=getWeeklyReviewModeSectionState(weeklyReviewMode,data);
   weeklyReviewLastRenderPayload={rangeLabel,navLabel,data};
   el.innerHTML=renderWeeklyReviewPageMarkup(rangeLabel,navLabel,data.cards,data.sections);
   applyWeeklyReviewEmptyStateLabels();
+  weeklyReviewDebugLog('render complete',{
+    selectedWeek:requestedOffset,
+    cards:Array.isArray(data?.cards)?data.cards.length:0,
+    sections:Array.isArray(data?.sections)?data.sections.length:0
+  });
 }
