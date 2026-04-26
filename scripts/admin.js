@@ -9,9 +9,31 @@ let adminManagementFilters={
 };
 
 const ADMIN_OPERATIONAL_INCLUSION_COLUMN='include_in_operational_dashboards';
+const ADMIN_MEMBER_PROFILE_SCHEMA_SQL='sql/20260426_fix_members_management_columns.sql';
+const ADMIN_MEMBER_PROFILE_COLUMNS=['is_active','role','team','rank',ADMIN_OPERATIONAL_INCLUSION_COLUMN,'note'];
+const ADMIN_MEMBER_PROFILE_COLUMN_LABELS={
+  is_active:'활성 상태',
+  role:'권한',
+  team:'팀',
+  rank:'직급',
+  include_in_operational_dashboards:'운영 집계 포함 여부',
+  note:'비고'
+};
+
+function adminMemberSupportsColumn(member,column){
+  return !!member&&Object.prototype.hasOwnProperty.call(member,column);
+}
 
 function adminMemberSupportsOperationalInclusion(member){
-  return !!member&&Object.prototype.hasOwnProperty.call(member,ADMIN_OPERATIONAL_INCLUSION_COLUMN);
+  return adminMemberSupportsColumn(member,ADMIN_OPERATIONAL_INCLUSION_COLUMN);
+}
+
+function getAdminStoredMemberRoleValue(role){
+  const normalized=normalizeMemberPermissionLevel(role);
+  if(normalized==='admin')return 'Admin';
+  if(normalized==='manager')return 'Manager';
+  if(normalized==='member')return 'Member';
+  return 'Observer';
 }
 
 function getAdminOperationalInclusionSchemaMessage(){
@@ -21,6 +43,30 @@ function getAdminOperationalInclusionSchemaMessage(){
 function isAdminOperationalInclusionSchemaError(error){
   const message=String(error?.message||error||'');
   return /include_in_operational_dashboards/i.test(message)&&/(schema cache|column)/i.test(message);
+}
+
+function getAdminMissingMemberColumns(member,columns=ADMIN_MEMBER_PROFILE_COLUMNS){
+  return columns.filter(column=>!adminMemberSupportsColumn(member,column));
+}
+
+function getAdminMembersSchemaMessage(columns){
+  const list=[...new Set((Array.isArray(columns)?columns:[columns]).filter(Boolean))];
+  if(!list.length){
+    return 'members 테이블 스키마와 Management 저장 필드가 맞지 않습니다. '+ADMIN_MEMBER_PROFILE_SCHEMA_SQL+'을 적용한 뒤 다시 저장해 주세요.';
+  }
+  const labels=list.map(column=>ADMIN_MEMBER_PROFILE_COLUMN_LABELS[column]||column).join(', ');
+  return 'members 테이블에 필요한 컬럼이 없습니다. '+labels+' ('+list.join(', ')+'). '+ADMIN_MEMBER_PROFILE_SCHEMA_SQL+'을 적용하고 schema cache를 reload한 뒤 다시 저장해 주세요.';
+}
+
+function getAdminMembersSchemaColumnFromError(error){
+  const message=String(error?.message||error||'');
+  const match=message.match(/Could not find the '([^']+)' column of 'members'/i);
+  return match?.[1]||'';
+}
+
+function isAdminMembersSchemaError(error){
+  const message=String(error?.message||error||'');
+  return /column of 'members' in the schema cache/i.test(message);
 }
 
 function accessStatusBadge(status){
@@ -102,12 +148,13 @@ async function approveAccessRequest(requestId){
   try{
     const existingMembers=await api('GET','members?email=eq.'+encodeURIComponent(request.email)+'&select=id,email,name,auth_user_id').catch(()=>[]);
     if(existingMembers?.length){
-      await api('PATCH','members?id=eq.'+existingMembers[0].id,{name,email:request.email,auth_user_id:request.user_id});
+      await api('PATCH','members?id=eq.'+existingMembers[0].id,{name,email:request.email,auth_user_id:request.user_id,role:getAdminStoredMemberRoleValue(role)});
     }else{
       await api('POST','members',{
         name,
         email:request.email,
-        auth_user_id:request.user_id
+        auth_user_id:request.user_id,
+        role:getAdminStoredMemberRoleValue(role)
       });
     }
     const existingRoles=await api('GET','user_roles?id=eq.'+request.user_id+'&select=id').catch(()=>[]);
@@ -165,6 +212,7 @@ function getAdminRoleRowMap(){
 function getAdminMemberPermissionValue(member,roleRow){
   if(roleRow?.role)return normalizeMemberPermissionLevel(roleRow.role);
   if(roleRow?.is_admin===true)return 'admin';
+  if(member?.role)return normalizeMemberPermissionLevel(member.role);
   if(member?.auth_user_id)return 'observer';
   return '';
 }
@@ -506,11 +554,19 @@ function openAdminUserEditor(memberId){
   const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===String(member?.auth_user_id||''))||null;
   const permission=getAdminMemberPermissionValue(member,roleRow)||'observer';
   const authLinked=!!String(member?.auth_user_id||'').trim();
+  const profileSupport={
+    is_active:adminMemberSupportsColumn(member,'is_active'),
+    team:adminMemberSupportsColumn(member,'team'),
+    rank:adminMemberSupportsColumn(member,'rank'),
+    include_in_operational_dashboards:adminMemberSupportsOperationalInclusion(member),
+    note:adminMemberSupportsColumn(member,'note')
+  };
+  const missingProfileColumns=getAdminMissingMemberColumns(member);
   const operationalInclusionSupported=adminMemberSupportsOperationalInclusion(member);
   const inclusionNote=!authLinked
     ?'로그인 계정이 연결되지 않은 멤버 행은 권한을 바로 부여할 수 없습니다. 먼저 회원가입/권한 요청을 통해 auth 계정을 연결해 주세요.'
-    :!operationalInclusionSupported
-      ?getAdminOperationalInclusionSchemaMessage()
+    :missingProfileColumns.length
+      ?getAdminMembersSchemaMessage(missingProfileColumns)
       :'권한은 시스템 접근 수준, 팀과 직급은 조직 구조, 운영 집계 포함 여부는 대시보드 반영 기준입니다.';
   document.getElementById('modalArea').innerHTML=''
     +getInputModalOverlayHtml()
@@ -555,22 +611,56 @@ async function saveAdminUserProfile(memberId){
     return;
   }
   try{
+    const missingColumnsToPersist=[];
+    if(!adminMemberSupportsColumn(member,'is_active')&&isActiveNow!==isMemberActive(member)){
+      missingColumnsToPersist.push('is_active');
+    }
+    if(!adminMemberSupportsColumn(member,'role')&&normalizeMemberPermissionLevel(permission)!==normalizeMemberPermissionLevel(member?.role)){
+      missingColumnsToPersist.push('role');
+    }
+    if(!adminMemberSupportsColumn(member,'team')&&normalizeMemberTeam(team)!==normalizeMemberTeam(member?.team)){
+      missingColumnsToPersist.push('team');
+    }
+    if(!adminMemberSupportsColumn(member,'rank')&&normalizeMemberRank(rank)!==normalizeMemberRank(member?.rank)){
+      missingColumnsToPersist.push('rank');
+    }
+    if(!adminMemberSupportsOperationalInclusion(member)&&included!==isMemberOperationallyIncluded(member,{activeOnly:false})){
+      missingColumnsToPersist.push(ADMIN_OPERATIONAL_INCLUSION_COLUMN);
+    }
+    if(!adminMemberSupportsColumn(member,'note')&&note!==String(member?.note||'').trim()){
+      missingColumnsToPersist.push('note');
+    }
+    if(missingColumnsToPersist.length){
+      throw new Error(getAdminMembersSchemaMessage(missingColumnsToPersist));
+    }
     const memberBody={
       name,
-      email:email||null,
-      is_active:isActiveNow,
-      team:team||null,
-      rank:rank||null,
-      note:note||null
+      email:email||null
     };
+    if(adminMemberSupportsColumn(member,'is_active')){
+      memberBody.is_active=isActiveNow;
+    }
+    if(adminMemberSupportsColumn(member,'role')){
+      memberBody.role=getAdminStoredMemberRoleValue(permission);
+    }
+    if(adminMemberSupportsColumn(member,'team')){
+      memberBody.team=team||null;
+    }
+    if(adminMemberSupportsColumn(member,'rank')){
+      memberBody.rank=rank||null;
+    }
+    if(adminMemberSupportsColumn(member,'note')){
+      memberBody.note=note||null;
+    }
     if(adminMemberSupportsOperationalInclusion(member)){
       memberBody[ADMIN_OPERATIONAL_INCLUSION_COLUMN]=included;
     }
     try{
       await api('PATCH','members?id=eq.'+memberId,memberBody);
     }catch(error){
-      if(isAdminOperationalInclusionSchemaError(error)){
-        throw new Error(getAdminOperationalInclusionSchemaMessage());
+      if(isAdminMembersSchemaError(error)){
+        const missingColumn=getAdminMembersSchemaColumnFromError(error);
+        throw new Error(getAdminMembersSchemaMessage(missingColumn?[missingColumn]:getAdminMissingMemberColumns(member)));
       }
       throw error;
     }
