@@ -1267,6 +1267,17 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const nextFieldworkNames=[...new Set(nextWeekFieldwork.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
   const unavailableMemberNames=new Set([...currentLeaveNames,...currentFieldworkNames]);
   const availableMemberCount=Math.max(0,operationalMemberCount-unavailableMemberNames.size);
+  const activeProjectsNow=(projects||[]).filter(project=>isWeeklyReviewActiveProject(project));
+  const currentLeaveCount=currentLeaveNames.length;
+  const currentFieldworkCount=currentFieldworkNames.length;
+  const nextFieldworkCount=nextFieldworkNames.length;
+  const absenceImpactCount=operationalMembers.filter(member=>{
+    const memberName=String(member?.name||'').trim();
+    if(!memberName||!unavailableMemberNames.has(memberName))return false;
+    const hasActiveProject=activeProjectsNow.some(project=>(project?.members||[]).includes(memberName));
+    const hasNextWeekDeadline=nextWeekEnds.some(project=>(project?.members||[]).includes(memberName));
+    return hasActiveProject||hasNextWeekDeadline;
+  }).length;
   weeklyReviewDebugLog('overloaded staff query result',{
     count:absenceImpactCount,
     leaveCount:currentLeaveCount,
@@ -1313,17 +1324,6 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const followUpProjects=completedProjects
     .filter(project=>!!project?.follow_up_needed)
     .sort(sortWeeklyReviewProjectsByCompletion);
-  const activeProjectsNow=(projects||[]).filter(project=>isWeeklyReviewActiveProject(project));
-  const currentLeaveCount=currentLeaveNames.length;
-  const currentFieldworkCount=currentFieldworkNames.length;
-  const nextFieldworkCount=nextFieldworkNames.length;
-  const absenceImpactCount=operationalMembers.filter(member=>{
-    const memberName=String(member?.name||'').trim();
-    if(!memberName||!unavailableMemberNames.has(memberName))return false;
-    const hasActiveProject=activeProjectsNow.some(project=>(project?.members||[]).includes(memberName));
-    const hasNextWeekDeadline=nextWeekEnds.some(project=>(project?.members||[]).includes(memberName));
-    return hasActiveProject||hasNextWeekDeadline;
-  }).length;
   const adminCanViewAll=roleIsAdmin();
   const currentMemberName=String(currentMember?.name||'').trim();
   const memberSectionContext={
