@@ -1,10 +1,11 @@
 .issues-page-filter-card{margin-bottom:14px;padding:14px 16px}
-.issues-page-intro{margin:-4px 0 14px;font-size:12px;line-height:1.6;color:var(--text3)}
+.issues-page-intro{margin:-4px 0 14px;font-size:12px;line-height:1.6;color:var(--text3);max-width:760px}
 .issues-page-filter-row{row-gap:10px}
 .issues-page-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
-.issues-page-summary-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px}
+.issues-page-summary-card{background:linear-gradient(180deg,#FFF 0%,#FBFCFE 100%);border:1px solid var(--border);border-radius:16px;padding:15px 16px;box-shadow:0 10px 24px rgba(15,23,42,.04)}
 .issues-page-summary-card.is-warn{background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F2 100%);border-color:rgba(245,158,11,.18)}
 .issues-page-summary-card.is-danger{background:linear-gradient(180deg,#FFFFFF 0%,#FFF7F7 100%);border-color:rgba(239,68,68,.18)}
+.issues-page-summary-card.is-info{background:linear-gradient(180deg,#FFFFFF 0%,#F7FAFF 100%);border-color:rgba(37,88,200,.14)}
 .issues-page-summary-label{font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px}
 .issues-page-summary-value{font-size:24px;font-weight:800;color:var(--navy);line-height:1}
 .issues-page-summary-sub{margin-top:6px;font-size:11px;line-height:1.5;color:var(--text3)}
@@ -22,25 +23,47 @@
 .issues-page-project-title{font-size:14px;font-weight:800;color:var(--navy)}
 .issues-page-project-count{font-size:11px;color:var(--text3);font-weight:700}
 
-.issues-page-row{border:1px solid var(--border);border-radius:14px;background:#FBFCFE;margin-bottom:10px;overflow:hidden}
+.issues-page-row{border:1px solid rgba(148,163,184,.18);border-radius:16px;background:linear-gradient(180deg,#FCFDFE 0%,#F8FAFC 100%);margin-bottom:10px;overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,.04)}
 .issues-page-row:last-child{margin-bottom:0}
 .issues-page-row.mine{border-color:#BFDBFE;box-shadow:0 0 0 1px rgba(59,130,246,.08) inset}
+.issues-page-row.is-danger{border-color:rgba(239,68,68,.18);box-shadow:inset 3px 0 0 rgba(239,68,68,.75),0 8px 20px rgba(239,68,68,.06)}
+.issues-page-row.is-long-open{border-color:rgba(217,119,6,.2);box-shadow:inset 3px 0 0 rgba(217,119,6,.75),0 8px 20px rgba(217,119,6,.06)}
+.issues-page-row.is-resolved{background:linear-gradient(180deg,#FCFCFD 0%,#F8FAFC 100%);border-color:rgba(148,163,184,.14);box-shadow:none}
 .issues-page-row.expanded{background:#FFF}
 .issues-page-row-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:14px 16px;cursor:pointer}
 .issues-page-row-main{min-width:0;flex:1}
 .issues-page-row-chipline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .issues-page-row-title-line{display:flex;align-items:flex-start;gap:8px}
 .issues-page-row-title{font-size:15px;font-weight:800;color:var(--navy);line-height:1.45;min-width:0}
-.issues-page-row-subline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
-.issues-page-followup-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.issues-page-row-reason{display:grid;grid-template-columns:auto 1fr;align-items:flex-start;gap:10px;margin-top:10px}
+.issues-page-row-reason-label{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);padding-top:2px}
+.issues-page-row-reason strong{font-size:13px;font-weight:700;line-height:1.55;color:var(--text1);min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.issues-page-row-core{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+.issues-page-row-core-item{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border:1px solid rgba(148,163,184,.14);border-radius:12px;background:rgba(255,255,255,.72);min-width:0}
+.issues-page-row-core-label{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text3)}
+.issues-page-row-core-value{font-size:13px;font-weight:700;color:var(--text1);line-height:1.4;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.issues-page-row-core-value.is-danger{color:var(--red)}
+.issues-page-row-core-value.is-warn{color:var(--orange)}
+.issues-page-row-subline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.issues-page-followup-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
 .issues-page-followup-label{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:3px 8px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:#F8FAFC;font-size:10px;font-weight:800;color:var(--text2)}
 .issues-page-followup-text{font-size:12px;font-weight:700;color:var(--text2)}
+.issues-page-followup-action{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:0 10px;border:none;background:transparent;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer}
 .issues-page-inline-tag{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;line-height:1;white-space:nowrap}
 .issues-page-inline-tag.mine{background:#DBEAFE;color:#1D4ED8}
 .issues-page-inline-tag.pinned{background:#FEE2E2;color:#B91C1C}
+.issues-page-inline-tag.long-open{background:#FFF3E7;color:#B45309}
 .issues-page-inline-meta{font-size:12px;color:var(--text3);white-space:nowrap}
+.issues-page-category,
 .issues-page-scope,
 .issues-page-impact{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;line-height:1;white-space:nowrap}
+.issues-page-category{border:1px solid rgba(148,163,184,.14);background:#F8FAFC;color:var(--text2)}
+.issues-page-category.is-documents{background:rgba(37,88,200,.08);border-color:rgba(37,88,200,.12);color:#224c9b}
+.issues-page-category.is-review{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.12);color:#4f46e5}
+.issues-page-category.is-schedule{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.12);color:#b45309}
+.issues-page-category.is-billing{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.2);color:#334155}
+.issues-page-category.is-client{background:rgba(14,116,144,.08);border-color:rgba(14,116,144,.12);color:#0f766e}
+.issues-page-category.is-general{background:#F8FAFC;color:var(--text2)}
 .issues-page-scope{background:#F8FAFC;color:var(--text2);border:1px solid rgba(148,163,184,.18)}
 .issues-page-scope.task{background:#EFF6FF;color:#1D4ED8;border:1px solid rgba(59,130,246,.14)}
 .issues-page-impact.is-danger{background:var(--red-bg);color:var(--red)}
@@ -100,6 +123,7 @@
   .issues-page-project{padding:14px}
   .issues-page-row-head{flex-direction:column;align-items:flex-start}
   .issues-page-row-toggle{padding-top:0}
+  .issues-page-row-core{grid-template-columns:1fr}
   .issues-page-row-subline{gap:6px}
   .issues-page-inline-meta{white-space:normal}
   .issues-page-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

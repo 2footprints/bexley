@@ -2,34 +2,25 @@ let weeklyReviewWeekOffset=0;
 let weeklyReviewMemberScope='me';
 const WEEKLY_REVIEW_MODE_STORAGE_KEY='weeklyReviewMode:v1';
 const WEEKLY_REVIEW_SECTION_STATE_STORAGE_KEY='weeklyReviewSectionState:v1';
-const WEEKLY_REVIEW_SECTION_KEYS=['completed','risks','next','billing','documents','members','comments'];
+const WEEKLY_REVIEW_SECTION_KEYS=['risks','billing','next','comments'];
 const WEEKLY_REVIEW_MODE_DEFAULTS={
   management:{
-    completed:true,
     risks:false,
-    next:true,
     billing:false,
-    documents:true,
-    members:true,
+    next:false,
     comments:true
   },
   team:{
-    completed:false,
     risks:false,
+    billing:false,
     next:false,
-    billing:true,
-    documents:false,
-    members:true,
     comments:true
   }
 };
 const WEEKLY_REVIEW_JUMP_ITEMS=[
-  {id:'completed',label:'완료'},
-  {id:'risks',label:'리스크'},
-  {id:'next',label:'다음 주'},
-  {id:'billing',label:'청구·수금'},
-  {id:'documents',label:'자료'},
-  {id:'members',label:'멤버'},
+  {id:'risks',label:'이번 주 경고'},
+  {id:'billing',label:'의사결정'},
+  {id:'next',label:'다음 주 액션'},
   {id:'comments',label:'코멘트'}
 ];
 let weeklyReviewLastRenderPayload=null;
@@ -1656,13 +1647,75 @@ function getWeeklyReviewSectionGroupItems(section,groupIndex){
   return Array.isArray(section?.groups?.[groupIndex]?.items)?section.groups[groupIndex].items:[];
 }
 const getWeeklyReviewPageDataBase=getWeeklyReviewPageData;
+function renderWeeklyReviewSectionActionButtons(actions){
+  const items=(Array.isArray(actions)?actions:[]).filter(action=>action?.label&&action?.action);
+  if(!items.length)return '';
+  return '<div class="weekly-review-section-action-row">'
+    +items.map(action=>
+      '<button type="button" class="btn ghost sm" onclick="'+esc(action.action)+'">'+esc(action.label)+'</button>'
+    ).join('')
+  +'</div>';
+}
+function getWeeklyReviewItemMetaParts(item){
+  return String(item?.meta||'')
+    .split('·')
+    .map(part=>String(part||'').trim())
+    .filter(Boolean);
+}
+function getWeeklyReviewItemOwnerLabel(item){
+  const parts=getWeeklyReviewItemMetaParts(item);
+  return parts[parts.length-1]||'담당 확인';
+}
+function createWeeklyReviewDocumentListItem(item,options={}){
+  const columns=Array.isArray(item?.columns)?item.columns:[];
+  const elapsedLabel=String(columns?.[4]||'').trim();
+  const dueLabel=String(columns?.[3]||'').trim();
+  const isOverdue=/경과/.test(elapsedLabel);
+  return {
+    title:String(columns?.[2]||'자료 요청'),
+    meta:[columns?.[0]||'',columns?.[1]||'',elapsedLabel||''].filter(Boolean).join(' · '),
+    badgeLabel:options.badgeLabel||'자료',
+    badgeClass:options.badgeClass||(isOverdue?'badge-red':'badge-orange'),
+    sideText:dueLabel||elapsedLabel||'-',
+    actionHint:options.actionHint||(
+      isOverdue
+        ? '고객 자료 회신 지연 원인과 follow-up 일정을 확인하세요.'
+        : '고객 자료 회신 일정과 담당 follow-up 여부를 확인하세요.'
+    ),
+    action:options.action||item?.action||''
+  };
+}
+function createWeeklyReviewOperationalMemberItem(summary,options={}){
+  const state=summary?._operationalState||getWeeklyReviewOperationalMemberState(summary);
+  return {
+    title:String(summary?.name||'이름 없음'),
+    meta:options.meta||`진행 ${Number(summary?.activeProjectCount||0)}건 · 다음 주 마감 ${Number(summary?.nextWeekDeadlineCount||0)}건`,
+    badgeLabel:options.badgeLabel||state.label||'안정',
+    badgeClass:options.badgeClass||state.badgeClass||'badge-gray',
+    sideText:options.sideText||state.note||'-',
+    actionHint:options.actionHint||('프로젝트 관리에서 '+String(state.followUp||'담당 조정 필요 여부를 확인하세요.')),
+    action:options.action||"setPage('gantt')"
+  };
+}
+function createWeeklyReviewActionPlanTableItem(item,actionLabel){
+  return {
+    action:item?.action||'',
+    columns:[
+      getWeeklyReviewItemOwnerLabel(item),
+      [actionLabel,item?.title||'-'].filter(Boolean).join(' · '),
+      item?.sideText||'-',
+      item?.badgeLabel||'-'
+    ],
+    actionHint:item?.actionHint||'연결 화면에서 후속 조치를 확인하세요.'
+  };
+}
 renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections){
   const modeIsManagement=weeklyReviewMode==='management';
   const shellClass=modeIsManagement?' is-management-mode':' is-team-mode';
-  const kickerLabel=modeIsManagement?'경영 요약':'실무 회의';
+  const kickerLabel=modeIsManagement?'운영 회의':'실무 회의';
   const summaryCopy=modeIsManagement
-    ? '주간 운영 현황을 한 화면에서 검토하고, 프로젝트·계약·거래처 후속 화면으로 연결하는 리뷰 보드입니다.'
-    : '회의 흐름에 맞춰 이번 주 요약, 리스크, 수금, 인력, 차주 확인 포인트를 순서대로 점검합니다.';
+    ? '이번 주 경고, 의사결정, 다음 주 액션을 회의 흐름대로 점검하는 운영 보드입니다.'
+    : '경고, 의사결정, 실행 계획을 한 화면에서 정리해 바로 후속 조치로 이어갑니다.';
   return '<div class="weekly-review-shell'+shellClass+'">'
     +'<div class="weekly-review-summary-shell">'
       +'<div class="weekly-review-head">'
@@ -1695,11 +1748,9 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections){
 };
 applyWeeklyReviewEmptyStateLabels=function(){
   const mapping={
-    completed:'이번 주 완료 항목이 없습니다. 완료 실적은 다음 리뷰에서 다시 확인합니다.',
-    risks:'현재 즉시 논의할 지연 또는 실행 영향 이슈가 없습니다.',
-    billing:'미청구나 수금 확인 필요 항목이 없습니다.',
-    documents:'대기 중인 자료 요청이 없습니다. 차주 일정에 영향을 줄 자료 이슈도 없습니다.',
-    members:'표시할 인력 요약이 없습니다.',
+    risks:'이번 주 회의에서 먼저 다룰 경고 항목이 없습니다.',
+    billing:'이번 회의에서 별도 의사결정이 필요한 항목이 많지 않습니다.',
+    next:'다음 주 액션으로 이어질 주요 항목이 현재 적습니다.',
     comments:'이번 주 회의 메모가 없습니다. 필요하면 회의 중 메모를 남겨 주세요.'
   };
   Object.keys(mapping).forEach(sectionId=>{
@@ -1768,229 +1819,224 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     return diff!==null&&diff<=0&&diff>=-7;
   }).length;
   const absenceImpactMemberCount=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact'].includes(summary?._operationalState?.level)).length;
-  const staffingValue=absenceImpactMemberCount
-    ? `부재 영향 ${absenceImpactMemberCount}명`
-    : currentLeaveCount
-      ? `휴가 ${currentLeaveCount}명`
-      : currentFieldworkCount
-        ? `필드웍 ${currentFieldworkCount}명`
-        : nextFieldworkCount
-          ? `다음 주 필드웍 ${nextFieldworkCount}명`
-          : '안정';
+  const scheduleCheckSummaries=memberSummaries.filter(summary=>summary?._operationalState?.level==='schedule-check');
+  const overloadedSummaries=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact','schedule-check'].includes(summary?._operationalState?.level));
+  const reassignmentSummaries=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact'].includes(summary?._operationalState?.level));
   const nextAttentionCount=nextEndItems.length+nextStartItems.length+nextScheduleItems.length;
-  const riskValue=overdueItems.length
-    ? `지연 ${overdueItems.length}건`
-    : urgentIssueItems.length
-      ? `이슈 ${urgentIssueItems.length}건`
-      : '정상';
+  const documentListItems=documentItems.map(item=>createWeeklyReviewDocumentListItem(item));
+  const scheduleAdjustmentItems=[...new Map(
+    [...overdueItems,...nextEndItems].map(item=>[
+      [item?.title||'',item?.meta||'',item?.sideText||''].join('|'),
+      item
+    ])
+  ).values()];
+  const customerCommunicationItems=[
+    ...documentListItems.map(item=>({
+      ...item,
+      actionHint:'고객 자료 회신 일정과 follow-up 여부를 회의에서 정리하세요.'
+    })),
+    ...outstandingItems.map(item=>({
+      ...item,
+      actionHint:'고객 커뮤니케이션과 수금 확인 일정을 함께 맞춰 보세요.'
+    }))
+  ];
+  const partnerReviewItems=urgentIssueItems.map(item=>({
+    ...item,
+    actionHint:'영향 범위와 고객 대응 필요 여부를 파트너와 함께 점검하세요.'
+  }));
+  const warningSummary=`지연 ${overdueItems.length}건 · 미청구 ${unbilledItems.length}건 · 자료 미수령 ${documentItems.length}건 · 과부하 인력 ${overloadedSummaries.length}명`;
+  const decisionSummary=`재배정 ${reassignmentSummaries.length}건 · 일정 조정 ${scheduleAdjustmentItems.length}건 · 고객 커뮤니케이션 ${customerCommunicationItems.length}건 · 파트너 검토 ${partnerReviewItems.length}건`;
+  const nextSummary=`마감 준비 ${nextEndItems.length}건 · 착수 준비 ${nextStartItems.length}건 · 일정 공유 ${nextScheduleItems.length}건`;
 
   data.cards=[
     {
       key:'risks',
-      title:'지연 / 리스크',
-      badge:'이번 주',
-      value:riskValue,
-      helper:overdueItems.length||urgentIssueItems.length
-        ? '회의에서 먼저 확인할 실행 리스크입니다.'
-        : '즉시 논의할 지연·리스크는 없습니다.',
-      meta:`지연 ${overdueItems.length}건 · 실행 영향 ${urgentIssueItems.length}건 · 후속 조정 ${followUpItems.length}건`,
-      tone:overdueItems.length||urgentIssueItems.length?'danger':followUpItems.length?'warning':'success'
-    },
-    {
-      key:'revenue',
-      title:'이번 주 요약',
-      badge:'완료',
-      value:formatWeeklyReviewCount(completedItems.length),
-      helper:completedItems.length
-        ? '이번 주 완료 처리된 프로젝트 기준입니다.'
-        : '이번 주 완료 항목이 없습니다.',
-      meta:`반영 금액 ${formatWeeklyReviewCurrency(completedAmount)} · 미청구 ${unbilledItems.length}건`,
-      tone:completedItems.length?'success':''
+      title:'지연 프로젝트',
+      badge:'이번 주 경고',
+      value:formatWeeklyReviewCount(overdueItems.length),
+      helper:overdueItems.length
+        ? '즉시 일정 회복 계획이 필요한 프로젝트입니다.'
+        : '현재 회의에서 바로 다룰 지연 프로젝트는 없습니다.',
+      meta:`실행 영향 이슈 ${urgentIssueItems.length}건 · 후속 조정 ${followUpItems.length}건`,
+      tone:overdueItems.length?'danger':urgentIssueItems.length?'warning':'success'
     },
     {
       key:'billing',
-      title:'수금 / 청구',
-      badge:'확인 필요',
-      value:formatWeeklyReviewCurrency(unbilledAmount+outstandingAmount),
-      helper:unbilledItems.length||outstandingItems.length
-        ? '청구 발행과 수금 확인이 필요한 금액입니다.'
-        : '이번 주 기준 청구·수금 follow-up 금액은 없습니다.',
+      title:'미청구',
+      badge:'계약 확인',
+      value:formatWeeklyReviewCurrency(unbilledAmount),
+      helper:unbilledItems.length
+        ? '완료 이후 청구 정리가 필요한 금액입니다.'
+        : '이번 주 기준 미청구 follow-up은 크지 않습니다.',
       meta:`미청구 ${unbilledItems.length}건 · 수금 확인 ${outstandingItems.length}건`,
-      tone:outstandingAmount?'danger':unbilledAmount?'warning':'success'
+      tone:unbilledAmount?'warning':outstandingAmount?'danger':'success'
     },
     {
       key:'documents',
-      title:'자료 확인 필요',
-      badge:'대기',
+      title:'자료 미수령',
+      badge:'고객 대기',
       value:formatWeeklyReviewCount(documentItems.length),
       helper:documentItems.length
-        ? '회수 지연 시 차주 일정에 영향을 줄 수 있습니다.'
-        : '대기 중인 자료 요청이 없습니다.',
-      meta:`기한 경과 ${documentOverdueCount}건 · 금주 확인 ${documentDueSoonCount}건`,
+        ? '자료 회신 지연이 차주 일정에 영향을 줄 수 있습니다.'
+        : '회수 관리가 필요한 자료 요청은 현재 적습니다.',
+      meta:`기한 경과 ${documentOverdueCount}건 · 이번 주 확인 ${documentDueSoonCount}건`,
       tone:documentOverdueCount?'danger':documentItems.length?'warning':'success'
     },
     {
       key:'resources',
-      title:'인력 가용성',
-      badge:absenceImpactMemberCount||currentLeaveCount||currentFieldworkCount||nextFieldworkCount?'확인':'안정',
-      value:staffingValue,
-      helper:absenceImpactMemberCount
-        ? '휴가·필드웍이 진행 프로젝트와 겹치는 인원을 먼저 확인합니다.'
-        : currentLeaveCount||currentFieldworkCount||nextFieldworkCount
-          ? '휴가와 필드웍 기준으로 팀 가용성을 간단히 확인합니다.'
-          : '이번 주 팀 가용성은 안정적인 편입니다.',
-      meta:`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 다음 주 필드웍 ${nextFieldworkCount}명`,
-      tone:absenceImpactMemberCount||currentLeaveCount||currentFieldworkCount||nextFieldworkCount?'warning':'success'
-    },
-    {
-      key:'next',
-      title:'다음 주 확인',
-      badge:'차주',
-      value:formatWeeklyReviewCount(nextAttentionCount),
-      helper:nextAttentionCount
-        ? '차주 마감, 착수, 일정 조정 포인트입니다.'
-        : '다음 주 주요 확인 포인트는 현재 적습니다.',
-      meta:`차주 마감 ${nextEndItems.length}건 · 착수 ${nextStartItems.length}건 · 일정 ${nextScheduleItems.length}건`,
-      tone:nextAttentionCount?'warning':'success'
+      title:'과부하 인력',
+      badge:'인력 확인',
+      value:`${Number(overloadedSummaries.length||0).toLocaleString()}명`,
+      helper:overloadedSummaries.length
+        ? '휴가·필드웍 또는 일정 집중으로 회의 확인이 필요한 인원입니다.'
+        : '즉시 조정이 필요한 인력 이슈는 크지 않습니다.',
+      meta:`부재 영향 ${absenceImpactMemberCount}명 · 일정 확인 ${scheduleCheckSummaries.length}명`,
+      tone:absenceImpactMemberCount?'danger':overloadedSummaries.length?'warning':'success'
     }
   ];
 
-  if(completedSection){
-    completedSection.title='이번 주 요약';
-    completedSection.sub='이번 주 완료 처리된 프로젝트와 반영 금액을 먼저 확인합니다.';
-    completedSection.collapsedSummary=`완료 ${completedItems.length}건 · ${formatWeeklyReviewCurrency(completedAmount)}`;
-    if(completedSection.groups?.[0]){
-      completedSection.groups[0].title='완료 프로젝트';
-      completedSection.groups[0].tableHeaders=['고객사','프로젝트','유형','담당','반영 금액','청구 상태'];
-      completedSection.groups[0].summary=`완료 ${completedItems.length}건 · 반영 금액 ${formatWeeklyReviewCurrency(completedAmount)}`;
-      completedSection.groups[0].items=completedItems.map(item=>({
-        ...item,
-        actionHint:'프로젝트 관리에서 완료 정리와 청구 상태를 함께 확인하세요.'
-      }));
-      completedSection.groups[0].emptyText='이번 주 완료된 프로젝트가 없습니다. 완료 실적은 다음 리뷰에서 다시 확인합니다.';
-    }
-  }
   if(risksSection){
-    risksSection.title='지연 / 리스크';
-    risksSection.sub='회의에서 먼저 확인할 지연, 실행 영향 이슈, 완료 후 후속 조정 항목입니다.';
-    risksSection.collapsedSummary=`지연 ${overdueItems.length}건 · 실행 영향 ${urgentIssueItems.length}건 · 후속 조정 ${followUpItems.length}건`;
-    if(risksSection.groups?.[0]){
-      risksSection.groups[0].title='지연 프로젝트';
-      risksSection.groups[0].items=overdueItems.map(item=>({
-        ...item,
-        actionHint:'프로젝트 관리에서 지연 원인과 차주 일정 조정이 필요한지 확인하세요.'
-      }));
-      risksSection.groups[0].emptyText='현재 지연 프로젝트는 없습니다.';
-    }
-    if(risksSection.groups?.[1]){
-      risksSection.groups[1].title='실행 영향 이슈';
-      risksSection.groups[1].items=urgentIssueItems.map(item=>({
-        ...item,
-        actionHint:'프로젝트 상세의 Work/Issues 탭에서 영향 범위와 담당 조치를 확인하세요.'
-      }));
-      risksSection.groups[1].emptyText='즉시 논의할 실행 영향 이슈는 없습니다.';
-    }
-    if(risksSection.groups?.[2]){
-      risksSection.groups[2].title='완료 후 follow-up';
-      risksSection.groups[2].items=followUpItems.map(item=>({
-        ...item,
-        actionHint:'프로젝트 관리에서 완료 후 남은 정산·후속 조치를 확인하세요.'
-      }));
-      risksSection.groups[2].emptyText='완료 후 follow-up이 필요한 항목은 없습니다.';
-    }
+    risksSection.title='이번 주 경고';
+    risksSection.sub='이번 주 회의에서 먼저 다뤄야 할 지연, 계약, 자료, 인력 경고를 한 번에 확인합니다.';
+    risksSection.collapsedSummary=warningSummary;
+    risksSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
+      {label:'프로젝트 관리',action:"setPage('gantt')"},
+      {label:'계약 확인',action:"setPage('contracts')"}
+    ]);
+    risksSection.groups=[
+      {
+        title:'지연 프로젝트',
+        items:overdueItems.map(item=>({
+          ...item,
+          actionHint:'프로젝트 관리에서 지연 원인과 일정 회복 계획을 바로 확인하세요.'
+        })),
+        emptyText:'이번 주 바로 논의할 지연 프로젝트는 없습니다.'
+      },
+      {
+        title:'미청구',
+        items:unbilledItems.map(item=>({
+          ...item,
+          actionHint:'계약 탭에서 청구 발행 시점과 책임자를 맞춰 확인하세요.'
+        })),
+        emptyText:'이번 주 우선 확인할 미청구 항목은 없습니다.'
+      },
+      {
+        title:'자료 미수령',
+        items:documentListItems.map(item=>({
+          ...item,
+          actionHint:'고객 자료 회신 일정과 담당자 follow-up 여부를 확인하세요.'
+        })),
+        emptyText:'이번 주 경고 수준의 자료 미수령 항목은 없습니다.'
+      },
+      {
+        title:'과부하 인력',
+        items:overloadedSummaries.map(summary=>createWeeklyReviewOperationalMemberItem(summary,{
+          actionHint:'프로젝트 관리에서 담당 분산과 차주 마감 커버 필요 여부를 확인하세요.'
+        })),
+        emptyText:'즉시 조정이 필요한 인력 이슈는 없습니다.'
+      }
+    ];
   }
   if(billingSection){
-    billingSection.title='수금 / 청구 확인 필요';
-    billingSection.sub='미청구와 수금 확인 필요 항목을 나누어 보고, 계약 탭 follow-up을 정리합니다.';
-    billingSection.collapsedSummary=`미청구 ${unbilledItems.length}건 · 수금 확인 ${outstandingItems.length}건`;
-    if(billingSection.groups?.[0]){
-      billingSection.groups[0].title='미청구';
-      billingSection.groups[0].items=unbilledItems.map(item=>({
-        ...item,
-        actionHint:'프로젝트 완료 기준과 청구 발행 여부를 다시 맞춰 확인하세요.'
-      }));
-      billingSection.groups[0].emptyText='미청구 상태로 남아 있는 항목은 없습니다.';
-    }
-    if(billingSection.groups?.[1]){
-      billingSection.groups[1].title='수금 확인 필요';
-      billingSection.groups[1].items=outstandingItems.map(item=>({
-        ...item,
-        actionHint:'계약 탭에서 수금 일정, 리마인드, 회수 확인 여부를 정리하세요.'
-      }));
-      billingSection.groups[1].emptyText='수금 확인이 필요한 항목은 없습니다.';
-    }
-  }
-  if(membersSection){
-    membersSection.title='인력 / 가용성';
-    membersSection.sub='휴가와 필드웍 중심으로 이번 주와 다음 주 가용성을 간단히 확인합니다.';
-    membersSection.collapsedSummary=`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 부재 영향 ${absenceImpactMemberCount}명`;
-    if(membersSection.groups?.[0]){
-      membersSection.groups[0].title=weeklyReviewMemberScope==='all'?'팀 가용성 요약':'내 가용성 요약';
-      membersSection.groups[0].items=memberSummaries;
-      membersSection.groups[0].html=renderWeeklyReviewOperationalMemberSummaryGridMarkup(memberSummaries);
-      membersSection.groups[0].emptyText='표시할 인력 요약이 없습니다.';
-    }
+    billingSection.title='의사결정 필요';
+    billingSection.sub='회의 중 바로 판단해야 할 재배정, 일정 조정, 고객 커뮤니케이션, 파트너 검토 항목입니다.';
+    billingSection.collapsedSummary=decisionSummary;
+    billingSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
+      {label:'프로젝트 관리',action:"setPage('gantt')"},
+      {label:'거래처 보기',action:"setPage('clients')"},
+      {label:'계약 보기',action:"setPage('contracts')"}
+    ]);
+    billingSection.groups=[
+      {
+        title:'담당자 재배정 필요',
+        items:reassignmentSummaries.map(summary=>createWeeklyReviewOperationalMemberItem(summary,{
+          actionHint:'휴가·필드웍 일정과 겹치는 프로젝트 담당 재배정이 필요한지 결정하세요.'
+        })),
+        emptyText:'즉시 재배정이 필요한 인원은 없습니다.'
+      },
+      {
+        title:'일정 조정 필요',
+        items:scheduleAdjustmentItems.map(item=>({
+          ...item,
+          actionHint:'차주 일정 조정이나 마감 재설정이 필요한지 회의에서 바로 판단하세요.'
+        })),
+        emptyText:'회의에서 바로 일정 조정이 필요한 항목은 없습니다.'
+      },
+      {
+        title:'고객 커뮤니케이션 필요',
+        items:customerCommunicationItems.map(item=>({
+          ...item,
+          actionHint:item?.actionHint||'고객 커뮤니케이션과 follow-up 방향을 정리하세요.'
+        })),
+        emptyText:'고객 커뮤니케이션이 필요한 항목은 현재 많지 않습니다.'
+      },
+      {
+        title:'파트너 검토 필요',
+        items:partnerReviewItems,
+        emptyText:'즉시 파트너 검토가 필요한 이슈는 없습니다.'
+      }
+    ];
   }
   if(nextSection){
-    nextSection.title='다음 주 확인 포인트';
-    nextSection.sub='차주 마감, 착수, 일정 조정 포인트를 순서대로 확인합니다.';
-    nextSection.collapsedSummary=`차주 마감 ${nextEndItems.length}건 · 착수 ${nextStartItems.length}건 · 일정 ${nextScheduleItems.length}건`;
-    if(nextSection.groups?.[0]){
-      nextSection.groups[0].title='차주 마감';
-      nextSection.groups[0].items=nextEndItems.map(item=>({
-        ...item,
-        actionHint:'프로젝트 관리에서 차주 마감 준비 상태를 확인하세요.'
-      }));
-      nextSection.groups[0].emptyText='다음 주 마감 예정 프로젝트는 없습니다.';
-    }
-    if(nextSection.groups?.[1]){
-      nextSection.groups[1].title='차주 착수';
-      nextSection.groups[1].items=nextStartItems.map(item=>({
-        ...item,
-        actionHint:'차주 착수 전 담당, 자료, 일정 준비 상태를 확인하세요.'
-      }));
-      nextSection.groups[1].emptyText='다음 주 신규 착수 프로젝트는 없습니다.';
-    }
-    if(nextSection.groups?.[2]){
-      nextSection.groups[2].title='차주 일정 / 부재';
-      nextSection.groups[2].items=nextScheduleItems.map(item=>({
-        ...item,
-        actionHint:'팀 일정에서 커버와 배치 계획을 함께 확인하세요.'
-      }));
-      nextSection.groups[2].emptyText='다음 주 확인할 주요 일정은 없습니다.';
-    }
-  }
-  if(documentsSection){
-    documentsSection.title='자료 확인 필요';
-    documentsSection.sub='회수 지연 또는 차주 일정에 영향을 줄 자료 요청을 확인합니다.';
-    documentsSection.collapsedSummary=`자료 요청 ${documentItems.length}건 · 기한 경과 ${documentOverdueCount}건`;
-    if(documentsSection.groups?.[0]){
-      documentsSection.groups[0].title='대기 중 자료 요청';
-      documentsSection.groups[0].tableHeaders=['고객사','프로젝트','자료명','회수 희망일','경과'];
-      documentsSection.groups[0].items=documentItems.map(item=>({
-        ...item,
-        actionHint:getWeeklyReviewDayDiff(item?.columns?.[3],getHomeBaseDate())>0
-          ? '프로젝트 자료/문서 탭에서 회수 지연 원인과 담당자 follow-up을 확인하세요.'
-          : '프로젝트 자료/문서 탭에서 회수 일정과 공유 상태를 확인하세요.'
-      }));
-      documentsSection.groups[0].emptyText='대기 중인 자료 요청이 없습니다.';
-    }
+    nextSection.title='다음 주 액션';
+    nextSection.sub='회의가 끝난 뒤 바로 실행할 항목을 누가, 무엇을, 언제까지 기준으로 정리합니다.';
+    nextSection.collapsedSummary=nextSummary;
+    nextSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
+      {label:'프로젝트 관리',action:"setPage('gantt')"}
+    ]);
+    nextSection.groups=[
+      {
+        title:'마감 준비',
+        variant:'table',
+        tableTemplate:'.9fr 2fr 1fr .9fr',
+        tableHeaders:['누가','무엇을','언제까지','상태'],
+        tableAppendBadge:false,
+        items:nextEndItems.map(item=>createWeeklyReviewActionPlanTableItem({
+          ...item,
+          actionHint:'프로젝트 관리에서 차주 마감 준비 상태를 확인하세요.'
+        },'마감 준비')),
+        emptyText:'다음 주 마감 준비 항목은 없습니다.'
+      },
+      {
+        title:'착수 준비',
+        variant:'table',
+        tableTemplate:'.9fr 2fr 1fr .9fr',
+        tableHeaders:['누가','무엇을','언제까지','상태'],
+        tableAppendBadge:false,
+        items:nextStartItems.map(item=>createWeeklyReviewActionPlanTableItem({
+          ...item,
+          actionHint:'담당, 자료, 일정 준비가 맞춰졌는지 확인하세요.'
+        },'착수 준비')),
+        emptyText:'다음 주 착수 준비 항목은 없습니다.'
+      },
+      {
+        title:'일정 공유',
+        variant:'table',
+        tableTemplate:'.9fr 2fr 1fr .9fr',
+        tableHeaders:['누가','무엇을','언제까지','상태'],
+        tableAppendBadge:false,
+        items:nextScheduleItems.map(item=>createWeeklyReviewActionPlanTableItem({
+          ...item,
+          actionHint:'팀 일정과 커버 계획을 함께 공유하세요.'
+        },'일정 공유')),
+        emptyText:'다음 주 일정 공유 항목은 없습니다.'
+      }
+    ];
   }
   if(commentsSection){
-    commentsSection.title='회의 메모 / 팀 코멘트';
-    commentsSection.sub='주간 리뷰에서 남긴 메모와 칭찬을 참고용으로 확인합니다.';
+    commentsSection.title='회의 메모';
+    commentsSection.sub='결정 사항과 코멘트는 참고용으로만 간단히 확인합니다.';
+    commentsSection.collapsedSummary=`메모 ${weeklyReviews.length}건`;
+    commentsSection.actionsHtml=commentsSection.actionsHtml||'';
     if(commentsSection.groups?.[0]){
       commentsSection.groups[0].title='회의 메모';
       commentsSection.groups[0].emptyText='이번 주 회의 메모가 없습니다. 필요하면 회의 중 메모를 남겨 주세요.';
     }
   }
   data.sections=[
-    completedSection,
     risksSection,
     billingSection,
-    membersSection,
     nextSection,
-    documentsSection,
     commentsSection
   ].filter(Boolean);
   return data;
@@ -2011,22 +2057,18 @@ async function renderWeeklyReviewPage(offset){
       ? `${weeklyReviewWeekOffset}주 후`
       : `${Math.abs(weeklyReviewWeekOffset)}주 전`;
   const loadingCards=[
-    {title:'이번 주 매출',badge:'이번 주',value:'...',meta:'불러오는 중...'},
-    {title:'리스크',badge:'현재',value:'...',meta:'불러오는 중...'},
-    {title:'수금 현황',badge:'실시간',value:'...',meta:'불러오는 중...'},
-    {title:'차주 예정',badge:'다음 주',value:'...',meta:'불러오는 중...'},
-    {title:'인력 현황',badge:'이번 주',value:'...',meta:'불러오는 중...'},
-    {title:'고객 이슈',badge:'현재',value:'...',meta:'불러오는 중...'}
+    {title:'지연 프로젝트',badge:'이번 주 경고',value:'...',meta:'불러오는 중...'},
+    {title:'미청구',badge:'계약 확인',value:'...',meta:'불러오는 중...'},
+    {title:'자료 미수령',badge:'고객 대기',value:'...',meta:'불러오는 중...'},
+    {title:'과부하 인력',badge:'인력 확인',value:'...',meta:'불러오는 중...'}
   ];
   el.innerHTML=renderWeeklyReviewPageMarkup(rangeLabel,navLabel,loadingCards,[]);
   const data=await getWeeklyReviewPageData(requestedOffset).catch(()=>({
     cards:[
-      {title:'이번 주 매출',badge:'이번 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'리스크',badge:'현재',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'수금 현황',badge:'실시간',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'차주 예정',badge:'다음 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'인력 현황',badge:'이번 주',value:'-',meta:'데이터를 불러오지 못했습니다.'},
-      {title:'고객 이슈',badge:'현재',value:'-',meta:'데이터를 불러오지 못했습니다.'}
+      {title:'지연 프로젝트',badge:'이번 주 경고',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'미청구',badge:'계약 확인',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'자료 미수령',badge:'고객 대기',value:'-',meta:'데이터를 불러오지 못했습니다.'},
+      {title:'과부하 인력',badge:'인력 확인',value:'-',meta:'데이터를 불러오지 못했습니다.'}
     ],
     sections:[]
   }));

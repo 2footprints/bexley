@@ -670,3 +670,716 @@ body{
     min-height:auto;
   }
 }
+
+#pageWeeklyReview .weekly-review-shell{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:18px!important;
+}
+
+#pageWeeklyReview .weekly-review-summary-shell{
+  position:sticky!important;
+  top:16px!important;
+  z-index:12!important;
+  padding:24px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.98) 0%,rgba(246,249,252,.98) 100%)!important;
+  box-shadow:0 20px 44px rgba(16,32,51,.10)!important;
+  backdrop-filter:blur(12px);
+}
+
+#pageWeeklyReview .weekly-review-toolbar{
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:12px 16px!important;
+}
+
+#pageWeeklyReview .weekly-review-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:14px!important;
+}
+
+#pageWeeklyReview .weekly-review-card{
+  min-height:154px!important;
+  padding:18px 18px 16px!important;
+  gap:10px!important;
+}
+
+#pageWeeklyReview .weekly-review-card[data-card-key="risks"]{
+  border-color:rgba(194,65,58,.16)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7F5 100%)!important;
+}
+
+#pageWeeklyReview .weekly-review-card[data-card-key="billing"]{
+  border-color:rgba(183,121,31,.16)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F0 100%)!important;
+}
+
+#pageWeeklyReview .weekly-review-card[data-card-key="documents"]{
+  border-color:rgba(183,121,31,.14)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF8F3 100%)!important;
+}
+
+#pageWeeklyReview .weekly-review-card[data-card-key="resources"]{
+  border-color:rgba(32,90,143,.14)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#F6FAFD 100%)!important;
+}
+
+#pageWeeklyReview .weekly-review-body-grid{
+  gap:18px!important;
+}
+
+#pageWeeklyReview .weekly-review-section{
+  position:relative!important;
+  overflow:hidden!important;
+  padding:22px!important;
+}
+
+#pageWeeklyReview .weekly-review-section::before{
+  content:''!important;
+  position:absolute!important;
+  left:0!important;
+  top:0!important;
+  bottom:0!important;
+  width:4px!important;
+  background:rgba(148,163,184,.22)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="risks"]{
+  border-color:rgba(194,65,58,.16)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF8F6 100%)!important;
+  box-shadow:0 18px 36px rgba(194,65,58,.08)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="risks"]::before{
+  background:var(--semantic-danger-fg)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="billing"]{
+  border-color:rgba(183,121,31,.16)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F2 100%)!important;
+  box-shadow:0 16px 32px rgba(183,121,31,.07)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="billing"]::before{
+  background:var(--semantic-warning-fg)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="next"]{
+  border-color:rgba(32,90,143,.14)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#F7FAFD 100%)!important;
+  box-shadow:0 16px 32px rgba(32,90,143,.06)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="next"]::before{
+  background:var(--semantic-info-fg)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="comments"]{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+  box-shadow:none!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="comments"]::before{
+  background:rgba(148,163,184,.28)!important;
+}
+
+#pageWeeklyReview .weekly-review-section-head{
+  align-items:flex-start!important;
+  gap:12px 16px!important;
+}
+
+#pageWeeklyReview .weekly-review-section-controls{
+  align-items:flex-start!important;
+  gap:10px!important;
+}
+
+#pageWeeklyReview .weekly-review-section-action-row{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+
+#pageWeeklyReview .weekly-review-section-inline-summary{
+  background:rgba(255,255,255,.82)!important;
+}
+
+#pageWeeklyReview .weekly-review-section-group{
+  padding:14px!important;
+  border:1px solid rgba(148,163,184,.14)!important;
+  border-radius:16px!important;
+  background:rgba(255,255,255,.86)!important;
+}
+
+#pageWeeklyReview .weekly-review-section-group-title{
+  margin-bottom:10px!important;
+  font-size:13px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+}
+
+#pageWeeklyReview .weekly-review-section-group-count{
+  background:var(--semantic-neutral-bg)!important;
+  color:var(--semantic-neutral-fg)!important;
+  border:1px solid rgba(92,107,126,.10)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="risks"] .weekly-review-section-expanded-body,
+#pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-section-expanded-body{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:14px!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="next"] .weekly-review-item--table{
+  background:#fff!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="next"] .weekly-review-item-table-grid{
+  gap:14px!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="risks"] .weekly-review-item{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFFAF9 100%)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-item{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFFBF6 100%)!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="next"] .weekly-review-section-sub{
+  max-width:720px!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="comments"] .weekly-review-section-sub{
+  color:var(--text3)!important;
+}
+
+@media(max-width:1200px){
+  #pageWeeklyReview .weekly-review-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
+
+@media(max-width:980px){
+  #pageWeeklyReview .weekly-review-summary-shell{
+    position:static!important;
+  }
+  #pageWeeklyReview .weekly-review-section[data-section-id="risks"] .weekly-review-section-expanded-body,
+  #pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-section-expanded-body{
+    grid-template-columns:1fr!important;
+  }
+}
+
+@media(max-width:720px){
+  #pageWeeklyReview .weekly-review-grid{
+    grid-template-columns:1fr!important;
+  }
+  #pageWeeklyReview .weekly-review-section-action-row{
+    width:100%!important;
+  }
+}
+
+/* Final Demo Polish */
+:root{
+  --ds-shell-max-width:1420px;
+  --ds-section-gap:22px;
+  --ds-panel-gap:18px;
+  --ds-toolbar-padding:14px 16px;
+  --ds-card-radius:20px;
+  --ds-card-shadow:0 16px 40px rgba(16,32,51,.06),0 4px 12px rgba(16,32,51,.04);
+  --ds-card-shadow-hover:0 22px 48px rgba(16,32,51,.08),0 8px 18px rgba(16,32,51,.05);
+  --ds-soft-border:rgba(16,32,51,.08);
+  --ds-strong-border:rgba(16,32,51,.12);
+}
+
+body{
+  background:
+    radial-gradient(circle at top left,rgba(255,255,255,.88) 0%,rgba(255,255,255,0) 36%),
+    linear-gradient(180deg,#F4F7FB 0%,#F1F5FA 100%)!important;
+}
+
+.header{
+  height:74px!important;
+  padding:0 30px!important;
+  border-bottom:1px solid rgba(16,32,51,.07)!important;
+  background:rgba(255,255,255,.82)!important;
+  box-shadow:0 10px 32px rgba(16,32,51,.04)!important;
+  backdrop-filter:blur(18px)!important;
+}
+
+.header-nav{
+  gap:6px!important;
+}
+
+.header-right{
+  gap:12px!important;
+}
+
+.app{
+  max-width:var(--ds-shell-max-width)!important;
+  padding:32px 28px 44px!important;
+}
+
+.section-header{
+  margin-bottom:20px!important;
+  gap:14px!important;
+}
+
+.nav-btn{
+  min-height:42px!important;
+  padding:0 15px!important;
+  color:var(--text3)!important;
+  font-weight:700!important;
+}
+
+.nav-btn:hover{
+  background:rgba(16,32,51,.05)!important;
+  color:var(--navy)!important;
+}
+
+.nav-btn.active{
+  background:rgba(255,255,255,.96)!important;
+  border-color:rgba(16,32,51,.08)!important;
+  color:var(--navy)!important;
+  box-shadow:0 10px 22px rgba(16,32,51,.07)!important;
+}
+
+.user-chip,
+.logout-btn{
+  min-height:40px!important;
+  border-radius:14px!important;
+  background:rgba(255,255,255,.9)!important;
+  border:1px solid rgba(16,32,51,.08)!important;
+}
+
+.btn{
+  min-height:42px!important;
+  padding:0 16px!important;
+  border-radius:14px!important;
+  font-weight:750!important;
+  border-color:rgba(16,32,51,.10)!important;
+  box-shadow:none!important;
+}
+
+.btn:hover{
+  transform:translateY(-1px)!important;
+  border-color:rgba(16,32,51,.16)!important;
+  box-shadow:0 12px 24px rgba(16,32,51,.08)!important;
+}
+
+.btn.primary,
+.login-submit,
+.portal-drive-btn{
+  box-shadow:0 14px 32px rgba(16,32,51,.14)!important;
+}
+
+.btn.secondary,
+.btn:not(.primary):not(.danger):not(.ghost){
+  background:#FFF!important;
+  color:var(--navy)!important;
+}
+
+.btn.ghost,
+.gantt-detail-link-btn,
+.gantt-task-inline-link,
+.issues-page-followup-action{
+  min-height:auto!important;
+  padding:0 2px!important;
+  box-shadow:none!important;
+}
+
+.btn.sm{
+  min-height:36px!important;
+  border-radius:12px!important;
+}
+
+.badge,
+.gantt-status-chip,
+.gantt-type-chip,
+.contract-type-chip,
+.issues-page-inline-tag,
+.issues-page-category,
+.issues-page-scope,
+.issues-page-impact,
+.issues-page-priority,
+.member-filter-tab{
+  min-height:26px!important;
+  padding:4px 10px!important;
+  border-radius:999px!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  letter-spacing:0!important;
+}
+
+.card,
+.card-sm,
+.client-card,
+.client-kpi-card,
+.contract-kpi-card,
+.contract-group-card,
+.contract-list-shell,
+.issues-page-summary-card,
+.issues-page-filter-card,
+.issues-page-project,
+.admin-summary-card,
+.admin-toolbar-card,
+.admin-table-card,
+.gantt-controls-shell,
+.gantt-top-filter-bar,
+.gantt-main,
+.gantt-sidebar,
+.gantt-detail,
+.gantt-project-card,
+.gantt-list-table-shell,
+#pageTeam .home-card,
+.main-home-card,
+.main-focus-card,
+#pageTeam .home-daily-work-card,
+#pageTeam .home-risk-card,
+.team-fun-card,
+#pageWeeklyReview .weekly-review-summary-shell,
+#pageWeeklyReview .weekly-review-section{
+  border-radius:var(--ds-card-radius)!important;
+  border:1px solid var(--ds-soft-border)!important;
+  box-shadow:var(--ds-card-shadow)!important;
+}
+
+.client-card:hover,
+.contract-group-card:hover,
+.gantt-project-card:hover,
+#pageTeam .home-daily-work-card:hover,
+#pageTeam .home-risk-card:hover,
+.team-fun-card:hover{
+  box-shadow:var(--ds-card-shadow-hover)!important;
+}
+
+.client-toolbar-primary,
+.client-toolbar-actions,
+.contract-toolbar-primary,
+.contract-toolbar-filters,
+.contract-toolbar-actions,
+.issues-page-filter-card,
+.admin-toolbar-card,
+.gantt-controls-shell,
+.gantt-top-filter-bar,
+#pageWeeklyReview .weekly-review-toolbar{
+  padding:var(--ds-toolbar-padding)!important;
+  background:rgba(251,252,254,.9)!important;
+  border:1px solid rgba(16,32,51,.07)!important;
+  box-shadow:0 8px 22px rgba(16,32,51,.04)!important;
+}
+
+.filter-row,
+.client-toolbar-primary,
+.client-toolbar-actions,
+.contract-toolbar-primary,
+.contract-toolbar-filters,
+.contract-toolbar-actions,
+.gantt-top-filter-row,
+.gantt-top-filter-group,
+.admin-filter-grid{
+  gap:10px!important;
+}
+
+input,
+select,
+textarea,
+.client-toolbar-primary input,
+.client-toolbar-primary select,
+.client-toolbar-actions select,
+.contract-toolbar-search,
+.contract-toolbar-filters select,
+.contract-toolbar-actions select,
+.gantt-client-search,
+.gantt-list-search,
+.gantt-top-filter-group select,
+.admin-filter-grid input,
+.admin-filter-grid select{
+  min-height:42px!important;
+  border-radius:14px!important;
+  border:1px solid rgba(16,32,51,.10)!important;
+  background:rgba(255,255,255,.96)!important;
+  box-shadow:none!important;
+}
+
+table tr,
+.gantt-list-row td,
+.contract-list-row,
+.admin-table-row{
+  min-height:var(--ds-table-row-height)!important;
+}
+
+.gantt-list-row:hover td,
+.contract-list-row:hover,
+.admin-table-row:hover{
+  background:rgba(16,32,51,.025)!important;
+}
+
+#pageTeam .home-layer-card,
+#pageTeam .home-queue-card,
+#pageTeam .home-section,
+#pageTeam .home-support-card{
+  border-radius:22px!important;
+}
+
+#pageTeam .home-layer-card,
+#pageTeam .home-queue-card{
+  padding:24px 24px 22px!important;
+}
+
+#pageTeam .home-layer-title,
+#pageTeam .home-queue-card .home-daily-work-title{
+  font-size:22px!important;
+  font-weight:800!important;
+  letter-spacing:-.03em!important;
+}
+
+#pageTeam .home-layer-sub,
+#pageTeam .home-section-support,
+#pageTeam .home-daily-work-sub,
+#pageTeam .home-risk-meta,
+#pageTeam .team-fun-desc{
+  color:var(--text3)!important;
+}
+
+#pageTeam .home-focus-summary,
+#pageTeam .home-risk-grid--actions,
+#pageTeam .home-risk-grid--warning,
+#pageTeam .team-fun-grid{
+  gap:12px!important;
+}
+
+.main-focus-card{
+  padding:18px 18px 16px!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+.main-focus-card.warn{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7F5 100%)!important;
+}
+
+.main-focus-card.today{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F0 100%)!important;
+}
+
+#pageTeam .home-risk-card{
+  padding:18px 18px 16px!important;
+}
+
+#pageTeam .home-risk-card.is-danger{
+  box-shadow:0 16px 34px rgba(194,65,58,.09)!important;
+}
+
+#pageTeam .home-risk-card.is-warning{
+  box-shadow:0 16px 34px rgba(183,121,31,.08)!important;
+}
+
+#pageTeam .home-support-zone .home-card,
+#pageTeam .team-fun-section .home-card,
+#pageTeam .home-kudos-section .home-card{
+  box-shadow:none!important;
+  background:rgba(248,250,252,.88)!important;
+}
+
+.gantt-controls-shell{
+  padding:14px 16px!important;
+}
+
+.gantt-panel-head,
+.gantt-top-filter-bar,
+.gantt-list-table-shell,
+.gantt-detail,
+.gantt-project-card{
+  border-color:rgba(16,32,51,.08)!important;
+}
+
+.gantt-list-table-shell{
+  overflow:hidden!important;
+}
+
+.gantt-list-row td{
+  padding-top:14px!important;
+  padding-bottom:14px!important;
+  vertical-align:middle!important;
+}
+
+.gantt-list-row.is-overdue td{
+  background:rgba(194,65,58,.05)!important;
+}
+
+.gantt-list-row.is-due-today td{
+  background:rgba(183,121,31,.07)!important;
+}
+
+.gantt-list-row.is-issue-risk td{
+  background:rgba(37,88,200,.06)!important;
+}
+
+.gantt-list-row.is-selected td{
+  background:rgba(22,35,59,.05)!important;
+}
+
+.gantt-list-project-name,
+.gantt-task-row-title,
+.gantt-detail-title{
+  letter-spacing:-.02em!important;
+}
+
+.gantt-detail-header--ops{
+  padding-bottom:4px!important;
+  border-bottom:1px solid rgba(16,32,51,.06)!important;
+}
+
+.gantt-detail-actions--ops .btn.primary{
+  min-width:118px!important;
+}
+
+.gantt-work-focus,
+.gantt-overview-signal-grid--actions .gantt-overview-signal-card,
+.gantt-task-row{
+  border-radius:16px!important;
+}
+
+.gantt-task-row{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+.gantt-task-row-actions .btn.primary{
+  min-width:88px!important;
+}
+
+.client-kpi-card{
+  min-height:148px!important;
+}
+
+.client-overview-head{
+  margin-bottom:18px!important;
+}
+
+.client-card{
+  padding:22px!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+.client-card.is-warning{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F2 100%)!important;
+}
+
+.client-card.is-risk{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF7F7 100%)!important;
+}
+
+.client-card-head{
+  margin-bottom:16px!important;
+}
+
+.client-card-reason,
+.client-card-next{
+  padding:14px 15px!important;
+  border-radius:16px!important;
+}
+
+.client-card-support{
+  padding-top:14px!important;
+  margin-top:14px!important;
+  border-top:1px solid rgba(16,32,51,.06)!important;
+}
+
+.issues-page-summary-grid{
+  gap:14px!important;
+}
+
+.issues-page-summary-card{
+  padding:18px 18px 16px!important;
+}
+
+.issues-page-project{
+  padding:16px 18px!important;
+}
+
+.issues-page-row{
+  border-radius:18px!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+.issues-page-row.is-danger{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF8F7 100%)!important;
+}
+
+.issues-page-row.is-long-open{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF9F2 100%)!important;
+}
+
+.issues-page-row.is-resolved{
+  background:linear-gradient(180deg,#FCFCFD 0%,#FAFBFC 100%)!important;
+}
+
+.issues-page-row-head{
+  padding:16px 18px!important;
+}
+
+.issues-page-row-core-item,
+.issues-page-detail-card{
+  border-radius:14px!important;
+}
+
+.issues-page-followup-line{
+  padding-top:4px!important;
+}
+
+#pageWeeklyReview .weekly-review-shell{
+  gap:20px!important;
+}
+
+#pageWeeklyReview .weekly-review-summary-shell{
+  border-radius:24px!important;
+}
+
+#pageWeeklyReview .weekly-review-card{
+  border-radius:18px!important;
+}
+
+#pageWeeklyReview .weekly-review-section{
+  border-radius:22px!important;
+}
+
+#pageWeeklyReview .weekly-review-section-group{
+  border-radius:18px!important;
+  box-shadow:none!important;
+}
+
+.admin-summary-card,
+.admin-table-card,
+.admin-support-card{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+@media(max-width:980px){
+  .header{
+    padding:0 18px!important;
+    height:64px!important;
+  }
+  .app{
+    padding:18px 16px 30px!important;
+  }
+}
+
+@media(max-width:768px){
+  .section-header{
+    margin-bottom:16px!important;
+  }
+  .btn,
+  .nav-btn,
+  .logout-btn{
+    min-height:40px!important;
+  }
+  .gantt-list-row td{
+    padding-top:12px!important;
+    padding-bottom:12px!important;
+  }
+  #pageTeam .home-layer-card,
+  #pageTeam .home-queue-card{
+    padding:20px 18px 18px!important;
+  }
+}

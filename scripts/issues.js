@@ -69,6 +69,30 @@ function getIssuesPageCompactText(text,maxLength=18){
   return value.length>maxLength?(value.slice(0,maxLength-1)+'…'):value;
 }
 
+function getIssuesPageWeekBounds(baseDate=new Date()){
+  const start=new Date(baseDate);
+  start.setHours(0,0,0,0);
+  const day=start.getDay();
+  const diff=day===0?-6:1-day;
+  start.setDate(start.getDate()+diff);
+  const end=new Date(start);
+  end.setDate(end.getDate()+7);
+  return {start,end};
+}
+
+function isIssuesPageLongOpen(issue){
+  return isIssueActiveStatus(issue?.status)&&Number(issue?._agingDays??getIssuesPageAgingDays(issue)??0)>=14;
+}
+
+function getIssuesPageThisWeekNewCount(rows){
+  const {start,end}=getIssuesPageWeekBounds();
+  return rows.filter(issue=>{
+    const createdAt=issue?.created_at?new Date(issue.created_at):null;
+    if(!createdAt||Number.isNaN(createdAt.getTime()))return false;
+    return createdAt>=start&&createdAt<end;
+  }).length;
+}
+
 function getIssuesPageAgingDays(issue){
   const baseTs=getIssueStatusChangedAt(issue);
   if(!baseTs)return null;
@@ -104,10 +128,64 @@ function getIssuesPageDueMeta(issue){
   return {tone:'neutral',label:'',days:diff};
 }
 
+function getIssuesPageNextCheckMeta(issue){
+  const dueMeta=getIssuesPageDueMeta(issue);
+  if(issue?.due_date){
+    return {
+      label:formatRangeShort(issue.due_date,issue.due_date),
+      tone:dueMeta.tone,
+      helper:dueMeta.label||'다음 확인일'
+    };
+  }
+  return {label:'미정',tone:'neutral',helper:'다음 확인일 미정'};
+}
+
 function getIssuesPageProjectContext(issue){
   const clientName=issue?issue._client?.name||'':'';
   const projectName=issue?issue._project?.name||'프로젝트 없음':'프로젝트 없음';
   return [clientName,projectName].filter(Boolean).join(' · ');
+}
+
+function getIssuesPageCategoryMeta(issue){
+  const raw=String(issue?.category||'').trim();
+  const textBlob=getIssuesPageTextBlob(issue);
+  if(raw==='자료'||/자료|문서|증빙|파일|제출/.test(textBlob))return {label:'자료',cls:'documents'};
+  if(raw==='내부검토'||/검토|리뷰|승인|내부/.test(textBlob))return {label:'내부검토',cls:'review'};
+  if(raw==='일정리스크'||/일정|마감|기한|지연/.test(textBlob))return {label:'일정리스크',cls:'schedule'};
+  if(raw==='청구/계약'||/청구|수금|계약|정산|세금계산서|invoice|billing/i.test(textBlob))return {label:'청구/계약',cls:'billing'};
+  if(raw==='고객 커뮤니케이션'||/고객|거래처|미팅|커뮤니케이션/.test(textBlob))return {label:'고객 대응',cls:'client'};
+  return {label:raw||'기타',cls:'general'};
+}
+
+function getIssuesPageBlockedReason(issue){
+  const waitingReason=getIssuesPageCompactText(issue?.waiting_reason||'',44);
+  if(waitingReason)return waitingReason;
+  const firstLine=getIssuesPageCompactText(String(issue?.content||'').split('\n').find(Boolean)||'',44);
+  if(firstLine)return firstLine;
+  const categoryMeta=issue?._category||getIssuesPageCategoryMeta(issue);
+  if(categoryMeta.cls==='documents')return '자료 회신 또는 제출 확인이 필요합니다.';
+  if(categoryMeta.cls==='review')return '내부 검토가 완료되지 않았습니다.';
+  if(categoryMeta.cls==='schedule')return '일정 조정과 마감 재확인이 필요합니다.';
+  if(categoryMeta.cls==='billing')return '청구 또는 계약 확인이 남아 있습니다.';
+  if(categoryMeta.cls==='client')return '고객 회신 또는 커뮤니케이션 확인이 필요합니다.';
+  if(String(issue?.task_id||'').trim())return '연결 업무 확인이 필요한 상태입니다.';
+  return '현재 막힌 이유를 추가로 확인해야 합니다.';
+}
+
+function getIssuesPageQuickActionMeta(issue){
+  if(issue?.project_id&&String(issue?.task_id||'').trim()){
+    return {
+      label:'연결 업무 보기',
+      action:'openGanttProjectWorkTab(\''+issue.project_id+'\')'
+    };
+  }
+  if(issue?.project_id){
+    return {
+      label:'프로젝트 보기',
+      action:'openProjModal(\''+issue.project_id+'\')'
+    };
+  }
+  return {label:'다음 확인',action:''};
 }
 
 async function loadIssuesPageTaskTitles(force=false){
@@ -170,16 +248,13 @@ function getIssuesPageFollowUpMeta(issue){
 
 function getIssuesPageSummaryCounts(rows){
   const openRows=rows.filter(issue=>isIssueActiveStatus(issue.status));
-  const impactRows=openRows.filter(issue=>['실행 영향','우선 확인'].includes(issue?._impact?.label||''));
   const longOpenRows=openRows.filter(issue=>(issue?._agingDays??0)>=14);
   const affectedProjects=new Set(openRows.map(issue=>String(issue?.project_id||'')).filter(Boolean));
-  const affectedClients=new Set(openRows.map(issue=>String(issue?._client?.id||'')).filter(Boolean));
   const counts={
     open:openRows.length,
-    impact:impactRows.length,
     longOpen:longOpenRows.length,
     projects:affectedProjects.size,
-    clients:affectedClients.size
+    newThisWeek:getIssuesPageThisWeekNewCount(rows)
   };
   return counts;
 }
@@ -202,7 +277,10 @@ function getIssuesPageRows(){
         ...enrichedIssue,
         _scope:getIssuesPageScopeMeta(enrichedIssue),
         _impact:getIssuesPageImpactMeta(enrichedIssue),
-        _followUp:getIssuesPageFollowUpMeta(enrichedIssue)
+        _followUp:getIssuesPageFollowUpMeta(enrichedIssue),
+        _category:getIssuesPageCategoryMeta(enrichedIssue),
+        _blockedReason:getIssuesPageBlockedReason(enrichedIssue),
+        _nextCheck:getIssuesPageNextCheckMeta(enrichedIssue)
       };
     })
     .filter(issue=>{
@@ -234,10 +312,10 @@ function getIssuesPageRows(){
 function renderIssuesPageSummaryCards(rows){
   const counts=getIssuesPageSummaryCounts(rows);
   const cards=[
-    {label:'열린 이슈',value:counts.open,sub:'현재 후속 확인 필요',tone:counts.open?'warn':'quiet'},
-    {label:'실행 영향',value:counts.impact,sub:'대기 · 기한 경과 · 우선 확인',tone:counts.impact?'danger':'quiet'},
-    {label:'장기 미해결',value:counts.longOpen,sub:'14일 이상 열린 이슈',tone:counts.longOpen?'warn':'quiet'},
-    {label:'영향 프로젝트',value:counts.projects,sub:'관련 거래처 '+counts.clients+'곳',tone:'quiet'}
+    {label:'열린 이슈 수',value:counts.open,sub:'현재 후속 확인이 필요한 이슈',tone:counts.open?'warn':'quiet'},
+    {label:'장기 미해결 이슈 수',value:counts.longOpen,sub:'14일 이상 열린 이슈',tone:counts.longOpen?'danger':'quiet'},
+    {label:'영향 프로젝트 수',value:counts.projects,sub:'열린 이슈가 걸린 프로젝트 기준',tone:counts.projects?'info':'quiet'},
+    {label:'이번 주 신규 이슈',value:counts.newThisWeek,sub:'이번 주 새로 등록된 리스크',tone:counts.newThisWeek?'warn':'quiet'}
   ];
   return '<div class="issues-page-summary-grid">'+cards.map(card=>
     '<div class="issues-page-summary-card'+(card.tone?' is-'+card.tone:'')+'">'
@@ -327,7 +405,7 @@ function renderIssuesPageFromCache(){
   });
 
   el.innerHTML='<div class="section-header" style="margin-bottom:12px"><h2 class="section-title">이슈 리스크 보드</h2>'+createBtn+'</div>'
-    +'<div class="issues-page-intro">프로젝트별 실행 리스크를 비교하고, 다음에 어느 화면에서 후속 조정할지 정리하는 모니터링 화면입니다.</div>'
+    +'<div class="issues-page-intro">열린 이슈와 장기 미해결 이슈를 먼저 보고, 다음 확인과 연결 업무로 바로 이어지는 리스크 관리 화면입니다.</div>'
     +renderIssuesPageSummaryCards(rows)
     +'<div class="card issues-page-filter-card"><div class="filter-row issues-page-filter-row" style="width:100%"><select onchange="setIssuesPageFilter(\'client_id\',this.value)">'+clientOptions+'</select><select onchange="setIssuesPageFilter(\'project_id\',this.value)">'+projectOptions+'</select><select onchange="setIssuesPageFilter(\'member_id\',this.value)">'+memberOptions+'</select><select onchange="setIssuesPageFilter(\'focus\',this.value)">'+focusOptions+'</select><div class="toggle-wrap">'+statusFilterButtons+'</div></div></div>'
     +(groupedClients.length
@@ -352,33 +430,42 @@ function renderIssuesPageFromCache(){
                 const scopeMeta=issue._scope||getIssuesPageScopeMeta(issue);
                 const impactMeta=issue._impact||getIssuesPageImpactMeta(issue);
                 const followUpMeta=issue._followUp||getIssuesPageFollowUpMeta(issue);
+                const categoryMeta=issue._category||getIssuesPageCategoryMeta(issue);
+                const blockedReason=issue._blockedReason||getIssuesPageBlockedReason(issue);
+                const nextCheckMeta=issue._nextCheck||getIssuesPageNextCheckMeta(issue);
+                const quickActionMeta=getIssuesPageQuickActionMeta(issue);
                 const isExpanded=expandedIssuesPageIds.has(issue.id);
                 const isOpen=isIssueActiveStatus(issue.status);
+                const isLongOpen=isIssuesPageLongOpen(issue);
+                const isResolved=normalizeIssueStatus(issue.status)==='resolved';
                 const editable=canEditIssue(issue);
-                const dueDateText=getIssuesPageDueDateText(issue);
-                const agingText=getIssuesPageAgingText(issue);
                 const projectContext=getIssuesPageProjectContext(issue);
-                return '<div id="issue-card-'+issue.id+'" class="issues-page-row'+(assigneeMeta.isMine?' mine':'')+(isExpanded?' expanded':'')+'">'
+                const relatedLabel=issue._taskTitle?('관련 업무 '+getIssuesPageCompactText(issue._taskTitle,24)):(projectContext||'프로젝트 컨텍스트');
+                return '<div id="issue-card-'+issue.id+'" class="issues-page-row'+(assigneeMeta.isMine?' mine':'')+(isExpanded?' expanded':'')+(isLongOpen?' is-long-open':'')+(impactMeta.tone==='danger'&&!isResolved?' is-danger':'')+(isResolved?' is-resolved':'')+'">'
                   +'<div class="issues-page-row-head" onclick="toggleIssuesPageAccordion(\''+issue.id+'\')">'
                     +'<div class="issues-page-row-main">'
                       +'<div class="issues-page-row-chipline">'
+                        +'<span class="issues-page-category is-'+categoryMeta.cls+'">'+esc(categoryMeta.label)+'</span>'
                         +'<span class="issues-page-scope '+scopeMeta.cls+'">'+esc(scopeMeta.label)+'</span>'
                         +'<span class="issues-page-impact is-'+impactMeta.tone+'">'+esc(impactMeta.label)+'</span>'
+                        +(isLongOpen?'<span class="issues-page-inline-tag long-open">장기 미해결</span>':'')
                         +(priorityMeta.cls==='high'?'<span class="issues-page-priority '+priorityMeta.cls+'">'+priorityMeta.label+'</span>':'')
                         +'<span class="badge '+statusMeta.cls+' issues-page-row-status">'+statusMeta.label+'</span>'
                         +(assigneeMeta.isMine?'<span class="issues-page-inline-tag mine">내 담당</span>':'')
                         +(issue.is_pinned?'<span class="issues-page-inline-tag pinned">고정</span>':'')
                       +'</div>'
                       +'<div class="issues-page-row-title-line"><span class="issues-page-row-title">'+esc(issue.title||'제목 없음')+'</span></div>'
+                      +'<div class="issues-page-row-reason"><span class="issues-page-row-reason-label">막힌 이유</span><strong>'+esc(blockedReason)+'</strong></div>'
+                      +'<div class="issues-page-row-core">'
+                        +'<div class="issues-page-row-core-item"><span class="issues-page-row-core-label">책임자</span><strong class="issues-page-row-core-value">'+esc(assigneeMeta.label)+'</strong></div>'
+                        +'<div class="issues-page-row-core-item"><span class="issues-page-row-core-label">다음 확인일</span><strong class="issues-page-row-core-value is-'+nextCheckMeta.tone+'">'+esc(nextCheckMeta.label)+'</strong></div>'
+                        +'<div class="issues-page-row-core-item"><span class="issues-page-row-core-label">'+(issue._taskTitle?'연결 업무':'영향 범위')+'</span><strong class="issues-page-row-core-value">'+esc(relatedLabel)+'</strong></div>'
+                      +'</div>'
                       +'<div class="issues-page-row-subline">'
                         +(projectContext?'<span class="issues-page-inline-meta">'+esc(projectContext)+'</span>':'')
-                        +(issue._taskTitle?'<span class="issues-page-inline-meta">관련 업무 '+esc(getIssuesPageCompactText(issue._taskTitle,24))+'</span>':'')
-                        +'<span class="issues-page-inline-meta">담당 '+esc(assigneeMeta.label)+'</span>'
-                        +(issue.category?'<span class="issues-page-inline-meta">분류 '+esc(issue.category)+'</span>':'')
-                        +(dueDateText?'<span class="issues-page-inline-meta">'+esc(dueDateText)+'</span>':'')
-                        +(agingText?'<span class="issues-page-inline-meta">'+esc(agingText)+'</span>':'')
+                        +(getIssuesPageAgingText(issue)?'<span class="issues-page-inline-meta">'+esc(getIssuesPageAgingText(issue))+'</span>':'')
                       +'</div>'
-                      +'<div class="issues-page-followup-line"><span class="issues-page-followup-label">다음 확인</span><span class="issues-page-followup-text">'+esc(followUpMeta.label)+'</span></div>'
+                      +'<div class="issues-page-followup-line"><span class="issues-page-followup-label">다음 행동</span><span class="issues-page-followup-text">'+esc(followUpMeta.label)+'</span>'+(quickActionMeta.action?'<button type="button" class="issues-page-followup-action" onclick="event.stopPropagation();'+quickActionMeta.action+'">'+esc(quickActionMeta.label)+'</button>':'')+'</div>'
                     +'</div>'
                     +'<div class="issues-page-row-toggle">'+(isExpanded?'접기':'상세 보기')+'</div>'
                   +'</div>'
