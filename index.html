@@ -1452,6 +1452,7 @@ input,textarea{border-radius:12px!important}
 <link rel="stylesheet" href="styles/issues.css">
 <link rel="stylesheet" href="styles/clients.css">
 <link rel="stylesheet" href="styles/contracts.css">
+<link rel="stylesheet" href="styles/design-system.css">
 </head>
 
 
@@ -1720,51 +1721,51 @@ input,textarea{border-radius:12px!important}
       <div class="section-header team-page-header" style="margin-bottom:20px">
         <h2 class="section-title">팀</h2>
       </div>
-      <div id="homeRiskWrap"></div>
-      <div class="home-action-zone">
-        <div class="home-action-zone-main">
-          <div id="myWeekWrap"></div>
-        </div>
-      </div>
-      <div class="home-team-context-section">
-        <div class="home-team-context-head">
-          <div>
-            <div class="home-team-context-title">팀 컨텍스트</div>
-            <div class="home-team-context-sub">개인 작업 다음으로 함께 확인할 팀 현황과 일정입니다.</div>
-          </div>
-        </div>
-        <div class="home-team-context-grid">
+      <div class="home-dashboard-shell">
+        <div id="homeRiskWrap"></div>
+        <div class="home-warning-zone">
           <div id="teamWorkloadWrap"></div>
-          <div id="memberScheduleWrap"></div>
         </div>
-      </div>
-      <div class="home-reference-section">
-        <div id="teamNoticeWrap"></div>
-      </div>
-      <div class="team-fun-section">
-        <div class="card home-card" style="margin-bottom:0">
-          <div class="home-section-title">🎲 팀 소소 기능</div>
-          <div class="team-fun-grid">
-            <button type="button" class="team-fun-card" onclick="openLunchPicker()">
-              <div style="font-size:24px">🍱</div>
-              <div class="team-fun-title">오늘 점심 뭐 먹지?</div>
-              <div class="team-fun-desc">카테고리를 고르고 오늘 점심 메뉴를 가볍게 정합니다.</div>
-            </button>
-            <button type="button" class="team-fun-card" onclick="openLadderGame()">
-              <div style="font-size:24px">🪜</div>
-              <div class="team-fun-title">커피 사다리타기</div>
-              <div class="team-fun-desc">팀원끼리 랜덤으로 뽑아 커피 담당을 정할 수 있습니다.</div>
-            </button>
-            <button type="button" class="team-fun-card" onclick="openWorkLinksModal()">
-              <div style="font-size:24px">🔗</div>
-              <div class="team-fun-title">업무 바로가기</div>
-              <div class="team-fun-desc">자주 쓰는 외부 링크와 조회 사이트를 한 번에 엽니다.</div>
-            </button>
+        <div class="home-execution-zone">
+          <div class="home-execution-grid">
+            <div class="home-execution-main">
+              <div id="myWeekWrap"></div>
+            </div>
+            <div class="home-execution-side">
+              <div id="memberScheduleWrap"></div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="home-kudos-section">
-        <div id="teamKudosReviewWrap"></div>
+        <div class="home-support-zone">
+          <div class="home-support-grid">
+            <div id="teamNoticeWrap"></div>
+            <div class="team-fun-section">
+              <div class="card home-card" style="margin-bottom:0">
+                <div class="home-section-title">팀 퀵기능</div>
+                <div class="team-fun-grid">
+                  <button type="button" class="team-fun-card" onclick="openLunchPicker()">
+                    <div class="team-fun-kicker">점심</div>
+                    <div class="team-fun-title">점심 메뉴 정하기</div>
+                    <div class="team-fun-desc">오늘 점심 후보를 빠르게 추천받아 정리합니다.</div>
+                  </button>
+                  <button type="button" class="team-fun-card" onclick="openLadderGame()">
+                    <div class="team-fun-kicker">랜덤</div>
+                    <div class="team-fun-title">커피 사다리</div>
+                    <div class="team-fun-desc">간단한 사다리로 커피 담당을 정합니다.</div>
+                  </button>
+                  <button type="button" class="team-fun-card" onclick="openWorkLinksModal()">
+                    <div class="team-fun-kicker">링크</div>
+                    <div class="team-fun-title">업무 바로가기</div>
+                    <div class="team-fun-desc">자주 쓰는 외부 업무 링크를 한곳에서 엽니다.</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="home-kudos-section">
+              <div id="teamKudosReviewWrap"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

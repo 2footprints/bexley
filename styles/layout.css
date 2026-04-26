@@ -3,7 +3,7 @@
   backdrop-filter:blur(12px);
   border-bottom:1px solid var(--border);
   padding:0 28px;
-  height:62px;
+  height:68px;
   display:flex;
   align-items:center;
   gap:20px;
@@ -17,18 +17,19 @@
 .header-nav{display:flex;gap:4px;margin-left:8px}
 .header-right{display:flex;align-items:center;gap:10px;margin-left:auto}
 
-.app{padding:24px;max-width:1200px;margin:0 auto}
+.app{padding:28px 24px 40px;max-width:1360px;margin:0 auto}
 
 .section-header{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  margin-bottom:16px;
+  margin-bottom:18px;
   flex-wrap:wrap;
-  gap:8px;
+  gap:12px;
 }
 
-.filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.filter-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filter-row > *{max-width:100%}
 
 .hamburger{
   display:none;
@@ -57,7 +58,7 @@
 .mobile-menu{
   display:none;
   position:fixed;
-  top:62px;
+  top:68px;
   left:0;
   right:0;
   background:var(--card);
