@@ -2728,3 +2728,412 @@ td{
     width:100%!important;
   }
 }
+
+.gantt-assignee-group{
+  flex:0 1 190px!important;
+}
+.gantt-list-table--queue{
+  min-width:940px!important;
+}
+.gantt-list-toolbar{
+  gap:10px!important;
+}
+.gantt-list-count{
+  color:var(--text2)!important;
+}
+.gantt-list-table--queue tbody td{
+  padding:10px 12px!important;
+}
+.gantt-list-client-cell{
+  font-size:12px!important;
+  font-weight:700!important;
+  color:var(--text)!important;
+  line-height:1.45!important;
+}
+.gantt-list-project-sub{
+  margin-top:5px!important;
+  font-size:11px!important;
+  color:var(--text3)!important;
+}
+.gantt-list-project-actions{
+  margin-top:9px!important;
+}
+.gantt-list-member-cell{
+  color:var(--text2)!important;
+}
+.gantt-list-due-cell{
+  display:grid!important;
+  gap:3px!important;
+  min-width:92px!important;
+}
+.gantt-list-due-label{
+  font-size:12px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+  line-height:1.2!important;
+}
+.gantt-list-due-sub{
+  font-size:10.5px!important;
+  color:var(--text3)!important;
+  line-height:1.35!important;
+}
+.gantt-list-due-cell.is-danger .gantt-list-due-label{
+  color:#B91C1C!important;
+}
+.gantt-list-due-cell.is-warn .gantt-list-due-label{
+  color:#B45309!important;
+}
+.gantt-list-progress{
+  min-width:88px!important;
+}
+.gantt-list-progress-text{
+  font-size:10.5px!important;
+}
+.gantt-list-progress-track{
+  height:5px!important;
+}
+.gantt-list-attention-cell{
+  gap:6px!important;
+}
+.gantt-list-attention-main{
+  display:grid!important;
+  gap:5px!important;
+  align-items:flex-start!important;
+}
+.gantt-list-attention-action{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--navy)!important;
+  line-height:1.45!important;
+}
+.gantt-list-attention-badges{
+  gap:4px!important;
+}
+.gantt-list-mini-chip{
+  min-height:21px!important;
+  padding:2px 7px!important;
+}
+.gantt-list-row.is-overdue td{
+  background:#FFF8F6!important;
+}
+.gantt-list-row.is-overdue td:first-child{
+  box-shadow:inset 4px 0 0 #DC2626!important;
+}
+.gantt-list-row.is-overdue .gantt-list-project-name{
+  color:#7F1D1D!important;
+}
+.gantt-list-row.is-due-today td{
+  background:#FFF9F0!important;
+}
+.gantt-list-row.is-due-today td:first-child{
+  box-shadow:inset 4px 0 0 #F59E0B!important;
+}
+.gantt-list-row.is-due-today .gantt-list-project-name{
+  color:#92400E!important;
+}
+.gantt-list-row.is-issue-risk td{
+  background:#FBFCFF!important;
+}
+.gantt-list-row.is-issue-risk td:first-child{
+  box-shadow:inset 4px 0 0 #93C5FD!important;
+}
+.gantt-view-settings-disclosure{
+  border:1px solid var(--border)!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  overflow:hidden!important;
+}
+.gantt-view-settings-summary{
+  list-style:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  padding:13px 15px!important;
+  cursor:pointer!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+}
+.gantt-view-settings-summary::-webkit-details-marker{
+  display:none!important;
+}
+.gantt-view-settings-summary span:last-child{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+}
+.gantt-view-settings-disclosure[open] .gantt-view-settings-summary{
+  border-bottom:1px solid var(--border)!important;
+  background:#FCFDFE!important;
+}
+.gantt-view-settings-disclosure-body{
+  display:grid!important;
+  gap:14px!important;
+  padding:14px 15px 15px!important;
+}
+.gantt-view-settings-inline{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr))!important;
+  gap:12px!important;
+}
+.gantt-view-settings-subgroup{
+  display:grid!important;
+  gap:8px!important;
+}
+.gantt-view-settings-subgroup-full{
+  grid-column:1 / -1!important;
+}
+.gantt-view-settings-subgroup select{
+  min-height:38px!important;
+  padding:8px 12px!important;
+  border:1px solid var(--border)!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:var(--text)!important;
+  font-size:13px!important;
+  font-family:inherit!important;
+}
+.gantt-view-settings .gantt-list-quickfilters{
+  margin:0!important;
+}
+
+@media(max-width:900px){
+  .gantt-assignee-group,
+  .gantt-client-group{
+    flex:1 1 100%!important;
+  }
+  .gantt-list-table--queue{
+    min-width:860px!important;
+  }
+}
+
+.gantt-detail-header--ops{
+  align-items:flex-end!important;
+  gap:18px!important;
+}
+.gantt-detail-header-statusline{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-detail-actions--ops{
+  align-items:center!important;
+  justify-content:flex-end!important;
+  margin:0!important;
+}
+.gantt-detail-link-btn{
+  border:none!important;
+  background:transparent!important;
+  color:var(--text3)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  font-family:inherit!important;
+  padding:0 2px!important;
+  cursor:pointer!important;
+}
+.gantt-detail-link-btn:hover{
+  color:var(--navy)!important;
+  text-decoration:underline!important;
+}
+.gantt-overview-section--actions .gantt-detail-section-head{
+  margin-bottom:12px!important;
+}
+.gantt-overview-signal-grid--actions{
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:12px!important;
+}
+.gantt-overview-signal-grid--actions .gantt-overview-signal-card{
+  padding:14px!important;
+  border-radius:16px!important;
+  background:#FFFFFF!important;
+}
+.gantt-overview-signal-grid--actions .gantt-overview-signal-card.is-warn{
+  background:#FFF8F1!important;
+}
+.gantt-overview-context-grid--static{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+}
+.gantt-work-focus{
+  gap:14px!important;
+  padding:18px!important;
+}
+.gantt-work-focus-head{
+  margin-bottom:2px!important;
+}
+.gantt-work-focus-count{
+  background:#F8FAFC!important;
+  color:var(--text2)!important;
+}
+.gantt-work-focus-list{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+.gantt-task-focus-item{
+  gap:12px!important;
+  min-height:100%!important;
+}
+.gantt-task-focus-title{
+  font-size:14px!important;
+}
+.gantt-task-focus-hint{
+  font-size:11px!important;
+}
+.gantt-work-table-head{
+  margin-bottom:12px!important;
+}
+.gantt-work-table-summary{
+  display:inline-flex!important;
+  align-items:center!important;
+  min-height:30px!important;
+  padding:0 10px!important;
+  border-radius:999px!important;
+  border:1px solid var(--border)!important;
+  background:#F8FAFC!important;
+  color:var(--text2)!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
+.gantt-task-list-head--ops,
+.gantt-task-row{
+  grid-template-columns:minmax(0,2fr) minmax(110px,.9fr) minmax(118px,.9fr) minmax(132px,1fr) auto!important;
+}
+.gantt-task-list-head--ops{
+  padding:0 16px 8px!important;
+}
+.gantt-task-row{
+  gap:12px!important;
+  padding:12px 16px!important;
+  border:1px solid rgba(148,163,184,.16)!important;
+  transition:border-color .15s ease, transform .15s ease, background .15s ease!important;
+}
+.gantt-task-row.is-danger{
+  border-color:rgba(239,68,68,.22)!important;
+  box-shadow:inset 3px 0 0 #DC2626!important;
+  background:#FFF8F7!important;
+}
+.gantt-task-row.is-warn,
+.gantt-task-row.is-waiting,
+.gantt-task-row.is-hold{
+  border-color:rgba(245,158,11,.22)!important;
+  box-shadow:inset 3px 0 0 #F59E0B!important;
+  background:#FFF9F2!important;
+}
+.gantt-task-row-title-line{
+  display:flex!important;
+  align-items:flex-start!important;
+  gap:8px!important;
+  min-width:0!important;
+}
+.gantt-task-priority-cue{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:22px!important;
+  padding:2px 8px!important;
+  border-radius:999px!important;
+  background:#F8FAFC!important;
+  color:var(--text2)!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
+}
+.gantt-task-priority-cue.is-danger{
+  background:#FEE2E2!important;
+  color:#B91C1C!important;
+}
+.gantt-task-priority-cue.is-warn{
+  background:#FEF3C7!important;
+  color:#B45309!important;
+}
+.gantt-task-priority-cue.is-good{
+  background:#DCFCE7!important;
+  color:#166534!important;
+}
+.gantt-task-row-title{
+  white-space:normal!important;
+}
+.gantt-task-row-cell--status,
+.gantt-task-row-cell--actions{
+  justify-self:stretch!important;
+}
+.gantt-task-row-status-stack{
+  display:grid!important;
+  gap:6px!important;
+  justify-items:start!important;
+}
+.gantt-task-status-quick{
+  min-width:112px!important;
+  height:32px!important;
+  border-radius:10px!important;
+  background:#fff!important;
+}
+.gantt-task-row-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+.gantt-task-action-complete{
+  background:var(--navy)!important;
+  border-color:var(--navy)!important;
+  color:#fff!important;
+}
+.gantt-task-inline-link{
+  border:none!important;
+  background:transparent!important;
+  color:var(--text3)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  font-family:inherit!important;
+  padding:0 2px!important;
+  cursor:pointer!important;
+}
+.gantt-task-inline-link:hover{
+  color:var(--navy)!important;
+  text-decoration:underline!important;
+}
+
+@media(max-width:1180px){
+  .gantt-overview-signal-grid--actions{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .gantt-work-focus-list{
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr))!important;
+  }
+}
+
+@media(max-width:768px){
+  .gantt-detail-header--ops{
+    align-items:flex-start!important;
+  }
+  .gantt-detail-actions--ops{
+    width:100%!important;
+    justify-content:flex-start!important;
+  }
+  .gantt-overview-signal-grid--actions,
+  .gantt-overview-context-grid--static{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .gantt-task-list-head--ops{
+    display:none!important;
+  }
+  .gantt-task-row{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  .gantt-task-row-cell{
+    justify-content:space-between!important;
+  }
+  .gantt-task-row-cell--status,
+  .gantt-task-row-cell--actions{
+    justify-self:auto!important;
+  }
+  .gantt-task-row-status-stack{
+    justify-items:end!important;
+  }
+  .gantt-task-row-actions{
+    width:100%!important;
+    justify-content:flex-end!important;
+  }
+}
