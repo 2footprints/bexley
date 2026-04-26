@@ -397,10 +397,11 @@ function scrollGanttDetailIntoView(){
 function openGanttProjectDetail(projectId,scrollIntoPanel=true){
   const prevProjectId=ganttFocusProjectId;
   const shouldKeepWorkTab=ganttDetailTab==='work';
-  ganttFocusProjectId=projectId||null;
-  if(projectId&&String(prevProjectId||'')!==String(projectId||''))ganttDetailTab=shouldKeepWorkTab?'work':'overview';
+  const nextProjectId=projectId==null||projectId===''?null:String(projectId);
+  ganttFocusProjectId=nextProjectId;
+  if(nextProjectId&&String(prevProjectId||'')!==nextProjectId)ganttDetailTab=shouldKeepWorkTab?'work':'overview';
   renderGantt();
-  if(scrollIntoPanel&&projectId){
+  if(scrollIntoPanel&&nextProjectId){
     requestAnimationFrame(()=>requestAnimationFrame(scrollGanttDetailIntoView));
   }
 }
@@ -411,7 +412,7 @@ function setGanttFocusProject(projectId){
 
 function openGanttProjectWorkTab(projectId){
   if(!projectId)return;
-  ganttFocusProjectId=projectId;
+  ganttFocusProjectId=String(projectId);
   ganttDetailTab='work';
   renderGantt();
   requestAnimationFrame(()=>requestAnimationFrame(scrollGanttDetailIntoView));
@@ -427,6 +428,38 @@ function setGanttDetailTab(tab){
   ganttDetailTab=tab||'overview';
   const {projs,schs}=getGanttFilteredData();
   renderGanttDetailPanel(projs,schs);
+}
+
+function getGanttTimelineRangeMeta(item,days,year=curYear,month=curMonth){
+  const fallbackStart=item?.start_date??item?.start??item?.due_date??item?.end_date??item?.end??'';
+  const fallbackEnd=item?.end_date??item?.end??item?.due_date??item?.start_date??item?.start??'';
+  const startValue=String(fallbackStart||'').trim();
+  const endValue=String(fallbackEnd||'').trim();
+  const startDate=toDate(startValue||endValue);
+  const endDate=toDate(endValue||startValue);
+  const mFirst=new Date(year,month-1,1);
+  const mLast=new Date(year,month-1,days);
+  const startMs=startDate?.getTime?.()||0;
+  const endMs=endDate?.getTime?.()||0;
+  if(!Number.isFinite(startMs)||!Number.isFinite(endMs)){
+    return {visible:false,barS:1,barE:1,span:1,startDate:new Date(0),endDate:new Date(0)};
+  }
+  const normalizedStart=startMs<=endMs?startDate:endDate;
+  const normalizedEnd=startMs<=endMs?endDate:startDate;
+  if(normalizedStart>mLast||normalizedEnd<mFirst){
+    return {visible:false,barS:1,barE:1,span:1,startDate:normalizedStart,endDate:normalizedEnd};
+  }
+  const barS=normalizedStart<mFirst?1:normalizedStart.getDate();
+  const rawBarE=normalizedEnd>mLast?days:normalizedEnd.getDate();
+  const barE=Math.max(barS,rawBarE);
+  return {
+    visible:true,
+    barS,
+    barE,
+    span:Math.max(1,barE-barS+1),
+    startDate:normalizedStart,
+    endDate:normalizedEnd
+  };
 }
 
 function goToCurrentGanttMonth(){
@@ -774,13 +807,14 @@ renderGanttSidebarList=function(projs){
     el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
     return;
   }
-  if(ganttFocusProjectId&&!projs.some(p=>p.id===ganttFocusProjectId))ganttFocusProjectId=null;
+  const focusKey=String(ganttFocusProjectId||'');
+  if(focusKey&&!projs.some(p=>String(p?.id||'')===focusKey))ganttFocusProjectId=null;
   const sorted=[...projs].sort((a,b)=>toDate(a.end)-toDate(b.end));
   el.innerHTML=sorted.map(p=>{
     const client=clients.find(c=>c.id===p.client_id);
     const issueCount=openIssuesByProject[p.id]||0;
     const hasMemo=!!(p.memo&&String(p.memo).trim());
-    const isActiveCard=p.id===ganttFocusProjectId;
+    const isActiveCard=String(p?.id||'')===String(ganttFocusProjectId||'');
     const warning=isOverdue(p)
       ?'기간 초과'
       :isDueToday(p)
@@ -820,7 +854,7 @@ function renderGanttDetailPlaceholder(){
 renderGanttDetailPanel=function(projs,schs){
   const el=document.getElementById('ganttDetail');
   if(!el)return;
-  const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  const project=projs.find(p=>String(p?.id||'')===String(ganttFocusProjectId||''))||null;
   if(!project){
     el.innerHTML=renderGanttDetailPlaceholder();
     return;
@@ -3291,7 +3325,7 @@ async function loadGanttDetailAsync(project){
 renderGanttDetailPanel=function(projs,schs){
   const el=document.getElementById('ganttDetail');
   if(!el)return;
-  const project=projs.find(p=>p.id===ganttFocusProjectId)||null;
+  const project=projs.find(p=>String(p?.id||'')===String(ganttFocusProjectId||''))||null;
   if(!project){
     el.innerHTML='<div class="gantt-panel-title">프로젝트 상세</div><div class="gantt-panel-sub">간트, 달력, 리스트에서 프로젝트를 클릭하면 여기서 같은 상세 정보를 확인할 수 있습니다.</div>';
     return;
@@ -3406,7 +3440,7 @@ const baseRenderGanttDetailPanel=renderGanttDetailPanel;
 renderGanttDetailPanel=function(projs,schs){
   const el=document.getElementById('ganttDetail');
   if(!el)return;
-  const project=(projs||[]).find(item=>item?.id===ganttFocusProjectId)||null;
+  const project=(projs||[]).find(item=>String(item?.id||'')===String(ganttFocusProjectId||''))||null;
   if(!project){
     const placeholderKey='placeholder:'+String(ganttFocusProjectId||'');
     if(el.dataset.renderSignature===placeholderKey)return;

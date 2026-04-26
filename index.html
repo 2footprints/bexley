@@ -3838,9 +3838,10 @@ function gRow(p,days){
 }
 function scheduleRow(s,days){
   const color=scheduleColor(s.schedule_type);
-  const sS=toDate(s.start),sE=toDate(s.end);
-  const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
-  const barS=sS<mFirst?1:sS.getDate();const barE=sE>mLast?days:sE.getDate();const span=barE-barS+1;
+  const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
+    ?getGanttTimelineRangeMeta(s,days)
+    :{visible:true,barS:1,barE:1,span:1};
+  const {barS,barE,span}=rangeMeta;
   const rowCls='row-label gantt-support-row-label';
   const memberLabel=getScheduleMemberLabel(s);
   const scheduleMemberNames=getScheduleMemberNames(s);
@@ -8964,11 +8965,11 @@ window.gRow=function(p,days){
   const od=toDate(p.end)<today&&!isCompleted,mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
   const color=od?'#FCA5A5':(TYPES[p.type]||'#4e5968');
   const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
-  const pS=toDate(p.start),pE=toDate(p.end);
+  const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
+    ?getGanttTimelineRangeMeta(p,days)
+    :{visible:true,barS:1,barE:1,span:1};
+  const {barS,barE,span}=rangeMeta;
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
-  const barS=pS<mFirst?1:pS.getDate();
-  const barE=pE>mLast?days:pE.getDate();
-  const span=barE-barS+1;
   const overlaysByDay={};
   activeSchedules.forEach(schedule=>{
     if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return;
@@ -9041,11 +9042,11 @@ window.gRow=function(p,days){
   const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
   const progress=typeof getGanttProjectProgress==='function'?getGanttProjectProgress(p,today):0;
   const progressColor=od?'#EA580C':(dueToday?'#D97706':(TYPES[p.type]||'#4e5968'));
-  const pS=toDate(p.start),pE=toDate(p.end);
+  const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
+    ?getGanttTimelineRangeMeta(p,days)
+    :{visible:true,barS:1,barE:1,span:1};
+  const {barS,barE,span}=rangeMeta;
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
-  const barS=pS<mFirst?1:pS.getDate();
-  const barE=pE>mLast?days:pE.getDate();
-  const span=barE-barS+1;
   const overlaysByDay={};
   activeSchedules.forEach(schedule=>{
     if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return;
