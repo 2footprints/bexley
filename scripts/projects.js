@@ -20,7 +20,15 @@ let ganttListTaskIssueSummaryLoadingProjectIds=new Set();
 let ganttListExecutionRiskFilters=[];
 let editingProjectTaskProjectId='';
 let editingProjectTaskId='';
+const GANTT_ACTION_DEBUG_PREFIX='[projects-action]';
 const GANTT_LIST_TASK_DRILL_LIMIT=3;
+
+function ganttActionDebugLog(message,payload){
+  try{
+    if(payload!==undefined)console.log(`${GANTT_ACTION_DEBUG_PREFIX} ${message}`,payload);
+    else console.log(`${GANTT_ACTION_DEBUG_PREFIX} ${message}`);
+  }catch(e){}
+}
 
 const GANTT_STATUS_OPTIONS=[
   {value:'all',label:'전체'},
@@ -392,6 +400,21 @@ function refreshGanttActiveViewOnly(){
 function scrollGanttDetailIntoView(){
   const detail=document.getElementById('ganttDetail');
   if(detail)detail.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function getActiveGanttDetailProjectId(fallbackProjectId=''){
+  const explicit=String(fallbackProjectId||'').trim();
+  if(explicit)return explicit;
+  const detail=document.getElementById('ganttDetail');
+  const detailProjectId=String(detail?.dataset?.projectId||'').trim();
+  if(detailProjectId)return detailProjectId;
+  return String(ganttFocusProjectId||'').trim();
+}
+
+function getGanttProjectById(projectId=''){
+  const key=getActiveGanttDetailProjectId(projectId);
+  if(!key)return null;
+  return (projects||[]).find(item=>String(item?.id||'')===key)||null;
 }
 
 function openGanttProjectDetail(projectId,scrollIntoPanel=true){
@@ -1951,50 +1974,77 @@ function buildGanttProjectQuickStatusPatch(project,nextValue){
 }
 
 async function updateGanttProjectQuickLifecycle(projectId,nextValue){
-  const key=String(projectId||'').trim();
-  const project=(projects||[]).find(item=>String(item?.id||'')===key);
-  if(!key||!project)return;
+  const key=getActiveGanttDetailProjectId(projectId);
+  const project=getGanttProjectById(key);
+  ganttActionDebugLog('status change click',{projectId:key,nextValue});
+  if(!key||!project){
+    ganttActionDebugLog('status change blocked: project missing',{projectId:key});
+    alert('선택한 프로젝트 정보를 다시 불러온 뒤 시도해 주세요.');
+    return;
+  }
   if(typeof canEdit==='function'&&!canEdit(project)){
+    ganttActionDebugLog('status change blocked: no permission',{projectId:key});
     alert('상태를 변경할 권한이 없습니다.');
     return;
   }
   const patchBody=buildGanttProjectQuickStatusPatch(project,nextValue);
-  if(!patchBody)return;
+  if(!patchBody){
+    ganttActionDebugLog('status change blocked: no patch body',{projectId:key,nextValue});
+    return;
+  }
   const currentValue=getGanttProjectQuickLifecycleValue(project);
-  if(String(currentValue)===String(nextValue))return;
+  if(String(currentValue)===String(nextValue)){
+    ganttActionDebugLog('status change skipped: same lifecycle',{projectId:key,currentValue});
+    return;
+  }
   try{
     await api('PATCH','projects?id=eq.'+key,patchBody);
     if(typeof logActivity==='function'){
       await logActivity('프로젝트 상태 변경','project',key,project?.name||'');
     }
     await loadAll();
+    ganttActionDebugLog('status change saved',{projectId:key,nextValue});
     renderGantt();
   }catch(error){
+    ganttActionDebugLog('status change failed',{projectId:key,nextValue,message:error?.message||String(error)});
     alert('상태 변경 중 오류가 발생했습니다: '+error.message);
   }
 }
 
 window.applyGanttProjectQuickLifecycleSelection=async function(projectId){
   const select=document.getElementById('ganttProjectQuickStatusSelect');
-  if(!select)return;
-  await updateGanttProjectQuickLifecycle(projectId,select.value);
+  if(!select){
+    ganttActionDebugLog('status change blocked: select missing',{projectId});
+    alert('상태 변경 UI를 다시 불러온 뒤 시도해 주세요.');
+    return;
+  }
+  const targetProjectId=getActiveGanttDetailProjectId(projectId||select.dataset.projectId);
+  await updateGanttProjectQuickLifecycle(targetProjectId,select.value);
 };
 
 window.requestGanttProjectFullyClose=async function(projectId){
-  const key=String(projectId||'').trim();
-  const project=(projects||[]).find(item=>String(item?.id||'')===key);
-  if(!key||!project)return;
+  const key=getActiveGanttDetailProjectId(projectId);
+  const project=getGanttProjectById(key);
+  ganttActionDebugLog('fully close click',{projectId:key});
+  if(!key||!project){
+    ganttActionDebugLog('fully close blocked: project missing',{projectId:key});
+    alert('선택한 프로젝트 정보를 다시 불러온 뒤 시도해 주세요.');
+    return;
+  }
   if(typeof canEdit==='function'&&!canEdit(project)){
+    ganttActionDebugLog('fully close blocked: no permission',{projectId:key});
     alert('프로젝트 종료 상태를 변경할 권한이 없습니다.');
     return;
   }
   ensureGanttProjectLifecycleSupport(key);
   const closureMeta=getGanttProjectClosureMeta(project);
   if(!closureMeta.ready){
+    ganttActionDebugLog('fully close blocked: support loading',{projectId:key,loading:closureMeta.loading});
     alert('완전 종료 기준을 확인하는 중입니다. 잠시 후 다시 시도해 주세요.');
     return;
   }
   if(!closureMeta.canFullyClose){
+    ganttActionDebugLog('fully close blocked: blockers found',{projectId:key,blockers:closureMeta.blockers});
     alert('완전 종료 전 확인이 필요합니다.\n- '+closureMeta.blockers.join('\n- '));
     return;
   }
@@ -2009,8 +2059,10 @@ window.requestGanttProjectFullyClose=async function(projectId){
       await logActivity('프로젝트 완전 종료','project',key,project?.name||'');
     }
     await loadAll();
+    ganttActionDebugLog('fully close saved',{projectId:key});
     renderGantt();
   }catch(error){
+    ganttActionDebugLog('fully close failed',{projectId:key,message:error?.message||String(error)});
     alert('완전 종료 처리 중 오류가 발생했습니다: '+error.message);
   }
 };
@@ -2035,7 +2087,7 @@ function renderGanttProjectLifecycleActionPanel(project){
       :closureMeta.canFullyClose
         ?'good'
         :'warn';
-  const closeDisabled=!editable||lifecycleMeta?.key==='fully_closed'||!closureMeta.canFullyClose;
+  const closeDisabled=!editable||lifecycleMeta?.key==='fully_closed';
   return ''
     +'<div class="gantt-detail-lifecycle-panel">'
       +'<div class="gantt-detail-lifecycle-top">'
@@ -2045,7 +2097,7 @@ function renderGanttProjectLifecycleActionPanel(project){
         +'</div>'
         +(editable&&lifecycleMeta?.key!=='fully_closed'
           ?'<div class="gantt-detail-lifecycle-controls">'
-              +'<select id="ganttProjectQuickStatusSelect" class="gantt-detail-lifecycle-select">'+getGanttProjectQuickLifecycleOptionsHtml(project)+'</select>'
+              +'<select id="ganttProjectQuickStatusSelect" data-project-id="'+project.id+'" class="gantt-detail-lifecycle-select">'+getGanttProjectQuickLifecycleOptionsHtml(project)+'</select>'
               +'<button type="button" class="btn sm" onclick="applyGanttProjectQuickLifecycleSelection(\''+project.id+'\')">상태 변경</button>'
               +'<button type="button" class="btn ghost sm gantt-detail-close-btn"'+(closeDisabled?' disabled':'')+' onclick="requestGanttProjectFullyClose(\''+project.id+'\')">완전 종료</button>'
             +'</div>'
@@ -2167,8 +2219,11 @@ function syncGanttPrimaryToolbarVisibility(){
   const summary=document.getElementById('ganttVisibilitySummary');
   const memberTabs=document.getElementById('memberFilterTabs');
   if(scheduleBtn){
-    scheduleBtn.hidden=true;
-    scheduleBtn.style.display='none';
+    const canShowScheduleBtn=typeof canManageCore==='function'?canManageCore():true;
+    scheduleBtn.hidden=!canShowScheduleBtn;
+    scheduleBtn.style.display=canShowScheduleBtn?'inline-flex':'none';
+    scheduleBtn.textContent='+ 개인 일정';
+    scheduleBtn.title='개인 일정 추가';
   }
   [projectViewBtn,memberViewBtn].forEach(btn=>{
     if(!btn)return;
@@ -5466,12 +5521,15 @@ renderGanttDetailPanel=function(projs,schs){
   if(!project){
     const placeholderKey='placeholder:'+String(ganttFocusProjectId||'');
     if(el.dataset.renderSignature===placeholderKey)return;
+    el.dataset.projectId='';
     el.innerHTML=renderGanttDetailPlaceholder();
     el.dataset.renderSignature=placeholderKey;
     return;
   }
   const renderSignature=getGanttDetailRenderSignature(projs);
   if(el.dataset.renderSignature===renderSignature)return;
+  el.dataset.projectId=String(project.id||'');
+  ensureGanttProjectLifecycleSupport(project.id);
   const client=clients.find(c=>c.id===project.client_id)||null;
   const projectMembers=project.members||[];
   const memberSchedules=getGanttProjectConflictSchedules(project);
