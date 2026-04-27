@@ -678,13 +678,27 @@ body{
 }
 
 #pageWeeklyReview .weekly-review-summary-shell{
-  position:sticky!important;
-  top:16px!important;
-  z-index:12!important;
+  position:relative!important;
+  top:auto!important;
+  z-index:auto!important;
   padding:24px!important;
   background:linear-gradient(180deg,rgba(255,255,255,.98) 0%,rgba(246,249,252,.98) 100%)!important;
   box-shadow:0 20px 44px rgba(16,32,51,.10)!important;
-  backdrop-filter:blur(12px);
+  backdrop-filter:none!important;
+  overflow:visible!important;
+  margin-bottom:0!important;
+}
+
+#pageWeeklyReview .weekly-review-body{
+  position:relative!important;
+  z-index:0!important;
+  margin-top:0!important;
+}
+
+#pageWeeklyReview .weekly-review-body-grid{
+  position:relative!important;
+  z-index:0!important;
+  margin-top:4px!important;
 }
 
 #pageWeeklyReview .weekly-review-toolbar{
@@ -1381,5 +1395,285 @@ table tr,
   #pageTeam .home-layer-card,
   #pageTeam .home-queue-card{
     padding:20px 18px 18px!important;
+  }
+}
+
+/* Executive finish pass: final consistency layer for premium product tone. */
+:root{
+  --ds-control-height:42px;
+  --ds-control-height-sm:36px;
+  --ds-summary-gap:14px;
+  --ds-selected-surface:rgba(22,35,59,.055);
+  --ds-hover-surface:rgba(16,32,51,.028);
+  --ds-muted-surface:rgba(247,250,252,.9);
+}
+
+.section-header,
+.client-toolbar-shell,
+.contract-toolbar-shell,
+#pageGantt .gantt-top-shell,
+#pageWeeklyReview .weekly-review-toolbar{
+  margin-bottom:18px!important;
+}
+
+.client-kpi-grid,
+.contract-kpi-grid,
+.issues-page-summary-grid,
+.admin-summary-grid,
+#pageWeeklyReview .weekly-review-summary-grid{
+  gap:var(--ds-summary-gap)!important;
+}
+
+.client-kpi-card,
+.contract-kpi-card,
+.issues-page-summary-card,
+.admin-summary-card,
+#pageWeeklyReview .weekly-review-card{
+  padding:20px 20px 18px!important;
+}
+
+.section-header .muted,
+.contract-list-head .muted,
+.client-table-sub,
+.contract-detail-card-sub,
+.issues-page-card-note,
+.issues-page-inline-sub,
+.issues-page-row-sub,
+.gantt-main-copy,
+.gantt-panel-sub,
+#pageWeeklyReview .weekly-review-card-helper,
+#pageWeeklyReview .weekly-review-card-meta,
+#pageWeeklyReview .weekly-review-section-sub,
+.admin-table-sub{
+  color:var(--text3)!important;
+  line-height:1.58!important;
+}
+
+.btn,
+.nav-btn,
+.logout-btn,
+.toggle-btn,
+.detail-tab,
+.modal-tab,
+.login-tab,
+.member-filter-tab,
+.gantt-list-filter-chip,
+.gantt-filter-tag,
+.client-filter-tag,
+.contract-filter-tag,
+.gantt-status-chip,
+.gantt-type-chip,
+.contract-type-chip{
+  transition:
+    background .18s ease,
+    border-color .18s ease,
+    color .18s ease,
+    box-shadow .18s ease,
+    transform .18s ease!important;
+}
+
+.btn.danger{
+  background:var(--semantic-danger-bg)!important;
+  border-color:rgba(194,65,58,.12)!important;
+  color:var(--semantic-danger-fg)!important;
+  box-shadow:none!important;
+}
+
+.btn.danger:hover{
+  background:#FFF1EE!important;
+  border-color:rgba(194,65,58,.18)!important;
+  color:var(--semantic-danger-fg)!important;
+}
+
+.btn.ghost{
+  background:transparent!important;
+  color:var(--text2)!important;
+  border-color:transparent!important;
+}
+
+.btn.ghost:hover{
+  background:rgba(16,32,51,.045)!important;
+  color:var(--navy)!important;
+}
+
+.toggle-wrap,
+.detail-tabs,
+.modal-tabs,
+.login-tabs,
+.gantt-detail-tabbar{
+  background:rgba(236,242,247,.92)!important;
+  border-color:rgba(16,32,51,.08)!important;
+  padding:5px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.88)!important;
+}
+
+.detail-tab,
+.modal-tab,
+.login-tab,
+.toggle-btn,
+.gantt-detail-tab{
+  min-height:var(--ds-control-height-sm)!important;
+  padding:0 14px!important;
+}
+
+.detail-tab.active,
+.modal-tab.active,
+.login-tab.active,
+.toggle-btn.active,
+.gantt-detail-tab.active{
+  background:rgba(255,255,255,.98)!important;
+  box-shadow:0 8px 16px rgba(16,32,51,.08)!important;
+}
+
+input::placeholder,
+textarea::placeholder,
+.contract-toolbar-search::placeholder,
+.gantt-client-search::placeholder,
+.gantt-list-search::placeholder{
+  color:rgba(90,107,127,.78)!important;
+}
+
+.workspace-search-results{
+  border:1px solid rgba(16,32,51,.08)!important;
+  border-radius:20px!important;
+  box-shadow:0 20px 44px rgba(16,32,51,.12)!important;
+  background:rgba(255,255,255,.98)!important;
+}
+
+.workspace-search-result{
+  padding:13px 15px!important;
+}
+
+.workspace-search-result:hover{
+  background:rgba(16,32,51,.035)!important;
+}
+
+.workspace-search-result.active{
+  background:rgba(37,88,200,.08)!important;
+}
+
+.workspace-search-result-badge{
+  background:var(--semantic-info-bg)!important;
+  color:var(--semantic-info-fg)!important;
+  border:1px solid rgba(37,88,200,.10)!important;
+}
+
+.client-toolbar-primary,
+.client-toolbar-actions,
+.contract-toolbar-primary,
+.contract-toolbar-basic,
+.contract-toolbar-filters,
+.contract-toolbar-actions,
+.gantt-top-filter-row,
+.gantt-top-filter-group,
+.admin-filter-grid{
+  gap:10px!important;
+}
+
+.contract-toolbar-basic,
+.gantt-view-settings,
+.gantt-visibility-toggle{
+  background:var(--ds-muted-surface)!important;
+  border:1px solid rgba(16,32,51,.06)!important;
+  border-radius:18px!important;
+}
+
+.client-table th,
+.client-table td,
+.contract-list-table th,
+.contract-list-table td,
+.gantt-list-table thead th,
+.gantt-list-table tbody td,
+.admin-table-head,
+.admin-table-row{
+  padding-top:14px!important;
+  padding-bottom:14px!important;
+}
+
+.client-table tbody tr,
+.contract-list-table tbody tr,
+.gantt-list-table tbody tr{
+  transition:background .18s ease, box-shadow .18s ease!important;
+}
+
+.client-table tbody tr:hover td,
+.contract-list-table tbody tr:hover td,
+.gantt-list-table tbody tr:hover td{
+  background:var(--ds-hover-surface)!important;
+}
+
+.contract-list-row.is-warn,
+.contract-list-row.is-danger,
+.contract-list-row.is-ok{
+  border-radius:16px!important;
+}
+
+.gantt-list-row.is-selected td,
+.client-table tbody tr.is-selected td,
+.admin-table-row.is-selected{
+  background:var(--ds-selected-surface)!important;
+}
+
+.contract-detail-section,
+.contract-detail-summary-card,
+.contract-detail-note-block,
+.contract-detail-billing-item,
+.contract-detail-project-item{
+  border-radius:18px!important;
+}
+
+.contract-detail-section{
+  padding:20px!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+.contract-detail-card-head,
+.gantt-detail-header--ops,
+.client-card-head,
+.issues-page-row-head,
+#pageWeeklyReview .weekly-review-section-head{
+  margin-bottom:16px!important;
+}
+
+#pageWeeklyReview .weekly-review-summary-shell,
+#pageWeeklyReview .weekly-review-section{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+#pageWeeklyReview .weekly-review-section-group,
+#pageWeeklyReview .weekly-review-item--table{
+  background:rgba(248,250,252,.88)!important;
+  border:1px solid rgba(16,32,51,.06)!important;
+}
+
+#pageGantt .gantt-detail,
+#pageGantt .gantt-sidebar,
+#pageGantt .gantt-main{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+#pageGantt .gantt-detail-selection-chip{
+  border:1px solid rgba(37,88,200,.12)!important;
+  background:rgba(37,88,200,.08)!important;
+  color:var(--navy)!important;
+}
+
+#pageTeam .home-layer-card,
+#pageTeam .home-queue-card,
+#pageTeam .home-support-card{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%)!important;
+}
+
+@media(max-width:768px){
+  .client-kpi-card,
+  .contract-kpi-card,
+  .issues-page-summary-card,
+  .admin-summary-card,
+  #pageWeeklyReview .weekly-review-card{
+    padding:18px 16px 16px!important;
+  }
+
+  .contract-detail-section{
+    padding:18px 16px!important;
   }
 }

@@ -2230,9 +2230,12 @@ async function navigateToStoredProjectComment(commentId){
 const TYPES={'감사':'#6366F1','세무':'#06B6D4','밸류에이션':'#8B5CF6','자문':'#10B981','실사':'#EC4899','기타':'#94A3B8'};
 const ST_OP={'진행중':1,'예정':.5,'완료':.3};
 const SCHEDULE_META={
+  meeting:{label:'회의',color:'#A6B7C8'},
+  external:{label:'외근',color:'#C4B29B'},
+  review:{label:'검토',color:'#B6C0CE'},
   leave:{label:'휴가',color:'#C8B28A'},
   fieldwork:{label:'필드웍',color:'#9AA7B6'},
-  internal:{label:'내부업무',color:'#A8B0BA'},
+  internal:{label:'내부 블록',color:'#A8B0BA'},
   project:{label:'프로젝트 일정',color:'#6366F1'}
 };
 
@@ -3708,6 +3711,19 @@ function canDeleteProject(p){return isAdmin||(currentUser&&p&&p.created_by===cur
 function isOverdue(p){return toDate(p.end)<new Date()&&p.status!=='완료';}
 function scheduleLabel(type){return SCHEDULE_META[type]?.label||type||'일정';}
 function scheduleColor(type){return SCHEDULE_META[type]?.color||'#8b95a1';}
+function scheduleSupportsProjectLink(scheduleRow){
+  if(scheduleRow&&Object.prototype.hasOwnProperty.call(scheduleRow,'project_id'))return true;
+  return (schedules||[]).some(row=>row&&Object.prototype.hasOwnProperty.call(row,'project_id'));
+}
+function buildScheduleProjectOptions(selectedProjectId=''){
+  const selectedId=String(selectedProjectId||'');
+  return '<option value="">관련 프로젝트 없음</option>'
+    +(projects||[]).map(project=>{
+      const client=clients.find(row=>String(row?.id||'')===String(project?.client_id||''))||null;
+      const label=(client?client.name+' · ':'')+(project?.name||'프로젝트');
+      return '<option value="'+project.id+'"'+(String(project.id)===selectedId?' selected':'')+'>'+esc(label)+'</option>';
+    }).join('');
+}
 function isScheduleConflict(s){
   if(!getScheduleMemberNames(s).length)return false;
   return projects.some(p=>scheduleHasAnyProjectMember(s,p.members||[])&&toDate(s.start)<=toDate(p.end)&&toDate(s.end)>=toDate(p.start)&&p.status!=='완료');
@@ -3867,7 +3883,7 @@ function scheduleRow(s,days){
   const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
     ?getGanttTimelineRangeMeta(s,days)
     :{visible:true,barS:1,barE:1,span:1};
-  const {barS,barE,span}=rangeMeta;
+  const {visible,barS,barE,span,startText,endText,duration}=rangeMeta;
   const rowCls='row-label gantt-support-row-label';
   const memberLabel=getScheduleMemberLabel(s);
   const scheduleMemberNames=getScheduleMemberNames(s);
@@ -3882,8 +3898,8 @@ function scheduleRow(s,days){
   for(let d=1;d<=days;d++){
     const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
     const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
-    if(d===barS){
-      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-span="'+span+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(displayTitle+(subtitle?' | '+subtitle:'')+(s.memo?' | '+s.memo:''))+'">'+(span>=3?esc(displayTitle):'')+'</div></td>';
+    if(visible&&d===barS){
+      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-span="'+span+'" data-start-day="'+barS+'" data-end-day="'+barE+'" data-duration="'+(duration||span)+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(displayTitle+(subtitle?' | '+subtitle:'')+' | '+(startText||'-')+' ~ '+(endText||'-')+(s.memo?' | '+s.memo:''))+'">'+(span>=3?esc(displayTitle):'')+'</div></td>';
     } else cells+='<td class="'+cls+'"></td>';
   }
   return '<tr class="gantt-support-row"><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
@@ -4662,24 +4678,31 @@ function openScheduleModal(eid){
   if(!eid&&!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   const s=eid?schedules.find(x=>x.id===eid):null;
   const editable=!s||isAdmin||s.created_by===currentUser?.id;
+  const supportsProjectLink=scheduleSupportsProjectLink(s);
+  const selectedProjectId=supportsProjectLink?String(s?.project_id||''):'';
   scheduleFormMembers=s?getScheduleMemberNames(s):(currentMember?.name?[currentMember.name]:[]);
   const memberOptions=getAvailableGanttMembers().map(m=>'<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>').join('');
+  const projectOptions=buildScheduleProjectOptions(selectedProjectId);
   document.getElementById('modalArea').innerHTML=
     (editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">')
     +'<div class="modal"><div class="modal-title">'+(s?(editable?'일정 수정':'일정 상세'):'일정 추가')+'</div>'
-    +'<div class="form-row"><label class="form-label">일정명</label><input id="scTitle" value="'+esc(s?s.title:'')+'" placeholder="예) 연차, 부산 필드웍, 내부 회의" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
+    +'<div class="form-row"><label class="form-label">일정명</label><input id="scTitle" value="'+esc(s?s.title:'')+'" placeholder="예) 주간 점검 회의, 부산 외근, 검토 블록" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">유형</label><select id="scType" '+(editable?'':'disabled')+'>'
+      +'<option value="meeting" '+(s&&s.schedule_type==='meeting'?'selected':'')+'>회의</option>'
+      +'<option value="external" '+(s&&s.schedule_type==='external'?'selected':'')+'>외근</option>'
+      +'<option value="review" '+(s&&s.schedule_type==='review'?'selected':'')+'>검토</option>'
       +'<option value="leave" '+(s&&s.schedule_type==='leave'?'selected':'')+'>휴가</option>'
       +'<option value="fieldwork" '+(s&&s.schedule_type==='fieldwork'?'selected':'')+'>필드웍</option>'
-      +'<option value="internal" '+(s&&s.schedule_type==='internal'?'selected':'')+'>내부업무</option>'
+      +'<option value="internal" '+(s&&s.schedule_type==='internal'?'selected':'')+'>내부 블록</option>'
     +'</select></div>'
     +'<div class="form-row"><label class="form-label">담당자</label><select id="scMember" '+(editable?'':'disabled')+'><option value="">담당자 선택</option>'+memberOptions+'</select></div></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">시작일</label><input type="date" id="scStart" value="'+(s?s.start:(curYear+'-'+pad(curMonth)+'-01'))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-row"><label class="form-label">종료일</label><input type="date" id="scEnd" value="'+(s?s.end:(curYear+'-'+pad(curMonth)+'-01'))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
+    +'<div class="form-row"><label class="form-label">관련 프로젝트 (선택)</label><select id="scProject" '+(editable&&supportsProjectLink?'':'disabled style="background:var(--bg)"')+'>'+projectOptions+'</select>'+(supportsProjectLink?'':'<div class="mute" style="margin-top:6px;font-size:11px">현재 개인 일정은 프로젝트 업무와 분리된 별도 레이어로 저장됩니다.</div>')+'</div>'
     +'<div class="form-row"><label class="form-label">장소 / 방문처</label><input id="scLocation" value="'+esc(s?s.location||'':'')+'" placeholder="필드웍인 경우 입력" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-row"><label class="form-label">메모</label><textarea id="scMemo" rows="3" style="resize:vertical" '+(editable?'':'readonly style="background:var(--bg)"')+'>'+esc(s?s.memo||'':'')+'</textarea></div>'
     +(editable?'<div id="scheduleConflictArea"></div>':'')
-    +(s&&editable?'<div class="readonly-notice">휴가와 필드웍은 프로젝트와 분리해 관리하는 일정입니다.</div>':'')
+    +(editable?'<div class="readonly-notice">개인 일정은 프로젝트 업무와 같은 상태 체계로 섞지 않고, 별도 지원 레이어로 관리합니다.</div>':'')
     +'<div class="modal-footer">'
     +(s&&editable?'<button class="btn danger" onclick="deleteSchedule(\''+s.id+'\')">삭제</button>':'<div></div>')
     +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'+(editable?'<button class="btn primary" data-id="'+(s?s.id:'')+'" onclick="saveSchedule(this.dataset.id)">저장</button>':'')+'</div>'
@@ -4764,6 +4787,8 @@ function refreshScheduleConflict(){
 }
 async function saveSchedule(eid){
   if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
+  const currentSchedule=eid?schedules.find(x=>x.id===eid):null;
+  const supportsProjectLink=scheduleSupportsProjectLink(currentSchedule);
   const title=document.getElementById('scTitle').value.trim();
   const schedule_type=document.getElementById('scType').value;
   const memberNames=[...new Set(scheduleFormMembers.filter(Boolean))];
@@ -4771,11 +4796,13 @@ async function saveSchedule(eid){
   const primaryMember=members.find(m=>m.name===primaryMemberName);
   const start_date=document.getElementById('scStart').value;
   const end_date=document.getElementById('scEnd').value;
+  const project_id=supportsProjectLink?(document.getElementById('scProject')?.value||null):null;
   const location=document.getElementById('scLocation').value.trim()||null;
   const memo=document.getElementById('scMemo').value.trim()||null;
   if(!title||!memberNames.length||!start_date||!end_date){alert('일정명, 담당 인력, 시작일, 종료일을 입력해주세요.');return;}
   if(start_date>end_date){alert('종료일이 시작일보다 빠릅니다.');return;}
   const body={title,schedule_type,member_id:primaryMember?.id||null,member_name:primaryMemberName,start_date,end_date,location,memo};
+  if(supportsProjectLink)body.project_id=project_id;
   try{
     let scheduleId=eid;
     if(eid){
@@ -9071,13 +9098,15 @@ window.gRow=function(p,days){
   const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
     ?getGanttTimelineRangeMeta(p,days)
     :{visible:true,barS:1,barE:1,span:1};
-  const {barS,barE,span}=rangeMeta;
+  const {visible,barS,barE,span,startText,endText,duration}=rangeMeta;
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const overlaysByDay={};
   activeSchedules.forEach(schedule=>{
     if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return;
     if(!scheduleHasAnyProjectMember(schedule,p.members||[]))return;
-    const sS=toDate(schedule.start),sE=toDate(schedule.end);
+    const sS=(typeof getGanttLocalDateValue==='function'?getGanttLocalDateValue(schedule.start||schedule.start_date):toDate(schedule.start));
+    const sE=(typeof getGanttLocalDateValue==='function'?getGanttLocalDateValue(schedule.end||schedule.end_date||schedule.start||schedule.start_date):toDate(schedule.end));
+    if(!sS||!sE)return;
     if(sS>mLast||sE<mFirst)return;
     const oS=Math.max(barS,sS<mFirst?1:sS.getDate());
     const oE=Math.min(barE,sE>mLast?days:sE.getDate());
@@ -9111,7 +9140,7 @@ window.gRow=function(p,days){
     const cellCls='cell '+(weekend?'weekend ':'')+(todayCell?'today-c':'');
     const overlays=overlaysByDay[day]||[];
     let overlayHtml='';
-    if(ganttShowPersonalOverlay&&overlays.length&&day>=barS&&day<=barE){
+    if(visible&&ganttShowPersonalOverlay&&overlays.length&&day>=barS&&day<=barE){
       const icons=overlays.map(overlay=>overlay.type==='leave'?'L':'F').join(' ');
       const tooltip=overlays.map(overlay=>overlay.member+' '+overlay.title+' '+overlay.start+'~'+overlay.end+', '+overlay.hint).join(' / ');
       const hasLeave=overlays.some(overlay=>overlay.type==='leave');
@@ -9121,10 +9150,10 @@ window.gRow=function(p,days){
         :'left:1px;right:1px;background:repeating-linear-gradient(45deg, #fef3c7, #fef3c7 4px, #fefce8 4px, #fefce8 8px);border-left:3px solid var(--color-warning);color:#92400e';
       overlayHtml='<div class="leave-marker is-support-layer" style="'+markerStyle+'" title="'+esc(tooltip)+'">'+icons+'</div>';
     }
-    if(day===barS){
+    if(visible&&day===barS){
       const barText=span>=6?esc(p.name)+(p.members.length?' ('+esc(p.members.join(', '))+')':''):span>=3?esc(p.name):'';
       cells+='<td class="'+cellCls+'" style="position:relative">'
-        +'<div class="bar'+(isActive?' is-active':'')+'" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openGanttProjectDetail(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +'<div class="bar'+(isActive?' is-active':'')+'" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-start-day="'+barS+'" data-end-day="'+barE+'" data-duration="'+(duration||span)+'" data-pid="'+p.id+'" onclick="openGanttProjectDetail(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
         +overlayHtml+'</td>';
     }else{
       cells+='<td class="'+cellCls+'" style="position:relative">'+overlayHtml+'</td>';

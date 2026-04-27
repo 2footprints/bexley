@@ -21,13 +21,50 @@ let ganttListExecutionRiskFilters=[];
 let editingProjectTaskProjectId='';
 let editingProjectTaskId='';
 const GANTT_ACTION_DEBUG_PREFIX='[projects-action]';
+const GANTT_RENDER_DEBUG_PREFIX='[gantt]';
 const GANTT_LIST_TASK_DRILL_LIMIT=3;
+const GANTT_DAY_MS=24*60*60*1000;
 
 function ganttActionDebugLog(message,payload){
   try{
     if(payload!==undefined)console.log(`${GANTT_ACTION_DEBUG_PREFIX} ${message}`,payload);
     else console.log(`${GANTT_ACTION_DEBUG_PREFIX} ${message}`);
   }catch(e){}
+}
+
+function ganttRenderDebugLog(message,payload){
+  try{
+    if(payload!==undefined)console.log(`${GANTT_RENDER_DEBUG_PREFIX} ${message}`,payload);
+    else console.log(`${GANTT_RENDER_DEBUG_PREFIX} ${message}`);
+  }catch(e){}
+}
+
+function getGanttLocalDateValue(value){
+  if(!value)return null;
+  if(value instanceof Date){
+    if(Number.isNaN(value.getTime()))return null;
+    return new Date(value.getFullYear(),value.getMonth(),value.getDate());
+  }
+  if(typeof value==='number'){
+    const parsed=new Date(value);
+    if(Number.isNaN(parsed.getTime()))return null;
+    return new Date(parsed.getFullYear(),parsed.getMonth(),parsed.getDate());
+  }
+  const raw=String(value).trim();
+  if(!raw)return null;
+  const dateMatch=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(dateMatch){
+    const [,y,month,day]=dateMatch;
+    return new Date(Number(y),Number(month)-1,Number(day));
+  }
+  const parsed=new Date(raw);
+  if(Number.isNaN(parsed.getTime()))return null;
+  return new Date(parsed.getFullYear(),parsed.getMonth(),parsed.getDate());
+}
+
+function formatGanttDebugDate(date){
+  if(!(date instanceof Date)||Number.isNaN(date.getTime()))return null;
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
 }
 
 const GANTT_STATUS_OPTIONS=[
@@ -336,12 +373,18 @@ function getGanttMonthData(year=curYear,month=curMonth){
   const projs=(projects||[]).filter(project=>{
     if(memberFilter==='me'&&currentMember&&!project.members.includes(currentMember.name))return false;
     if(memberFilter&&memberFilter!=='me'&&!project.members.includes(memberFilter))return false;
-    return toDate(project.start)<=last&&toDate(project.end)>=first;
+    const projectStart=getGanttLocalDateValue(project?.start||project?.start_date||project?.end||project?.end_date);
+    const projectEnd=getGanttLocalDateValue(project?.end||project?.end_date||project?.start||project?.start_date);
+    if(!projectStart||!projectEnd)return false;
+    return projectStart<=last&&projectEnd>=first;
   });
   const schs=(schedules||[]).filter(schedule=>{
     if(memberFilter==='me'&&currentMember&&!scheduleHasMember(schedule,currentMember.name))return false;
     if(memberFilter&&memberFilter!=='me'&&!scheduleHasMember(schedule,memberFilter))return false;
-    return toDate(schedule.start)<=last&&toDate(schedule.end)>=first;
+    const scheduleStart=getGanttLocalDateValue(schedule?.start||schedule?.start_date||schedule?.end||schedule?.end_date);
+    const scheduleEnd=getGanttLocalDateValue(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
+    if(!scheduleStart||!scheduleEnd)return false;
+    return scheduleStart<=last&&scheduleEnd>=first;
   });
   return {projs,schs};
 }
@@ -458,30 +501,73 @@ function getGanttTimelineRangeMeta(item,days,year=curYear,month=curMonth){
   const fallbackEnd=item?.end_date??item?.end??item?.due_date??item?.start_date??item?.start??'';
   const startValue=String(fallbackStart||'').trim();
   const endValue=String(fallbackEnd||'').trim();
-  const startDate=toDate(startValue||endValue);
-  const endDate=toDate(endValue||startValue);
+  const itemKey=String(item?.id||item?.project_id||item?.schedule_id||'').trim()||null;
+  const itemKind=item?.schedule_type?'schedule':'project';
+  ganttRenderDebugLog('bar render start',{itemId:itemKey,itemKind,startValue,endValue,year,month});
+  const startDate=getGanttLocalDateValue(startValue||endValue);
+  const endDate=getGanttLocalDateValue(endValue||startValue);
   const mFirst=new Date(year,month-1,1);
   const mLast=new Date(year,month-1,days);
-  const startMs=startDate?.getTime?.()||0;
-  const endMs=endDate?.getTime?.()||0;
+  const startMs=startDate?.getTime?.();
+  const endMs=endDate?.getTime?.();
   if(!Number.isFinite(startMs)||!Number.isFinite(endMs)){
+    ganttRenderDebugLog('render error',{
+      itemId:itemKey,
+      itemKind,
+      reason:'invalid-date-range',
+      startValue,
+      endValue
+    });
     return {visible:false,barS:1,barE:1,span:1,startDate:new Date(0),endDate:new Date(0)};
   }
   const normalizedStart=startMs<=endMs?startDate:endDate;
   const normalizedEnd=startMs<=endMs?endDate:startDate;
+  const duration=Math.max(1,Math.round((normalizedEnd-normalizedStart)/GANTT_DAY_MS)+1);
+  ganttRenderDebugLog('range',{
+    itemId:itemKey,
+    itemKind,
+    startDate:formatGanttDebugDate(normalizedStart),
+    endDate:formatGanttDebugDate(normalizedEnd),
+    duration
+  });
   if(normalizedStart>mLast||normalizedEnd<mFirst){
+    ganttRenderDebugLog('render result',{
+      itemId:itemKey,
+      itemKind,
+      visible:false,
+      reason:'out-of-range'
+    });
     return {visible:false,barS:1,barE:1,span:1,startDate:normalizedStart,endDate:normalizedEnd};
   }
-  const barS=normalizedStart<mFirst?1:normalizedStart.getDate();
-  const rawBarE=normalizedEnd>mLast?days:normalizedEnd.getDate();
-  const barE=Math.max(barS,rawBarE);
+  const clippedStart=normalizedStart<mFirst?mFirst:normalizedStart;
+  const clippedEnd=normalizedEnd>mLast?mLast:normalizedEnd;
+  const barS=clippedStart.getDate();
+  const barE=Math.max(barS,clippedEnd.getDate());
+  const span=Math.max(1,Math.round((clippedEnd-clippedStart)/GANTT_DAY_MS)+1);
+  ganttRenderDebugLog('grid placement',{
+    itemId:itemKey,
+    itemKind,
+    startColumn:barS,
+    span,
+    endColumn:barE
+  });
+  ganttRenderDebugLog('render result',{
+    itemId:itemKey,
+    itemKind,
+    visible:true,
+    startColumn:barS,
+    span
+  });
   return {
     visible:true,
     barS,
     barE,
-    span:Math.max(1,barE-barS+1),
+    span,
+    duration,
     startDate:normalizedStart,
-    endDate:normalizedEnd
+    endDate:normalizedEnd,
+    startText:formatGanttDebugDate(normalizedStart),
+    endText:formatGanttDebugDate(normalizedEnd)
   };
 }
 
@@ -701,7 +787,7 @@ function getGanttViewRoleMeta(){
       sidebarTitle:'프로젝트 선택',
       sidebarSub:'목록에서 본 프로젝트를 다시 선택해 하단 상세로 이어갑니다.',
       mainTitle:'프로젝트 비교 목록',
-      mainCopy:'프로젝트 단위로 비교하고, 필요할 때만 관련 업무를 가볍게 펼쳐 봅니다. 세부 관리와 조정은 하단 상세의 Work 탭에서 이어집니다.',
+      mainCopy:'프로젝트 단위로만 비교하고, 개인 일정은 여기 섞지 않습니다. 세부 관리와 조정은 하단 상세의 Work 탭에서 이어집니다.',
       detailPlaceholder:'위 목록에서 프로젝트를 선택하면 Overview / Work / Issues / Memo가 여기에서 열립니다. 실제 업무 관리는 Work 탭에서 이어집니다.',
       supportCue:''
     };
@@ -712,7 +798,7 @@ function getGanttViewRoleMeta(){
       sidebarTitle:'프로젝트 선택',
       sidebarSub:'달력에서 본 프로젝트를 다시 선택해 하단 상세로 이어갑니다.',
       mainTitle:'프로젝트 일정 달력',
-      mainCopy:'날짜별 일정 밀도와 마감 분포를 확인하는 보기입니다. 셀에서는 요약만 보고, 실제 업무 관리는 하단 상세의 Work 탭에서 이어집니다.',
+      mainCopy:'날짜별 일정 밀도와 마감 분포를 확인하는 보기입니다. 개인 일정은 별도 레이어로만 보고, 실제 업무 관리는 하단 상세의 Work 탭에서 이어집니다.',
       detailPlaceholder:'위 달력에서 프로젝트를 선택하면 상세가 여기에서 한 번 열립니다. 날짜 확인은 위에서, 업무 관리는 Work 탭에서 이어집니다.',
       supportCue:'달력에서는 날짜가 있는 업무만 가볍게 보이고, 자세한 조정은 아래 상세의 Work 탭에서 이어집니다.'
     };
@@ -906,21 +992,42 @@ function fixBars(retryPass){
   let needsRetry=false;
   document.querySelectorAll('.bar[data-span]').forEach(bar=>{
     const span=parseInt(bar.dataset.span,10);
+    const startDay=parseInt(bar.dataset.startDay||'',10);
+    const endDay=parseInt(bar.dataset.endDay||'',10);
     const td=bar.closest('td');
-    if(!td||!Number.isFinite(span)||span<1)return;
-    let w=0;
-    let t=td;
-    for(let i=0;i<span;i++){
-      if(!t)break;
-      w+=measureGanttCellWidth(t);
-      t=t.nextElementSibling;
-    }
+    const row=td?.parentElement||null;
+    const dayCells=row?[...row.querySelectorAll('td.cell')]:[];
+    const itemKind=bar.dataset.pid?'project':'schedule';
+    const itemId=String(bar.dataset.pid||bar.dataset.sid||'').trim()||null;
+    if(!td||!row||!Number.isFinite(span)||span<1)return;
+    const startCell=Number.isFinite(startDay)&&startDay>0?dayCells[startDay-1]||td:td;
+    const endCell=Number.isFinite(endDay)&&endDay>=startDay?dayCells[endDay-1]||startCell:dayCells[Math.min(dayCells.length-1,(startDay-1)+span-1)]||startCell;
+    const startLeft=startCell?.offsetLeft||td.offsetLeft||0;
+    const endLeft=endCell?.offsetLeft||startLeft;
+    const endWidth=measureGanttCellWidth(endCell);
+    const widthByOffsets=(endLeft+endWidth)-startLeft;
+    const w=widthByOffsets>0?widthByOffsets:measureGanttCellWidth(startCell);
     if(w<=4){
+      ganttRenderDebugLog('render error',{
+        itemId,
+        itemKind,
+        reason:'bar-width-unresolved',
+        startColumn:startDay,
+        span,
+        retryPass:!!retryPass
+      });
       needsRetry=true;
       return;
     }
     bar.style.width=(w-4)+'px';
     bar.style.right='auto';
+    ganttRenderDebugLog('render result',{
+      itemId,
+      itemKind,
+      startColumn:startDay,
+      span,
+      width:w-4
+    });
   });
   if(needsRetry&&!retryPass&&ganttBarFixRetryFrame==null){
     ganttBarFixRetryFrame=requestAnimationFrame(()=>{
@@ -2362,14 +2469,19 @@ function getGanttDetailTypeBadgeClass(type){
 
 function getGanttProjectConflictSchedules(project){
   const projectMembers=project?.members||[];
+  const projectId=String(project?.id||'').trim();
+  const projectStart=toDate(project.start||project.start_date||'');
+  const projectEnd=toDate(project.end||project.end_date||'');
   return (schedules||[])
     .filter(schedule=>{
-      if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return false;
-      if(!scheduleHasAnyProjectMember(schedule,projectMembers))return false;
-      return toDate(schedule.start)<=toDate(project.end||project.end_date||'')&&toDate(schedule.end)>=toDate(project.start||project.start_date||'');
+      if(!schedule||schedule.schedule_type==='project')return false;
+      const explicitProjectId=String(schedule?.project_id||'').trim();
+      const linkedByProject=!!projectId&&explicitProjectId===projectId;
+      const overlapsProjectWindow=toDate(schedule.start)<=projectEnd&&toDate(schedule.end)>=projectStart;
+      const linkedByMember=!!projectMembers.length&&scheduleHasAnyProjectMember(schedule,projectMembers)&&overlapsProjectWindow;
+      return linkedByProject||linkedByMember;
     })
-    .sort((a,b)=>toDate(a.start)-toDate(b.start))
-    .slice(0,6);
+    .sort((a,b)=>toDate(a.start)-toDate(b.start));
 }
 
 function renderGanttDetailIssuePreview(projectId,issues){
@@ -2410,12 +2522,46 @@ function getGanttDetailLinkedContract(project){
 }
 
 function getGanttDetailConflictSummary(memberSchedules){
-  if(!(memberSchedules||[]).length)return '담당자 휴가/필드웍 일정 없음';
+  if(!(memberSchedules||[]).length)return '관련 개인 일정 없음';
   const preview=memberSchedules
     .slice(0,2)
     .map(schedule=>getScheduleMemberLabel(schedule)+' '+scheduleLabel(schedule.schedule_type))
     .join(', ');
-  return '일정 '+memberSchedules.length+'건 · '+preview+(memberSchedules.length>2?' 외':'');
+  return '개인 일정 '+memberSchedules.length+'건 · '+preview+(memberSchedules.length>2?' 외':'');
+}
+
+function formatGanttScheduleDateText(value){
+  const raw=String(value||'').trim();
+  if(!raw)return '';
+  return raw.replace('T',' ').replace(/:00$/,'');
+}
+
+function getGanttScheduleRangeText(schedule){
+  const startText=formatGanttScheduleDateText(schedule?.start||schedule?.start_date||'');
+  const endText=formatGanttScheduleDateText(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date||'');
+  return startText&&endText&&startText!==endText ? startText+' ~ '+endText : (startText||endText||'일정 미지정');
+}
+
+function getGanttProjectPersonalScheduleMeta(memberSchedules){
+  const list=[...(memberSchedules||[])].filter(Boolean).sort((a,b)=>toDate(a.start)-toDate(b.start));
+  const total=list.length;
+  const today=getHomeBaseDate();
+  const nextSchedule=list.find(schedule=>toDate(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date||'')>=today)||list[0]||null;
+  const nextTitle=nextSchedule
+    ?(nextSchedule.title&&String(nextSchedule.title).trim())||scheduleLabel(nextSchedule.schedule_type)
+    :'없음';
+  const nextMeta=nextSchedule
+    ?getGanttScheduleRangeText(nextSchedule)+' · '+getScheduleMemberLabel(nextSchedule)
+    :'현재 연결된 개인 일정이 없습니다.';
+  const previewRows=list.slice(0,2);
+  return {
+    total,
+    nextSchedule,
+    nextTitle,
+    nextMeta,
+    previewRows,
+    hiddenCount:Math.max(0,total-previewRows.length)
+  };
 }
 
 function getGanttProjectRemainingDaysMeta(project){
@@ -2447,11 +2593,11 @@ function getGanttProjectExecutionFocusItems(project,memberSchedules){
     const firstSchedule=memberSchedules[0];
     items.push({
       tone:'warn',
-      title:'일정 신호 '+memberSchedules.length+'건',
+      title:'개인 일정 '+memberSchedules.length+'건',
       sub:getScheduleMemberLabel(firstSchedule)+' '+scheduleLabel(firstSchedule.schedule_type)+(memberSchedules.length>1?' 외 '+(memberSchedules.length-1)+'건':'')
     });
   }else{
-    items.push({tone:'good',title:'팀 일정 충돌 없음',sub:'현재 필터 기준 휴가·필드웍 일정이 겹치지 않습니다.'});
+    items.push({tone:'good',title:'개인 일정 영향 없음',sub:'현재 프로젝트와 연결된 개인 일정 제약이 없습니다.'});
   }
   if(project?.follow_up_needed){
     items.push({
@@ -5419,6 +5565,7 @@ function getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,
 
 renderGanttProjectOverviewSection=function(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount){
   const actionCards=getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,memberSchedules);
+  const scheduleMeta=getGanttProjectPersonalScheduleMeta(memberSchedules);
   return ''
     +'<div class="gantt-detail-pane gantt-overview-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush gantt-overview-section gantt-overview-section--actions">'
@@ -5431,7 +5578,7 @@ renderGanttProjectOverviewSection=function(project,client,linkedContract,project
         +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">고객사</div><div class="gantt-detail-value">'+esc(client?.name||'미지정')+'</div><div class="gantt-detail-meta">'+esc(projectMembers.join(', ')||'담당 미지정')+'</div></div>'
         +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">계약 / 청구</div><div class="gantt-detail-value">'+esc(linkedContract?.contract_name||'연결 계약 없음')+'</div><div class="gantt-detail-meta">'+formatGanttCurrency(billingAmount)+(linkedContract?.contract_amount?' · 계약 '+formatGanttCurrency(linkedContract.contract_amount):'')+'</div></div>'
         +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div><div class="gantt-detail-meta">'+esc(getGanttProjectCurrentLifecycleMeta(project)?.detail||'프로젝트 일정 확인')+'</div></div>'
-        +'<div class="gantt-overview-context-card '+((memberSchedules||[]).length?'is-warn':'')+'"><div class="gantt-detail-label">일정 / 조정</div><div class="gantt-detail-value">'+esc((memberSchedules||[]).length?getGanttDetailConflictSummary(memberSchedules):'조정 필요 없음')+'</div><div class="gantt-detail-meta">'+((memberSchedules||[]).length?'개인 일정 '+memberSchedules.length+'건 영향':'현재 확인된 지원 일정 없음')+'</div></div>'
+        +'<div class="gantt-overview-context-card '+((memberSchedules||[]).length?'is-warn':'')+'"><div class="gantt-detail-label">개인 일정 / 제약</div><div class="gantt-detail-value">'+esc((memberSchedules||[]).length?('개인 일정 '+memberSchedules.length+'건'):'연결 일정 없음')+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.total?('다음 일정 · '+scheduleMeta.nextMeta):'프로젝트 업무와 분리된 보조 레이어로만 관리합니다.')+'</div></div>'
       +'</div>'
       +renderGanttProjectMemoSummarySection(project)
     +'</div>';
@@ -5497,6 +5644,7 @@ renderGanttProjectNextActionsSection=function(projectId){
 renderGanttProjectWorkSection=function(project,memberSchedules){
   const taskSummary=getGanttProjectTaskSummary(project?.id);
   const loadMeta=getGanttProjectTaskLoadMeta(project?.id);
+  const scheduleMeta=getGanttProjectPersonalScheduleMeta(memberSchedules);
   loadGanttProjectPendingDocSummary(project?.id,false);
   return ''
     +'<div class="gantt-detail-pane gantt-work-pane">'
@@ -5508,8 +5656,14 @@ renderGanttProjectWorkSection=function(project,memberSchedules){
           :renderGanttTaskEmptyState(project.id,loadMeta))
       +'</div>'
       +'<div class="gantt-detail-section gantt-work-schedule-section">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">일정 참고</div><div class="gantt-detail-meta">휴가·필드웍은 실행 제약 신호로만 조용하게 확인합니다.</div></div></div>'
-        +'<div class="gantt-detail-list">'+((memberSchedules||[]).map(schedule=>'<div class="gantt-detail-item is-clickable" onclick="openScheduleModal(\''+schedule.id+'\')"><div><div class="gantt-detail-item-title">'+esc(getScheduleMemberLabel(schedule))+' '+esc(scheduleLabel(schedule.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((schedule.start||'')+' ~ '+(schedule.end||'')+(schedule.location?' · '+schedule.location:''))+'</div></div><span class="badge '+(schedule.schedule_type==='leave'?'badge-orange':'badge-blue')+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span></div>').join('')||'<div class="gantt-detail-empty">현재 확인된 휴가/필드웍 일정이 없습니다.</div>')+'</div>'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">개인 일정 참고</div><div class="gantt-detail-meta">회의·외근·검토·휴가 일정은 프로젝트 업무와 섞지 않고 보조 레이어로만 봅니다.</div></div></div>'
+        +'<div class="gantt-work-schedule-summary">'
+          +'<div class="gantt-work-schedule-card"><div class="gantt-detail-label">관련 개인일정</div><div class="gantt-detail-value">'+esc(scheduleMeta.total?scheduleMeta.total+'건':'없음')+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.total?'프로젝트 업무와 별도로 관리되는 지원 일정입니다.':'현재 연결된 개인 일정이 없습니다.')+'</div></div>'
+          +'<div class="gantt-work-schedule-card"><div class="gantt-detail-label">다음 개인 일정</div><div class="gantt-detail-value">'+esc(scheduleMeta.nextTitle)+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.nextMeta)+'</div></div>'
+        +'</div>'
+        +(scheduleMeta.previewRows.length
+          ?'<div class="gantt-detail-list">'+scheduleMeta.previewRows.map(schedule=>'<div class="gantt-detail-item is-clickable" onclick="openScheduleModal(\''+schedule.id+'\')"><div><div class="gantt-detail-item-title">'+esc(getScheduleMemberLabel(schedule))+' · '+esc((schedule.title&&String(schedule.title).trim())||scheduleLabel(schedule.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc(getGanttScheduleRangeText(schedule)+(schedule.location?' · '+schedule.location:''))+'</div></div><span class="badge '+(schedule.schedule_type==='leave'?'badge-orange':'badge-blue')+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span></div>').join('')+(scheduleMeta.hiddenCount?'<div class="gantt-detail-empty">그 외 연결 개인 일정 '+scheduleMeta.hiddenCount+'건은 간트/달력 레이어에서 이어서 확인할 수 있습니다.</div>':'')+'</div>'
+          :'<div class="gantt-detail-empty">현재 확인된 개인 일정이 없습니다.</div>')
       +'</div>'
     +'</div>';
 };
@@ -5521,14 +5675,18 @@ renderGanttDetailPanel=function(projs,schs){
   if(!project){
     const placeholderKey='placeholder:'+String(ganttFocusProjectId||'');
     if(el.dataset.renderSignature===placeholderKey)return;
+    el.classList.remove('is-open');
     el.dataset.projectId='';
+    el.dataset.activeTab='';
     el.innerHTML=renderGanttDetailPlaceholder();
     el.dataset.renderSignature=placeholderKey;
     return;
   }
   const renderSignature=getGanttDetailRenderSignature(projs);
   if(el.dataset.renderSignature===renderSignature)return;
+  el.classList.add('is-open');
   el.dataset.projectId=String(project.id||'');
+  el.dataset.activeTab=String(ganttDetailTab||'overview');
   ensureGanttProjectLifecycleSupport(project.id);
   const client=clients.find(c=>c.id===project.client_id)||null;
   const projectMembers=project.members||[];
@@ -5551,9 +5709,10 @@ renderGanttDetailPanel=function(projs,schs){
   el.innerHTML=''
     +'<div class="gantt-detail-header gantt-detail-header--ops">'
       +'<div class="gantt-detail-head-copy">'
-        +'<div class="gantt-detail-context">선택한 프로젝트</div>'
+        +'<div class="gantt-detail-context">현재 선택된 프로젝트 상세</div>'
         +'<div class="gantt-panel-title">'+esc(project.name||'프로젝트')+'</div>'
         +'<div class="gantt-panel-sub">'+esc(client?.name||'고객사 미지정')+'</div>'
+        +'<div class="gantt-detail-selection-chip">하단 작업공간에서 이어서 확인</div>'
         +'<div class="gantt-detail-header-statusline"><span class="badge '+getGanttListStatusBadgeClass(lifecycleMeta?.label||'진행중')+'">'+esc(lifecycleMeta?.label||'진행중')+'</span></div>'
         +'<div class="gantt-detail-header-meta">'
           +'<span class="gantt-detail-header-chip">담당 · '+esc(projectMembers.join(', ')||'미배정')+'</span>'
@@ -5563,8 +5722,8 @@ renderGanttDetailPanel=function(projs,schs){
       +'<div class="gantt-detail-actions gantt-detail-actions--ops">'
         +primaryAction
         +'<button class="btn sm" onclick="openProjModal(\''+project.id+'\')">전체 수정</button>'
-        +'<button type="button" class="gantt-detail-link-btn" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook</button>'
-        +'<button type="button" class="gantt-detail-link-btn" onclick="closeGanttProjectDetail()">닫기</button>'
+        +'<button type="button" class="gantt-detail-link-btn" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
+        +'<button type="button" class="gantt-detail-link-btn gantt-detail-close-link" onclick="closeGanttProjectDetail()">목록으로 돌아가기</button>'
       +'</div>'
     +'</div>'
     +renderGanttProjectLifecycleActionPanel(project)
