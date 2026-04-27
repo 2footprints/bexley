@@ -4295,14 +4295,14 @@ function renderProjModal(p,editable,preClientId,preContractId){
   document.getElementById('modalArea').innerHTML=`
     ${editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">'}
       <div class="modal project-modal ui-modal-680" style="width:680px">
-        <div class="modal-title">${p?(editable?'프로젝트 수정':'프로젝트 상세'):'프로젝트 추가'}</div>
+        <div class="modal-title">${p?(editable?'프로젝트 설정':'프로젝트 상세'):'프로젝트 추가'}</div>
         ${p?'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn primary sm" type="button" onclick="handleProjectOutlookEvent(\''+p.id+'\')">Outlook에 바로 추가</button></div>':''}
-        ${editable?'<div class="project-modal-intro">기본 정보만 먼저 입력하면 저장할 수 있습니다. 체크리스트와 후속 관리 항목은 아래에서 접어서 보거나 저장 후 이어서 입력해도 됩니다.</div>':''}
+        ${editable?'<div class="project-modal-intro">프로젝트 기본 정보와 설정값을 수정하는 화면입니다. 현재 상태 변경, 병목 확인, Work / Issues / Memo 확인은 하단 상세패널에서 이어서 진행합니다.</div>':''}
         <div class="modal-tabs project-modal-tabs">
           <button class="modal-tab${projModalTab==='basic'?' active':''}" data-tab="basic" onclick="switchProjTab('basic')">기본 정보</button>
           <button class="modal-tab${projModalTab==='issue'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
           <button class="modal-tab${projModalTab==='documents'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="documents" onclick="switchProjTab('documents')">자료요청</button>
-          <button class="modal-tab${projModalTab==='billing'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="billing" onclick="switchProjTab('billing')">빌링</button>
+          <button class="modal-tab${projModalTab==='billing'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="billing" onclick="switchProjTab('billing')">청구 설정</button>
           <button class="modal-tab${projModalTab==='completion'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="completion" onclick="switchProjTab('completion')">완료·후속</button>
         </div>
 
@@ -4360,13 +4360,14 @@ function renderProjModal(p,editable,preClientId,preContractId){
         </div>
 
         <div class="modal-tab-content${projModalTab==='billing'?' active':''}" data-tab="billing">
+          <div class="helper-box" style="margin-bottom:12px"><div class="helper-title">프로젝트 청구 설정</div><div class="helper-text">여기서는 빌링 대상 여부, 계약 연결, 기준 금액 같은 프로젝트 설정값을 관리합니다. 현재 청구 상태와 실제 미청구 여부는 하단 상세패널의 실행 요약에서 확인합니다.</div></div>
           <div class="checkbox-row"><input type="checkbox" id="fBillable" ${isBillable?'checked':''} ${editable?'':'disabled'}/><label for="fBillable">빌링 대상 프로젝트</label></div>
           <div id="billingFields" style="${isBillable?'':'display:none'}">
             <div class="form-half">
-              <div class="form-row"><label class="form-label">빌링 상태</label><select id="fBilling" ${editable?'':'disabled'}>${['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')}</select></div>
-              <div class="form-row"><label class="form-label">청구 금액 (원)</label><input id="fAmt" type="number" value="${p&&p.billing_amount?p.billing_amount:''}" placeholder="${linkedContract?.contract_amount?'계약: '+Number(linkedContract.contract_amount).toLocaleString():'예) 5000000'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+              <div class="form-row"><label class="form-label">현재 청구 상태</label><select id="fBilling" ${editable?'':'disabled'}>${['미청구','청구완료','수금완료'].map(s=>'<option '+(p&&p.billing_status===s?'selected':'')+'>'+s+'</option>').join('')}</select></div>
+              <div class="form-row"><label class="form-label">기준 금액 / 예상 청구</label><input id="fAmt" type="number" value="${p&&p.billing_amount?p.billing_amount:''}" placeholder="${linkedContract?.contract_amount?'계약: '+Number(linkedContract.contract_amount).toLocaleString():'예) 5000000'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
             </div>
-            <div class="form-row"><label class="form-label">빌링 메모</label><input id="fBNote" value="${esc(p&&p.billing_note?p.billing_note:'')}" placeholder="인보이스 번호, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+            <div class="form-row"><label class="form-label">청구 기준 메모 / 비청구 사유</label><input id="fBNote" value="${esc(p&&p.billing_note?p.billing_note:'')}" placeholder="인보이스 기준, 비청구 사유, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
             <div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">세금계산서 발행 요청 메일 문안을 자동으로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="${p?p.id:''}" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div></div>
           </div>
           ${p&&linkedContract?'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 빌링 현황</div>'+buildContractBillingSummary(linkedContract.id)+'</div>':''}

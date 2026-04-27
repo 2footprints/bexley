@@ -838,10 +838,15 @@ body{
   border:1px solid rgba(92,107,126,.10)!important;
 }
 
-#pageWeeklyReview .weekly-review-section[data-section-id="risks"] .weekly-review-section-expanded-body,
-#pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-section-expanded-body{
+#pageWeeklyReview .weekly-review-section[data-section-id="risks"] .weekly-review-section-expanded-body{
   display:grid!important;
   grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:14px!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-section-expanded-body{
+  display:flex!important;
+  flex-direction:column!important;
   gap:14px!important;
 }
 
@@ -849,6 +854,11 @@ body{
   background:#fff!important;
 }
 
+#pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-item--table{
+  background:#fff!important;
+}
+
+#pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-item-table-grid,
 #pageWeeklyReview .weekly-review-section[data-section-id="next"] .weekly-review-item-table-grid{
   gap:14px!important;
 }
@@ -879,8 +889,7 @@ body{
   #pageWeeklyReview .weekly-review-summary-shell{
     position:static!important;
   }
-  #pageWeeklyReview .weekly-review-section[data-section-id="risks"] .weekly-review-section-expanded-body,
-  #pageWeeklyReview .weekly-review-section[data-section-id="billing"] .weekly-review-section-expanded-body{
+  #pageWeeklyReview .weekly-review-section[data-section-id="risks"] .weekly-review-section-expanded-body{
     grid-template-columns:1fr!important;
   }
 }

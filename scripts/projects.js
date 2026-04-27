@@ -5664,9 +5664,17 @@ function getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,
   const billingValue=project?.is_billable===false
     ?'비청구'
     :billingStatus||'미청구';
+  const actualBillingAmount=Number(project?.billing_amount||0);
+  const billingActionNote=String(project?.billing_note||'').trim();
   const billingMeta=project?.is_billable===false
-    ?'계약/청구 대상이 아닌 프로젝트입니다.'
-    :formatGanttCurrency(billingAmount);
+    ?'비청구 설정 프로젝트입니다.'
+    :billingValue==='미청구'
+      ?((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||'청구 확인 필요'))
+      :billingValue==='청구완료'
+        ?((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||'수금 확인 필요'))
+        :billingValue==='수금완료'
+          ?((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||'청구 정리 완료'))
+          :((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||formatGanttCurrency(billingAmount)));
   return [
     {label:'다음 마감',value:nextDueLabel,meta:nextDueLabel==='미정'?'일정 확인 필요':'가장 가까운 일정',tone:nextDueTone},
     {label:'현재 병목',value:bottleneckValue,meta:overdueCount>0?'Work에서 우선 조정 필요':issueLinkedCount>0?'Issues와 함께 확인':'큰 병목 없음',tone:bottleneckTone},
@@ -5679,6 +5687,19 @@ function getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,
 renderGanttProjectOverviewSection=function(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount){
   const actionCards=getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,memberSchedules);
   const scheduleMeta=getGanttProjectPersonalScheduleMeta(memberSchedules);
+  const plannedBillingAmount=Number(project?.billing_amount||0)>0
+    ?Number(project.billing_amount||0)
+    :Number(linkedContract?.contract_amount||0);
+  const settingsMetaParts=[
+    linkedContract?.contract_name?('연결 계약 · '+linkedContract.contract_name):'연결 계약 없음'
+  ];
+  if(project?.is_billable!==false&&plannedBillingAmount>0){
+    settingsMetaParts.push((Number(project?.billing_amount||0)>0?'기준 금액 ':'계약 금액 ')+formatGanttCurrency(plannedBillingAmount));
+  }
+  if(project?.is_billable===false&&String(project?.billing_note||'').trim()){
+    settingsMetaParts.push(String(project.billing_note||'').trim());
+  }
+  const settingsValue=project?.is_billable===false?'비청구 프로젝트':'빌링 대상 프로젝트';
   return ''
     +'<div class="gantt-detail-pane gantt-overview-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush gantt-overview-section gantt-overview-section--actions">'
@@ -5688,9 +5709,9 @@ renderGanttProjectOverviewSection=function(project,client,linkedContract,project
         +'</div>'
       +'</div>'
       +'<div class="gantt-overview-context-grid gantt-overview-context-grid--static">'
-        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">고객사</div><div class="gantt-detail-value">'+esc(client?.name||'미지정')+'</div><div class="gantt-detail-meta">'+esc(projectMembers.join(', ')||'담당 미지정')+'</div></div>'
-        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">계약 / 청구</div><div class="gantt-detail-value">'+esc(linkedContract?.contract_name||'연결 계약 없음')+'</div><div class="gantt-detail-meta">'+formatGanttCurrency(billingAmount)+(linkedContract?.contract_amount?' · 계약 '+formatGanttCurrency(linkedContract.contract_amount):'')+'</div></div>'
-        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div><div class="gantt-detail-meta">'+esc(getGanttProjectCurrentLifecycleMeta(project)?.detail||'프로젝트 일정 확인')+'</div></div>'
+        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">고객사 / 담당</div><div class="gantt-detail-value">'+esc(client?.name||'미지정')+'</div><div class="gantt-detail-meta">'+esc(projectMembers.join(', ')||'담당 미지정')+'</div></div>'
+        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">프로젝트 설정</div><div class="gantt-detail-value">'+esc(settingsValue)+'</div><div class="gantt-detail-meta">'+esc(settingsMetaParts.join(' · '))+'</div></div>'
+        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">기본 기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div><div class="gantt-detail-meta">'+esc(getGanttProjectCurrentLifecycleMeta(project)?.detail||'프로젝트 일정 확인')+'</div></div>'
         +'<div class="gantt-overview-context-card '+((memberSchedules||[]).length?'is-warn':'')+'"><div class="gantt-detail-label">개인 일정 / 제약</div><div class="gantt-detail-value">'+esc((memberSchedules||[]).length?('개인 일정 '+memberSchedules.length+'건'):'연결 일정 없음')+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.total?('다음 일정 · '+scheduleMeta.nextMeta):'프로젝트 업무와 분리된 보조 레이어로만 관리합니다.')+'</div></div>'
       +'</div>'
       +renderGanttProjectMemoSummarySection(project)
@@ -5834,7 +5855,7 @@ renderGanttDetailPanel=function(projs,schs){
       +'</div>'
       +'<div class="gantt-detail-actions gantt-detail-actions--ops">'
         +primaryAction
-        +'<button class="btn sm" onclick="openProjModal(\''+project.id+'\')">전체 수정</button>'
+        +'<button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')" title="프로젝트명, 고객사, 계약 연결, 빌링 대상 여부 같은 기본 설정을 수정합니다.">프로젝트 설정</button>'
         +'<button type="button" class="gantt-detail-link-btn" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
         +'<button type="button" class="gantt-detail-link-btn gantt-detail-close-link" onclick="closeGanttProjectDetail()">목록으로 돌아가기</button>'
       +'</div>'
