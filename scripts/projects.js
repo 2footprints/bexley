@@ -5,6 +5,8 @@ let ganttClientFilterQuery='';
 let ganttListSortKey='period';
 let ganttListSortDir='asc';
 let ganttListSearchQuery='';
+let ganttListSearchComposing=false;
+let ganttListSearchRenderTimer=0;
 let ganttListSelectedIds=[];
 let ganttListExpandedProjectIds=[];
 let ganttListExpandedMoreProjectIds=[];
@@ -1226,9 +1228,45 @@ function renderGanttListView(projs,schs){
   renderLegend();
 }
 
-function setGanttListSearchQuery(value){
-  ganttListSearchQuery=String(value||'').trim();
+function flushGanttListSearchRender(){
+  if(ganttListSearchRenderTimer){
+    clearTimeout(ganttListSearchRenderTimer);
+    ganttListSearchRenderTimer=0;
+  }
   renderGantt();
+}
+
+function scheduleGanttListSearchRender(){
+  if(ganttListSearchRenderTimer)clearTimeout(ganttListSearchRenderTimer);
+  ganttListSearchRenderTimer=setTimeout(()=>{
+    ganttListSearchRenderTimer=0;
+    renderGantt();
+  },90);
+}
+
+function setGanttListSearchQuery(value,options={}){
+  const {deferRender=false}=options||{};
+  ganttListSearchQuery=String(value||'');
+  if(deferRender)return;
+  scheduleGanttListSearchRender();
+}
+
+function bindGanttListSearchInput(input){
+  if(!input)return;
+  input.oncompositionstart=()=>{
+    ganttListSearchComposing=true;
+  };
+  input.oncompositionend=e=>{
+    ganttListSearchComposing=false;
+    setGanttListSearchQuery(e?.target?.value||'',{deferRender:false});
+  };
+  input.oninput=e=>{
+    const deferRender=Boolean(e?.isComposing||ganttListSearchComposing);
+    setGanttListSearchQuery(e?.target?.value||'',{deferRender});
+  };
+  input.onsearch=e=>{
+    setGanttListSearchQuery(e?.target?.value||'',{deferRender:false});
+  };
 }
 
 function sortGanttListBy(key){
@@ -2000,7 +2038,7 @@ function renderGanttListView(projs,schs){
     +'</table></div>'
     +'</div>';
   const searchInput=document.getElementById('ganttListSearchInput');
-  if(searchInput)searchInput.oninput=e=>setGanttListSearchQuery(e.target.value);
+  bindGanttListSearchInput(searchInput);
 }
 
 const GANTT_QUICK_LIFECYCLE_OPTIONS=[
@@ -2073,9 +2111,9 @@ function buildGanttProjectQuickStatusPatch(project,nextValue){
   const today=new Date().toISOString().slice(0,10);
   switch(String(nextValue||'')){
     case 'planned':
-      return {status:'예정',follow_up_needed:false};
+      return {status:'예정',follow_up_needed:false,actual_end_date:null};
     case 'in_progress':
-      return {status:'진행중',follow_up_needed:false};
+      return {status:'진행중',follow_up_needed:false,actual_end_date:null};
     case 'execution_done':
       return {
         status:'완료',
@@ -2361,6 +2399,47 @@ function syncGanttPrimaryToolbarVisibility(){
     memberTabs.classList.toggle('is-gantt-secondary',shouldShowMemberTabs);
   }
 }
+
+const baseSyncGanttPrimaryToolbarVisibilityForToolbarRoles=syncGanttPrimaryToolbarVisibility;
+syncGanttPrimaryToolbarVisibility=function(){
+  baseSyncGanttPrimaryToolbarVisibilityForToolbarRoles();
+  const viewZone=document.getElementById('ganttToolbarView');
+  const scheduleBtn=document.getElementById('scheduleAddBtn');
+  const projectViewBtn=document.getElementById('gvp');
+  const memberViewBtn=document.getElementById('gvm');
+  const visibilityWrap=document.getElementById('ganttVisibilityToggleWrap');
+  const completedBtn=document.getElementById('ganttHideCompletedBtn');
+  const personalOverlayBtn=document.getElementById('ganttPersonalOverlayBtn');
+  const personalRowsBtn=document.getElementById('ganttPersonalRowsBtn');
+  const showTimelineModeToggle=curGanttLayout==='timeline';
+  const showPersonalScheduleViewToggles=curGanttLayout==='timeline';
+  if(scheduleBtn){
+    const canShowScheduleBtn=typeof canManageCore==='function'?canManageCore():true;
+    scheduleBtn.hidden=!canShowScheduleBtn;
+    scheduleBtn.style.display=canShowScheduleBtn?'inline-flex':'none';
+    scheduleBtn.textContent='+ 개인 일정';
+    scheduleBtn.title='개인 일정 추가';
+  }
+  [projectViewBtn,memberViewBtn].forEach(btn=>{
+    if(!btn)return;
+    btn.hidden=!showTimelineModeToggle;
+    btn.style.display=showTimelineModeToggle?'inline-flex':'none';
+  });
+  if(visibilityWrap){
+    if(viewZone&&visibilityWrap.parentNode!==viewZone)viewZone.appendChild(visibilityWrap);
+    visibilityWrap.hidden=false;
+    visibilityWrap.style.display='inline-flex';
+  }
+  if(completedBtn){
+    completedBtn.hidden=false;
+    completedBtn.style.display='inline-flex';
+  }
+  [personalOverlayBtn,personalRowsBtn].forEach(btn=>{
+    if(!btn)return;
+    btn.hidden=!showPersonalScheduleViewToggles;
+    btn.style.display=showPersonalScheduleViewToggles?'inline-flex':'none';
+  });
+};
 
 const baseEnsureGanttTopAreaControlsV3=ensureGanttTopAreaControls;
 ensureGanttTopAreaControls=function(){
@@ -5065,7 +5144,7 @@ function renderGanttListView(projs,schs){
     +'</table></div>'
     +'</div>';
   const searchInput=document.getElementById('ganttListSearchInput');
-  if(searchInput)searchInput.oninput=e=>setGanttListSearchQuery(e.target.value);
+  bindGanttListSearchInput(searchInput);
   syncGanttListWorkShortcuts(rows);
 }
 
@@ -5119,6 +5198,12 @@ function getGanttListNextDueMeta(row){
   return {value:nextDue.value,label:shortDate,sub:nextDue.label||'다음 마감',tone:'neutral',state:'upcoming'};
 }
 
+function isGanttListUnbilledAttentionRow(row){
+  const lifecycleKey=String(row?.lifecycleMeta?.key||'').trim();
+  const isCompletedLike=lifecycleKey==='execution_done'||lifecycleKey==='follow_up'||lifecycleKey==='fully_closed';
+  return !!(isCompletedLike&&row?.project?.is_billable!==false&&String(row?.project?.billing_status||'').trim()==='미청구');
+}
+
 function getGanttListPriorityState(row){
   const lifecycleKey=String(row?.lifecycleMeta?.key||'').trim();
   const issueCount=Number(row?.issueCount||0);
@@ -5144,7 +5229,7 @@ function getGanttListPriorityState(row){
   if(issueCount>0||issueLinkedCount>0){
     return {label:'이슈 연결',tone:'issue',order:80};
   }
-  if(row?.isBillingPending){
+  if(isGanttListUnbilledAttentionRow(row)){
     return {label:'미청구',tone:'warn',order:74};
   }
   if(pendingDocCount>0){
@@ -5189,7 +5274,7 @@ function getGanttListActionCue(row){
   if(issueCount>0||issueLinkedCount>0){
     return {label:'이슈 확인 필요',tone:'warn'};
   }
-  if(row?.isBillingPending){
+  if(isGanttListUnbilledAttentionRow(row)){
     return {label:'청구 확인 필요',tone:'warn'};
   }
   if(pendingDocCount>0){
@@ -5208,7 +5293,7 @@ function getGanttListSecondarySignals(row){
   const items=[];
   const priorityLabel=getGanttListPriorityState(row).label;
   const nextDueMeta=getGanttListNextDueMeta(row);
-  if(row?.isBillingPending&&priorityLabel!=='미청구')items.push({label:'미청구',tone:'warn'});
+  if(isGanttListUnbilledAttentionRow(row)&&priorityLabel!=='미청구')items.push({label:'미청구',tone:'warn'});
   if(Number(row?.pendingDocSummary?.total||0)>0&&priorityLabel!=='고객 응답 대기')items.push({label:'고객 응답 대기',tone:'warn'});
   if((!(row?.project?.members||[]).length||Number(row?.taskSummary?.unassignedCount||0)>0)&&priorityLabel!=='담당 미지정')items.push({label:'담당 미지정',tone:'neutral'});
   if((Number(row?.issueCount||0)>0||Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0)&&priorityLabel!=='이슈 연결')items.push({label:'이슈 연결',tone:'issue'});
@@ -5240,7 +5325,7 @@ function renderGanttListPriorityQueueBar(rows){
     }).length,
     unassigned:rows.filter(row=>!(row?.project?.members||[]).length||Number(row?.taskSummary?.unassignedCount||0)>0).length,
     issue:rows.filter(row=>Number(row?.issueCount||0)>0||Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0).length,
-    unbilled:rows.filter(row=>!!row?.isBillingPending).length,
+    unbilled:rows.filter(row=>isGanttListUnbilledAttentionRow(row)).length,
     waitingClient:rows.filter(row=>Number(row?.pendingDocSummary?.total||0)>0).length
   };
   const chips=[];
@@ -5421,6 +5506,19 @@ renderGanttViewSettingsBar=function(){
   if(typeSelect)typeSelect.onchange=e=>setGanttTypeFilter(e.target.value);
 };
 
+const baseRenderGanttViewSettingsBarForTopToolbarCleanup=renderGanttViewSettingsBar;
+renderGanttViewSettingsBar=function(){
+  if(curGanttLayout!=='list'){
+    const bar=ensureGanttViewSettingsBar();
+    if(bar){
+      bar.hidden=true;
+      bar.innerHTML='';
+    }
+    return;
+  }
+  baseRenderGanttViewSettingsBarForTopToolbarCleanup();
+};
+
 renderGanttListTaskDrilldownRow=function(row){
   const markup=baseRenderGanttListTaskDrilldownRowForProjectListUX(row);
   return markup.replace('colspan="8"','colspan="7"');
@@ -5522,7 +5620,7 @@ renderGanttListView=function(projs,schs){
       +'</table></div>'
     +'</div>';
   const searchInput=document.getElementById('ganttListSearchInput');
-  if(searchInput)searchInput.oninput=e=>setGanttListSearchQuery(e.target.value);
+  bindGanttListSearchInput(searchInput);
   syncGanttListWorkShortcuts(rows);
 };
 

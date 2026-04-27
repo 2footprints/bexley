@@ -3276,6 +3276,29 @@ td{
   color:#FFFFFF!important;
   box-shadow:0 8px 18px rgba(15,23,42,.12)!important;
 }
+#pageGantt #gvp,
+#pageGantt #gvm{
+  min-height:36px!important;
+  padding:0 14px!important;
+  border:1px solid rgba(148,163,184,.18)!important;
+  border-radius:12px!important;
+  background:#FFFFFF!important;
+  color:#64748B!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  box-shadow:none!important;
+}
+#pageGantt #gvp.active,
+#pageGantt #gvm.active{
+  background:var(--navy)!important;
+  border-color:var(--navy)!important;
+  color:#FFFFFF!important;
+  box-shadow:0 8px 18px rgba(15,23,42,.12)!important;
+}
+#pageGantt #ganttVisibilityToggleWrap{
+  width:100%!important;
+  margin-top:2px!important;
+}
 #pageGantt #ganttToolbarActions .btn{
   min-height:40px!important;
   border-radius:14px!important;

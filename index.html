@@ -2235,7 +2235,7 @@ const SCHEDULE_META={
   review:{label:'검토',color:'#B6C0CE'},
   leave:{label:'휴가',color:'#C8B28A'},
   fieldwork:{label:'필드웍',color:'#9AA7B6'},
-  internal:{label:'내부 블록',color:'#A8B0BA'},
+  internal:{label:'기타',color:'#A8B0BA'},
   project:{label:'프로젝트 일정',color:'#6366F1'}
 };
 
@@ -4750,7 +4750,7 @@ function openScheduleModal(eid){
       +'<option value="review" '+(s&&s.schedule_type==='review'?'selected':'')+'>검토</option>'
       +'<option value="leave" '+(s&&s.schedule_type==='leave'?'selected':'')+'>휴가</option>'
       +'<option value="fieldwork" '+(s&&s.schedule_type==='fieldwork'?'selected':'')+'>필드웍</option>'
-      +'<option value="internal" '+(s&&s.schedule_type==='internal'?'selected':'')+'>내부 블록</option>'
+      +'<option value="internal" '+(s&&s.schedule_type==='internal'?'selected':'')+'>기타</option>'
     +'</select></div>'
     +'<div class="form-row"><label class="form-label">담당자</label><select id="scMember" '+(editable?'':'disabled')+'><option value="">담당자 선택</option>'+memberOptions+'</select></div></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">시작일</label><input type="date" id="scStart" value="'+(s?s.start:(curYear+'-'+pad(curMonth)+'-01'))+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
@@ -8719,7 +8719,7 @@ function writeStoredGanttToggle(key,value){
 function ensureGanttVisibilityToggles(){
   const toolbar=document.querySelector('#pageGantt .gantt-toolbar');
   if(!toolbar)return;
-  const actionZone=document.getElementById('ganttToolbarActions')||toolbar;
+  const viewZone=document.getElementById('ganttToolbarView')||toolbar;
   let wrap=document.getElementById('ganttVisibilityToggleWrap');
   if(!wrap){
     wrap=document.createElement('div');
@@ -8729,9 +8729,7 @@ function ensureGanttVisibilityToggles(){
       +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
       +'<button class="toggle-btn" id="ganttPersonalOverlayBtn" onclick="setGanttPersonalOverlayToggle(!ganttShowPersonalOverlay)">개인 일정 레이어</button>'
       +'<button class="toggle-btn" id="ganttPersonalRowsBtn" onclick="setGanttPersonalRowsToggle(!ganttShowPersonalRows)">개인 일정 행</button>';
-    const scheduleBtn=document.getElementById('scheduleAddBtn');
-    if(scheduleBtn&&scheduleBtn.parentNode===actionZone)actionZone.insertBefore(wrap,scheduleBtn);
-    else actionZone.appendChild(wrap);
+    viewZone.appendChild(wrap);
   }
 }
 function ensureGanttVisibilitySummary(){
