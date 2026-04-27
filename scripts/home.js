@@ -129,7 +129,7 @@ async function renderHomeRiskSummary(){
         quiet:!pendingBillingAmount,
         emphasis:'action',
         meta:unbilledProjects.length?('계약 탭에서 '+unbilledProjects.length+'건 확인'):'미청구 프로젝트 없음',
-        action:"setPage('contracts')"
+        action:"openHomePendingBillingProjectBoard()"
       },
       {
         label:'오늘 휴가',
@@ -1449,7 +1449,33 @@ function getHomeQueueProjectItems(today){
 
 function getHomePendingBillingProjects(){
   return (projects||[]).filter(project=>{
-    if(!project?.is_billable)return false;
+    const isCompletedLike=typeof isGanttProjectCompleted==='function'
+      ?isGanttProjectCompleted(project)
+      :isHomeCompletedProject(project);
+    if(!isCompletedLike)return false;
+    if(project?.is_billable===false)return false;
+    return String(project?.billing_status||'').trim()==='미청구';
+  });
+}
+
+function openHomePendingBillingProjectBoard(){
+  if(typeof curGanttLayout!=='undefined')curGanttLayout='list';
+  if(typeof ganttStatusFilter!=='undefined')ganttStatusFilter='completed';
+  if(typeof ganttTypeFilters!=='undefined')ganttTypeFilters=[];
+  if(typeof ganttClientFilterQuery!=='undefined')ganttClientFilterQuery='';
+  if(typeof ganttListSearchQuery!=='undefined')ganttListSearchQuery='';
+  if(typeof ganttListExecutionRiskFilters!=='undefined')ganttListExecutionRiskFilters=['unbilled'];
+  setPage('projects');
+  if(typeof renderGantt==='function')requestAnimationFrame(()=>renderGantt());
+}
+
+function getHomeOperationsUnbilledProjects(){
+  return (projects||[]).filter(project=>{
+    const isCompletedLike=typeof isGanttProjectCompleted==='function'
+      ?isGanttProjectCompleted(project)
+      :isHomeCompletedProject(project);
+    if(!isCompletedLike)return false;
+    if(project?.is_billable===false)return false;
     return String(project?.billing_status||'').trim()==='미청구';
   });
 }
@@ -1604,7 +1630,7 @@ renderTeamWorkload = async function(){
       if(!endValue)return false;
       return toDate(endValue)<today;
     }).sort((a,b)=>toDate(a.end||a.end_date)-toDate(b.end||b.end_date));
-    const unbilledProjects=getHomePendingBillingProjects();
+    const unbilledProjects=getHomeOperationsUnbilledProjects();
     const pendingBillingAmount=unbilledProjects.reduce((sum,project)=>sum+getHomeProjectBillingAmount(project),0);
     const pendingDocRows=(pendingDocs||[]).sort((a,b)=>{
       const aTime=a?.due_date?toDate(a.due_date).getTime():Number.MAX_SAFE_INTEGER;
@@ -1650,7 +1676,7 @@ renderTeamWorkload = async function(){
         tone:pendingBillingAmount?'danger':'neutral',
         quiet:!pendingBillingAmount,
         meta:unbilledProjects.length?('계약 확인 '+unbilledProjects.length+'건'):'미청구 항목이 없습니다',
-        action:"setPage('contracts')"
+        action:"openHomePendingBillingProjectBoard()"
       },
       {
         label:'자료 확인 필요',
@@ -2319,7 +2345,7 @@ async function renderHomeRiskSummaryLegacy(){
         value:pendingBillingAmount?pendingBillingAmount.toLocaleString()+'원':'없음 ✓',
         tone:pendingBillingAmount?'danger':'success',
         meta:unbilledProjects.length?('완료 후 미청구 '+unbilledProjects.length+'건'):'미청구 프로젝트 없음',
-        action:"setPage('contracts')"
+        action:"openHomePendingBillingProjectBoard()"
       },
       {
         label:'자료 대기',
@@ -2860,7 +2886,7 @@ async function renderHomeRiskSummary(){
         quiet:!pendingBillingAmount,
         emphasis:'action',
         meta:unbilledProjects.length?('완료 후 미청구 '+unbilledProjects.length+'건'):'미청구 프로젝트 없음',
-        action:"setPage('contracts')"
+        action:"openHomePendingBillingProjectBoard()"
       },
       {
         label:'오늘 휴가',
@@ -3035,7 +3061,7 @@ renderHomeRiskSummary = async function(){
         quiet:!pendingBillingAmount,
         emphasis:'action',
         meta:unbilledProjects.length?('계약 탭에서 '+unbilledProjects.length+'건 확인'):'미청구 프로젝트 없음',
-        action:"setPage('contracts')"
+        action:"openHomePendingBillingProjectBoard()"
       },
       {
         label:'오늘 휴가',
@@ -3229,7 +3255,7 @@ renderTeamWorkload = async function(){
       if(!endValue)return false;
       return toDate(endValue)<today;
     }).sort((a,b)=>toDate(a.end||a.end_date)-toDate(b.end||b.end_date));
-    const unbilledProjects=getHomePendingBillingProjects();
+    const unbilledProjects=getHomeOperationsUnbilledProjects();
     const pendingBillingAmount=unbilledProjects.reduce((sum,project)=>sum+getHomeProjectBillingAmount(project),0);
     const pendingDocRows=(pendingDocs||[]).sort((a,b)=>{
       const aTime=a?.due_date?toDate(a.due_date).getTime():Number.MAX_SAFE_INTEGER;
@@ -3275,7 +3301,7 @@ renderTeamWorkload = async function(){
         tone:pendingBillingAmount?'danger':'neutral',
         quiet:!pendingBillingAmount,
         meta:unbilledProjects.length?('계약 확인 '+unbilledProjects.length+'건'):'미청구 항목이 없습니다',
-        action:"setPage('contracts')"
+        action:"openHomePendingBillingProjectBoard()"
       },
       {
         label:'자료 확인 필요',

@@ -1789,7 +1789,8 @@ function getGanttListExecutionRiskFilterOptions(){
     {value:'issue_linked',label:'연결 이슈'},
     {value:'due_soon',label:'기한 임박'},
     {value:'unassigned_task',label:'무담당'},
-    {value:'material_waiting',label:'자료 확인'}
+    {value:'material_waiting',label:'자료 확인'},
+    {value:'unbilled',label:'미청구'}
   ];
 }
 
@@ -1808,6 +1809,7 @@ function rowMatchesGanttListExecutionRiskFilters(row){
     if(filterKey==='due_soon')return Number(row?.taskSummary?.dueSoonCount||0)>0;
     if(filterKey==='unassigned_task')return Number(row?.taskSummary?.unassignedCount||0)>0;
     if(filterKey==='material_waiting')return Number(row?.pendingDocSummary?.total||0)>0;
+    if(filterKey==='unbilled')return isGanttListUnbilledAttentionRow(row);
     return true;
   });
 }
@@ -2122,7 +2124,7 @@ function buildGanttProjectQuickStatusPatch(project,nextValue){
       };
     case 'follow_up':
       return {
-        status:'완료',
+        status:'후속관리',
         follow_up_needed:true,
         actual_end_date:project?.actual_end_date||today
       };

@@ -237,7 +237,7 @@ function getClientDetailDashboardMetrics(client, clientProjects, clientContracts
   const activeProjects=clientProjects.filter(isClientProjectActive);
   const overdueProjects=clientProjects.filter(isClientProjectOverdue);
   const completedProjects=clientProjects.filter(isClientProjectCompleted);
-  const unbilledProjects=completedProjects.filter(project=>project?.is_billable&&String(project?.billing_status||'').trim()==='미청구');
+  const unbilledProjects=clientProjects.filter(isClientProjectPendingBilling);
   const openIssues=clientIssues.filter(issue=>isIssueActiveStatus(issue?.status));
   const urgentIssues=openIssues.filter(issue=>String(issue?.priority||'').trim()==='high'||issue?.is_pinned);
   return {
@@ -320,7 +320,7 @@ async function openClientDetail(id, tab='projects', focusSection=''){
 
   const projectItems=cp.map(project=>{
     const overdue=isClientProjectOverdue(project);
-    const unbilled=isClientProjectCompleted(project)&&project.is_billable&&String(project?.billing_status||'').trim()==='미청구';
+    const unbilled=isClientProjectPendingBilling(project);
     const issueCount=metrics.openIssues.filter(issue=>issue.project_id===project.id).length||openIssuesByProject[project.id]||0;
     const statusClass=project.status==='진행중'?'badge-blue':project.status==='완료'?'badge-gray':'badge-orange';
     const billingClass=!project.is_billable?'badge-gray':project.billing_status==='입금완료'?'badge-green':project.billing_status==='청구완료'?'badge-blue':'badge-red';
@@ -351,7 +351,7 @@ async function openClientDetail(id, tab='projects', focusSection=''){
     const contractStatus=contract.contract_status||'검토중';
     const contractStatusClass='cst-'+contractStatus;
     const amountText=totalAmount?formatClientDetailCurrency(totalAmount)+(contract.vat_included?' (VAT포함)':' (VAT별도)'):'금액 미입력';
-    const unbilledProjects=linkedProjects.filter(project=>isClientProjectCompleted(project)&&project.is_billable&&String(project?.billing_status||'').trim()==='미청구');
+    const unbilledProjects=linkedProjects.filter(isClientProjectPendingBilling);
     return '<div class="contract-item" onclick="openContractDetail(this.dataset.id)" data-id="'+contract.id+'">'
       +'<div class="contract-icon">CT</div>'
       +'<div class="contract-info">'
@@ -527,7 +527,7 @@ openClientDetail=async function(id, tab='projects', focusSection=''){
 
   const projectItems=cp.map(project=>{
     const overdue=isClientProjectOverdue(project);
-    const unbilled=isClientProjectCompleted(project)&&project.is_billable&&String(project?.billing_status||'').trim()==='미청구';
+    const unbilled=isClientProjectPendingBilling(project);
     const issueCount=metrics.openIssues.filter(issue=>issue.project_id===project.id).length||openIssuesByProject[project.id]||0;
     const statusClass=project.status==='진행중'?'badge-blue':project.status==='완료'?'badge-gray':'badge-orange';
     const billingClass=!project.is_billable?'badge-gray':project.billing_status==='입금완료'?'badge-green':project.billing_status==='청구완료'?'badge-blue':'badge-red';
@@ -558,7 +558,7 @@ openClientDetail=async function(id, tab='projects', focusSection=''){
     const contractStatus=contract.contract_status||'검토중';
     const contractStatusClass='cst-'+contractStatus;
     const amountText=totalAmount?formatClientDetailCurrency(totalAmount)+(contract.vat_included?' (VAT포함)':' (VAT별도)'):'금액 미입력';
-    const unbilledProjects=linkedProjects.filter(project=>isClientProjectCompleted(project)&&project.is_billable&&String(project?.billing_status||'').trim()==='미청구');
+    const unbilledProjects=linkedProjects.filter(isClientProjectPendingBilling);
     return '<div class="contract-item" onclick="openContractDetail(this.dataset.id)" data-id="'+contract.id+'">'
       +'<div class="contract-icon">CT</div>'
       +'<div class="contract-info">'
@@ -974,6 +974,15 @@ function isClientProjectCompleted(project){
   return String(project?.status||'').trim()==='완료';
 }
 
+function isClientProjectPendingBilling(project){
+  const isCompletedLike=typeof isGanttProjectCompleted==='function'
+    ?isGanttProjectCompleted(project)
+    :isClientProjectCompleted(project);
+  if(!isCompletedLike)return false;
+  if(project?.is_billable===false)return false;
+  return String(project?.billing_status||'').trim()==='미청구';
+}
+
 function isClientProjectActive(project){
   const status=String(project?.status||'').trim();
   return status==='진행중'||status==='예정';
@@ -1079,7 +1088,7 @@ function buildClientRow(client){
   const activeProjects=clientProjects.filter(isClientProjectActive);
   const overdueProjects=clientProjects.filter(isClientProjectOverdue);
   const completedProjects=clientProjects.filter(isClientProjectCompleted);
-  const unbilledProjects=completedProjects.filter(project=>project?.is_billable&&String(project?.billing_status||'').trim()==='미청구');
+  const unbilledProjects=clientProjects.filter(isClientProjectPendingBilling);
   const pendingDocs=getClientPendingDocsForClient(client.id);
   const openIssueCount=clientProjects.reduce((sum,project)=>sum+(openIssuesByProject[project.id]||0),0);
   const currentRange=getClientMonthRange(0);
@@ -2022,7 +2031,7 @@ function getClientDetailDashboardMetrics(client, clientProjects, clientContracts
   const activeProjects=clientProjects.filter(isClientProjectActive);
   const overdueProjects=clientProjects.filter(isClientProjectOverdue);
   const completedProjects=clientProjects.filter(isClientProjectCompleted);
-  const unbilledProjects=completedProjects.filter(project=>project?.is_billable&&String(project?.billing_status||'').trim()==='미청구');
+  const unbilledProjects=clientProjects.filter(isClientProjectPendingBilling);
   const openIssues=clientIssues.filter(issue=>isIssueActiveStatus(issue?.status));
   const urgentIssues=openIssues.filter(issue=>String(issue?.priority||'').trim()==='high'||issue?.is_pinned);
   const activeContracts=clientContracts.filter(isClientDetailActiveContract);

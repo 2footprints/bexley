@@ -196,6 +196,14 @@ function isWeeklyReviewCompletedProject(project){
   const statusKey=normalizeWeeklyReviewProjectStatus(statusRaw);
   return statusRaw==='완료'||statusKey==='completed'||statusKey==='done';
 }
+function isWeeklyReviewPendingBillingProject(project){
+  const isCompletedLike=typeof isGanttProjectCompleted==='function'
+    ? isGanttProjectCompleted(project)
+    : isWeeklyReviewCompletedProject(project);
+  if(!isCompletedLike)return false;
+  if(project?.is_billable===false)return false;
+  return String(project?.billing_status||'').trim()==='미청구';
+}
 function isWeeklyReviewActiveProject(project){
   const statusRaw=String(project?.status||'').trim();
   const statusKey=normalizeWeeklyReviewProjectStatus(statusRaw);
@@ -1141,11 +1149,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     ...nextWeekEnds.map(project=>'end:'+project.id),
     ...nextWeekSchedules.map(schedule=>'schedule:'+schedule.id)
   ]).size;
-  const unbilledProjects=(projects||[]).filter(project=>
-    isWeeklyReviewCompletedProject(project)
-    &&project?.is_billable
-    &&String(project?.billing_status||'').trim()==='미청구'
-  ).sort(sortWeeklyReviewProjectsByCompletion);
+  const unbilledProjects=(projects||[]).filter(isWeeklyReviewPendingBillingProject).sort(sortWeeklyReviewProjectsByCompletion);
   const unbilledAmount=unbilledProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
   const weeklyRevenue=completedProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
   const previousRevenue=previousCompletedProjects.reduce((sum,project)=>sum+getWeeklyReviewProjectBillingAmount(project),0);
@@ -1309,9 +1313,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const completedAverageAmount=completedProjectsByBilling.length
     ? Math.round(weeklyRevenue/completedProjectsByBilling.length)
     : 0;
-  const completedUnbilledCount=completedProjectsByBilling.filter(project=>
-    project?.is_billable&&String(project?.billing_status||'').trim()==='미청구'
-  ).length;
+  const completedUnbilledCount=completedProjectsByBilling.filter(isWeeklyReviewPendingBillingProject).length;
   const urgentIssues=[...activeIssues]
     .filter(issue=>!!issue?.is_pinned||String(issue?.priority||'').trim().toLowerCase()==='high')
     .sort((a,b)=>{

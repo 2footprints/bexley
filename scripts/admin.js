@@ -608,6 +608,7 @@ async function saveAdminUserProfile(memberId){
   if(!roleIsAdmin())return;
   const member=(members||[]).find(row=>String(row?.id||'')===String(memberId||''));
   if(!member)return;
+  const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===String(member?.auth_user_id||''))||null;
   const name=(document.getElementById('adminUserName')?.value||'').trim();
   const email=(document.getElementById('adminUserEmail')?.value||'').trim();
   const isActiveNow=(document.getElementById('adminUserActive')?.value||'true')==='true';
@@ -616,67 +617,80 @@ async function saveAdminUserProfile(memberId){
   const rank=(document.getElementById('adminUserRank')?.value||'').trim();
   const included=(document.getElementById('adminUserInclusion')?.value||'true')==='true';
   const note=(document.getElementById('adminUserNote')?.value||'').trim();
+  const currentPermission=getAdminMemberPermissionValue(member,roleRow)||'observer';
+  const permissionChanged=normalizeMemberPermissionLevel(permission)!==normalizeMemberPermissionLevel(currentPermission);
+  const nameChanged=name!==String(member?.name||'').trim();
+  const emailChanged=email!==String(member?.email||'').trim();
+  const activeChanged=isActiveNow!==isMemberActive(member);
+  const teamChanged=normalizeMemberTeam(team)!==normalizeMemberTeam(member?.team);
+  const rankChanged=normalizeMemberRank(rank)!==normalizeMemberRank(member?.rank);
+  const inclusionChanged=included!==isMemberOperationallyIncluded(member,{activeOnly:false});
+  const noteChanged=note!==String(member?.note||'').trim();
   if(!name){
     alert('이름을 입력해 주세요.');
     return;
   }
   try{
     const missingColumnsToPersist=[];
-    if(!adminMemberSupportsColumn(member,'is_active')&&isActiveNow!==isMemberActive(member)){
+    if(!adminMemberSupportsColumn(member,'is_active')&&activeChanged){
       missingColumnsToPersist.push('is_active');
     }
-    if(!adminMemberSupportsColumn(member,'role')&&normalizeMemberPermissionLevel(permission)!==normalizeMemberPermissionLevel(member?.role)){
+    if(!adminMemberSupportsColumn(member,'role')&&permissionChanged){
       missingColumnsToPersist.push('role');
     }
-    if(!adminMemberSupportsColumn(member,'team')&&normalizeMemberTeam(team)!==normalizeMemberTeam(member?.team)){
+    if(!adminMemberSupportsColumn(member,'team')&&teamChanged){
       missingColumnsToPersist.push('team');
     }
-    if(!adminMemberSupportsColumn(member,'rank')&&normalizeMemberRank(rank)!==normalizeMemberRank(member?.rank)){
+    if(!adminMemberSupportsColumn(member,'rank')&&rankChanged){
       missingColumnsToPersist.push('rank');
     }
-    if(!adminMemberSupportsOperationalInclusion(member)&&included!==isMemberOperationallyIncluded(member,{activeOnly:false})){
+    if(!adminMemberSupportsOperationalInclusion(member)&&inclusionChanged){
       missingColumnsToPersist.push(ADMIN_OPERATIONAL_INCLUSION_COLUMN);
     }
-    if(!adminMemberSupportsColumn(member,'note')&&note!==String(member?.note||'').trim()){
+    if(!adminMemberSupportsColumn(member,'note')&&noteChanged){
       missingColumnsToPersist.push('note');
     }
     if(missingColumnsToPersist.length){
       throw new Error(getAdminMembersSchemaMessage(missingColumnsToPersist));
     }
-    const memberBody={
-      name,
-      email:email||null
-    };
-    if(adminMemberSupportsColumn(member,'is_active')){
+    const memberBody={};
+    if(nameChanged){
+      memberBody.name=name;
+    }
+    if(emailChanged){
+      memberBody.email=email||null;
+    }
+    if(adminMemberSupportsColumn(member,'is_active')&&activeChanged){
       memberBody.is_active=isActiveNow;
     }
-    if(adminMemberSupportsColumn(member,'role')){
+    if(adminMemberSupportsColumn(member,'role')&&permissionChanged){
       memberBody.role=getAdminStoredMemberRoleValue(permission);
     }
-    if(adminMemberSupportsColumn(member,'team')){
+    if(adminMemberSupportsColumn(member,'team')&&teamChanged){
       memberBody.team=team||null;
     }
-    if(adminMemberSupportsColumn(member,'rank')){
+    if(adminMemberSupportsColumn(member,'rank')&&rankChanged){
       memberBody.rank=rank||null;
     }
-    if(adminMemberSupportsColumn(member,'note')){
+    if(adminMemberSupportsColumn(member,'note')&&noteChanged){
       memberBody.note=note||null;
     }
-    if(adminMemberSupportsOperationalInclusion(member)){
+    if(adminMemberSupportsOperationalInclusion(member)&&inclusionChanged){
       memberBody[ADMIN_OPERATIONAL_INCLUSION_COLUMN]=included;
     }
-    try{
-      await api('PATCH','members?id=eq.'+memberId,memberBody);
-    }catch(error){
-      if(isAdminMembersSchemaError(error)){
-        const missingColumn=getAdminMembersSchemaColumnFromError(error);
-        throw new Error(getAdminMembersSchemaMessage(missingColumn?[missingColumn]:getAdminMissingMemberColumns(member)));
+    if(Object.keys(memberBody).length){
+      try{
+        await api('PATCH','members?id=eq.'+memberId,memberBody);
+      }catch(error){
+        if(isAdminMembersSchemaError(error)){
+          const missingColumn=getAdminMembersSchemaColumnFromError(error);
+          throw new Error(getAdminMembersSchemaMessage(missingColumn?[missingColumn]:getAdminMissingMemberColumns(member)));
+        }
+        throw error;
       }
-      throw error;
     }
     const authUserId=String(member?.auth_user_id||'').trim();
-    if(authUserId){
-      const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===authUserId)||null;
+    if(authUserId&&permissionChanged){
       const body={
         id:authUserId,
         role:permission||'observer',
