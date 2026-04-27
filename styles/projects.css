@@ -96,6 +96,8 @@ table{border-collapse:collapse;min-width:100%}
 .gantt-project-row.is-due-today .cell:not(.weekend){background:#FFFBEB}
 .cell{min-width:28px;height:42px;padding:0;position:relative;border-right:1px solid #f0f2f4}
 .cell.weekend{background:#fafafa;min-width:20px;max-width:20px}
+.gantt-span-cell{padding:0!important;overflow:visible!important}
+.gantt-support-span-cell .bar{justify-content:flex-start}
 .th-day.weekend{min-width:20px;max-width:20px;font-size:9px;opacity:.5}
 .bar{position:absolute;top:7px;bottom:7px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1;letter-spacing:-.2px;transform-origin:center;transition:all .15s;box-shadow:var(--gantt-bar-shadow,inset 0 -2px 0 rgba(0,0,0,.15));outline:var(--gantt-bar-outline,none);outline-offset:var(--gantt-bar-outline-offset,0)}
 .bar:hover{cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15),var(--gantt-bar-shadow,inset 0 -2px 0 rgba(0,0,0,.15));transform:scaleY(1.1)}

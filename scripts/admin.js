@@ -58,6 +58,12 @@ function getAdminMembersSchemaMessage(columns){
   return 'members 테이블에 필요한 컬럼이 없습니다. '+labels+' ('+list.join(', ')+'). '+ADMIN_MEMBER_PROFILE_SCHEMA_SQL+'을 적용하고 schema cache를 reload한 뒤 다시 저장해 주세요.';
 }
 
+function getAdminMissingMemberColumnsLabel(columns){
+  return [...new Set((Array.isArray(columns)?columns:[columns]).filter(Boolean))]
+    .map(column=>ADMIN_MEMBER_PROFILE_COLUMN_LABELS[column]||column)
+    .join(', ');
+}
+
 function getAdminMembersSchemaColumnFromError(error){
   const message=String(error?.message||error||'');
   const match=message.match(/Could not find the '([^']+)' column of 'members'/i);
@@ -562,6 +568,7 @@ function openAdminUserEditor(memberId){
     note:adminMemberSupportsColumn(member,'note')
   };
   const missingProfileColumns=getAdminMissingMemberColumns(member);
+  const missingProfileLabel=getAdminMissingMemberColumnsLabel(missingProfileColumns);
   const operationalInclusionSupported=adminMemberSupportsOperationalInclusion(member);
   const inclusionNote=!authLinked
     ?'로그인 계정이 연결되지 않은 멤버 행은 권한을 바로 부여할 수 없습니다. 먼저 회원가입/권한 요청을 통해 auth 계정을 연결해 주세요.'
@@ -577,19 +584,22 @@ function openAdminUserEditor(memberId){
         +'<div class="form-row"><label class="form-label">이메일</label><input id="adminUserEmail" value="'+esc(member?.email||'')+'" placeholder="name@bexleyintl.com"></div>'
       +'</div>'
       +'<div class="form-half">'
-        +'<div class="form-row"><label class="form-label">상태</label><select id="adminUserActive"><option value="true"'+(isMemberActive(member)?' selected':'')+'>활성</option><option value="false"'+(!isMemberActive(member)?' selected':'')+'>비활성</option></select></div>'
+        +'<div class="form-row"><label class="form-label">상태</label><select id="adminUserActive"'+(profileSupport.is_active?'':' disabled')+'><option value="true"'+(isMemberActive(member)?' selected':'')+'>활성</option><option value="false"'+(!isMemberActive(member)?' selected':'')+'>비활성</option></select></div>'
         +'<div class="form-row"><label class="form-label">권한</label><select id="adminUserPermission" '+(authLinked?'':'disabled')+'>'+accessRoleSelectOptions(permission)+'</select></div>'
       +'</div>'
       +'<div class="form-half">'
-        +'<div class="form-row"><label class="form-label">팀</label><select id="adminUserTeam">'+getAdminModalSelectOptions(MEMBER_TEAM_OPTIONS,normalizeMemberTeam(member?.team),'미지정')+'</select></div>'
-        +'<div class="form-row"><label class="form-label">직급</label><select id="adminUserRank">'+getAdminModalSelectOptions(MEMBER_RANK_OPTIONS,normalizeMemberRank(member?.rank),'미지정')+'</select></div>'
+        +'<div class="form-row"><label class="form-label">팀</label><select id="adminUserTeam"'+(profileSupport.team?'':' disabled')+'>'+getAdminModalSelectOptions(MEMBER_TEAM_OPTIONS,normalizeMemberTeam(member?.team),'미지정')+'</select></div>'
+        +'<div class="form-row"><label class="form-label">직급</label><select id="adminUserRank"'+(profileSupport.rank?'':' disabled')+'>'+getAdminModalSelectOptions(MEMBER_RANK_OPTIONS,normalizeMemberRank(member?.rank),'미지정')+'</select></div>'
       +'</div>'
       +'<div class="form-half">'
         +'<div class="form-row"><label class="form-label">운영 집계 포함 여부</label><select id="adminUserInclusion"'+(operationalInclusionSupported?'':' disabled')+'><option value="true"'+(isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>포함</option><option value="false"'+(!isMemberOperationallyIncluded(member,{activeOnly:false})?' selected':'')+'>제외</option></select></div>'
-        +'<div class="form-row"><label class="form-label">비고</label><input id="adminUserNote" value="'+esc(member?.note||'')+'" placeholder="시스템 계정, 테스트 계정, 예외 사유 등을 기록"></div>'
+        +'<div class="form-row"><label class="form-label">비고</label><input id="adminUserNote" value="'+esc(member?.note||'')+'" placeholder="시스템 계정, 테스트 계정, 예외 사유 등을 기록"'+(profileSupport.note?'':' disabled')+'></div>'
       +'</div>'
       +'<div class="admin-user-modal-link">계정 연결: '+(authLinked?esc(member.auth_user_id):'로그인 계정 미연결')+'</div>'
       +'<div class="admin-user-modal-note">'+esc(inclusionNote)+'</div>'
+      +(missingProfileColumns.length
+        ?'<div class="admin-user-modal-note" style="margin-top:8px">현재 DB 스키마에서 바로 수정할 수 없는 항목: '+esc(missingProfileLabel)+'. Supabase에서 '+ADMIN_MEMBER_PROFILE_SCHEMA_SQL+' 적용이 필요합니다.</div>'
+        :'')
       +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveAdminUserProfile(\''+member.id+'\')">저장</button></div></div>'
     +'</div>';
 }

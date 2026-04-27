@@ -3878,6 +3878,67 @@ function gRow(p,days){
   }
   return '<tr><td class="'+rowCls+'" onclick="openProjModal(\''+p.id+'\')">'+ lbl+'</td>'+cells+'</tr>';
 }
+function buildGanttSpanOverlaySummary(overlaysByDay,startDay,endDay){
+  const overlayItems=[];
+  const seen=new Set();
+  for(let day=startDay;day<=endDay;day++){
+    (overlaysByDay[day]||[]).forEach(overlay=>{
+      const key=[
+        overlay.type||'',
+        overlay.member||'',
+        overlay.title||'',
+        overlay.start||'',
+        overlay.end||''
+      ].join('|');
+      if(seen.has(key))return;
+      seen.add(key);
+      overlayItems.push(overlay);
+    });
+  }
+  if(!overlayItems.length)return'';
+  const icons=overlayItems.map(overlay=>overlay.type==='leave'?'L':'F').join(' ');
+  const tooltip=overlayItems.map(overlay=>{
+    const memberText=overlay.member||'담당 미지정';
+    const titleText=overlay.title||scheduleLabel(overlay.type);
+    const rangeText=(overlay.start||overlay.end)?' '+(overlay.start||'-')+'~'+(overlay.end||overlay.start||'-'):'';
+    const hintText=overlay.hint?' · '+overlay.hint:'';
+    return memberText+' '+titleText+rangeText+hintText;
+  }).join(' / ');
+  const hasLeave=overlayItems.some(overlay=>overlay.type==='leave');
+  const hasFieldwork=overlayItems.some(overlay=>overlay.type==='fieldwork');
+  const markerStyle=hasLeave&&!hasFieldwork
+    ?'right:4px;left:auto;min-width:22px;padding:0 6px;background:repeating-linear-gradient(45deg, #e2e8f0, #e2e8f0 4px, #f1f5f9 4px, #f1f5f9 8px);border-left:3px solid var(--color-text-muted);color:var(--color-text-secondary)'
+    :'right:4px;left:auto;min-width:22px;padding:0 6px;background:repeating-linear-gradient(45deg, #fef3c7, #fef3c7 4px, #fefce8 4px, #fefce8 8px);border-left:3px solid var(--color-warning);color:#92400e';
+  return '<div class="leave-marker is-support-layer" style="'+markerStyle+'" title="'+esc(tooltip)+'">'+icons+'</div>';
+}
+
+function buildGanttSpanCells(days,rangeMeta,renderBarCell,renderEmptyCell){
+  const safeRange=rangeMeta||{visible:false,barS:1,barE:1,span:1};
+  let cells='';
+  for(let day=1;day<=days;){
+    const weekend=isWeekend(curYear,curMonth,day);
+    const todayCell=isToday(curYear,curMonth,day);
+    const cellCls='cell '+(weekend?'weekend ':'')+(todayCell?'today-c':'');
+    if(safeRange.visible&&day===safeRange.barS){
+      const spanValue=Math.max(1,Number(safeRange.span)||1);
+      cells+=renderBarCell({
+        day,
+        cls:cellCls,
+        span:spanValue,
+        barS:safeRange.barS,
+        barE:safeRange.barE
+      });
+      day+=spanValue;
+      continue;
+    }
+    cells+=renderEmptyCell
+      ?renderEmptyCell({day,cls:cellCls})
+      :'<td class="'+cellCls+'"></td>';
+    day+=1;
+  }
+  return cells;
+}
+
 function scheduleRow(s,days){
   const color=scheduleColor(s.schedule_type);
   const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
@@ -3894,14 +3955,10 @@ function scheduleRow(s,days){
   const subtitle=[scheduleLabel(s.schedule_type),s.title&&s.title!==scheduleLabel(s.schedule_type)?s.title:'',s.location||''].filter(Boolean).join(' · ');
   const displayTitle=titleBase+(memberLabel?' (진행중 프로젝트 '+inProgressCount+'건)':'');
   const lbl='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name">'+esc(displayTitle)+'</span></div><div class="rs">'+esc(subtitle||'일정 정보 없음')+'</div></div></div>';
-  let cells='';
-  for(let d=1;d<=days;d++){
-    const wk=isWeekend(curYear,curMonth,d),td=isToday(curYear,curMonth,d);
-    const cls='cell '+(wk?'weekend ':'')+( td?'today-c':'');
-    if(visible&&d===barS){
-      cells+='<td class="'+cls+'" style="position:relative"><div class="bar" style="left:2px;right:0;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-span="'+span+'" data-start-day="'+barS+'" data-end-day="'+barE+'" data-duration="'+(duration||span)+'" data-sid="'+s.id+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(displayTitle+(subtitle?' | '+subtitle:'')+' | '+(startText||'-')+' ~ '+(endText||'-')+(s.memo?' | '+s.memo:''))+'">'+(span>=3?esc(displayTitle):'')+'</div></td>';
-    } else cells+='<td class="'+cls+'"></td>';
-  }
+  const cells=buildGanttSpanCells(days,rangeMeta,({cls,span:colSpan})=>{
+    const labelText=colSpan>=4?displayTitle:(colSpan>=2?(memberLabel||scheduleLabel(s.schedule_type)):'');
+    return '<td class="'+cls+' gantt-span-cell gantt-support-span-cell" colspan="'+colSpan+'" style="position:relative"><div class="bar" style="left:2px;right:2px;background:'+color+';color:#243241;opacity:.74;border:1px solid rgba(255,255,255,.42);--gantt-bar-shadow:none" data-sid="'+s.id+'" data-duration="'+(duration||colSpan)+'" onclick="openScheduleModal(\''+s.id+'\')" title="'+esc(displayTitle+(subtitle?' | '+subtitle:'')+' | '+(startText||'-')+' ~ '+(endText||'-')+(s.memo?' | '+s.memo:''))+'">'+esc(labelText)+'</div></td>';
+  });
   return '<tr class="gantt-support-row"><td class="'+rowCls+'" onclick="openScheduleModal(\''+s.id+'\')">'+lbl+'</td>'+cells+'</tr>';
 }
 
@@ -9010,6 +9067,8 @@ function setGanttLayout(mode){
 }
 
 /*
+// Canonical active gantt row renderer.
+// Duration is rendered by actual colspan span, not by post-render width stretching.
 window.gRow=function(p,days){
   const activeSchedules=window.__ganttVisibleSchedulesForRender||schedules;
   const today=new Date();
@@ -9133,33 +9192,17 @@ window.gRow=function(p,days){
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
   const progressHtml='<div class="gantt-row-progress"><span class="gantt-row-progress-text">진행률 '+progress+'%</span><div class="gantt-row-progress-track"><div class="gantt-row-progress-fill" style="width:'+progress+'%;background:'+progressColor+'"></div></div></div>';
   const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div>'+progressHtml+'</div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
-  let cells='';
-  for(let day=1;day<=days;day++){
-    const weekend=isWeekend(curYear,curMonth,day);
-    const todayCell=isToday(curYear,curMonth,day);
-    const cellCls='cell '+(weekend?'weekend ':'')+(todayCell?'today-c':'');
-    const overlays=overlaysByDay[day]||[];
-    let overlayHtml='';
-    if(visible&&ganttShowPersonalOverlay&&overlays.length&&day>=barS&&day<=barE){
-      const icons=overlays.map(overlay=>overlay.type==='leave'?'L':'F').join(' ');
-      const tooltip=overlays.map(overlay=>overlay.member+' '+overlay.title+' '+overlay.start+'~'+overlay.end+', '+overlay.hint).join(' / ');
-      const hasLeave=overlays.some(overlay=>overlay.type==='leave');
-      const hasFieldwork=overlays.some(overlay=>overlay.type==='fieldwork');
-      const markerStyle=hasLeave&&!hasFieldwork
-        ?'left:1px;right:1px;background:repeating-linear-gradient(45deg, #e2e8f0, #e2e8f0 4px, #f1f5f9 4px, #f1f5f9 8px);border-left:3px solid var(--color-text-muted);color:var(--color-text-secondary)'
-        :'left:1px;right:1px;background:repeating-linear-gradient(45deg, #fef3c7, #fef3c7 4px, #fefce8 4px, #fefce8 8px);border-left:3px solid var(--color-warning);color:#92400e';
-      overlayHtml='<div class="leave-marker is-support-layer" style="'+markerStyle+'" title="'+esc(tooltip)+'">'+icons+'</div>';
-    }
-    if(visible&&day===barS){
-      const barText=span>=6?esc(p.name)+(p.members.length?' ('+esc(p.members.join(', '))+')':''):span>=3?esc(p.name):'';
-      cells+='<td class="'+cellCls+'" style="position:relative">'
-        +'<div class="bar'+(isActive?' is-active':'')+'" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-start-day="'+barS+'" data-end-day="'+barE+'" data-duration="'+(duration||span)+'" data-pid="'+p.id+'" onclick="openGanttProjectDetail(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
-        +overlayHtml+'</td>';
-    }else{
-      cells+='<td class="'+cellCls+'" style="position:relative">'+overlayHtml+'</td>';
-    }
-  }
-  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+'"><td class="'+finalRowCls+'" onclick="openGanttProjectDetail(\''+p.id+'\')">'+finalLabelHtml+'</td>'+cells+'</tr>';
+  const spanOverlayHtml=(visible&&ganttShowPersonalOverlay)
+    ?buildGanttSpanOverlaySummary(overlaysByDay,barS,barE)
+    :'';
+  const cells=buildGanttSpanCells(days,rangeMeta,({cls,span:colSpan})=>{
+    const barText=colSpan>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):colSpan>=3?p.name:'';
+    return '<td class="'+cls+' gantt-span-cell" colspan="'+colSpan+'" style="position:relative">'
+      +'<div class="bar'+(isActive?' is-active':'')+'" style="left:2px;right:2px;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-pid="'+p.id+'" data-duration="'+(duration||colSpan)+'" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+esc(barText)+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+      +spanOverlayHtml
+      +'</td>';
+  },({cls})=>'<td class="'+cls+'" style="position:relative"></td>');
+  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+'" onclick="openGanttProjectDetail(\''+p.id+'\')"><td class="'+finalRowCls+'">'+finalLabelHtml+'</td>'+cells+'</tr>';
 };
 gRow=window.gRow;
 
@@ -9251,7 +9294,6 @@ function renderFilteredGanttTimeline(projs,schs){
   html+='</tbody></table>';
   wrap.innerHTML=html;
   renderLegend();
-  requestAnimationFrame(fixBars);
 }
 
 window.renderGantt=function(){

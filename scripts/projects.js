@@ -460,6 +460,21 @@ function getGanttProjectById(projectId=''){
   return (projects||[]).find(item=>String(item?.id||'')===key)||null;
 }
 
+function syncGanttDetailSelection(scrollIntoPanel=false){
+  const currentData=getGanttFilteredData();
+  const focusId=String(ganttFocusProjectId||'').trim();
+  if(focusId){
+    const hasFocusedProject=(currentData.projs||[]).some(item=>String(item?.id||'')===focusId);
+    if(hasFocusedProject){
+      ganttFocusProjectId=focusId;
+    }
+  }
+  renderGanttDetailPanel(currentData.projs,currentData.schs);
+  if(scrollIntoPanel&&focusId){
+    requestAnimationFrame(()=>requestAnimationFrame(scrollGanttDetailIntoView));
+  }
+}
+
 function openGanttProjectDetail(projectId,scrollIntoPanel=true){
   const prevProjectId=ganttFocusProjectId;
   const shouldKeepWorkTab=ganttDetailTab==='work';
@@ -467,9 +482,7 @@ function openGanttProjectDetail(projectId,scrollIntoPanel=true){
   ganttFocusProjectId=nextProjectId;
   if(nextProjectId&&String(prevProjectId||'')!==nextProjectId)ganttDetailTab=shouldKeepWorkTab?'work':'overview';
   renderGantt();
-  if(scrollIntoPanel&&nextProjectId){
-    requestAnimationFrame(()=>requestAnimationFrame(scrollGanttDetailIntoView));
-  }
+  requestAnimationFrame(()=>syncGanttDetailSelection(scrollIntoPanel&&!!nextProjectId));
 }
 
 function setGanttFocusProject(projectId){
@@ -481,7 +494,7 @@ function openGanttProjectWorkTab(projectId){
   ganttFocusProjectId=String(projectId);
   ganttDetailTab='work';
   renderGantt();
-  requestAnimationFrame(()=>requestAnimationFrame(scrollGanttDetailIntoView));
+  requestAnimationFrame(()=>syncGanttDetailSelection(true));
 }
 
 function closeGanttProjectDetail(){
