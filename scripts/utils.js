@@ -30,7 +30,8 @@ function getMemberPermissionLabel(role){
 
 function normalizeMemberTeam(team){
   const normalized=String(team||'').trim();
-  return normalized||'';
+  if(!normalized||normalized.toLowerCase()==='unassigned')return '';
+  return normalized;
 }
 
 function getMemberTeamLabel(team){
