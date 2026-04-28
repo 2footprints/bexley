@@ -36,6 +36,38 @@ function getAdminStoredMemberRoleValue(role){
   return 'Observer';
 }
 
+function applyAdminMemberLocalUpdate(memberId,memberPatch={},rolePatch=null){
+  const targetId=String(memberId||'').trim();
+  if(targetId&&Array.isArray(members)){
+    members=members.map(member=>{
+      if(String(member?.id||'').trim()!==targetId)return member;
+      return {...member,...memberPatch};
+    });
+  }
+  if(rolePatch&&Array.isArray(adminUserRoleRows)){
+    const roleId=String(rolePatch?.id||'').trim();
+    if(roleId){
+      const nextRows=[...adminUserRoleRows];
+      const rowIndex=nextRows.findIndex(row=>String(row?.id||'').trim()===roleId);
+      if(rowIndex>=0){
+        nextRows[rowIndex]={...nextRows[rowIndex],...rolePatch};
+      }else{
+        nextRows.push({...rolePatch});
+      }
+      adminUserRoleRows=nextRows;
+    }
+  }
+}
+
+function refreshAdminManagementViewSoon(){
+  Promise.allSettled([
+    loadAll(),
+    loadAdminManagementData()
+  ]).finally(()=>{
+    renderAdminPageContent();
+  });
+}
+
 function getAdminOperationalInclusionSchemaMessage(){
   return '운영 집계 포함 여부 컬럼이 아직 DB에 없습니다. sql/20260425_fix_operational_inclusion_column.sql을 적용한 뒤 다시 저장해 주세요.';
 }
@@ -704,10 +736,28 @@ async function saveAdminUserProfile(memberId){
         await apiEx('POST','user_roles',body,'return=representation');
       }
     }
-    await loadAll();
-    await loadAdminManagementData();
+    const localMemberPatch={};
+    if(nameChanged)localMemberPatch.name=name;
+    if(emailChanged)localMemberPatch.email=email||null;
+    if(adminMemberSupportsColumn(member,'is_active')&&activeChanged)localMemberPatch.is_active=isActiveNow;
+    if(adminMemberSupportsColumn(member,'role')&&permissionChanged)localMemberPatch.role=getAdminStoredMemberRoleValue(permission);
+    if(adminMemberSupportsColumn(member,'team')&&teamChanged)localMemberPatch.team=team||null;
+    if(adminMemberSupportsColumn(member,'rank')&&rankChanged)localMemberPatch.rank=rank||null;
+    if(adminMemberSupportsColumn(member,'note')&&noteChanged)localMemberPatch.note=note||null;
+    if(adminMemberSupportsOperationalInclusion(member)&&inclusionChanged)localMemberPatch[ADMIN_OPERATIONAL_INCLUSION_COLUMN]=included;
+    const localRolePatch=authUserId&&permissionChanged
+      ?{
+        id:authUserId,
+        role:permission||'observer',
+        is_admin:(permission||'observer')==='admin',
+        approved_by:currentUser?.id||null,
+        approved_at:roleRow?.approved_at||new Date().toISOString()
+      }
+      :null;
+    applyAdminMemberLocalUpdate(memberId,localMemberPatch,localRolePatch);
     closeModal();
     renderAdminPageContent();
+    refreshAdminManagementViewSoon();
   }catch(e){
     alert('저장 오류: '+e.message);
   }
