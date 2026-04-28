@@ -712,7 +712,10 @@ async function saveAdminUserProfile(memberId){
     }
     if(Object.keys(memberBody).length){
       try{
-        await api('PATCH','members?id=eq.'+memberId,memberBody);
+        const patchResult=await api('PATCH','members?id=eq.'+memberId,memberBody);
+        if(!patchResult||!patchResult.length){
+          throw new Error('저장되지 않았습니다. Supabase members 테이블의 UPDATE 권한(RLS 정책)을 확인해 주세요.');
+        }
       }catch(error){
         if(isAdminMembersSchemaError(error)){
           const missingColumn=getAdminMembersSchemaColumnFromError(error);
