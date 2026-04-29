@@ -9302,7 +9302,7 @@ window.renderGantt=function(){
   updateGanttLayoutButtons();
   updateGanttVisibilityToggleButtons();
   const shell=document.querySelector('.gantt-shell');
-  if(shell)shell.classList.toggle('is-reverted',curGanttLayout==='list');
+  if(shell)shell.classList.add('is-reverted');
   let {projs,schs,hiddenCompletedCount}=getGanttVisibleData();
   if(typeof applyProjectTopFilters==='function'){
     const filtered=applyProjectTopFilters(projs,schs);
