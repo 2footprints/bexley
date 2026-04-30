@@ -9311,7 +9311,9 @@ window.renderGantt=function(){
   }
   updateGanttVisibilitySummary(hiddenCompletedCount);
   renderGanttOverviewCards(projs,schs);
+  const _ganttFocusBefore=ganttFocusProjectId;
   renderGanttSidebarList(projs);
+  if(_ganttFocusBefore&&!ganttFocusProjectId)ganttFocusProjectId=_ganttFocusBefore;
   renderGanttDetailPanel(projs,schs);
   if(curGanttLayout==='calendar'){
     const monthLabel=document.getElementById('monthLabel');

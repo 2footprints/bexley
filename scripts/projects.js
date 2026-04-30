@@ -2537,20 +2537,27 @@ window.applyProjectTopFilters=applyProjectTopFilters;
 
 const baseLoadGanttListTaskSummaries=loadGanttListTaskSummaries;
 loadGanttListTaskSummaries=async function(projectIds){
+  const _ids=[...new Set((projectIds||[]).map(id=>String(id||'')).filter(Boolean))];
+  const _hadMissing=_ids.some(id=>ganttListTaskSummaryByProjectId[id]===undefined);
   await baseLoadGanttListTaskSummaries(projectIds);
-  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
+  if(_hadMissing&&shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
 };
 
 const baseLoadGanttListTaskIssueSummaries=loadGanttListTaskIssueSummaries;
 loadGanttListTaskIssueSummaries=async function(projectIds){
+  const _ids=[...new Set((projectIds||[]).map(id=>String(id||'')).filter(Boolean))];
+  const _hadMissing=_ids.some(id=>ganttListTaskIssueSummaryByProjectId[id]===undefined);
   await baseLoadGanttListTaskIssueSummaries(projectIds);
-  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
+  if(_hadMissing&&shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
 };
 
 const baseLoadGanttListPendingDocSummaries=loadGanttListPendingDocSummaries;
 loadGanttListPendingDocSummaries=async function(projectIds){
+  const _ids=[...new Set((projectIds||[]).map(id=>String(id||'')).filter(Boolean))];
+  const _cache=window.ganttProjectPendingDocSummaryByProjectId||{};
+  const _hadMissing=_ids.some(id=>_cache[id]===undefined);
   await baseLoadGanttListPendingDocSummaries(projectIds);
-  if(shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
+  if(_hadMissing&&shouldPreloadGanttLifecycleSupport()&&curGanttLayout!=='list')scheduleGanttFullRefresh();
 };
 
 function getGanttDetailStatusBadgeClass(status){
