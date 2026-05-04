@@ -198,6 +198,7 @@ async function approveAccessRequest(requestId){
     const existingRoles=await api('GET','user_roles?id=eq.'+request.user_id+'&select=id').catch(()=>[]);
     const roleBody={
       id:request.user_id,
+      email:request.email,
       role,
       is_admin:role==='admin',
       approved_by:currentUser.id,

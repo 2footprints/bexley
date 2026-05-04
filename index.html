@@ -2305,6 +2305,25 @@ function renderPendingPage(){
   const el=document.getElementById('pendingContent');
   if(!el)return;
   const req=pendingRequest;
+  if(!req){
+    (async function(){
+      try{
+        const name=currentMember?.name||inferNameFromEmail(currentUser?.email)||'';
+        const saved=await api('POST','access_requests',{
+          user_id:currentUser.id,email:currentUser.email,name,
+          requested_role:'observer',note:null,status:'draft',
+          updated_at:new Date().toISOString()
+        });
+        pendingRequest=saved?.[0]||null;
+        const admins=await api('GET','user_roles?select=id,role,is_admin&or=(role.eq.admin,is_admin.eq.true)')||[];
+        for(const admin of admins){
+          if(admin.id===currentUser.id)continue;
+          await createNotification(admin.id,'access_request',(name||currentUser.email)+'님이 새로 가입했습니다. 접근 요청을 검토해주세요.','access_request',saved?.[0]?.id||null);
+        }
+        updateAdminPendingBadge();
+      }catch(e){}
+    })();
+  }
   if(!req||req.status==='draft'){
     el.innerHTML=''
       +'<div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:8px">접근 권한 요청</div>'
@@ -9337,7 +9356,7 @@ renderGantt=window.renderGantt;
 <script src="js/stabilize-auth.js"></script>
 <script src="js/stabilize-projects.js"></script>
 <script src="js/stabilize-team-dashboard.js"></script>
-<script src="js/stabilize-provisioning.js"></script>
+1<script src="js/stabilize-provisioning.js"></script>
 <script src="js/stabilize-boot.js"></script>
 
 </body>

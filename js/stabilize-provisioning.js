@@ -97,6 +97,7 @@
         const existingRoles = await api('GET', 'user_roles?id=eq.' + req.user_id + '&select=id').catch(function(){ return []; });
         const roleBody = {
           id: req.user_id,
+          email: req.email,
           role: role,
           is_admin: role === 'admin',
           approved_by: currentUser.id,
