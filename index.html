@@ -1546,9 +1546,9 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navHome" onclick="setPage('home')">홈<span id="teamNoticeDot" class="notif-dot" style="display:none"></span></button>
       <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">프로젝트</button>
       <button class="nav-btn" id="navIssues" onclick="setPage('issues')">이슈</button>
+      <button class="nav-btn" id="navWeeklyReview" onclick="setPage('weeklyReview')">주간리뷰</button>
       <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
-      <button class="nav-btn" id="navWeeklyReview" onclick="setPage('weeklyReview')">주간리뷰</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
     </nav>
 
@@ -1584,9 +1584,9 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavHome" onclick="setPage('home');closeMobileMenu()">홈</button>
     <button class="nav-btn" id="mNavGantt" onclick="setPage('gantt');closeMobileMenu()">프로젝트</button>
     <button class="nav-btn" id="mNavIssues" onclick="setPage('issues');closeMobileMenu()">이슈</button>
+    <button class="nav-btn" id="mNavWeeklyReview" onclick="setPage('weeklyReview');closeMobileMenu()">주간리뷰</button>
     <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">거래처</button>
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">계약</button>
-    <button class="nav-btn" id="mNavWeeklyReview" onclick="setPage('weeklyReview');closeMobileMenu()">주간리뷰</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">고객사 페이지</button>
@@ -1765,9 +1765,6 @@ input,textarea{border-radius:12px!important}
                   </button>
                 </div>
               </div>
-            </div>
-            <div class="home-kudos-section">
-              <div id="teamKudosReviewWrap"></div>
             </div>
           </div>
         </div>
@@ -3036,7 +3033,6 @@ function setPage(page, extra) {
       renderTeamWorkload();
       renderWeeklyScheduleSummary();
       renderTeamNotices();
-      renderTeamKudosAndReviews();
     } else if (page === 'issues') {
       renderIssuesPage();
     } else if (page === 'gantt') {
@@ -8440,7 +8436,6 @@ window.saveProj = async function(){
       renderTeamWorkload();
       renderWeeklyScheduleSummary();
       renderTeamNotices();
-      renderTeamKudosAndReviews();
     }else{
       renderClients();
     }
