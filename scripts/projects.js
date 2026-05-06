@@ -3185,6 +3185,7 @@ async function saveProjectTask(){
     }
     closeModal();
     await loadGanttProjectTasks(projectId,true);
+    refreshGanttProjectTaskListState(projectId);
   }catch(error){
     alert(isMissingGanttProjectTaskTableError(error)
       ?getMissingGanttProjectTaskTableMessage()
@@ -3204,7 +3205,9 @@ async function completeProjectTask(projectId,taskId){
       updated_at:new Date().toISOString()
     });
     await loadGanttProjectTasks(projectKey,true);
+    refreshGanttProjectTaskListState(projectKey);
   }catch(error){
+    console.error('completeProjectTask failed',error);
     alert(isMissingGanttProjectTaskTableError(error)
       ?getMissingGanttProjectTaskTableMessage()
       :'업무 상태를 바꾸는 중 오류가 발생했습니다: '+error.message);
@@ -3223,6 +3226,7 @@ async function deleteProjectTask(projectId,taskId){
       closeModal();
     }
     await loadGanttProjectTasks(projectKey,true);
+    refreshGanttProjectTaskListState(projectKey);
   }catch(error){
     alert(isMissingGanttProjectTaskTableError(error)
       ?getMissingGanttProjectTaskTableMessage()
@@ -4306,6 +4310,7 @@ async function updateProjectTaskQuickStatus(projectId,taskId,nextStatus){
       updated_at:nowIso
     });
     await loadGanttProjectTasks(projectKey,true);
+    refreshGanttProjectTaskListState(projectKey);
   }catch(error){
     alert(isMissingGanttProjectTaskTableError(error)
       ?getMissingGanttProjectTaskTableMessage()
@@ -5541,9 +5546,132 @@ renderGanttViewSettingsBar=function(){
   baseRenderGanttViewSettingsBarForTopToolbarCleanup();
 };
 
+function refreshGanttProjectTaskListState(projectId){
+  const key=String(projectId||'').trim();
+  if(!key)return;
+  ganttListTaskSummaryByProjectId[key]=undefined;
+  ganttListTaskIssueSummaryByProjectId[key]=undefined;
+  if(curGanttLayout==='list'&&typeof refreshGanttActiveViewOnly==='function'){
+    refreshGanttActiveViewOnly();
+  }
+}
+
+function getGanttTaskDrilldownJsString(value){
+  return String(value??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n');
+}
+
+function getGanttTaskDoneText(task){
+  const raw=String(task?.actual_done_at||'').trim();
+  if(!raw)return '';
+  const date=new Date(raw);
+  if(Number.isNaN(date.getTime()))return raw.slice(0,10);
+  return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
+}
+
+function getGanttTaskDrilldownDueText(task){
+  if(!getGanttTaskDateValue(task?.due_date))return '마감일 없음';
+  return getGanttTaskDueMeta(task)?.label||getGanttTaskDateDisplayMeta(task).dueText||task.due_date;
+}
+
+function getGanttTaskDrilldownStatusMeta(task,dueMeta){
+  const status=String(task?.status||'예정').trim()||'예정';
+  if(status==='완료')return {label:'완료',className:'badge-green'};
+  if(dueMeta?.tone==='danger')return {label:'지연',className:'badge-red'};
+  return {label:status,className:getGanttTaskStatusBadgeClass(status)};
+}
+
+function getGanttTaskDrilldownPriorityText(task){
+  const priority=String(task?.priority||'').trim();
+  if(!priority)return '';
+  if(typeof getGanttTaskPriorityLabel==='function')return getGanttTaskPriorityLabel(priority);
+  return priority;
+}
+
+function getGanttListProjectTaskButtonText(row,isExpanded){
+  if(isExpanded)return '업무 접기';
+  const projectId=String(row?.project?.id||'').trim();
+  const loadedTasks=Array.isArray(ganttProjectTasksByProjectId[projectId])?ganttProjectTasksByProjectId[projectId]:null;
+  const count=loadedTasks?loadedTasks.length:Number(row?.taskSummary?.total||0);
+  return count>0?'관련 업무 '+count+'건':'업무 보기';
+}
+
+function getGanttListDrilldownTasks(projectId){
+  if(typeof getGanttTaskDisplayRows==='function')return getGanttTaskDisplayRows(projectId);
+  return [...getGanttProjectTasks(projectId)].sort((a,b)=>{
+    const aDone=String(a?.status||'')==='완료';
+    const bDone=String(b?.status||'')==='완료';
+    if(aDone!==bDone)return aDone?1:-1;
+    const aDue=getGanttTaskDateValue(a?.due_date)||'9999-12-31';
+    const bDue=getGanttTaskDateValue(b?.due_date)||'9999-12-31';
+    if(aDue!==bDue)return aDue.localeCompare(bDue);
+    return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
+  });
+}
+
+function renderGanttListTaskDrilldownItem(projectId,task){
+  const projectKey=getGanttTaskDrilldownJsString(projectId);
+  const taskKey=getGanttTaskDrilldownJsString(task?.id||'');
+  const assignee=getGanttTaskMemberName(task?.assignee_member_id)||'담당자 미지정';
+  const dueMeta=getGanttTaskDueMeta(task);
+  const dueText=getGanttTaskDrilldownDueText(task);
+  const statusMeta=getGanttTaskDrilldownStatusMeta(task,dueMeta);
+  const priorityText=getGanttTaskDrilldownPriorityText(task);
+  const doneText=getGanttTaskDoneText(task);
+  const description=String(task?.description||'').trim();
+  const tone=String(task?.status||'')==='완료'?'done':(dueMeta?.tone||'neutral');
+  const isDone=String(task?.status||'').trim()==='완료';
+  return ''
+    +'<div class="gantt-list-task-drill-item is-'+tone+'" role="button" tabindex="0" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+      +'<div class="gantt-list-task-drill-main">'
+        +'<div class="gantt-list-task-drill-title-row"><div class="gantt-list-task-drill-name">'+esc(task?.title||'제목 없는 업무')+'</div>'+(priorityText?'<span class="gantt-list-task-drill-priority">'+esc(priorityText)+'</span>':'')+'</div>'
+        +'<div class="gantt-list-task-drill-meta">'
+          +'<span>'+esc(assignee)+'</span>'
+          +'<span>'+esc(dueText)+'</span>'
+          +'<span>'+esc(String(task?.status||'예정').trim()||'예정')+'</span>'
+          +(doneText?'<span>완료일 '+esc(doneText)+'</span>':'')
+        +'</div>'
+        +(description?'<div class="gantt-list-task-drill-desc">'+esc(truncateText(description,90))+'</div>':'')
+      +'</div>'
+      +'<div class="gantt-list-task-drill-side">'
+        +'<span class="badge '+statusMeta.className+'">'+esc(statusMeta.label)+'</span>'
+        +(isDone
+          ?'<span class="gantt-list-task-drill-done">완료됨</span>'
+          :'<button type="button" class="btn ghost sm gantt-list-task-complete-btn" onclick="event.stopPropagation();completeProjectTask(\''+projectKey+'\',\''+taskKey+'\')">완료</button>')
+      +'</div>'
+    +'</div>';
+}
+
 renderGanttListTaskDrilldownRow=function(row){
-  const markup=baseRenderGanttListTaskDrilldownRowForProjectListUX(row);
-  return markup.replace('colspan="8"','colspan="7"');
+  const projectId=String(row?.project?.id||'').trim();
+  if(!projectId)return '';
+  const projectIdJs=getGanttTaskDrilldownJsString(projectId);
+  const loadMeta=getGanttProjectTaskLoadMeta(projectId);
+  const hasLoadedTasks=Array.isArray(ganttProjectTasksByProjectId[projectId]);
+  const tasks=hasLoadedTasks?getGanttListDrilldownTasks(projectId):[];
+  let bodyHtml='';
+  if(loadMeta.loading&&!hasLoadedTasks){
+    bodyHtml='<div class="gantt-list-task-drill-empty">업무를 불러오는 중입니다.</div>';
+  }else if(loadMeta.error){
+    bodyHtml='<div class="gantt-list-task-drill-empty">'+esc(loadMeta.error)+'</div>';
+  }else if(!tasks.length){
+    bodyHtml='<div class="gantt-list-task-drill-empty">등록된 업무가 없습니다.</div>';
+  }else{
+    bodyHtml='<div class="gantt-list-task-drill-items">'
+      +tasks.map(task=>renderGanttListTaskDrilldownItem(projectId,task)).join('')
+    +'</div>';
+  }
+  return '<tr class="gantt-list-child-row">'
+    +'<td class="gantt-list-check-col"></td>'
+    +'<td colspan="7">'
+      +'<div class="gantt-list-task-drill-shell">'
+        +'<div class="gantt-list-task-drill-head">'
+          +'<div><div class="gantt-list-task-drill-title">프로젝트 업무</div><div class="gantt-list-task-drill-sub">업무명, 담당자, 마감일, 상태와 메모를 빠르게 확인하고 클릭해서 수정합니다.</div></div>'
+          +'<button type="button" class="btn primary sm" onclick="event.stopPropagation();openProjectTaskModal(\''+projectIdJs+'\',null)">+ 업무 추가</button>'
+        +'</div>'
+        +bodyHtml
+      +'</div>'
+    +'</td>'
+  +'</tr>';
 };
 
 renderGanttListView=function(projs,schs){
@@ -5615,12 +5743,10 @@ renderGanttListView=function(projs,schs){
           const projectIdJs=projectId.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
           const selected=selectedSet.has(String(project.id));
           const canManage=canManageGanttListProject(project);
-          const hasTaskSummary=Number(row?.taskSummary?.total||0)>0;
           const isExpanded=ganttListExpandedProjectIds.includes(projectId);
-          const loadedKeyTaskCount=Array.isArray(ganttProjectTasksByProjectId[projectId])?getGanttListProjectKeyTasks(row).length:0;
-          const drillCount=loadedKeyTaskCount||Math.min(Number(row?.taskSummary?.openCount||row?.taskSummary?.total||0),GANTT_LIST_TASK_DRILL_LIMIT);
           const rowStateClass=getGanttListRowStateClass(row);
           const nextDueMeta=getGanttListNextDueMeta(row);
+          const taskButtonText=getGanttListProjectTaskButtonText(row,isExpanded);
           const mainRow=''
             +'<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+projectIdJs+'\')">'
               +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+projectIdJs+'\')" /></td>'
@@ -5628,7 +5754,7 @@ renderGanttListView=function(projs,schs){
               +'<td>'
                 +'<div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div>'
                 +'<div class="gantt-list-project-sub">'+esc(row.typeText)+'</div>'
-                +(hasTaskSummary?'<div class="gantt-list-project-actions"><button type="button" class="gantt-list-drill-toggle'+(isExpanded?' active':'')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+projectIdJs+'\')">관련 업무'+(drillCount?'<span class="gantt-list-drill-count">'+drillCount+'</span>':'')+'</button></div>':'')
+                +'<div class="gantt-list-project-actions"><button type="button" class="gantt-list-drill-toggle'+(isExpanded?' active':'')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+projectIdJs+'\')">'+esc(taskButtonText)+'</button></div>'
               +'</td>'
               +'<td><div class="gantt-list-member-cell">'+esc(row.memberText)+'</div></td>'
               +'<td><div class="gantt-list-due-cell is-'+esc(nextDueMeta.tone||'neutral')+'"><div class="gantt-list-due-label">'+esc(nextDueMeta.label)+'</div><div class="gantt-list-due-sub">'+esc(nextDueMeta.sub)+'</div></div></td>'
