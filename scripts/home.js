@@ -614,14 +614,12 @@ function buildHomeDailyTaskItem(task,today){
   const assigneeLabel=getHomeTaskAssigneeLabel(task);
   const projectId=String(task?.project_id||project?.id||'');
   const taskId=String(task?.id||'');
-  const fallbackAction=projectId
-    ?"setPage('gantt');if(typeof setGanttLayout==='function')setGanttLayout('task')"
-    :"setPage('gantt')";
   return {
     key:'task:'+taskId,
     sourceType:'task',
     sourceId:taskId,
     projectId,
+    taskId,
     contextLead:client?.name||'거래처 없음',
     contextTitle:task?.title||'제목 없는 태스크',
     kind:'task',
@@ -637,9 +635,7 @@ function buildHomeDailyTaskItem(task,today){
     urgencyRank:meta.group,
     attentionGroup:meta.group,
     urgencyColor:meta.color,
-    action:projectId&&taskId
-      ? "openHomeProjectTask('"+getHomeJsString(projectId)+"','"+getHomeJsString(taskId)+"')"
-      : fallbackAction
+    action:"openHomeProjectTask('"+getHomeJsString(projectId)+"','"+getHomeJsString(taskId)+"')"
   };
 }
 
@@ -660,13 +656,63 @@ async function loadHomeProjectTaskRows(){
   }
 }
 
-function openHomeProjectTask(projectId,taskId){
-  if(projectId&&taskId&&typeof openProjectTaskModal==='function'){
-    openProjectTaskModal(projectId,taskId);
-    return;
-  }
+function fallbackHomeProjectTaskView(reason,projectId,taskId){
+  console.warn('[home] task modal fallback',reason,{projectId,taskId});
   setPage('gantt');
   if(typeof setGanttLayout==='function')setGanttLayout('task');
+}
+
+function getHomeTaskClickAction(item){
+  if(!(item?.sourceType==='task'||item?.kind==='task'))return item?.action||'';
+  const projectId=String(item?.projectId||'').trim();
+  const taskId=String(item?.taskId||item?.sourceId||'').trim();
+  return "openHomeProjectTask('"+getHomeJsString(projectId)+"','"+getHomeJsString(taskId)+"')";
+}
+
+async function ensureHomeProjectTaskLoaded(projectId,taskId){
+  const safeProjectId=String(projectId||'').trim();
+  const safeTaskId=String(taskId||'').trim();
+  if(!safeProjectId||!safeTaskId)return false;
+  if(typeof loadGanttProjectTasks==='function'){
+    await loadGanttProjectTasks(safeProjectId,false);
+    let loadedTasks=typeof getGanttProjectTasks==='function'?getGanttProjectTasks(safeProjectId):[];
+    if(Array.isArray(loadedTasks)&&loadedTasks.some(task=>String(task?.id||'')===safeTaskId))return true;
+    await loadGanttProjectTasks(safeProjectId,true);
+    loadedTasks=typeof getGanttProjectTasks==='function'?getGanttProjectTasks(safeProjectId):[];
+    if(Array.isArray(loadedTasks)&&loadedTasks.some(task=>String(task?.id||'')===safeTaskId))return true;
+  }
+  try{
+    const rows=await api('GET','project_tasks?project_id=eq.'+safeProjectId+'&select=*&order=sort_order.asc,created_at.asc');
+    const tasks=Array.isArray(rows)?rows:[];
+    if(typeof ganttProjectTasksByProjectId!=='undefined')ganttProjectTasksByProjectId[safeProjectId]=tasks;
+    return tasks.some(task=>String(task?.id||'')===safeTaskId);
+  }catch(error){
+    console.error('[home] project task direct load failed',error);
+    return false;
+  }
+}
+
+async function openHomeProjectTask(projectId,taskId){
+  const safeProjectId=String(projectId||'').trim();
+  const safeTaskId=String(taskId||'').trim();
+  if(!safeProjectId||!safeTaskId){
+    fallbackHomeProjectTaskView('missing projectId or taskId',safeProjectId,safeTaskId);
+    return;
+  }
+  try{
+    const hasTask=await ensureHomeProjectTaskLoaded(safeProjectId,safeTaskId);
+    if(!hasTask){
+      fallbackHomeProjectTaskView('task row not found after loading',safeProjectId,safeTaskId);
+      return;
+    }
+    if(typeof openProjectTaskModal==='function'){
+      openProjectTaskModal(safeProjectId,safeTaskId);
+      return;
+    }
+  }catch(error){
+    console.error('[home] open project task failed',error);
+  }
+  fallbackHomeProjectTaskView('openProjectTaskModal unavailable or failed',safeProjectId,safeTaskId);
 }
 
 function getHomeAttentionItems(today,todayScheduleItems,issueRows,taskRows=[]){
@@ -701,9 +747,42 @@ function getHomeAttentionItems(today,todayScheduleItems,issueRows,taskRows=[]){
   return sortHomeAttentionItems([...taskItems,...deadlineItems,...issueItems]);
 }
 
-function getHomeRecentWorkItems(limit=4){
+function buildHomeRecentTaskItem(task){
+  const taskId=String(task?.id||'');
+  const projectId=String(task?.project_id||'');
+  const project=getHomeTaskProject(task);
+  const client=project?clients.find(item=>String(item?.id||'')===String(project?.client_id||''))||null:null;
+  const referenceAt=task?.updated_at||task?.created_at||'';
+  const referenceTime=referenceAt?new Date(referenceAt).getTime():0;
+  const assigneeLabel=getHomeTaskAssigneeLabel(task);
+  const statusLabel=String(task?.status||'').trim()||'상태 없음';
+  return {
+    key:'recent-task:'+taskId,
+    sourceType:'task',
+    sourceId:taskId,
+    projectId,
+    taskId,
+    contextLead:client?.name||'거래처 없음',
+    contextTitle:task?.title||'제목 없는 태스크',
+    kind:'task',
+    badgeLabel:'태스크',
+    badgeClass:'task',
+    context:(client?.name||'거래처 없음')+' · '+(project?.name||'프로젝트명 없음'),
+    summary:[project?.name||'프로젝트명 없음',assigneeLabel,statusLabel].filter(Boolean).join(' · '),
+    dueMeta:{label:referenceAt?'업데이트 '+formatHomeShortDate(referenceAt):'업데이트일 없음',tone:'normal'},
+    dueSortTime:null,
+    hasDue:false,
+    createdTime:Number.isNaN(referenceTime)?0:referenceTime,
+    priorityRaw:String(task?.priority||'').trim().toLowerCase(),
+    urgencyRank:3,
+    urgencyColor:'#CBD5E1',
+    action:"openHomeProjectTask('"+getHomeJsString(projectId)+"','"+getHomeJsString(taskId)+"')"
+  };
+}
+
+function getHomeRecentWorkItems(limit=4,taskRows=[]){
   const sourceProjects=(projects||[]).filter(project=>currentMember?isHomeProjectAssignedToCurrentMember(project):true);
-  return sourceProjects
+  const projectItems=sourceProjects
     .map(project=>{
       const client=clients.find(item=>item.id===project.client_id)||null;
       const referenceAt=project.updated_at||project.actual_end_date||project.created_at||project.end||project.start||'';
@@ -729,7 +808,12 @@ function getHomeRecentWorkItems(limit=4){
         urgencyColor:'#CBD5E1',
         action:"openProjModal('"+project.id+"')"
       };
-    })
+    });
+  const taskItems=(Array.isArray(taskRows)?taskRows:[])
+    .filter(task=>task?.id)
+    .filter(isHomeTaskRelevantToCurrentMember)
+    .map(buildHomeRecentTaskItem);
+  return [...projectItems,...taskItems]
     .sort((a,b)=>(b.createdTime||0)-(a.createdTime||0))
     .slice(0,limit);
 }
@@ -742,13 +826,14 @@ function getHomeDailyWorkDestinationLabel(item){
 }
 
 function renderHomeDailyWorkCard(item){
+  const action=getHomeTaskClickAction(item)||item.action||'';
   const badgeLabel=item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정');
   const badgeClass=item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule');
   const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
   const toneClass=item.dueMeta?.tone==='urgent'
     ?' is-urgent'
     :(item.dueMeta?.tone==='warn'||item.kind==='issue'?' is-warn':'');
-  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+action+'">'
     +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
     +'<span class="home-daily-work-context">'+esc(item.context)+'</span>'
     +'<span class="home-daily-work-divider">—</span>'
@@ -806,11 +891,12 @@ function renderHomeDailyWorkSection(payload,options={}){
 }
 
 function renderHomeDailyWorkCard(item){
+  const action=getHomeTaskClickAction(item)||item.action||'';
   const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
   const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
   const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
   const dueLabel=item.dueMeta?.diff===0?'오늘 마감':(item.dueMeta?.label||'');
-  return '<button type="button" class="home-daily-work-card" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+  return '<button type="button" class="home-daily-work-card" style="border-left-color:'+item.urgencyColor+'" onclick="'+action+'">'
     +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
     +'<span class="home-daily-work-context">'+esc(item.context)+'</span>'
     +'<span class="home-daily-work-divider">·</span>'
@@ -925,13 +1011,14 @@ async function renderHomeDashboardIssues(){
 }
 
 function renderHomeDailyWorkCard(item){
+  const action=getHomeTaskClickAction(item)||item.action||'';
   const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
   const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
   const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
   const dueLabel=item.dueMeta?.diff===0?'오늘 마감':(item.dueMeta?.label||'');
   const contextLead=item.contextLead||'';
   const contextTitle=item.contextTitle||item.context||'';
-  return '<button type="button" class="home-daily-work-card" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+  return '<button type="button" class="home-daily-work-card" style="border-left-color:'+item.urgencyColor+'" onclick="'+action+'">'
     +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
     +'<span class="home-daily-work-copy">'
       +'<span class="home-daily-work-topline">'
@@ -945,6 +1032,7 @@ function renderHomeDailyWorkCard(item){
 }
 
 function renderHomeDailyWorkCard(item){
+  const action=getHomeTaskClickAction(item)||item.action||'';
   const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
   const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
   const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
@@ -954,7 +1042,7 @@ function renderHomeDailyWorkCard(item){
   const toneClass=item.dueMeta?.tone==='urgent'
     ?' is-urgent'
     :(item.dueMeta?.tone==='warn'||item.kind==='issue'?' is-warn':'');
-  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+action+'">'
     +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
     +'<span class="home-daily-work-copy">'
       +'<span class="home-daily-work-topline">'
@@ -1607,10 +1695,12 @@ renderHomeDailyWorkSection = function(payload,options={}){
   const queueItems=Array.isArray(payload)?payload:(payload?.queueItems||[]);
   const attentionItems=Array.isArray(payload)?[]:(payload?.attentionItems||[]);
   const recentItems=Array.isArray(payload)?[]:(payload?.recentItems||[]);
-  const buildSection=(title,count,items,emptyText,extraClass='')=>{
+  const buildSection=(title,count,items,emptyText,extraClass='',description='')=>{
     return '<div class="home-daily-work-section'+(extraClass?' '+extraClass:'')+'">'
       +'<div class="home-daily-work-section-head">'
-        +'<div class="home-daily-work-section-title">'+title+'</div>'
+        +'<div><div class="home-daily-work-section-title">'+title+'</div>'
+          +(description?'<div class="home-daily-work-section-sub">'+description+'</div>':'')
+        +'</div>'
         +(typeof count==='number'?'<div class="home-daily-work-section-count">'+count+'건</div>':'')
       +'</div>'
       +(items.length
@@ -1621,10 +1711,10 @@ renderHomeDailyWorkSection = function(payload,options={}){
   const contentHtml=options.loading
     ?'<div class="weekly-empty">불러오는 중..</div>'
     :buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다')
-      +'<div class="home-daily-work-section-divider"></div>'
-      +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention')
-      +'<div class="home-daily-work-section-divider"></div>'
-      +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 프로젝트가 없습니다','home-daily-work-section--secondary');
+      +'<div class="home-daily-work-section-stack">'
+        +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
+        +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
+      +'</div>';
   el.innerHTML='<div class="card home-card home-queue-card">'
     +'<div class="home-daily-work-head">'
       +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
@@ -1636,7 +1726,7 @@ renderHomeDailyWorkSection = function(payload,options={}){
 renderHomeDashboardIssues = async function(){
   const today=getHomeBaseDate();
   const queueItems=getHomeQueueProjectItems(today);
-  const recentItems=getHomeRecentWorkItems(3);
+  const fallbackRecentItems=getHomeRecentWorkItems(3);
   try{
     const [rows,taskRows]=await Promise.all([
       currentMember
@@ -1656,14 +1746,14 @@ renderHomeDashboardIssues = async function(){
     renderHomeDailyWorkSection({
       queueItems,
       attentionItems:getHomeAttentionItems(today,queueItems,issueRows,taskRows).slice(0,6),
-      recentItems
+      recentItems:getHomeRecentWorkItems(3,taskRows)
     });
   }catch(e){
     console.error('renderHomeDashboardIssues failed',e);
     renderHomeDailyWorkSection({
       queueItems,
       attentionItems:getHomeAttentionItems(today,queueItems,[]).slice(0,6),
-      recentItems
+      recentItems:fallbackRecentItems
     });
   }
 };
@@ -3038,6 +3128,7 @@ async function renderHomeRiskSummary(){
 }
 
 renderHomeDailyWorkCard = function(item){
+  const action=getHomeTaskClickAction(item)||item.action||'';
   const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
   const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
   const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
@@ -3047,7 +3138,7 @@ renderHomeDailyWorkCard = function(item){
   const toneClass=item.dueMeta?.tone==='urgent'
     ?' is-urgent'
     :(item.dueMeta?.tone==='warn'||item.kind==='issue'?' is-warn':'');
-  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+item.action+'">'
+  return '<button type="button" class="home-daily-work-card'+toneClass+'" style="border-left-color:'+item.urgencyColor+'" onclick="'+action+'">'
     +'<span class="home-daily-work-badge '+badgeClass+'">'+badgeLabel+'</span>'
     +'<span class="home-daily-work-copy">'
       +'<span class="home-daily-work-topline">'
@@ -3239,10 +3330,12 @@ renderHomeDailyWorkSection = function(payload,options={}){
   const queueItems=Array.isArray(payload)?payload:(payload?.queueItems||[]);
   const attentionItems=Array.isArray(payload)?[]:(payload?.attentionItems||[]);
   const recentItems=Array.isArray(payload)?[]:(payload?.recentItems||[]);
-  const buildSection=(title,count,items,emptyText,extraClass='')=>{
-    return '<div class="home-daily-work-section'+(extraClass?' '+extraClass:'')+'>'
+  const buildSection=(title,count,items,emptyText,extraClass='',description='')=>{
+    return '<div class="home-daily-work-section'+(extraClass?' '+extraClass:'')+'">'
       +'<div class="home-daily-work-section-head">'
-        +'<div class="home-daily-work-section-title">'+title+'</div>'
+        +'<div><div class="home-daily-work-section-title">'+title+'</div>'
+          +(description?'<div class="home-daily-work-section-sub">'+description+'</div>':'')
+        +'</div>'
         +(typeof count==='number'?'<div class="home-daily-work-section-count">'+count+'건</div>':'')
       +'</div>'
       +(items.length
@@ -3253,10 +3346,10 @@ renderHomeDailyWorkSection = function(payload,options={}){
   const contentHtml=options.loading
     ?'<div class="weekly-empty">불러오는 중..</div>'
     :buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다')
-      +'<div class="home-daily-work-section-divider"></div>'
-      +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention')
-      +'<div class="home-daily-work-section-divider"></div>'
-      +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 프로젝트가 없습니다','home-daily-work-section--secondary');
+      +'<div class="home-daily-work-section-stack">'
+        +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
+        +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
+      +'</div>';
   el.innerHTML='<div class="card home-card home-queue-card">'
     +'<div class="home-daily-work-head">'
       +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
@@ -3268,7 +3361,7 @@ renderHomeDailyWorkSection = function(payload,options={}){
 renderHomeDashboardIssues = async function(){
   const today=getHomeBaseDate();
   const queueItems=getHomeQueueProjectItems(today);
-  const recentItems=getHomeRecentWorkItems(3);
+  const fallbackRecentItems=getHomeRecentWorkItems(3);
   try{
     const [rows,taskRows]=await Promise.all([
       currentMember
@@ -3288,14 +3381,14 @@ renderHomeDashboardIssues = async function(){
     renderHomeDailyWorkSection({
       queueItems,
       attentionItems:getHomeAttentionItems(today,queueItems,issueRows,taskRows).slice(0,6),
-      recentItems
+      recentItems:getHomeRecentWorkItems(3,taskRows)
     });
   }catch(e){
     console.error('renderHomeDashboardIssues failed',e);
     renderHomeDailyWorkSection({
       queueItems,
       attentionItems:getHomeAttentionItems(today,queueItems,[]).slice(0,6),
-      recentItems
+      recentItems:fallbackRecentItems
     });
   }
 };

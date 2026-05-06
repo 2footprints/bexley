@@ -1746,22 +1746,27 @@ input,textarea{border-radius:12px!important}
             <div id="teamNoticeWrap"></div>
             <div class="team-fun-section">
               <div class="card home-card" style="margin-bottom:0">
-                <div class="home-section-title">팀 퀵기능</div>
+                <div class="home-section-title">빠른 실행</div>
                 <div class="team-fun-grid">
-                  <button type="button" class="team-fun-card" onclick="openLunchPicker()">
-                    <div class="team-fun-kicker">점심</div>
-                    <div class="team-fun-title">점심 메뉴 정하기</div>
-                    <div class="team-fun-desc">오늘 점심 후보를 빠르게 추천받아 정리합니다.</div>
+                  <button type="button" class="team-fun-card" onclick="if(typeof openProjModal==='function')openProjModal();else setPage('gantt')">
+                    <div class="team-fun-kicker">프로젝트</div>
+                    <div class="team-fun-title">새 프로젝트 등록</div>
+                    <div class="team-fun-desc">고객사 업무를 새 프로젝트로 등록합니다.</div>
                   </button>
-                  <button type="button" class="team-fun-card" onclick="openLadderGame()">
-                    <div class="team-fun-kicker">랜덤</div>
-                    <div class="team-fun-title">커피 사다리</div>
-                    <div class="team-fun-desc">간단한 사다리로 커피 담당을 정합니다.</div>
+                  <button type="button" class="team-fun-card" onclick="if(typeof openIssueModal==='function')openIssueModal();else setPage('issues')">
+                    <div class="team-fun-kicker">이슈</div>
+                    <div class="team-fun-title">새 이슈 등록</div>
+                    <div class="team-fun-desc">확인이 필요한 이슈를 바로 등록합니다.</div>
                   </button>
-                  <button type="button" class="team-fun-card" onclick="openWorkLinksModal()">
-                    <div class="team-fun-kicker">링크</div>
-                    <div class="team-fun-title">업무 바로가기</div>
-                    <div class="team-fun-desc">자주 쓰는 외부 업무 링크를 한곳에서 엽니다.</div>
+                  <button type="button" class="team-fun-card" onclick="setPage('gantt');if(typeof setGanttLayout==='function')setGanttLayout('task')">
+                    <div class="team-fun-kicker">태스크</div>
+                    <div class="team-fun-title">태스크 보기</div>
+                    <div class="team-fun-desc">전체 태스크 현황과 마감 상태를 확인합니다.</div>
+                  </button>
+                  <button type="button" class="team-fun-card" onclick="setPage('weeklyReview')">
+                    <div class="team-fun-kicker">회의</div>
+                    <div class="team-fun-title">주간리뷰 열기</div>
+                    <div class="team-fun-desc">이번 주 산출물과 회의 메모를 확인합니다.</div>
                   </button>
                 </div>
               </div>
@@ -1825,7 +1830,7 @@ input,textarea{border-radius:12px!important}
             <div class="gantt-main-top">
               <div>
                 <div class="gantt-panel-title" id="ganttMainTitle">프로젝트 목록</div>
-                <div class="gantt-main-copy" id="ganttMainCopy">상태, 기한, 진행률을 먼저 훑고 필요한 프로젝트만 아래 상세 패널로 이어서 확인하세요.</div>
+                <div class="gantt-main-copy" id="ganttMainCopy">상태, 기한, 기간 경과율을 먼저 훑고 필요한 프로젝트만 아래 상세 패널로 이어서 확인하세요.</div>
               </div>
             </div>
             <div class="gantt-wrap" id="ganttWrap"></div>
@@ -2085,6 +2090,19 @@ function getIssueStatusMeta(status){
 }
 function getIssueStatusChangedAt(issue){
   return issue?.status_changed_at||issue?.updated_at||issue?.created_at||null;
+}
+function normalizeIssueDueDate(value){
+  const raw=String(value||'').trim();
+  if(!raw)return null;
+  const normalized=typeof formatIssueDateInput==='function'
+    ?formatIssueDateInput(raw)
+    :raw.split('T')[0];
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized)?normalized:null;
+}
+function formatIssueDueDateLabel(value){
+  const normalized=normalizeIssueDueDate(value);
+  if(!normalized)return '';
+  return normalized.replace(/-/g,'.');
 }
 function getIssueActiveStatusFilter(){
   return 'status=in.(open,in_progress,waiting)';
@@ -3172,7 +3190,10 @@ async function saveContract(){
     else if(wasPage==='contracts')renderContractsPage();
     else if(client_id)openClientDetail(client_id,'contracts');
     else renderClients();
-  }catch(e){alert('저장 오류: '+e.message);}
+  }catch(e){
+    console.error('saveIssue failed',e);
+    alert('저장 오류: '+(e?.message||'이슈 저장에 실패했습니다.'));
+  }
 }
 
 async function deleteContract(id){
@@ -4259,6 +4280,7 @@ async function loadProjIssues(projId){
       const estimatedHours=issue?.estimated_hours!=null&&issue?.estimated_hours!==''
         ?'<span class="badge badge-orange">예상 '+Number(issue.estimated_hours).toLocaleString()+'h</span>'
         :'';
+      const dueDateLabel=formatIssueDueDateLabel(issue?.due_date);
       return '<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">'
         +'<div style="flex:1;min-width:0">'
         +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div style="font-size:13px;font-weight:600;color:'+(isOpen?'var(--navy)':'var(--text3)')+';">'+(issue.is_pinned?'📌 ':'')+esc(issue.title)+'</div>'+(estimatedHours?'<div style="flex-shrink:0">'+estimatedHours+'</div>':'')+'</div>'
@@ -4266,6 +4288,7 @@ async function loadProjIssues(projId){
         +(issue.content?'<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')
         +'<div style="font-size:10px;color:var(--text3);margin-top:6px">'+esc(issue.author_name||'익명')+' · '+formatCommentDate(issue.created_at)
         +'<span class="badge '+statusMeta.badgeCls+'" style="margin-left:6px">'+statusMeta.label+'</span>'
+        +(dueDateLabel?'<span class="badge badge-gray" style="margin-left:6px">기한 '+esc(dueDateLabel)+'</span>':'')
         +(isIssueResolvedStatus(issue.status)&&issue.resolved_by?'<span style="color:var(--green);font-weight:700;margin-left:6px">✓ '+esc(issue.resolved_by)+'</span>':'')+'</div>'
         +'</div>'
         +'<div style="display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">'
@@ -5772,6 +5795,7 @@ function renderIssueFeed(el,pinned,recent){
     const isUnread=isOpen&&!readIds.has(issue.id);
     const statusMeta=getIssueStatusMeta(issue.status);
     const editable=canEditIssue(issue);
+    const dueDateLabel=formatIssueDueDateLabel(issue?.due_date);
     return '<div id="issue-card-'+issue.id+'" class="card notif-anchor issue-card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'">'
       +'<div class="issue-card-layout">'
       +'<div class="issue-card-main">'
@@ -5784,6 +5808,7 @@ function renderIssueFeed(el,pinned,recent){
       +'<div class="issue-meta">'
       +'<span>'+esc(issue.author_name||'익명')+'</span><span>'+formatCommentDate(issue.created_at)+'</span>'
       +'<span class="badge '+statusMeta.badgeCls+'">'+statusMeta.label+'</span>'
+      +(dueDateLabel?'<span class="badge badge-gray">기한 '+esc(dueDateLabel)+'</span>':'')
       +(isIssueResolvedStatus(issue.status)&&issue.resolved_by?'<span style="color:var(--green);font-weight:700">✓ '+esc(issue.resolved_by||'')+'</span>':'')
       +'</div></div>'
       +'<div class="issue-actions">'
@@ -5837,6 +5862,7 @@ async function openIssueModal(projId='',issueId=''){
   const categoryValue=(issue?.category||'').trim();
   const selectedProjectId=String(issue?.project_id||projId||'');
   const selectedTaskId=String(issue?.task_id||'');
+  const dueDateValue=normalizeIssueDueDate(issue?.due_date)||'';
   const projectTasks=selectedProjectId?await loadIssueModalTasks(selectedProjectId):[];
   const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);const selected=(issue?issue.project_id===p.id:p.id===projId);return '<option value="'+p.id+'"'+(selected?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
   const ownerSelected=issue?.owner_member_id||(currentMember?.id||'');
@@ -5864,7 +5890,7 @@ async function openIssueModal(projId='',issueId=''){
           <div class="form-row"><label class="form-label">카테고리</label><select id="issueCategory" ${editable?'':'disabled'}><option value="">선택 안 함</option>${buildIssueCategoryOptions(categoryValue)}</select></div>
         </div>
         <div class="form-half">
-          <div class="form-row"><label class="form-label">기한</label><input type="date" id="issueDueDate" value="${esc(issue?.due_date||'')}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
+          <div class="form-row"><label class="form-label">기한</label><input type="date" id="issueDueDate" value="${esc(dueDateValue)}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
           <div class="form-row"><label class="form-label">고정</label><div class="checkbox-row ui-checkbox-top"><input type="checkbox" id="issuePinned" ${(issue?.is_pinned)?'checked':''} ${(editable&&isAdmin)?'':'disabled'}/><label for="issuePinned">상단 고정</label></div></div>
         </div>
         <div class="form-row" id="issueWaitingReasonWrap" style="${statusValue==='waiting'?'':'display:none'}"><label class="form-label">대기 사유</label><textarea id="issueWaitingReason" rows="2" placeholder="대기 중인 이유를 적어주세요" style="resize:vertical" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(issue?.waiting_reason||'')}</textarea></div>
@@ -5902,7 +5928,7 @@ async function saveIssue(issueId=''){
   const priority=document.getElementById('issuePriority')?.value||'medium';
   const estimated_hours=document.getElementById('issueEstimatedHours')?.value?parseFloat(document.getElementById('issueEstimatedHours').value):null;
   const status=normalizeIssueStatus(document.getElementById('issueStatus').value||'open');
-  const due_date=document.getElementById('issueDueDate')?.value||null;
+  const due_date=normalizeIssueDueDate(document.getElementById('issueDueDate')?.value);
   const category=document.getElementById('issueCategory')?.value.trim()||null;
   const waiting_reason=document.getElementById('issueWaitingReason')?.value.trim()||null;
   const is_pinned=document.getElementById('issuePinned')?.checked||false;
@@ -8086,7 +8112,8 @@ renderIssueFeed = function(el,pinned,recent){
     const statusMeta=getIssueStatusMeta(issue.status);
     const editable=canEditIssue(issue);
     const commentCount=issueCommentCountMap[issue.id]||0;
-    return '<div id="issue-card-'+issue.id+'" class="card notif-anchor issue-card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'"><div class="issue-card-layout"><div class="issue-card-main">'+(proj?'<div class="issue-card-context">'+(client?esc(client.name)+' | ':'')+esc(proj.name)+'</div>':'')+'<div class="issue-card-title '+(isOpen?'':'is-resolved')+'">'+(isUnread?'<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block"></span>':'')+(isPinned?'PIN ':'')+esc(issue.title)+'</div>'+renderIssuePeopleBadges(issue)+(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')+'<div class="issue-meta"><span>'+esc(issue.author_name||'Unknown')+'</span><span>'+formatCommentDate(issue.created_at)+'</span><span>Comments '+commentCount+'</span><span class="badge '+statusMeta.badgeCls+'">'+statusMeta.label+'</span>'+(isIssueResolvedStatus(issue.status)&&issue.resolved_by?'<span style="color:var(--green);font-weight:700">Resolved '+esc(issue.resolved_by||'')+'</span>':'')+'</div></div><div class="issue-actions">'+(isOpen?'<button class="issue-action-btn resolve-btn" onclick="resolveIssue(\''+issue.id+'\')" title="Resolve"><span class="issue-action-icon">OK</span><span class="issue-action-label">해결</span></button>':'')+(editable?'<button class="issue-action-btn" onclick="openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="Edit"><span class="issue-action-icon">ED</span><span class="issue-action-label">수정</span></button>':'')+(isAdmin&&isOpen?'<button class="issue-action-btn pin-btn '+(issue.is_pinned?'active':'')+'" onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" title="Pin"><span class="issue-action-icon">PIN</span><span class="issue-action-label">고정</span></button>':'')+'<button class="issue-action-btn" onclick="openIssueComments(\''+issue.id+'\')" title="Comments"><span class="issue-action-icon">CM</span><span class="issue-action-label">댓글 '+commentCount+'</span></button></div></div><div id="comments-'+issue.id+'" style="display:none"></div></div>';
+    const dueDateLabel=formatIssueDueDateLabel(issue?.due_date);
+    return '<div id="issue-card-'+issue.id+'" class="card notif-anchor issue-card" style="margin-bottom:8px;border-left:3px solid '+(isPinned?'var(--red)':isOpen?'var(--blue)':'var(--border)')+';opacity:'+(isOpen?'1':'.6')+'"><div class="issue-card-layout"><div class="issue-card-main">'+(proj?'<div class="issue-card-context">'+(client?esc(client.name)+' | ':'')+esc(proj.name)+'</div>':'')+'<div class="issue-card-title '+(isOpen?'':'is-resolved')+'">'+(isUnread?'<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;display:inline-block"></span>':'')+(isPinned?'PIN ':'')+esc(issue.title)+'</div>'+renderIssuePeopleBadges(issue)+(issue.content?'<div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap">'+esc(issue.content)+'</div>':'')+'<div class="issue-meta"><span>'+esc(issue.author_name||'Unknown')+'</span><span>'+formatCommentDate(issue.created_at)+'</span><span>Comments '+commentCount+'</span><span class="badge '+statusMeta.badgeCls+'">'+statusMeta.label+'</span>'+(dueDateLabel?'<span class="badge badge-gray">Due '+esc(dueDateLabel)+'</span>':'')+(isIssueResolvedStatus(issue.status)&&issue.resolved_by?'<span style="color:var(--green);font-weight:700">Resolved '+esc(issue.resolved_by||'')+'</span>':'')+'</div></div><div class="issue-actions">'+(isOpen?'<button class="issue-action-btn resolve-btn" onclick="resolveIssue(\''+issue.id+'\')" title="Resolve"><span class="issue-action-icon">OK</span><span class="issue-action-label">해결</span></button>':'')+(editable?'<button class="issue-action-btn" onclick="openIssueModal(\''+(issue.project_id||'')+'\',\''+issue.id+'\')" title="Edit"><span class="issue-action-icon">ED</span><span class="issue-action-label">수정</span></button>':'')+(isAdmin&&isOpen?'<button class="issue-action-btn pin-btn '+(issue.is_pinned?'active':'')+'" onclick="toggleIssuePin(\''+issue.id+'\','+(!issue.is_pinned)+')" title="Pin"><span class="issue-action-icon">PIN</span><span class="issue-action-label">고정</span></button>':'')+'<button class="issue-action-btn" onclick="openIssueComments(\''+issue.id+'\')" title="Comments"><span class="issue-action-icon">CM</span><span class="issue-action-label">댓글 '+commentCount+'</span></button></div></div><div id="comments-'+issue.id+'" style="display:none"></div></div>';
   };
   let html=sectionHead;
   if(pinned.length) html+='<div class="card-sm" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--red);letter-spacing:.3px;text-transform:uppercase;margin-bottom:10px">Pinned</div>'+pinned.map(i=>issueCard(i,true)).join('')+'</div>';
@@ -9204,7 +9231,7 @@ window.gRow=function(p,days){
     +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">\uC774\uC288 '+issueCount+'</span>':'');
   const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'')+(isActive?' is-active':'');
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
-  const progressHtml='<div class="gantt-row-progress"><span class="gantt-row-progress-text">진행률 '+progress+'%</span><div class="gantt-row-progress-track"><div class="gantt-row-progress-fill" style="width:'+progress+'%;background:'+progressColor+'"></div></div></div>';
+  const progressHtml='<div class="gantt-row-progress" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><span class="gantt-row-progress-text">기간 경과율 '+progress+'%</span><div class="gantt-row-progress-track"><div class="gantt-row-progress-fill" style="width:'+progress+'%;background:'+progressColor+'"></div></div></div>';
   const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div>'+progressHtml+'</div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
   const spanOverlayHtml=(visible&&ganttShowPersonalOverlay)
     ?buildGanttSpanOverlaySummary(overlaysByDay,barS,barE)

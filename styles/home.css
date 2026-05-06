@@ -481,6 +481,30 @@
   font-weight:400;
   white-space:nowrap;
 }
+#pageTeam .home-daily-work-section-sub{
+  margin-top:5px;
+  font-size:12px;
+  line-height:1.55;
+  color:#64748B;
+  font-weight:500;
+}
+#pageTeam .home-daily-work-section-stack{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:14px;
+  margin-top:16px;
+}
+#pageTeam .home-daily-work-section--panel{
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:18px;
+  background:#FFFFFF;
+  padding:18px;
+  box-shadow:0 12px 26px rgba(15,23,42,.05);
+}
+#pageTeam .home-daily-work-section--panel .home-daily-work-section-head{
+  align-items:flex-start;
+  margin-bottom:14px;
+}
 #pageTeam .home-daily-work-section-divider{
   border-top:1px dashed #E2E8F0;
   margin:16px 0;
@@ -1199,6 +1223,30 @@
 #pageTeam .home-queue-card .home-daily-work-section--secondary .home-daily-work-section-title{
   color:#475569;
 }
+#pageTeam .home-queue-card .home-daily-work-section--panel .home-daily-work-section-title{
+  font-size:17px;
+  font-weight:800;
+  letter-spacing:-.02em;
+  color:#0F172A;
+}
+#pageTeam .home-queue-card .home-daily-work-section--panel .home-daily-work-section-count{
+  padding-top:2px;
+  color:#64748B;
+}
+#pageTeam .home-queue-card .home-daily-work-section--panel.home-daily-work-section--attention .home-daily-work-section-title,
+#pageTeam .home-queue-card .home-daily-work-section--panel.home-daily-work-section--secondary .home-daily-work-section-title{
+  color:#0F172A!important;
+}
+#pageTeam .home-queue-card .home-daily-work-section--panel.home-daily-work-section--secondary{
+  opacity:1;
+}
+#pageTeam .home-queue-card .home-daily-work-section--panel.home-daily-work-section--secondary .home-daily-work-card{
+  background:#FFFFFF;
+  box-shadow:0 6px 14px rgba(15,23,42,.04)!important;
+}
+#pageTeam .home-queue-card .home-daily-work-section--panel.home-daily-work-section--secondary .home-daily-work-badge{
+  opacity:1;
+}
 #pageTeam .home-queue-card .home-daily-work-card{
   margin-bottom:8px;
   padding:13px 15px;
@@ -1391,6 +1439,21 @@
     align-items:flex-start;
     flex-direction:column;
     gap:6px;
+  }
+  #pageTeam .home-daily-work-section-stack{
+    gap:12px;
+    margin-top:14px;
+  }
+  #pageTeam .home-daily-work-section--panel{
+    padding:15px;
+    border-radius:16px;
+  }
+  #pageTeam .home-daily-work-section--panel .home-daily-work-section-head{
+    gap:8px;
+    margin-bottom:12px;
+  }
+  #pageTeam .home-daily-work-section-sub{
+    font-size:11px;
   }
   #pageTeam .home-daily-work-card{
     grid-template-columns:auto minmax(0,1fr);

@@ -1859,7 +1859,7 @@ td{
   color:var(--text3)!important;
 }
 .gantt-list-progress{
-  min-width:96px!important;
+  min-width:118px!important;
   display:grid!important;
   gap:3px!important;
 }
@@ -2747,6 +2747,14 @@ td{
 }
 
 @media(max-width:1024px){
+  .gantt-list-client-group-head{
+    align-items:flex-start!important;
+    flex-direction:column!important;
+    gap:4px!important;
+  }
+  .gantt-list-client-group-meta{
+    text-align:left!important;
+  }
   .gantt-task-summary-grid--ops{
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
@@ -3021,6 +3029,31 @@ td{
 .gantt-list-table--queue tbody td{
   padding:10px 12px!important;
 }
+.gantt-list-client-group-row td{
+  padding:14px 12px 8px!important;
+  background:#F8FAFC!important;
+  border-top:1px solid rgba(148,163,184,.24)!important;
+  border-bottom:1px solid rgba(148,163,184,.14)!important;
+}
+.gantt-list-client-group-head{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+.gantt-list-client-group-name{
+  font-size:13px!important;
+  font-weight:800!important;
+  color:var(--navy)!important;
+  line-height:1.35!important;
+}
+.gantt-list-client-group-meta{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+  line-height:1.45!important;
+  text-align:right!important;
+}
 .gantt-list-client-cell{
   font-size:12px!important;
   font-weight:700!important;
@@ -3061,7 +3094,7 @@ td{
   color:#B45309!important;
 }
 .gantt-list-progress{
-  min-width:88px!important;
+  min-width:118px!important;
 }
 .gantt-list-progress-text{
   font-size:10.5px!important;
