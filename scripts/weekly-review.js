@@ -778,21 +778,166 @@ function renderWeeklyReviewKudosSummaryMarkup(votes){
     }).join('')
   +'</div>';
 }
+function getWeeklyReviewEmptyMeetingContent(){
+  return {
+    meeting_notes:'',
+    decisions:'',
+    action_items:'',
+    next_week_checks:''
+  };
+}
+function parseWeeklyReviewMeetingContent(content){
+  const fallback=getWeeklyReviewEmptyMeetingContent();
+  const raw=String(content||'').trim();
+  if(!raw)return fallback;
+  try{
+    const parsed=JSON.parse(raw);
+    if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed)){
+      return {
+        meeting_notes:String(parsed.meeting_notes||parsed.notes||''),
+        decisions:String(parsed.decisions||''),
+        action_items:String(parsed.action_items||''),
+        next_week_checks:String(parsed.next_week_checks||'')
+      };
+    }
+  }catch(e){}
+  return {...fallback,meeting_notes:raw};
+}
+function stringifyWeeklyReviewMeetingContent(content){
+  return JSON.stringify({
+    meeting_notes:String(content?.meeting_notes||'').trim(),
+    decisions:String(content?.decisions||'').trim(),
+    action_items:String(content?.action_items||'').trim(),
+    next_week_checks:String(content?.next_week_checks||'').trim()
+  });
+}
+function hasWeeklyReviewMeetingContent(content){
+  const parsed=parseWeeklyReviewMeetingContent(content);
+  return ['meeting_notes','decisions','action_items','next_week_checks'].some(key=>String(parsed[key]||'').trim());
+}
+function getWeeklyReviewMeetingSections(){
+  return [
+    {key:'meeting_notes',label:'회의 메모',emptyText:'회의 중 논의한 주요 내용을 기록해 주세요.'},
+    {key:'decisions',label:'주요 결정사항',emptyText:'회의에서 확정된 주요 결정사항을 기록해 주세요.'},
+    {key:'action_items',label:'액션 아이템',emptyText:'담당자 / 기한 / 할 일을 기록해 주세요.'},
+    {key:'next_week_checks',label:'다음 주 확인사항',emptyText:'다음 주까지 확인이 필요한 항목을 기록해 주세요.'}
+  ];
+}
+function renderWeeklyReviewMeetingContentBlock(content){
+  const parsed=parseWeeklyReviewMeetingContent(content);
+  const html=getWeeklyReviewMeetingSections()
+    .map(section=>{
+      const value=String(parsed[section.key]||'').trim();
+      return ''
+      +'<div style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fff">'
+        +'<div style="font-size:11px;font-weight:800;color:var(--text3);margin-bottom:6px">'+esc(section.label)+'</div>'
+        +'<div style="font-size:12px;color:'+(value?'var(--text2)':'var(--text3)')+';line-height:1.7;white-space:pre-wrap;word-break:break-word">'+esc(value||section.emptyText)+'</div>'
+      +'</div>';
+    }).join('');
+  return html||'<div style="font-size:12px;color:var(--text3)">입력된 회의 메모가 없습니다.</div>';
+}
+function renderWeeklyReviewMeetingFieldGroupMarkup(reviews,key,emptyText,showEdit=false){
+  const rows=(reviews||[])
+    .map(review=>{
+      const parsed=parseWeeklyReviewMeetingContent(review?.content||'');
+      const value=String(parsed[key]||'').trim();
+      return {review,value};
+    })
+    .filter(row=>row.value);
+  if(!rows.length){
+    return '<div class="weekly-review-empty">'+esc(emptyText||'입력된 회의 메모가 없습니다.')+'</div>';
+  }
+  return '<div style="display:flex;flex-direction:column;gap:10px">'
+    +rows.map(({review,value})=>
+      '<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
+        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
+          +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(review?.member_name||'익명')+'</div><div style="font-size:11px;color:var(--text3)">'+esc(formatCommentDate(review?.updated_at||review?.created_at||''))+'</div></div>'
+          +(showEdit&&review?.created_by===currentUser?.id?'<button class="btn sm" data-id="'+review.id+'" onclick="openWeeklyReviewMeetingMemoModal(this.dataset.id)">수정</button>':'')
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-word">'+esc(value)+'</div>'
+      +'</div>'
+    ).join('')
+  +'</div>';
+}
 function renderWeeklyReviewCommentsMarkup(reviews,isCurrentWeek){
   if(!(reviews||[]).length){
-    return '<div class="weekly-review-empty">'+(isCurrentWeek?'아직 등록된 주간 코멘트가 없습니다.':'이 주차의 주간 코멘트가 없습니다.')+'</div>';
+    return '<div class="weekly-review-empty">'+(isCurrentWeek?'아직 등록된 회의 메모가 없습니다.':'이 주차에 회의 메모가 없습니다.')+'</div>';
   }
   return '<div style="display:flex;flex-direction:column;gap:10px">'
     +(reviews||[]).map(review=>
       '<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
         +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
           +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(review?.member_name||'익명')+'</div><div style="font-size:11px;color:var(--text3)">'+esc(formatCommentDate(review?.updated_at||review?.created_at||''))+'</div></div>'
-          +(isCurrentWeek&&review?.created_by===currentUser?.id?'<button class="btn sm" data-id="'+review.id+'" onclick="openReviewModal(this.dataset.id)">수정</button>':'')
+          +(isCurrentWeek&&review?.created_by===currentUser?.id?'<button class="btn sm" data-id="'+review.id+'" onclick="openWeeklyReviewMeetingMemoModal(this.dataset.id)">수정</button>':'')
         +'</div>'
-        +'<div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-word">'+esc(review?.content||'')+'</div>'
+        +'<div style="display:flex;flex-direction:column;gap:8px">'+renderWeeklyReviewMeetingContentBlock(review?.content||'')+'</div>'
       +'</div>'
     ).join('')
   +'</div>';
+}
+function getWeeklyReviewCurrentUserReview(reviewId=''){
+  const reviews=weeklyReviewLastRenderPayload?.data?.weeklyReviews||[];
+  const id=String(reviewId||'');
+  if(id)return (reviews||[]).find(review=>String(review?.id||'')===id)||null;
+  return (reviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
+}
+function renderWeeklyReviewMeetingTextarea(id,label,value,placeholder='',rows=3){
+  return '<div class="form-row">'
+    +'<label class="form-label">'+esc(label)+'</label>'
+    +'<textarea id="'+esc(id)+'" rows="'+rows+'" style="resize:vertical" placeholder="'+esc(placeholder)+'">'+esc(value||'')+'</textarea>'
+  +'</div>';
+}
+function openWeeklyReviewMeetingMemoModal(reviewId=''){
+  const review=getWeeklyReviewCurrentUserReview(reviewId);
+  const parsed=parseWeeklyReviewMeetingContent(review?.content||'');
+  const modalArea=document.getElementById('modalArea');
+  if(!modalArea)return;
+  const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
+  modalArea.innerHTML=''
+    +overlayHtml
+    +'<div class="modal ui-modal-600" style="width:600px">'
+      +'<div class="modal-header"><div><div class="modal-title">'+(review?'회의 메모 수정':'회의 메모 작성')+'</div><div class="modal-sub">회의 중 기록할 내용, 결정사항, 후속 확인사항을 정리해 주세요.</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
+      +renderWeeklyReviewMeetingTextarea('weeklyReviewMeetingNotes','회의 메모',parsed.meeting_notes,'회의 중 논의한 주요 내용을 적어주세요.',4)
+      +renderWeeklyReviewMeetingTextarea('weeklyReviewDecisions','주요 결정사항',parsed.decisions,'이번 회의에서 확정된 사항을 적어주세요.',3)
+      +renderWeeklyReviewMeetingTextarea('weeklyReviewActionItems','액션 아이템',parsed.action_items,'담당자 / 기한 / 할 일을 적어주세요. 예: 김장한 / 5.10 / A사 자료 재요청',4)
+      +renderWeeklyReviewMeetingTextarea('weeklyReviewNextWeekChecks','다음 주 확인사항',parsed.next_week_checks,'다음 주 회의에서 다시 확인할 내용을 적어주세요.',3)
+      +'<div class="modal-footer"><div class="muted">기존 일반 텍스트 메모는 회의 메모 영역에 그대로 표시됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveWeeklyReviewMeetingMemo(\''+getWeeklyReviewJsString(review?.id||'')+'\')">저장</button></div></div>'
+    +'</div></div>';
+  if(typeof lockBodyScroll==='function')lockBodyScroll();
+  if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
+}
+async function saveWeeklyReviewMeetingMemo(reviewId=''){
+  const contentData={
+    meeting_notes:document.getElementById('weeklyReviewMeetingNotes')?.value||'',
+    decisions:document.getElementById('weeklyReviewDecisions')?.value||'',
+    action_items:document.getElementById('weeklyReviewActionItems')?.value||'',
+    next_week_checks:document.getElementById('weeklyReviewNextWeekChecks')?.value||''
+  };
+  const content=stringifyWeeklyReviewMeetingContent(contentData);
+  if(!hasWeeklyReviewMeetingContent(content)){
+    alert('저장할 회의 메모 내용을 입력해 주세요.');
+    return;
+  }
+  const existing=getWeeklyReviewCurrentUserReview(reviewId);
+  const nowIso=new Date().toISOString();
+  const body={
+    week_start:getWeekStart(weeklyReviewWeekOffset),
+    member_name:existing?.member_name||currentMember?.name||currentUser?.email||'익명',
+    content,
+    updated_at:nowIso
+  };
+  try{
+    if(existing?.id){
+      await api('PATCH','weekly_reviews?id=eq.'+existing.id,body);
+    }else{
+      await api('POST','weekly_reviews',{...body,created_by:currentUser?.id||null});
+    }
+    closeModal();
+    await renderWeeklyReviewPage(weeklyReviewWeekOffset);
+  }catch(error){
+    console.error('[weekly-review] weekly_reviews save failed',error);
+    alert('회의 메모 저장에 실패했습니다. 권한 또는 네트워크 상태를 확인해 주세요.');
+  }
 }
 function setWeeklyReviewMemberScope(scope){
   const nextScope=scope==='all'?'all':'me';
@@ -1571,7 +1716,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const memberSection=memberSectionsByScope[adminCanViewAll&&weeklyReviewMemberScope==='all'?'all':'me'];
   const myWeeklyReview=(weeklyReviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
   const commentsActionHtml=offsetWeeks===0
-    ? '<button class="btn sm" onclick="openReviewModal('+(myWeeklyReview?'\''+myWeeklyReview.id+'\'':'')+')">'+(myWeeklyReview?'내 후기 수정':'+ 후기 작성')+'</button>'
+    ? '<button class="btn sm" onclick="openWeeklyReviewMeetingMemoModal('+(myWeeklyReview?'\''+myWeeklyReview.id+'\'':'')+')">'+(myWeeklyReview?'내 메모 수정':'+ 회의 메모 작성')+'</button>'
     : '';
   const cards=[
     {
@@ -2688,14 +2833,15 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     ];
   }
   if(commentsSection){
-    const memoGroupHtml=commentsSection?.groups?.[0]?.html||'';
+    const meetingSections=getWeeklyReviewMeetingSections();
     commentsSection.title='4. 회의 메모';
     commentsSection.sub='회의 중 기록한 내용, 주요 결정사항, 다음 주 확인사항을 함께 정리합니다.';
     commentsSection.collapsedSummary=`메모 ${commentCount}건`;
     commentsSection.groups=[
-      {title:'회의 메모',variant:'html',countLabel:`${commentCount}건`,html:memoGroupHtml},
-      {title:'주요 결정사항',variant:'html',countLabel:'',html:'<div style="padding:12px 2px 8px"><p style="font-size:12px;color:var(--text3);line-height:1.7;margin:0">회의에서 확정된 주요 결정사항을 위 회의 메모에 함께 기록해 두세요.</p></div>'},
-      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:'<div style="padding:12px 2px 8px"><p style="font-size:12px;color:var(--text3);line-height:1.7;margin:0">다음 주까지 확인이 필요한 항목을 위 회의 메모에 함께 기록해 두세요.</p></div>'}
+      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,true)},
+      {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText)},
+      {title:'액션 아이템',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText)},
+      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)}
     ];
   }
   data.sections=[risksSection,completedSection,nextSection,commentsSection].filter(Boolean);
