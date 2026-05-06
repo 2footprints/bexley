@@ -893,6 +893,11 @@ function openWeeklyReviewMeetingMemoModal(reviewId=''){
   const modalArea=document.getElementById('modalArea');
   if(!modalArea)return;
   const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
+  const reviewIdValue=String(review?.id||'');
+  const reviewIdJs=getWeeklyReviewJsString(reviewIdValue);
+  const deleteButtonHtml=reviewIdValue
+    ?'<button class="btn ghost" style="color:#B91C1C;border-color:rgba(239,68,68,.22);background:#FFF5F5" onclick="deleteWeeklyReviewMeetingMemo(\''+reviewIdJs+'\')">삭제</button>'
+    :'<div class="muted">기존 일반 텍스트 메모는 회의 메모 영역에 그대로 표시됩니다.</div>';
   modalArea.innerHTML=''
     +overlayHtml
     +'<div class="modal ui-modal-600" style="width:600px">'
@@ -901,7 +906,7 @@ function openWeeklyReviewMeetingMemoModal(reviewId=''){
       +renderWeeklyReviewMeetingTextarea('weeklyReviewDecisions','주요 결정사항',parsed.decisions,'이번 회의에서 확정된 사항을 적어주세요.',3)
       +renderWeeklyReviewMeetingTextarea('weeklyReviewActionItems','액션 아이템',parsed.action_items,'담당자 / 기한 / 할 일을 적어주세요. 예: 김장한 / 5.10 / A사 자료 재요청',4)
       +renderWeeklyReviewMeetingTextarea('weeklyReviewNextWeekChecks','다음 주 확인사항',parsed.next_week_checks,'다음 주 회의에서 다시 확인할 내용을 적어주세요.',3)
-      +'<div class="modal-footer"><div class="muted">기존 일반 텍스트 메모는 회의 메모 영역에 그대로 표시됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveWeeklyReviewMeetingMemo(\''+getWeeklyReviewJsString(review?.id||'')+'\')">저장</button></div></div>'
+      +'<div class="modal-footer"><div>'+deleteButtonHtml+'</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveWeeklyReviewMeetingMemo(\''+reviewIdJs+'\')">저장</button></div></div>'
     +'</div></div>';
   if(typeof lockBodyScroll==='function')lockBodyScroll();
   if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
@@ -937,6 +942,22 @@ async function saveWeeklyReviewMeetingMemo(reviewId=''){
   }catch(error){
     console.error('[weekly-review] weekly_reviews save failed',error);
     alert('회의 메모 저장에 실패했습니다. 권한 또는 네트워크 상태를 확인해 주세요.');
+  }
+}
+async function deleteWeeklyReviewMeetingMemo(reviewId=''){
+  const existing=getWeeklyReviewCurrentUserReview(reviewId);
+  if(!existing?.id||existing?.created_by!==currentUser?.id){
+    alert('삭제할 회의 메모를 찾지 못했습니다.');
+    return;
+  }
+  if(!confirm('이 주간 회의 메모를 삭제할까요? 삭제 후에는 복구할 수 없습니다.'))return;
+  try{
+    await api('DELETE','weekly_reviews?id=eq.'+existing.id);
+    closeModal();
+    await renderWeeklyReviewPage(weeklyReviewWeekOffset);
+  }catch(error){
+    console.error('[weekly-review] weekly_reviews delete failed',error);
+    alert('회의 메모 삭제에 실패했습니다.');
   }
 }
 function setWeeklyReviewMemberScope(scope){
@@ -1007,6 +1028,16 @@ function getWeeklyReviewOutputAuthorLabel(output){
   const member=(members||[]).find(item=>String(item?.auth_user_id||'')===authorId||String(item?.id||'')===authorId);
   return member?.name||output?.author_name||'작성자 미확인';
 }
+function canManageWeeklyReviewOutput(output){
+  if(!output?.id)return false;
+  if(typeof roleIsAdmin==='function'&&roleIsAdmin())return true;
+  return !!(currentUser?.id&&String(output?.author_id||'')===String(currentUser.id));
+}
+function getWeeklyReviewOutputById(outputId){
+  const key=String(outputId||'');
+  if(!key)return null;
+  return (weeklyReviewLastRenderPayload?.data?.projectOutputs||[]).find(output=>String(output?.id||'')===key)||null;
+}
 function normalizeWeeklyReviewOutputUrl(url){
   const raw=String(url||'').trim();
   if(!raw)return '';
@@ -1023,7 +1054,12 @@ function openWeeklyReviewOutputUrl(url){
 function renderWeeklyReviewOutputTaskOptions(projectId,selectedTaskId=''){
   const taskRows=weeklyReviewLastRenderPayload?.data?.taskRows||[];
   const rows=(taskRows||[]).filter(task=>String(task?.project_id||'')===String(projectId||''));
+  const selectedTask=selectedTaskId
+    ? (taskRows||[]).find(task=>String(task?.id||'')===String(selectedTaskId||''))
+    : null;
+  const missingSelectedTask=selectedTaskId&&!rows.some(task=>String(task?.id||'')===String(selectedTaskId||''));
   return '<option value="">태스크 선택 안 함</option>'
+    +(missingSelectedTask?'<option value="'+esc(selectedTaskId)+'" selected>'+(selectedTask?esc(selectedTask.title||'제목 없는 태스크'):'삭제된 태스크')+'</option>':'')
     +rows.map(task=>'<option value="'+esc(task?.id||'')+'"'+(String(task?.id||'')===String(selectedTaskId||'')?' selected':'')+'>'+esc(task?.title||'제목 없는 태스크')+'</option>').join('');
 }
 function updateWeeklyReviewOutputTaskOptions(){
@@ -1033,29 +1069,55 @@ function updateWeeklyReviewOutputTaskOptions(){
   taskSelect.innerHTML=renderWeeklyReviewOutputTaskOptions(projectId);
   taskSelect.disabled=!projectId;
 }
-function openWeeklyReviewOutputModal(){
+function openWeeklyReviewOutputModal(outputId=''){
   const modalArea=document.getElementById('modalArea');
   if(!modalArea)return;
+  const existing=getWeeklyReviewOutputById(outputId);
+  if(outputId&&!existing){
+    alert('산출물 링크 정보를 찾지 못했습니다.');
+    return;
+  }
+  if(existing&&!canManageWeeklyReviewOutput(existing)){
+    alert('산출물 링크를 수정할 권한이 없습니다.');
+    return;
+  }
+  const isEdit=!!existing?.id;
   const sortedProjects=(projects||[]).slice().sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
-  const projectOptions=sortedProjects.map(project=>'<option value="'+esc(project?.id||'')+'">'+esc(project?.name||'프로젝트명 없음')+'</option>').join('');
-  const firstProjectId=sortedProjects[0]?.id||'';
+  const selectedProjectId=String(existing?.project_id||sortedProjects[0]?.id||'');
+  const hasSelectedProject=selectedProjectId&&sortedProjects.some(project=>String(project?.id||'')===selectedProjectId);
+  const projectOptions=(sortedProjects.length
+    ? (hasSelectedProject?'':'<option value="'+esc(selectedProjectId)+'" selected>삭제된 프로젝트</option>')
+      +sortedProjects.map(project=>'<option value="'+esc(project?.id||'')+'"'+(String(project?.id||'')===selectedProjectId?' selected':'')+'>'+esc(project?.name||'프로젝트명 없음')+'</option>').join('')
+    : (selectedProjectId
+      ? '<option value="'+esc(selectedProjectId)+'" selected>삭제된 프로젝트</option>'
+      : '<option value="">등록된 프로젝트가 없습니다</option>'));
+  const outputIdJs=getWeeklyReviewJsString(existing?.id||'');
+  const selectedTaskId=String(existing?.task_id||'');
+  const deleteButtonHtml=isEdit
+    ?'<button class="btn ghost" style="color:#B91C1C;border-color:rgba(239,68,68,.22);background:#FFF5F5" onclick="deleteWeeklyReviewOutput(\''+outputIdJs+'\')">삭제</button>'
+    :'<div class="muted">링크만 저장하며 문서 내용은 원드라이브에서 관리합니다.</div>';
   const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
   modalArea.innerHTML=''
     +overlayHtml
     +'<div class="modal ui-modal-540" style="width:540px">'
-      +'<div class="modal-header"><div><div class="modal-title">산출물 링크 추가</div><div class="modal-sub">이번 주 회의에서 공유할 결과물 위치와 맥락을 등록합니다.</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
+      +'<div class="modal-header"><div><div class="modal-title">'+(isEdit?'산출물 링크 수정':'산출물 링크 추가')+'</div><div class="modal-sub">이번 주 회의에서 공유할 결과물 위치와 맥락을 등록합니다.</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
       +'<div class="form-row"><label class="form-label">관련 프로젝트</label><select id="weeklyOutputProject" onchange="updateWeeklyReviewOutputTaskOptions()">'+projectOptions+'</select></div>'
-      +'<div class="form-row"><label class="form-label">관련 태스크 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><select id="weeklyOutputTask" '+(firstProjectId?'':'disabled')+'>'+renderWeeklyReviewOutputTaskOptions(firstProjectId)+'</select></div>'
-      +'<div class="form-row"><label class="form-label">제목</label><input id="weeklyOutputTitle" placeholder="예: 5월 결산 결과보고 초안"/></div>'
-      +'<div class="form-row"><label class="form-label">원드라이브 링크</label><input id="weeklyOutputUrl" placeholder="https://..."/></div>'
-      +'<div class="form-row"><label class="form-label">메모 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><textarea id="weeklyOutputMemo" class="project-modal-memo" rows="3" placeholder="회의에서 설명할 맥락이나 확인 포인트"></textarea></div>'
-      +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--text2);font-weight:700"><input id="weeklyOutputShare" type="checkbox" checked/> 이번 주 회의에서 공유</label>'
-      +'<div class="modal-footer"><div class="muted">링크만 저장하며 문서 내용은 원드라이브에서 관리합니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveWeeklyReviewOutput()">저장</button></div></div>'
+      +'<div class="form-row"><label class="form-label">관련 태스크 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><select id="weeklyOutputTask" '+(selectedProjectId?'':'disabled')+'>'+renderWeeklyReviewOutputTaskOptions(selectedProjectId,selectedTaskId)+'</select></div>'
+      +'<div class="form-row"><label class="form-label">제목</label><input id="weeklyOutputTitle" value="'+esc(existing?.title||'')+'" placeholder="예: 5월 결산 결과보고 초안"/></div>'
+      +'<div class="form-row"><label class="form-label">원드라이브 링크</label><input id="weeklyOutputUrl" value="'+esc(existing?.onedrive_url||'')+'" placeholder="https://..."/></div>'
+      +'<div class="form-row"><label class="form-label">메모 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><textarea id="weeklyOutputMemo" class="project-modal-memo" rows="3" placeholder="회의에서 설명할 맥락이나 확인 포인트">'+esc(existing?.memo||'')+'</textarea></div>'
+      +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--text2);font-weight:700"><input id="weeklyOutputShare" type="checkbox" '+(existing?.share_in_weekly_review===false?'':'checked')+'/> 이번 주 회의에서 공유</label>'
+      +'<div class="modal-footer"><div>'+deleteButtonHtml+'</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveWeeklyReviewOutput(\''+outputIdJs+'\')">저장</button></div></div>'
     +'</div></div>';
   if(typeof lockBodyScroll==='function')lockBodyScroll();
   if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
 }
-async function saveWeeklyReviewOutput(){
+async function saveWeeklyReviewOutput(outputId=''){
+  const existing=getWeeklyReviewOutputById(outputId);
+  if(outputId&&(!existing||!canManageWeeklyReviewOutput(existing))){
+    alert('산출물 링크를 수정할 권한이 없습니다.');
+    return;
+  }
   const projectId=document.getElementById('weeklyOutputProject')?.value||'';
   const taskId=document.getElementById('weeklyOutputTask')?.value||'';
   const title=String(document.getElementById('weeklyOutputTitle')?.value||'').trim();
@@ -1074,25 +1136,45 @@ async function saveWeeklyReviewOutput(){
     alert('원드라이브 링크를 입력해 주세요.');
     return;
   }
-  const nowIso=new Date().toISOString();
   const body={
-    week_start:getWeekStart(weeklyReviewWeekOffset),
     project_id:projectId,
     task_id:taskId||null,
     title,
     onedrive_url:onedriveUrl,
     memo:memo||null,
-    author_id:currentUser?.id||null,
-    share_in_weekly_review:shareInWeeklyReview,
-    updated_at:nowIso
+    share_in_weekly_review:shareInWeeklyReview
   };
   try{
-    await api('POST',WEEKLY_REVIEW_OUTPUT_TABLE,body);
+    if(existing){
+      await api('PATCH',WEEKLY_REVIEW_OUTPUT_TABLE+'?id=eq.'+existing.id,body);
+    }else{
+      await api('POST',WEEKLY_REVIEW_OUTPUT_TABLE,{
+        ...body,
+        week_start:getWeekStart(weeklyReviewWeekOffset),
+        author_id:currentUser?.id||null
+      });
+    }
     closeModal();
     await renderWeeklyReviewPage(weeklyReviewWeekOffset);
   }catch(error){
-    console.error('[weekly-review] project_outputs insert failed',error);
-    alert('산출물 링크 저장에 실패했습니다. 테이블 또는 권한 설정을 확인해 주세요.');
+    console.error(existing?'[weekly-review] project_outputs update failed':'[weekly-review] project_outputs insert failed',error);
+    alert(existing?'산출물 링크 수정에 실패했습니다.':'산출물 링크 저장에 실패했습니다.');
+  }
+}
+async function deleteWeeklyReviewOutput(outputId=''){
+  const existing=getWeeklyReviewOutputById(outputId);
+  if(!existing?.id||!canManageWeeklyReviewOutput(existing)){
+    alert('산출물 링크를 삭제할 권한이 없습니다.');
+    return;
+  }
+  if(!confirm('이 산출물 링크를 삭제할까요? 삭제 후에는 복구할 수 없습니다.'))return;
+  try{
+    await api('DELETE',WEEKLY_REVIEW_OUTPUT_TABLE+'?id=eq.'+existing.id);
+    closeModal();
+    await renderWeeklyReviewPage(weeklyReviewWeekOffset);
+  }catch(error){
+    console.error('[weekly-review] project_outputs delete failed',error);
+    alert('산출물 링크 삭제에 실패했습니다.');
   }
 }
 if(typeof saveProjectTask==='function'&&!saveProjectTask.__weeklyReviewRefreshWrapped){
@@ -2185,13 +2267,17 @@ function renderWeeklyReviewOutputsMarkup(outputs,taskRows=[]){
         const task=getWeeklyReviewOutputTask(output,taskRows);
         const client=getWeeklyReviewProjectClient(project);
         const meta=[client?.name||'',project?.name||'프로젝트 미지정',task?.title?('태스크 '+task.title):'',getWeeklyReviewOutputAuthorLabel(output),formatCommentDate(output?.created_at||'')].filter(Boolean).join(' · ');
+        const outputIdJs=getWeeklyReviewJsString(output?.id||'');
+        const editButtonHtml=canManageWeeklyReviewOutput(output)
+          ?'<button type="button" class="btn ghost sm" onclick="openWeeklyReviewOutputModal(\''+outputIdJs+'\')" style="font-size:12px">수정</button>'
+          :'';
         return '<div class="weekly-review-item" style="align-items:flex-start;cursor:default">'
           +'<div class="weekly-review-item-main">'
             +'<div class="weekly-review-item-title">'+esc(output?.title||'제목 없는 산출물')+'</div>'
             +'<div class="weekly-review-item-meta">'+esc(meta)+'</div>'
             +(output?.memo?'<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-top:6px;white-space:pre-wrap;word-break:break-word">'+esc(output.memo)+'</div>':'')
           +'</div>'
-          +'<div class="weekly-review-item-side"><button type="button" class="btn ghost sm" onclick="openWeeklyReviewOutputUrl(\''+getWeeklyReviewJsString(output?.onedrive_url||'')+'\')" style="font-size:12px">링크 열기</button></div>'
+          +'<div class="weekly-review-item-side" style="gap:6px"><button type="button" class="btn ghost sm" onclick="openWeeklyReviewOutputUrl(\''+getWeeklyReviewJsString(output?.onedrive_url||'')+'\')" style="font-size:12px">링크 열기</button>'+editButtonHtml+'</div>'
         +'</div>';
       }).join('')
     +'</div>'

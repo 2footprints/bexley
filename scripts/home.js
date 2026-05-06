@@ -544,6 +544,7 @@ function getHomeAttentionMeta(item){
 function sortHomeAttentionItems(items){
   return [...items].sort((a,b)=>{
     if((a.attentionGroup||4)!==(b.attentionGroup||4))return (a.attentionGroup||4)-(b.attentionGroup||4);
+    if((a.kind==='task')!==(b.kind==='task'))return a.kind==='task'?-1:1;
     if(a.kind==='deadline'&&b.kind==='deadline'&&a.dueSortTime!==b.dueSortTime)return a.dueSortTime-b.dueSortTime;
     if(a.kind==='issue'&&b.kind==='issue')return (b.createdTime||0)-(a.createdTime||0);
     if(a.hasDue&&b.hasDue&&a.dueSortTime!==b.dueSortTime)return a.dueSortTime-b.dueSortTime;
@@ -551,7 +552,124 @@ function sortHomeAttentionItems(items){
   });
 }
 
-function getHomeAttentionItems(today,todayScheduleItems,issueRows){
+function getHomeJsString(value){
+  return String(value??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n');
+}
+
+function isHomeCompletedTask(task){
+  if(task?.actual_done_at)return true;
+  const status=String(task?.status||'').trim().toLowerCase();
+  return status==='완료'||status==='done'||status==='completed'||status==='complete';
+}
+
+function isHomeInProgressTaskStatus(task){
+  const status=String(task?.status||'').trim().toLowerCase();
+  return !status||['진행중','진행 중','미완료','예정','대기','보류','todo','to_do','open','pending','in_progress','progress'].includes(status);
+}
+
+function getHomeTaskAssigneeLabel(task){
+  const assigneeId=String(task?.assignee_member_id||'').trim();
+  if(!assigneeId)return '담당자 없음';
+  const member=(members||[]).find(item=>String(item?.id||'')===assigneeId);
+  return member?.name||'담당자 확인';
+}
+
+function getHomeTaskProject(task){
+  return (projects||[]).find(project=>String(project?.id||'')===String(task?.project_id||''))||null;
+}
+
+function getHomeAttentionTaskMeta(task,today){
+  if(isHomeCompletedTask(task))return null;
+  const dueValue=String(task?.due_date||'').trim();
+  const hasAssignee=!!String(task?.assignee_member_id||'').trim();
+  if(dueValue){
+    const dueDate=toDate(dueValue);
+    dueDate.setHours(0,0,0,0);
+    if(!Number.isNaN(dueDate.getTime())){
+      const diff=Math.round((dueDate.getTime()-today.getTime())/86400000);
+      if(diff<0)return {group:0,color:'#EF4444',label:'지연 D+'+Math.abs(diff),tone:'urgent',sortTime:dueDate.getTime()};
+      if(diff===0)return {group:1,color:'#EF4444',label:'오늘 마감',tone:'urgent',sortTime:dueDate.getTime()};
+      if(diff===1)return {group:2,color:'#F59E0B',label:'내일 마감',tone:'warn',sortTime:dueDate.getTime()};
+    }
+  }
+  if(!hasAssignee)return {group:3,color:'#F59E0B',label:'담당자 없음',tone:'warn',sortTime:Number.MAX_SAFE_INTEGER};
+  if(!dueValue&&isHomeInProgressTaskStatus(task))return {group:4,color:'#94A3B8',label:'마감일 없음',tone:'normal',sortTime:Number.MAX_SAFE_INTEGER};
+  return null;
+}
+
+function isHomeTaskRelevantToCurrentMember(task){
+  if(!currentMember)return true;
+  if(String(task?.assignee_member_id||'')===String(currentMember.id||''))return true;
+  if(!String(task?.assignee_member_id||'').trim())return true;
+  const project=getHomeTaskProject(task);
+  return !!(project&&isHomeProjectAssignedToCurrentMember(project));
+}
+
+function buildHomeDailyTaskItem(task,today){
+  const meta=getHomeAttentionTaskMeta(task,today);
+  if(!meta)return null;
+  const project=getHomeTaskProject(task);
+  const client=project?clients.find(item=>String(item?.id||'')===String(project?.client_id||''))||null:null;
+  const projectName=project?.name||'프로젝트명 없음';
+  const assigneeLabel=getHomeTaskAssigneeLabel(task);
+  const projectId=String(task?.project_id||project?.id||'');
+  const taskId=String(task?.id||'');
+  const fallbackAction=projectId
+    ?"setPage('gantt');if(typeof setGanttLayout==='function')setGanttLayout('task')"
+    :"setPage('gantt')";
+  return {
+    key:'task:'+taskId,
+    sourceType:'task',
+    sourceId:taskId,
+    projectId,
+    contextLead:client?.name||'거래처 없음',
+    contextTitle:task?.title||'제목 없는 태스크',
+    kind:'task',
+    badgeLabel:'태스크',
+    badgeClass:'task',
+    context:(client?.name||'거래처 없음')+' — '+projectName,
+    summary:[projectName,assigneeLabel].filter(Boolean).join(' · '),
+    dueMeta:{label:meta.label,tone:meta.tone,hasDue:!!task?.due_date,sortTime:meta.sortTime,diff:null},
+    dueSortTime:meta.sortTime,
+    hasDue:!!task?.due_date,
+    createdTime:new Date(task?.updated_at||task?.created_at||0).getTime()||0,
+    priorityRaw:String(task?.priority||'').trim().toLowerCase(),
+    urgencyRank:meta.group,
+    attentionGroup:meta.group,
+    urgencyColor:meta.color,
+    action:projectId&&taskId
+      ? "openHomeProjectTask('"+getHomeJsString(projectId)+"','"+getHomeJsString(taskId)+"')"
+      : fallbackAction
+  };
+}
+
+function getHomeAttentionTaskItems(today,taskRows=[]){
+  return (Array.isArray(taskRows)?taskRows:[])
+    .filter(task=>task?.id)
+    .filter(isHomeTaskRelevantToCurrentMember)
+    .map(task=>buildHomeDailyTaskItem(task,today))
+    .filter(Boolean);
+}
+
+async function loadHomeProjectTaskRows(){
+  try{
+    return await api('GET','project_tasks?select=id,project_id,title,description,status,priority,assignee_member_id,due_date,actual_done_at,created_at,updated_at')||[];
+  }catch(error){
+    console.error('[home] project_tasks select failed',error);
+    return [];
+  }
+}
+
+function openHomeProjectTask(projectId,taskId){
+  if(projectId&&taskId&&typeof openProjectTaskModal==='function'){
+    openProjectTaskModal(projectId,taskId);
+    return;
+  }
+  setPage('gantt');
+  if(typeof setGanttLayout==='function')setGanttLayout('task');
+}
+
+function getHomeAttentionItems(today,todayScheduleItems,issueRows,taskRows=[]){
   const dueLimit=new Date(today);
   dueLimit.setDate(today.getDate()+3);
   const todayProjectIds=new Set(
@@ -579,7 +697,8 @@ function getHomeAttentionItems(today,todayScheduleItems,issueRows){
     const meta=getHomeAttentionMeta(item);
     return {...item,attentionGroup:meta.group,urgencyColor:meta.color};
   });
-  return sortHomeAttentionItems([...deadlineItems,...issueItems]);
+  const taskItems=getHomeAttentionTaskItems(today,taskRows);
+  return sortHomeAttentionItems([...taskItems,...deadlineItems,...issueItems]);
 }
 
 function getHomeRecentWorkItems(limit=4){
@@ -616,6 +735,7 @@ function getHomeRecentWorkItems(limit=4){
 }
 
 function getHomeDailyWorkDestinationLabel(item){
+  if(item?.sourceType==='task'||item?.kind==='task')return '태스크 상세';
   if(item?.sourceType==='issue'||item?.kind==='issue')return '이슈 상세';
   if(item?.sourceType==='schedule'||item?.kind==='schedule')return '일정 상세';
   return '프로젝트 상세';
@@ -1517,22 +1637,29 @@ renderHomeDashboardIssues = async function(){
   const today=getHomeBaseDate();
   const queueItems=getHomeQueueProjectItems(today);
   const recentItems=getHomeRecentWorkItems(3);
-  if(!currentMember){
-    renderHomeDailyWorkSection({queueItems,attentionItems:[],recentItems});
-    return;
-  }
   try{
-    const rows=await api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=*')||[];
+    const [rows,taskRows]=await Promise.all([
+      currentMember
+        ?api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=*').catch(error=>{
+          console.error('[home] project_issues select failed',error);
+          return [];
+        })
+        :Promise.resolve([]),
+      loadHomeProjectTaskRows()
+    ]);
     const issueRows=(rows||[]).filter(issue=>
-      String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')
-      || (!!currentMember.name&&issue.assignee_name===currentMember.name)
+      currentMember&&(
+        String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')
+        || (!!currentMember.name&&issue.assignee_name===currentMember.name)
+      )
     );
     renderHomeDailyWorkSection({
       queueItems,
-      attentionItems:getHomeAttentionItems(today,queueItems,issueRows).slice(0,6),
+      attentionItems:getHomeAttentionItems(today,queueItems,issueRows,taskRows).slice(0,6),
       recentItems
     });
   }catch(e){
+    console.error('renderHomeDashboardIssues failed',e);
     renderHomeDailyWorkSection({
       queueItems,
       attentionItems:getHomeAttentionItems(today,queueItems,[]).slice(0,6),
@@ -3142,22 +3269,29 @@ renderHomeDashboardIssues = async function(){
   const today=getHomeBaseDate();
   const queueItems=getHomeQueueProjectItems(today);
   const recentItems=getHomeRecentWorkItems(3);
-  if(!currentMember){
-    renderHomeDailyWorkSection({queueItems,attentionItems:[],recentItems});
-    return;
-  }
   try{
-    const rows=await api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=*')||[];
+    const [rows,taskRows]=await Promise.all([
+      currentMember
+        ?api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=*').catch(error=>{
+          console.error('[home] project_issues select failed',error);
+          return [];
+        })
+        :Promise.resolve([]),
+      loadHomeProjectTaskRows()
+    ]);
     const issueRows=(rows||[]).filter(issue=>
-      String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')
-      || (!!currentMember.name&&issue.assignee_name===currentMember.name)
+      currentMember&&(
+        String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')
+        || (!!currentMember.name&&issue.assignee_name===currentMember.name)
+      )
     );
     renderHomeDailyWorkSection({
       queueItems,
-      attentionItems:getHomeAttentionItems(today,queueItems,issueRows).slice(0,6),
+      attentionItems:getHomeAttentionItems(today,queueItems,issueRows,taskRows).slice(0,6),
       recentItems
     });
   }catch(e){
+    console.error('renderHomeDashboardIssues failed',e);
     renderHomeDailyWorkSection({
       queueItems,
       attentionItems:getHomeAttentionItems(today,queueItems,[]).slice(0,6),

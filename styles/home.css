@@ -551,6 +551,10 @@
   background:#FEF3C7;
   color:#92400E;
 }
+#pageTeam .home-daily-work-badge.task{
+  background:#E0E7FF;
+  color:#3730A3;
+}
 #pageTeam .home-daily-work-badge.deadline{
   background:#FEE2E2;
   color:#991B1B;
