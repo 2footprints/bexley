@@ -9050,16 +9050,17 @@ function ensureGanttLayoutToggle(){
   const wrap=document.createElement('div');
   wrap.id='ganttLayoutToggle';
   wrap.className='toggle-wrap gantt-layout-toggle';
-  wrap.innerHTML='<button class="toggle-btn active" id="gll" type="button">리스트</button><button class="toggle-btn" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button>';
+  wrap.innerHTML='<button class="toggle-btn active" id="gll" type="button">리스트</button><button class="toggle-btn" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button><button class="toggle-btn" id="gltask" type="button">태스크</button>';
   viewZone.appendChild(wrap);
   document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
   document.getElementById('glc').onclick=()=>setGanttLayout('calendar');
   document.getElementById('gll').onclick=()=>setGanttLayout('list');
+  document.getElementById('gltask').onclick=()=>setGanttLayout('task');
   updateGanttLayoutButtons();
 }
 
 function updateGanttLayoutButtons(){
-  [['glt','timeline'],['glc','calendar'],['gll','list']].forEach(([id,mode])=>{
+  [['glt','timeline'],['glc','calendar'],['gll','list'],['gltask','task']].forEach(([id,mode])=>{
     const btn=document.getElementById(id);
     if(!btn) return;
     btn.classList.toggle('active',curGanttLayout===mode);
@@ -9329,6 +9330,14 @@ window.renderGantt=function(){
   renderGanttSidebarList(projs);
   if(_ganttFocusBefore&&!ganttFocusProjectId)ganttFocusProjectId=_ganttFocusBefore;
   renderGanttDetailPanel(projs,schs);
+  if(curGanttLayout==='task'){
+    const monthLabel=document.getElementById('monthLabel');
+    if(monthLabel)monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
+    if(typeof renderGanttTaskView==='function'){
+      renderGanttTaskView(projs,schs);
+      return;
+    }
+  }
   if(curGanttLayout==='calendar'){
     const monthLabel=document.getElementById('monthLabel');
     if(monthLabel)monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
