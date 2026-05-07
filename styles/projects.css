@@ -1493,10 +1493,26 @@ td{
   font-family:inherit!important;
 }
 .gantt-list-table-shell{
-  overflow:auto!important;
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:auto!important;
+  overflow-y:visible!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-x:contain!important;
   border:1px solid var(--border)!important;
   border-radius:18px!important;
   background:#fff!important;
+}
+.gantt-list-table-shell::-webkit-scrollbar{
+  height:10px!important;
+}
+.gantt-list-table-shell::-webkit-scrollbar-track{
+  background:#F8FAFC!important;
+  border-radius:999px!important;
+}
+.gantt-list-table-shell::-webkit-scrollbar-thumb{
+  background:#CBD5E1!important;
+  border-radius:999px!important;
 }
 .gantt-list-table{
   width:100%!important;
@@ -1806,11 +1822,13 @@ td{
   justify-content:flex-end!important;
   gap:6px!important;
   flex-wrap:wrap!important;
+  min-width:92px!important;
 }
 .gantt-list-task-complete-btn{
   min-height:28px!important;
-  padding:0 9px!important;
+  padding:0 10px!important;
   font-size:11px!important;
+  white-space:nowrap!important;
 }
 .gantt-list-task-drill-done{
   font-size:11px!important;
@@ -3018,7 +3036,40 @@ td{
   flex:0 1 190px!important;
 }
 .gantt-list-table--queue{
-  min-width:940px!important;
+  min-width:1220px!important;
+  table-layout:fixed!important;
+}
+.gantt-list-table--queue thead th:nth-child(1),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(1){
+  width:44px!important;
+}
+.gantt-list-table--queue thead th:nth-child(2),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(2){
+  width:150px!important;
+}
+.gantt-list-table--queue thead th:nth-child(3),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(3){
+  width:280px!important;
+}
+.gantt-list-table--queue thead th:nth-child(4),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(4){
+  width:145px!important;
+}
+.gantt-list-table--queue thead th:nth-child(5),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(5){
+  width:135px!important;
+}
+.gantt-list-table--queue thead th:nth-child(6),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(6){
+  width:135px!important;
+}
+.gantt-list-table--queue thead th:nth-child(7),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(7){
+  width:96px!important;
+}
+.gantt-list-table--queue thead th:nth-child(8),
+.gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(8){
+  width:235px!important;
 }
 .gantt-list-toolbar{
   gap:10px!important;
@@ -3115,6 +3166,8 @@ td{
   font-weight:700!important;
   color:var(--navy)!important;
   line-height:1.45!important;
+  white-space:normal!important;
+  word-break:keep-all!important;
 }
 .gantt-list-attention-badges{
   gap:4px!important;
@@ -3214,7 +3267,7 @@ td{
     flex:1 1 100%!important;
   }
   .gantt-list-table--queue{
-    min-width:860px!important;
+    min-width:1120px!important;
   }
 }
 

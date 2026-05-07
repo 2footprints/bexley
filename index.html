@@ -2097,6 +2097,18 @@ function normalizeIssueDueDate(value){
     :raw.split('T')[0];
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized)?normalized:null;
 }
+function normalizeIssueEstimatedHours(value){
+  const raw=String(value??'').trim();
+  if(!raw)return null;
+  const hours=Number(raw.replace(',','.'));
+  if(!Number.isFinite(hours)||hours<0)return null;
+  return Math.round(hours*100)/100;
+}
+function formatIssueEstimatedHoursLabel(value){
+  const hours=normalizeIssueEstimatedHours(value);
+  if(hours===null)return '';
+  return '예상 '+hours.toLocaleString('ko-KR',{maximumFractionDigits:2})+'h';
+}
 function formatIssueDueDateLabel(value){
   const normalized=normalizeIssueDueDate(value);
   if(!normalized)return '';
@@ -5861,6 +5873,7 @@ async function openIssueModal(projId='',issueId=''){
   const selectedProjectId=String(issue?.project_id||projId||'');
   const selectedTaskId=String(issue?.task_id||'');
   const dueDateValue=normalizeIssueDueDate(issue?.due_date)||'';
+  const estimatedHoursValue=normalizeIssueEstimatedHours(issue?.estimated_hours);
   const projectTasks=selectedProjectId?await loadIssueModalTasks(selectedProjectId):[];
   const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);const selected=(issue?issue.project_id===p.id:p.id===projId);return '<option value="'+p.id+'"'+(selected?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
   const ownerSelected=issue?.owner_member_id||(currentMember?.id||'');
@@ -5877,7 +5890,7 @@ async function openIssueModal(projId='',issueId=''){
         <div class="form-row"><label class="form-label">상세 내용</label><textarea id="issueContent" rows="4" placeholder="상세 내용, 원인, 영향 범위 등" style="resize:vertical" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(issue?.content||'')}</textarea></div>
         <div class="form-half">
           <div class="form-row"><label class="form-label">우선순위</label><select id="issuePriority" ${editable?'':'disabled'}><option value="high" ${issue?.priority==='high'?'selected':''}>높음</option><option value="medium" ${(!issue||!issue.priority||issue.priority==='medium')?'selected':''}>보통</option><option value="low" ${issue?.priority==='low'?'selected':''}>낮음</option></select></div>
-          <div class="form-row"><label class="form-label">예상 시간</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="issueEstimatedHours" min="0" step="0.5" value="${issue?.estimated_hours??''}" placeholder="예) 2.5" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">시간</span></div></div>
+          <div class="form-row"><label class="form-label">예상 시간</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="issueEstimatedHours" min="0" step="0.5" value="${estimatedHoursValue??''}" placeholder="예) 2.5" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">시간</span></div></div>
         </div>
         <div class="form-half">
           <div class="form-row"><label class="form-label">오너</label><select id="issueOwner" ${editable?'':'disabled'}><option value="">선택 안 함</option>${memberOptions(ownerSelected)}</select></div>
@@ -5924,7 +5937,7 @@ async function saveIssue(issueId=''){
   const ownerMember=getMemberById(owner_member_id);
   const assigneeMember=getMemberById(assignee_member_id);
   const priority=document.getElementById('issuePriority')?.value||'medium';
-  const estimated_hours=document.getElementById('issueEstimatedHours')?.value?parseFloat(document.getElementById('issueEstimatedHours').value):null;
+  const estimated_hours=normalizeIssueEstimatedHours(document.getElementById('issueEstimatedHours')?.value);
   const status=normalizeIssueStatus(document.getElementById('issueStatus').value||'open');
   const due_date=normalizeIssueDueDate(document.getElementById('issueDueDate')?.value);
   const category=document.getElementById('issueCategory')?.value.trim()||null;

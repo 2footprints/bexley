@@ -434,6 +434,9 @@ function renderIssuesPageFromCache(){
                 const blockedReason=issue._blockedReason||getIssuesPageBlockedReason(issue);
                 const nextCheckMeta=issue._nextCheck||getIssuesPageNextCheckMeta(issue);
                 const quickActionMeta=getIssuesPageQuickActionMeta(issue);
+                const estimatedHoursLabel=typeof formatIssueEstimatedHoursLabel==='function'
+                  ?formatIssueEstimatedHoursLabel(issue?.estimated_hours)
+                  :'';
                 const isExpanded=expandedIssuesPageIds.has(issue.id);
                 const isOpen=isIssueActiveStatus(issue.status);
                 const isLongOpen=isIssuesPageLongOpen(issue);
@@ -450,6 +453,7 @@ function renderIssuesPageFromCache(){
                         +'<span class="issues-page-impact is-'+impactMeta.tone+'">'+esc(impactMeta.label)+'</span>'
                         +(isLongOpen?'<span class="issues-page-inline-tag long-open">장기 미해결</span>':'')
                         +(priorityMeta.cls==='high'?'<span class="issues-page-priority '+priorityMeta.cls+'">'+priorityMeta.label+'</span>':'')
+                        +(estimatedHoursLabel?'<span class="issues-page-inline-tag">'+esc(estimatedHoursLabel)+'</span>':'')
                         +'<span class="badge '+statusMeta.cls+' issues-page-row-status">'+statusMeta.label+'</span>'
                         +(assigneeMeta.isMine?'<span class="issues-page-inline-tag mine">내 담당</span>':'')
                         +(issue.is_pinned?'<span class="issues-page-inline-tag pinned">고정</span>':'')
@@ -479,6 +483,7 @@ function renderIssuesPageFromCache(){
                             +'<div class="issues-page-detail-row"><span>영향</span><strong>'+esc(impactMeta.label)+'</strong></div>'
                             +'<div class="issues-page-detail-row"><span>다음 확인</span><strong>'+esc(followUpMeta.label)+'</strong></div>'
                             +(issue.author_name?'<div class="issues-page-detail-row"><span>작성자</span><strong>'+esc(issue.author_name)+'</strong></div>':'')
+                            +(estimatedHoursLabel?'<div class="issues-page-detail-row"><span>예상 시간</span><strong>'+esc(estimatedHoursLabel.replace(/^예상\s*/,''))+'</strong></div>':'')
                             +(getIssueStatusChangedAt(issue)?'<div class="issues-page-detail-row"><span>상태 기준</span><strong>'+formatCommentDate(getIssueStatusChangedAt(issue))+'</strong></div>':'')
                             +(issue._project?.name?'<div class="issues-page-detail-row"><span>관련 프로젝트</span><strong>'+esc(issue._project.name)+'</strong></div>':'')
                           +'</div>'

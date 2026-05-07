@@ -1268,9 +1268,9 @@ async function renderTeamWorkload(){
   const capacity=40;
   const today=getHomeBaseDate();
   const {start:weekStart,end:weekEnd}=getWeekBounds(0);
+  const activeMembers=getHomePanelActiveMembers();
   const normalizeStatus=value=>String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
   const activeStatuses=new Set(['in_progress','active','진행중','진행_중']);
-  const activeMembers=getHomePanelActiveMembers();
   const activeProjects=(projects||[]).filter(project=>{
     const statusRaw=String(project?.status||'').trim();
     const statusKey=normalizeStatus(statusRaw);
@@ -1810,7 +1810,7 @@ renderHomeDashboardIssues = async function(){
 renderTeamWorkload = async function(){
   const el=document.getElementById('teamWorkloadWrap');
   if(!el)return;
-  const loadingLabels=['지연 프로젝트','미청구 금액','장기 자료 미수령','과부하 인력','위험 고객'];
+  const loadingLabels=['지연 프로젝트','미청구 금액','장기 자료 미수령','주의 필요 인력','위험 고객'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구·자료·인력 리스크를 보여줍니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--warning">'
@@ -1855,39 +1855,39 @@ renderTeamWorkload = async function(){
     }
     return [];
   };
-  const getProjectBaseHours=project=>{
-    const explicitHours=Number(project?.estimated_hours);
-    if(explicitHours>0)return explicitHours;
-    const startValue=project?.start||project?.start_date;
-    const endValue=project?.end||project?.end_date||startValue;
-    if(!startValue||!endValue)return 0;
-    const startDate=toDate(startValue);
-    const endDate=toDate(endValue);
-    startDate.setHours(0,0,0,0);
-    endDate.setHours(0,0,0,0);
-    const durationDays=Math.max(1,Math.round((endDate.getTime()-startDate.getTime())/86400000)+1);
-    return durationDays*8;
+  const getAttentionMemberKey=member=>String(member?.id||member?.name||'').trim();
+  const memberAttentionMap=new Map(activeMembers.map(member=>[
+    getAttentionMemberKey(member),
+    {member,name:member.name,overdueTasks:0,weekDueTasks:0,openIssues:0,delayedProjects:0}
+  ]));
+  const getAttentionMemberById=memberId=>{
+    const id=String(memberId||'').trim();
+    if(!id)return null;
+    return activeMembers.find(member=>String(member?.id||'')===id)||null;
   };
-  const workloadRows=activeMembers.map(member=>{
-    const totalHours=activeProjects.reduce((sum,project)=>{
-      const assignedMembers=getProjectAssignedMembers(project);
-      if(!assignedMembers.some(assigned=>String(assigned.id)===String(member.id)||assigned.name===member.name))return sum;
-      const projectHours=getProjectBaseHours(project);
-      if(projectHours<=0)return sum;
-      const individualHours=Number(project?.individual_hours);
-      if(individualHours>0)return sum+individualHours;
-      return sum+(projectHours/Math.max(assignedMembers.length,1));
-    },0);
-    const percent=Math.round((totalHours/40)*100);
-    return {
-      name:member.name,
-      totalHours:Math.round(totalHours*10)/10,
-      percent
-    };
-  }).sort((a,b)=>b.percent-a.percent||b.totalHours-a.totalHours||a.name.localeCompare(b.name,'ko'));
+  const addMemberAttentionCount=(member,key)=>{
+    const mapKey=getAttentionMemberKey(member);
+    const row=memberAttentionMap.get(mapKey);
+    if(row)row[key]=(Number(row[key])||0)+1;
+  };
+  const isIncompleteTask=task=>String(task?.status||'').trim()!=='완료'&&!task?.actual_done_at;
+  const getTaskDueDate=task=>{
+    if(!task?.due_date)return null;
+    const dueDate=toDate(task.due_date);
+    if(Number.isNaN(dueDate.getTime()))return null;
+    dueDate.setHours(0,0,0,0);
+    return dueDate;
+  };
   try{
-    const [issueRows,pendingDocs]=await Promise.all([
-      api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=id,project_id,status,priority').catch(()=>[]),
+    const [issueRows,taskRows,pendingDocs]=await Promise.all([
+      api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=id,project_id,status,priority,assignee_member_id,owner_member_id').catch(error=>{
+        console.error('[home] attention issue load failed',error);
+        return [];
+      }),
+      api('GET','project_tasks?select=id,project_id,status,assignee_member_id,due_date,actual_done_at').catch(error=>{
+        console.error('[home] attention task load failed',error);
+        return [];
+      }),
       api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
     const delayedProjects=(projects||[]).filter(project=>{
@@ -1904,7 +1904,48 @@ renderTeamWorkload = async function(){
       if(aTime!==bTime)return aTime-bTime;
       return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
     });
-    const overloadedRows=workloadRows.filter(row=>row.percent>=90);
+    (taskRows||[]).filter(isIncompleteTask).forEach(task=>{
+      const assignee=getAttentionMemberById(task?.assignee_member_id);
+      if(!assignee)return;
+      const dueDate=getTaskDueDate(task);
+      if(!dueDate)return;
+      if(dueDate<today)addMemberAttentionCount(assignee,'overdueTasks');
+      if(dueDate>=weekStart&&dueDate<=weekEnd)addMemberAttentionCount(assignee,'weekDueTasks');
+    });
+    (issueRows||[]).forEach(issue=>{
+      const assignee=getAttentionMemberById(issue?.assignee_member_id||issue?.owner_member_id);
+      if(assignee)addMemberAttentionCount(assignee,'openIssues');
+    });
+    delayedProjects.forEach(project=>{
+      const assignedMembers=getProjectAssignedMembers(project);
+      const countedKeys=new Set();
+      assignedMembers.forEach(member=>{
+        const key=getAttentionMemberKey(member);
+        if(!key||countedKeys.has(key))return;
+        countedKeys.add(key);
+        addMemberAttentionCount(member,'delayedProjects');
+      });
+    });
+    const attentionMemberRows=[...memberAttentionMap.values()]
+      .filter(row=>row.overdueTasks>=2||row.weekDueTasks>=3||row.openIssues>=3||row.delayedProjects>=1)
+      .sort((a,b)=>
+        b.overdueTasks-a.overdueTasks
+        || b.openIssues-a.openIssues
+        || b.weekDueTasks-a.weekDueTasks
+        || b.delayedProjects-a.delayedProjects
+        || a.name.localeCompare(b.name,'ko')
+      );
+    const getAttentionMemberMeta=row=>{
+      const parts=[];
+      if(row.overdueTasks)parts.push('지연 '+row.overdueTasks);
+      if(row.weekDueTasks)parts.push('이번 주 '+row.weekDueTasks);
+      if(row.openIssues)parts.push('이슈 '+row.openIssues);
+      if(row.delayedProjects)parts.push('지연 프로젝트 '+row.delayedProjects);
+      return row.name+(parts.length?' · '+parts.slice(0,2).join(' / '):'');
+    };
+    const attentionMemberMeta=attentionMemberRows.length
+      ?attentionMemberRows.slice(0,2).map(getAttentionMemberMeta).join(', ')+(attentionMemberRows.length>2?' 외 '+(attentionMemberRows.length-2)+'명':'')
+      :'지연·이번 주 마감·열린 이슈 기준';
     const riskyClientIds=new Set();
     delayedProjects.forEach(project=>{ if(project?.client_id) riskyClientIds.add(String(project.client_id)); });
     unbilledProjects.forEach(project=>{ if(project?.client_id) riskyClientIds.add(String(project.client_id)); });
@@ -1953,11 +1994,11 @@ renderTeamWorkload = async function(){
         action:"setPage('projects')"
       },
       {
-        label:'과부하 인력',
-        value:overloadedRows.length?overloadedRows.length+'명':'없음',
-        tone:overloadedRows.length?'warning':'neutral',
-        quiet:!overloadedRows.length,
-        meta:overloadedRows.length?overloadedRows.slice(0,2).map(row=>row.name).join(', '):'과부하 인력이 없습니다',
+        label:'주의 필요 인력',
+        value:attentionMemberRows.length?attentionMemberRows.length+'명':'없음',
+        tone:attentionMemberRows.length?'warning':'neutral',
+        quiet:!attentionMemberRows.length,
+        meta:attentionMemberMeta,
         action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
       },
       {
@@ -3467,7 +3508,7 @@ renderHomeDashboardIssues = async function(){
 renderTeamWorkload = async function(){
   const el=document.getElementById('teamWorkloadWrap');
   if(!el)return;
-  const loadingLabels=['지연 프로젝트','미청구 금액','장기 자료 미수령','과부하 인력','위험 고객'];
+  const loadingLabels=['지연 프로젝트','미청구 금액','장기 자료 미수령','주의 필요 인력','위험 고객'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구·자료·인력 리스크를 보여줍니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--warning">'
@@ -3477,19 +3518,7 @@ renderTeamWorkload = async function(){
     +'</div></div>';
   const today=getHomeBaseDate();
   const {start:weekStart,end:weekEnd}=getWeekBounds(0);
-  const normalizeStatus=value=>String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
-  const activeStatuses=new Set(['in_progress','active','진행중','진행_중']);
   const activeMembers=getHomePanelActiveMembers();
-  const activeProjects=(projects||[]).filter(project=>{
-    const statusRaw=String(project?.status||'').trim();
-    const statusKey=normalizeStatus(statusRaw);
-    if(!(activeStatuses.has(statusRaw)||activeStatuses.has(statusKey)))return false;
-    const startDate=(project?.start||project?.start_date)?toDate(project.start||project.start_date):null;
-    const endDate=(project?.end||project?.end_date)?toDate(project.end||project.end_date):null;
-    if(startDate&&startDate>weekEnd)return false;
-    if(endDate&&endDate<weekStart)return false;
-    return true;
-  });
   const getProjectAssignedMembers=project=>{
     const linkedMembers=(projectMemberLinks||[])
       .filter(link=>String(link.project_id)===String(project.id))
@@ -3512,39 +3541,39 @@ renderTeamWorkload = async function(){
     }
     return [];
   };
-  const getProjectBaseHours=project=>{
-    const explicitHours=Number(project?.estimated_hours);
-    if(explicitHours>0)return explicitHours;
-    const startValue=project?.start||project?.start_date;
-    const endValue=project?.end||project?.end_date||startValue;
-    if(!startValue||!endValue)return 0;
-    const startDate=toDate(startValue);
-    const endDate=toDate(endValue);
-    startDate.setHours(0,0,0,0);
-    endDate.setHours(0,0,0,0);
-    const durationDays=Math.max(1,Math.round((endDate.getTime()-startDate.getTime())/86400000)+1);
-    return durationDays*8;
+  const getAttentionMemberKey=member=>String(member?.id||member?.name||'').trim();
+  const memberAttentionMap=new Map(activeMembers.map(member=>[
+    getAttentionMemberKey(member),
+    {member,name:member.name,overdueTasks:0,weekDueTasks:0,openIssues:0,delayedProjects:0}
+  ]));
+  const getAttentionMemberById=memberId=>{
+    const id=String(memberId||'').trim();
+    if(!id)return null;
+    return activeMembers.find(member=>String(member?.id||'')===id)||null;
   };
-  const workloadRows=activeMembers.map(member=>{
-    const totalHours=activeProjects.reduce((sum,project)=>{
-      const assignedMembers=getProjectAssignedMembers(project);
-      if(!assignedMembers.some(assigned=>String(assigned.id)===String(member.id)||assigned.name===member.name))return sum;
-      const projectHours=getProjectBaseHours(project);
-      if(projectHours<=0)return sum;
-      const individualHours=Number(project?.individual_hours);
-      if(individualHours>0)return sum+individualHours;
-      return sum+(projectHours/Math.max(assignedMembers.length,1));
-    },0);
-    const percent=Math.round((totalHours/40)*100);
-    return {
-      name:member.name,
-      totalHours:Math.round(totalHours*10)/10,
-      percent
-    };
-  }).sort((a,b)=>b.percent-a.percent||b.totalHours-a.totalHours||a.name.localeCompare(b.name,'ko'));
+  const addMemberAttentionCount=(member,key)=>{
+    const mapKey=getAttentionMemberKey(member);
+    const row=memberAttentionMap.get(mapKey);
+    if(row)row[key]=(Number(row[key])||0)+1;
+  };
+  const isIncompleteTask=task=>String(task?.status||'').trim()!=='완료'&&!task?.actual_done_at;
+  const getTaskDueDate=task=>{
+    if(!task?.due_date)return null;
+    const dueDate=toDate(task.due_date);
+    if(Number.isNaN(dueDate.getTime()))return null;
+    dueDate.setHours(0,0,0,0);
+    return dueDate;
+  };
   try{
-    const [issueRows,pendingDocs]=await Promise.all([
-      api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=id,project_id,status,priority').catch(()=>[]),
+    const [issueRows,taskRows,pendingDocs]=await Promise.all([
+      api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=id,project_id,status,priority,assignee_member_id,owner_member_id').catch(error=>{
+        console.error('[home] attention issue load failed',error);
+        return [];
+      }),
+      api('GET','project_tasks?select=id,project_id,status,assignee_member_id,due_date,actual_done_at').catch(error=>{
+        console.error('[home] attention task load failed',error);
+        return [];
+      }),
       api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
     const delayedProjects=(projects||[]).filter(project=>{
@@ -3561,7 +3590,48 @@ renderTeamWorkload = async function(){
       if(aTime!==bTime)return aTime-bTime;
       return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
     });
-    const overloadedRows=workloadRows.filter(row=>row.percent>=90);
+    (taskRows||[]).filter(isIncompleteTask).forEach(task=>{
+      const assignee=getAttentionMemberById(task?.assignee_member_id);
+      if(!assignee)return;
+      const dueDate=getTaskDueDate(task);
+      if(!dueDate)return;
+      if(dueDate<today)addMemberAttentionCount(assignee,'overdueTasks');
+      if(dueDate>=weekStart&&dueDate<=weekEnd)addMemberAttentionCount(assignee,'weekDueTasks');
+    });
+    (issueRows||[]).forEach(issue=>{
+      const assignee=getAttentionMemberById(issue?.assignee_member_id||issue?.owner_member_id);
+      if(assignee)addMemberAttentionCount(assignee,'openIssues');
+    });
+    delayedProjects.forEach(project=>{
+      const assignedMembers=getProjectAssignedMembers(project);
+      const countedKeys=new Set();
+      assignedMembers.forEach(member=>{
+        const key=getAttentionMemberKey(member);
+        if(!key||countedKeys.has(key))return;
+        countedKeys.add(key);
+        addMemberAttentionCount(member,'delayedProjects');
+      });
+    });
+    const attentionMemberRows=[...memberAttentionMap.values()]
+      .filter(row=>row.overdueTasks>=2||row.weekDueTasks>=3||row.openIssues>=3||row.delayedProjects>=1)
+      .sort((a,b)=>
+        b.overdueTasks-a.overdueTasks
+        || b.openIssues-a.openIssues
+        || b.weekDueTasks-a.weekDueTasks
+        || b.delayedProjects-a.delayedProjects
+        || a.name.localeCompare(b.name,'ko')
+      );
+    const getAttentionMemberMeta=row=>{
+      const parts=[];
+      if(row.overdueTasks)parts.push('지연 '+row.overdueTasks);
+      if(row.weekDueTasks)parts.push('이번 주 '+row.weekDueTasks);
+      if(row.openIssues)parts.push('이슈 '+row.openIssues);
+      if(row.delayedProjects)parts.push('지연 프로젝트 '+row.delayedProjects);
+      return row.name+(parts.length?' · '+parts.slice(0,2).join(' / '):'');
+    };
+    const attentionMemberMeta=attentionMemberRows.length
+      ?attentionMemberRows.slice(0,2).map(getAttentionMemberMeta).join(', ')+(attentionMemberRows.length>2?' 외 '+(attentionMemberRows.length-2)+'명':'')
+      :'지연·이번 주 마감·열린 이슈 기준';
     const riskyClientIds=new Set();
     delayedProjects.forEach(project=>{ if(project?.client_id) riskyClientIds.add(String(project.client_id)); });
     unbilledProjects.forEach(project=>{ if(project?.client_id) riskyClientIds.add(String(project.client_id)); });
@@ -3610,11 +3680,11 @@ renderTeamWorkload = async function(){
         action:"setPage('projects')"
       },
       {
-        label:'과부하 인력',
-        value:overloadedRows.length?overloadedRows.length+'명':'없음',
-        tone:overloadedRows.length?'warning':'neutral',
-        quiet:!overloadedRows.length,
-        meta:overloadedRows.length?overloadedRows.slice(0,2).map(row=>row.name).join(', '):'과부하 인력이 없습니다',
+        label:'주의 필요 인력',
+        value:attentionMemberRows.length?attentionMemberRows.length+'명':'없음',
+        tone:attentionMemberRows.length?'warning':'neutral',
+        quiet:!attentionMemberRows.length,
+        meta:attentionMemberMeta,
         action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
       },
       {

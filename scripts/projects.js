@@ -5708,8 +5708,9 @@ function renderGanttListTaskDrilldownItem(projectId,task){
   const priorityText=getGanttTaskDrilldownPriorityText(task);
   const doneText=getGanttTaskDoneText(task);
   const description=String(task?.description||'').trim();
-  const tone=String(task?.status||'')==='완료'?'done':(dueMeta?.tone||'neutral');
-  const isDone=String(task?.status||'').trim()==='완료';
+  const isDone=String(task?.status||'').trim()==='완료'||!!task?.actual_done_at;
+  const tone=isDone?'done':(dueMeta?.tone||'neutral');
+  const canComplete=!!(projectKey&&taskKey&&!isDone);
   return ''
     +'<div class="gantt-list-task-drill-item is-'+tone+'" role="button" tabindex="0" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<div class="gantt-list-task-drill-main">'
@@ -5726,7 +5727,7 @@ function renderGanttListTaskDrilldownItem(projectId,task){
         +'<span class="badge '+statusMeta.className+'">'+esc(statusMeta.label)+'</span>'
         +(isDone
           ?'<span class="gantt-list-task-drill-done">완료됨</span>'
-          :'<button type="button" class="btn ghost sm gantt-list-task-complete-btn" onclick="event.stopPropagation();completeProjectTask(\''+projectKey+'\',\''+taskKey+'\')">완료</button>')
+          :(canComplete?'<button type="button" class="btn ghost sm gantt-list-task-complete-btn" title="완료 처리" onclick="event.stopPropagation();completeProjectTask(\''+projectKey+'\',\''+taskKey+'\')">완료</button>':''))
       +'</div>'
     +'</div>';
 }
