@@ -1711,6 +1711,11 @@ td{
   gap:10px!important;
   padding:12px 0 2px!important;
   border-top:1px dashed #E2E8F0!important;
+  overflow-x:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.gantt-list-task-drill-items{
+  min-width:520px!important;
 }
 .gantt-list-task-drill-head{
   display:flex!important;
