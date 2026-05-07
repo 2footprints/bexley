@@ -3526,7 +3526,7 @@ td{
   border:1px solid rgba(148,163,184,.16)!important;
   border-radius:16px!important;
   background:#FFFFFF!important;
-  padding:8px 10px!important;
+  padding:10px 14px!important;
   box-shadow:0 8px 18px rgba(15,23,42,.035)!important;
 }
 #pageGantt .gantt-toolbar{
@@ -3799,6 +3799,15 @@ td{
   border-radius:14px!important;
   background:#FBFCFE!important;
   color:#64748B!important;
+}
+#pageGantt #ganttVisibilitySummary{
+  margin:8px 0 0!important;
+  padding:7px 2px 0!important;
+  border-top:1px solid rgba(148,163,184,.12)!important;
+  font-size:11.5px!important;
+  line-height:1.6!important;
+  color:var(--text3)!important;
+  letter-spacing:-.01em!important;
 }
 #pageGantt .gantt-shell{
   gap:20px!important;

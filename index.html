@@ -8696,7 +8696,7 @@ function ensureGanttVisibilitySummary(){
   if(!summary){
     summary=document.createElement('div');
     summary.id='ganttVisibilitySummary';
-    summary.style.cssText='font-size:12px;color:var(--text3);margin:-6px 0 12px';
+    summary.style.cssText='';
     const next=toolbar.nextElementSibling;
     if(next)toolbar.parentNode.insertBefore(summary,next);
     else toolbar.parentNode.insertBefore(summary,toolbar.nextSibling);
