@@ -1937,11 +1937,11 @@ renderTeamWorkload = async function(){
       );
     const getAttentionMemberMeta=row=>{
       const parts=[];
-      if(row.overdueTasks)parts.push('지연 '+row.overdueTasks);
-      if(row.weekDueTasks)parts.push('이번 주 '+row.weekDueTasks);
-      if(row.openIssues)parts.push('이슈 '+row.openIssues);
-      if(row.delayedProjects)parts.push('지연 프로젝트 '+row.delayedProjects);
-      return row.name+(parts.length?' · '+parts.slice(0,2).join(' / '):'');
+      if(row.overdueTasks)parts.push('지연 '+row.overdueTasks+'건');
+      if(row.weekDueTasks)parts.push('이번 주 마감 '+row.weekDueTasks+'건');
+      if(row.openIssues)parts.push('열린 이슈 '+row.openIssues+'건');
+      if(row.delayedProjects)parts.push('지연 프로젝트 '+row.delayedProjects+'건');
+      return row.name+(parts.length?' · '+parts.slice(0,2).join(' · '):'');
     };
     const attentionMemberMeta=attentionMemberRows.length
       ?attentionMemberRows.slice(0,2).map(getAttentionMemberMeta).join(', ')+(attentionMemberRows.length>2?' 외 '+(attentionMemberRows.length-2)+'명':'')
@@ -1999,6 +1999,7 @@ renderTeamWorkload = async function(){
         tone:attentionMemberRows.length?'warning':'neutral',
         quiet:!attentionMemberRows.length,
         meta:attentionMemberMeta,
+        titleText:'지연 태스크·이번 주 마감·열린 이슈 기준',
         action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
       },
       {
@@ -2521,7 +2522,8 @@ function renderHomeRiskSummaryCard(card){
   if(card?.tone)classNames.push('is-'+card.tone);
   if(card?.quiet)classNames.push('is-quiet');
   if(card?.emphasis)classNames.push('is-'+card.emphasis);
-  return '<button type="button" class="'+classNames.join(' ')+'" onclick="'+card.action+'">'
+  const titleAttr=card?.titleText?' title="'+esc(card.titleText)+'"':'';
+  return '<button type="button" class="'+classNames.join(' ')+'" onclick="'+card.action+'"'+titleAttr+'>'
     +'<div class="home-risk-label">'+esc(card.label)+'</div>'
     +'<div class="home-risk-value '+(card.tone?'is-'+card.tone:'')+'">'+esc(card.value)+'</div>'
     +(card.meta?'<div class="home-risk-meta">'+esc(card.meta)+'</div>':'')
@@ -3623,11 +3625,11 @@ renderTeamWorkload = async function(){
       );
     const getAttentionMemberMeta=row=>{
       const parts=[];
-      if(row.overdueTasks)parts.push('지연 '+row.overdueTasks);
-      if(row.weekDueTasks)parts.push('이번 주 '+row.weekDueTasks);
-      if(row.openIssues)parts.push('이슈 '+row.openIssues);
-      if(row.delayedProjects)parts.push('지연 프로젝트 '+row.delayedProjects);
-      return row.name+(parts.length?' · '+parts.slice(0,2).join(' / '):'');
+      if(row.overdueTasks)parts.push('지연 '+row.overdueTasks+'건');
+      if(row.weekDueTasks)parts.push('이번 주 마감 '+row.weekDueTasks+'건');
+      if(row.openIssues)parts.push('열린 이슈 '+row.openIssues+'건');
+      if(row.delayedProjects)parts.push('지연 프로젝트 '+row.delayedProjects+'건');
+      return row.name+(parts.length?' · '+parts.slice(0,2).join(' · '):'');
     };
     const attentionMemberMeta=attentionMemberRows.length
       ?attentionMemberRows.slice(0,2).map(getAttentionMemberMeta).join(', ')+(attentionMemberRows.length>2?' 외 '+(attentionMemberRows.length-2)+'명':'')
@@ -3685,6 +3687,7 @@ renderTeamWorkload = async function(){
         tone:attentionMemberRows.length?'warning':'neutral',
         quiet:!attentionMemberRows.length,
         meta:attentionMemberMeta,
+        titleText:'지연 태스크·이번 주 마감·열린 이슈 기준',
         action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
       },
       {
