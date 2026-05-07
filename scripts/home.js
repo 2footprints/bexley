@@ -669,10 +669,37 @@ function getHomeTaskClickAction(item){
   return "openHomeProjectTask('"+getHomeJsString(projectId)+"','"+getHomeJsString(taskId)+"')";
 }
 
+function upsertHomeTaskIntoGanttCache(projectId,taskRow){
+  const safeProjectId=String(projectId||'').trim();
+  const safeTaskId=String(taskRow?.id||'').trim();
+  if(!safeProjectId||!safeTaskId)return false;
+  try{
+    const currentTasks=typeof getGanttProjectTasks==='function'
+      ?getGanttProjectTasks(safeProjectId)
+      :(
+        typeof ganttProjectTasksByProjectId!=='undefined'&&Array.isArray(ganttProjectTasksByProjectId[safeProjectId])
+          ?ganttProjectTasksByProjectId[safeProjectId]
+          :[]
+      );
+    const nextTasks=Array.isArray(currentTasks)?[...currentTasks]:[];
+    const index=nextTasks.findIndex(task=>String(task?.id||'')===safeTaskId);
+    if(index>=0)nextTasks[index]={...nextTasks[index],...taskRow};
+    else nextTasks.push(taskRow);
+    if(typeof ganttProjectTasksByProjectId!=='undefined')ganttProjectTasksByProjectId[safeProjectId]=nextTasks;
+    return true;
+  }catch(error){
+    console.error('[home] task cache upsert failed',error);
+    return false;
+  }
+}
+
 async function ensureHomeProjectTaskLoaded(projectId,taskId){
   const safeProjectId=String(projectId||'').trim();
   const safeTaskId=String(taskId||'').trim();
   if(!safeProjectId||!safeTaskId)return false;
+  const homeTask=(Array.isArray(window.homeProjectTaskRows)?window.homeProjectTaskRows:[])
+    .find(task=>String(task?.project_id||'')===safeProjectId&&String(task?.id||'')===safeTaskId);
+  if(homeTask&&upsertHomeTaskIntoGanttCache(safeProjectId,homeTask))return true;
   if(typeof loadGanttProjectTasks==='function'){
     await loadGanttProjectTasks(safeProjectId,false);
     let loadedTasks=typeof getGanttProjectTasks==='function'?getGanttProjectTasks(safeProjectId):[];
@@ -682,10 +709,10 @@ async function ensureHomeProjectTaskLoaded(projectId,taskId){
     if(Array.isArray(loadedTasks)&&loadedTasks.some(task=>String(task?.id||'')===safeTaskId))return true;
   }
   try{
-    const rows=await api('GET','project_tasks?project_id=eq.'+safeProjectId+'&select=*&order=sort_order.asc,created_at.asc');
+    const rows=await api('GET','project_tasks?id=eq.'+safeTaskId+'&project_id=eq.'+safeProjectId+'&select=*');
     const tasks=Array.isArray(rows)?rows:[];
-    if(typeof ganttProjectTasksByProjectId!=='undefined')ganttProjectTasksByProjectId[safeProjectId]=tasks;
-    return tasks.some(task=>String(task?.id||'')===safeTaskId);
+    const task=tasks.find(row=>String(row?.id||'')===safeTaskId)||null;
+    return task?upsertHomeTaskIntoGanttCache(safeProjectId,task):false;
   }catch(error){
     console.error('[home] project task direct load failed',error);
     return false;
@@ -1715,6 +1742,27 @@ renderHomeDailyWorkSection = function(payload,options={}){
         +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
         +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
       +'</div>';
+  const queueCardHtml='<div class="card home-card home-queue-card home-queue-card--main">'
+    +'<div class="home-daily-work-head">'
+      +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
+    +'</div>'
+    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다'))
+  +'</div>';
+  const attentionCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
+    +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
+  +'</div>';
+  const recentCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
+    +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
+  +'</div>';
+  const queueEl=document.getElementById('homeQueueWrap');
+  const attentionEl=document.getElementById('homeAttentionWrap');
+  const recentEl=document.getElementById('homeRecentWrap');
+  if(queueEl&&attentionEl&&recentEl){
+    queueEl.innerHTML=queueCardHtml;
+    attentionEl.innerHTML=options.loading?'':attentionCardHtml;
+    recentEl.innerHTML=options.loading?'':recentCardHtml;
+    return;
+  }
   el.innerHTML='<div class="card home-card home-queue-card">'
     +'<div class="home-daily-work-head">'
       +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
@@ -1737,6 +1785,7 @@ renderHomeDashboardIssues = async function(){
         :Promise.resolve([]),
       loadHomeProjectTaskRows()
     ]);
+    window.homeProjectTaskRows=Array.isArray(taskRows)?taskRows:[];
     const issueRows=(rows||[]).filter(issue=>
       currentMember&&(
         String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')
@@ -3350,6 +3399,27 @@ renderHomeDailyWorkSection = function(payload,options={}){
         +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
         +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
       +'</div>';
+  const queueCardHtml='<div class="card home-card home-queue-card home-queue-card--main">'
+    +'<div class="home-daily-work-head">'
+      +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
+    +'</div>'
+    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다'))
+  +'</div>';
+  const attentionCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
+    +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
+  +'</div>';
+  const recentCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
+    +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
+  +'</div>';
+  const queueEl=document.getElementById('homeQueueWrap');
+  const attentionEl=document.getElementById('homeAttentionWrap');
+  const recentEl=document.getElementById('homeRecentWrap');
+  if(queueEl&&attentionEl&&recentEl){
+    queueEl.innerHTML=queueCardHtml;
+    attentionEl.innerHTML=options.loading?'':attentionCardHtml;
+    recentEl.innerHTML=options.loading?'':recentCardHtml;
+    return;
+  }
   el.innerHTML='<div class="card home-card home-queue-card">'
     +'<div class="home-daily-work-head">'
       +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
@@ -3372,6 +3442,7 @@ renderHomeDashboardIssues = async function(){
         :Promise.resolve([]),
       loadHomeProjectTaskRows()
     ]);
+    window.homeProjectTaskRows=Array.isArray(taskRows)?taskRows:[];
     const issueRows=(rows||[]).filter(issue=>
       currentMember&&(
         String(issue.assignee_member_id||issue.assignee_id||'')===String(currentMember.id||'')

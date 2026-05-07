@@ -1076,9 +1076,24 @@
 #pageTeam .home-warning-zone,
 #pageTeam .home-execution-zone,
 #pageTeam .home-support-zone,
+#pageTeam .home-body-zone,
+#pageTeam .home-body-main,
+#pageTeam .home-body-side,
 #pageTeam .home-execution-main,
 #pageTeam .home-execution-side{
   min-width:0;
+}
+#pageTeam .home-body-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.75fr) minmax(300px,.9fr);
+  gap:18px;
+  align-items:start;
+}
+#pageTeam .home-body-main,
+#pageTeam .home-body-side{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:16px;
 }
 #pageTeam .home-execution-grid{
   display:grid;
@@ -1191,6 +1206,13 @@
   border-color:rgba(22,35,59,.08)!important;
   box-shadow:0 18px 34px rgba(15,23,42,.08)!important;
 }
+#pageTeam .home-queue-card--section{
+  box-shadow:0 14px 28px rgba(15,23,42,.06)!important;
+}
+#pageTeam .home-queue-card--section .home-daily-work-section-head{
+  align-items:flex-start;
+  margin-bottom:14px;
+}
 #pageTeam .home-queue-card .home-daily-work-head{
   margin-bottom:18px;
 }
@@ -1283,6 +1305,9 @@
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:10px;
 }
+#pageTeam .home-body-side .team-fun-grid{
+  grid-template-columns:1fr;
+}
 #pageTeam .team-fun-card{
   border-radius:14px;
   padding:16px 16px 15px;
@@ -1351,6 +1376,7 @@
     grid-template-columns:repeat(3,minmax(0,1fr));
   }
   #pageTeam .home-execution-grid,
+  #pageTeam .home-body-grid,
   #pageTeam .home-support-grid,
   #pageTeam .home-team-talk-grid--support{
     grid-template-columns:1fr;
@@ -1428,10 +1454,23 @@
     grid-template-columns:repeat(2,1fr);
   }
   #pageTeam .home-dashboard-grid,
+  #pageTeam .home-body-grid,
   #pageTeam .home-team-context-grid,
   #pageTeam .home-kudos-section .team-extra-grid{
     grid-template-columns:1fr;
   }
+  #pageTeam .home-body-grid,
+  #pageTeam .home-body-zone,
+  #pageTeam .home-body-main,
+  #pageTeam .home-body-side{
+    display:contents;
+  }
+  #pageTeam #homeQueueWrap{order:3}
+  #pageTeam #memberScheduleWrap{order:4}
+  #pageTeam #homeAttentionWrap{order:5}
+  #pageTeam #homeRecentWrap{order:6}
+  #pageTeam .team-fun-section{order:7}
+  #pageTeam #teamNoticeWrap{order:8}
   #pageTeam .home-focus-summary{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
