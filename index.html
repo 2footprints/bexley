@@ -1985,6 +1985,7 @@ window.addEventListener('DOMContentLoaded',function(){
 <script src="scripts/clients.js"></script>
 <script src="scripts/contracts.js"></script>
 <script src="scripts/admin.js"></script>
+<script src="scripts/document-requests.js"></script>
 <script src="scripts/projects.js"></script>
 <script src="scripts/weekly-review.js"></script>
 
@@ -2736,7 +2737,7 @@ async function renderPortal(){
           +'</div>').join('')
         :'')
       +'<div class="portal-section-label">자료 요청</div>'
-      +(active.length?active.map(docCard).join(''):'<div class="portal-empty">현재 요청된 자료가 없습니다.</div>')
+      +'<div id="portal-document-requests"></div>'
       +((portalReports&&portalReports.length)?'<div class="portal-section-label">업데이트 ('+portalReports.length+'건)</div>'
         +portalReports.map(u=>'<div class="portal-proj-card">'
           +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
@@ -2756,7 +2757,8 @@ async function renderPortal(){
       // 문서 탭
       +(portalClient.onedrive_url?'<div id="ptab-content-문서" style="display:none"><div style="text-align:center;padding:40px"><a href="'+esc(portalClient.onedrive_url)+'" target="_blank" class="portal-drive-btn" style="display:inline-flex;font-size:15px;padding:14px 28px">📁 OneDrive 문서함 열기</a></div></div>':'');
 
-    await Promise.all(active.map(p=>loadPortalDocumentRequests(p.id)));
+    if(active.length)await loadPortalDocumentRequests(active[0].id);
+    else renderPortalDocumentRequests([]);
     if(hasFinance) loadPortalFinance(portalClient.id);
   }catch(e){el.innerHTML='<div class="portal-empty">불러오기 실패: '+esc(e.message)+'</div>';}
 }
@@ -4137,7 +4139,7 @@ async function openDocumentReminderModal(projectId){
         +'<div class="modal-title">자료 요청 리마인드 메일 문안</div>'
         +'<div class="helper-box" style="margin-bottom:12px"><div class="helper-title">대상 자료</div><div class="helper-text">'+((pendingDocs||[]).length?(pendingDocs.map(doc=>esc(doc.title||'자료 요청')+(doc.due_date?' · '+esc(doc.due_date):'')).join('<br>')):'현재 pending 자료 요청이 없습니다.')+'</div></div>'
         +'<div class="form-row"><label class="form-label">메일 문안</label><textarea id="docReminderPreview" class="copy-area" readonly>'+esc(draft)+'</textarea></div>'
-        +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="openProjModal(\''+projectId+'\',null,null,\'documents\')">닫기</button><button class="btn primary" onclick="copyDocumentReminder()">문안 복사</button></div></div>'
+        +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="openProjModal(\''+projectId+'\',null,null,\'document-requests\')">닫기</button><button class="btn primary" onclick="copyDocumentReminder()">문안 복사</button></div></div>'
       +'</div>'
     +'</div>';
 }
@@ -4149,7 +4151,7 @@ async function copyDocumentReminder(){
 function openProjModal(eid,preClientId,preContractId,initialTab){
   if(!eid&&!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   editingProjId=eid||null;
-  projModalTab=initialTab||'basic';
+  projModalTab=(initialTab==='documents'?'document-requests':initialTab)||'basic';
   const p=eid?projects.find(x=>x.id===eid):null;
   formMembers=p?[...p.members]:(currentMember?[currentMember.name]:[]);
   const editable=!p||canEdit(p);
@@ -4161,117 +4163,17 @@ function openProjModal(eid,preClientId,preContractId,initialTab){
   if(p){
     loadProjectComments(p.id);
     if(projModalTab==='issue') setTimeout(()=>loadProjIssues(p.id),50);
-    if(projModalTab==='documents') setTimeout(()=>loadDocumentRequests(p.id),50);
+    if(projModalTab==='document-requests') setTimeout(()=>loadDocumentRequests(p.id),50);
   }
 }
 
 function switchProjTab(tab){
+  tab=tab==='documents'?'document-requests':tab;
   projModalTab=tab;
   document.querySelectorAll('.modal-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.modal-tab-content').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   if(tab==='issue'&&editingProjId) loadProjIssues(editingProjId);
-  if(tab==='documents'&&editingProjId) loadDocumentRequests(editingProjId);
-}
-
-function getDocumentRequestStatusMeta(status){
-  if(status==='confirmed')return {label:'확인완료',badge:'badge-green'};
-  if(status==='uploaded')return {label:'제출완료',badge:'badge-blue'};
-  return {label:'요청중',badge:'badge-gray'};
-}
-
-async function loadDocumentRequests(projectId){
-  const el=document.getElementById('projDocumentRequestList');
-  if(!el)return;
-  try{
-    const rows=await api('GET','document_requests?project_id=eq.'+projectId+'&order=sort_order.asc')||[];
-    const confirmedCount=rows.filter(row=>row.status==='confirmed').length;
-    const totalCount=rows.length;
-    const pct=totalCount?Math.round((confirmedCount/totalCount)*100):0;
-    el.innerHTML=''
-      +'<div style="margin-bottom:14px">'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">'
-          +'<div style="font-size:13px;font-weight:700;color:var(--navy)">확인완료 '+confirmedCount+'건 / 전체 '+totalCount+'건</div>'
-          +'<div style="font-size:11px;color:var(--text3)">'+pct+'%</div>'
-        +'</div>'
-        +'<div style="height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:#22c55e;border-radius:4px"></div></div>'
-      +'</div>'
-      +(rows.length
-        ?'<div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden">'
-          +'<div style="display:grid;grid-template-columns:minmax(0,1.8fr) 130px 110px 110px;gap:12px;padding:10px 14px;background:var(--bg);font-size:11px;font-weight:700;color:var(--text3)"><div>자료명</div><div>회수희망일</div><div>상태</div><div>액션</div></div>'
-          +rows.map(req=>{
-            const meta=getDocumentRequestStatusMeta(req.status);
-            const action=req.status==='uploaded'
-              ?'<button class="btn sm" onclick="confirmDocumentRequest(\''+req.id+'\',\''+projectId+'\')">확인완료</button>'
-              :(req.status==='confirmed'
-                ?'<span style="font-size:14px;color:#22c55e;font-weight:700">✓</span>'
-                :'<span style="font-size:12px;color:var(--text3)">-</span>');
-            return '<div style="display:grid;grid-template-columns:minmax(0,1.8fr) 130px 110px 110px;gap:12px;padding:12px 14px;border-top:1px solid var(--border);align-items:center">'
-              +'<div style="min-width:0"><div style="font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(req.title||'')+'">'+esc(req.title||'자료명 없음')+'</div>'+(req.description?'<div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">'+esc(truncateText(req.description,48))+'</div>':'')+'</div>'
-              +'<div style="font-size:12px;color:var(--text2)">'+esc(req.due_date||'-')+'</div>'
-              +'<div><span class="badge '+meta.badge+'">'+meta.label+'</span></div>'
-              +'<div>'+action+'</div>'
-            +'</div>';
-          }).join('')
-        +'</div>'
-        :'<div class="notice-empty" style="padding:28px 16px">등록된 자료 요청이 없습니다.</div>')
-      +'<div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn primary sm" onclick="openDocumentRequestModal(\''+projectId+'\')">+ 자료 요청 추가</button></div>';
-  }catch(e){
-    el.innerHTML='<div style="font-size:12px;color:var(--red);padding:12px 0">자료 요청을 불러오지 못했습니다.</div>';
-  }
-}
-
-function openDocumentRequestModal(projectId){
-  document.getElementById('modalArea').innerHTML=''
-    +getInputModalOverlayHtml()
-      +'<div class="modal" style="width:460px">'
-        +'<div class="modal-title">자료 요청 추가</div>'
-        +'<div class="form-row"><label class="form-label">자료명</label><input id="docReqTitle" placeholder="예: 2024년 재무제표" autofocus/></div>'
-        +'<div class="form-row"><label class="form-label">상세 설명</label><textarea id="docReqDescription" rows="4" style="resize:vertical" placeholder="필요한 범위나 전달 방식이 있으면 적어주세요"></textarea></div>'
-        +'<div class="form-row"><label class="form-label">회수 희망일</label><input id="docReqDueDate" type="date"/></div>'
-        +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="openProjModal(\''+projectId+'\',null,null,\'documents\')">취소</button><button class="btn primary" onclick="saveDocumentRequest(\''+projectId+'\')">저장</button></div></div>'
-      +'</div>'
-    +'</div>';
-}
-
-async function saveDocumentRequest(projectId){
-  const project=projects.find(p=>p.id===projectId);
-  const title=(document.getElementById('docReqTitle')?.value||'').trim();
-  const description=(document.getElementById('docReqDescription')?.value||'').trim()||null;
-  const due_date=document.getElementById('docReqDueDate')?.value||null;
-  if(!title){alert('자료명을 입력해주세요.');return;}
-  try{
-    const latest=await api('GET','document_requests?project_id=eq.'+projectId+'&select=sort_order&order=sort_order.desc&limit=1').catch(()=>[])||[];
-    const nextSort=(Number(latest?.[0]?.sort_order)||0)+1;
-    await api('POST','document_requests',{
-      project_id:projectId,
-      client_id:project?.client_id||null,
-      title,
-      description,
-      due_date,
-      status:'pending',
-      created_by:currentMember?.id||null,
-      sort_order:nextSort
-    });
-    openProjModal(projectId,null,null,'documents');
-    if(curPage==='home') renderHomeRiskSummary();
-    setTimeout(()=>loadDocumentRequests(projectId),60);
-  }catch(e){
-    alert('자료 요청 저장 오류: '+e.message);
-  }
-}
-
-async function confirmDocumentRequest(requestId, projectId){
-  try{
-    await api('PATCH','document_requests?id=eq.'+requestId,{
-      status:'confirmed',
-      confirmed_at:new Date().toISOString(),
-      confirmed_by:currentMember?.id||null
-    });
-    await loadDocumentRequests(projectId);
-    if(curPage==='home') renderHomeRiskSummary();
-  }catch(e){
-    alert('확인완료 처리 오류: '+e.message);
-  }
+  if(tab==='document-requests'&&editingProjId) loadDocumentRequests(editingProjId);
 }
 
 
@@ -4349,7 +4251,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
         <div class="modal-tabs project-modal-tabs">
           <button class="modal-tab${projModalTab==='basic'?' active':''}" data-tab="basic" onclick="switchProjTab('basic')">기본 정보</button>
           <button class="modal-tab${projModalTab==='issue'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
-          <button class="modal-tab${projModalTab==='documents'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="documents" onclick="switchProjTab('documents')">자료요청</button>
+          <button class="modal-tab${projModalTab==='document-requests'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="document-requests" onclick="switchProjTab('document-requests')">자료요청</button>
           <button class="modal-tab${projModalTab==='billing'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="billing" onclick="switchProjTab('billing')">청구 설정</button>
           <button class="modal-tab${projModalTab==='completion'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="completion" onclick="switchProjTab('completion')">완료·후속</button>
         </div>
@@ -4401,7 +4303,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
             :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 이슈를 등록할 수 있습니다.</div>'}
         </div>
 
-        <div class="modal-tab-content${projModalTab==='documents'?' active':''}" data-tab="documents">
+        <div id="tab-document-requests" class="modal-tab-content${projModalTab==='document-requests'?' active':''}" data-tab="document-requests">
           ${p
             ?'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font-size:12px;color:var(--text3)">고객사 자료 요청과 확인 상태를 한 곳에서 관리합니다.</div><button class="btn sm" type="button" onclick="openDocumentReminderModal(\''+p.id+'\')">일괄 리마인드 메일 문안</button></div><div id="projDocumentRequestList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
             :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 자료 요청을 등록할 수 있습니다.</div>'}
@@ -8772,7 +8674,7 @@ function writeStoredGanttToggle(key,value){
 function ensureGanttVisibilityToggles(){
   const toolbar=document.querySelector('#pageGantt .gantt-toolbar');
   if(!toolbar)return;
-  const viewZone=document.getElementById('ganttToolbarView')||toolbar;
+  const actionZone=document.getElementById('ganttToolbarActions')||toolbar;
   let wrap=document.getElementById('ganttVisibilityToggleWrap');
   if(!wrap){
     wrap=document.createElement('div');
@@ -8782,7 +8684,9 @@ function ensureGanttVisibilityToggles(){
       +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
       +'<button class="toggle-btn" id="ganttPersonalOverlayBtn" onclick="setGanttPersonalOverlayToggle(!ganttShowPersonalOverlay)">개인 일정 레이어</button>'
       +'<button class="toggle-btn" id="ganttPersonalRowsBtn" onclick="setGanttPersonalRowsToggle(!ganttShowPersonalRows)">개인 일정 행</button>';
-    viewZone.appendChild(wrap);
+    actionZone.insertBefore(wrap,actionZone.firstChild);
+  }else if(wrap.parentElement!==actionZone){
+    actionZone.insertBefore(wrap,actionZone.firstChild);
   }
 }
 function ensureGanttVisibilitySummary(){
@@ -9396,6 +9300,7 @@ renderGantt=window.renderGantt;
 </script>
 
 <script src="js/stabilize-auth.js"></script>
+<script src="scripts/portal.js"></script>
 <script src="js/stabilize-projects.js"></script>
 <script src="js/stabilize-team-dashboard.js"></script>
 1<script src="js/stabilize-provisioning.js"></script>

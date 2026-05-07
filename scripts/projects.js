@@ -2635,7 +2635,7 @@ function renderGanttDetailDocumentPreview(projectId,documents){
     return;
   }
   container.innerHTML=documents.map(doc=>{
-    return '<div class="gantt-detail-item is-clickable" onclick="openProjModal(\''+projectId+'\',null,null,\'documents\')">'
+    return '<div class="gantt-detail-item is-clickable" onclick="openProjModal(\''+projectId+'\',null,null,\'document-requests\')">'
       +'<div><div class="gantt-detail-item-title">'+esc(doc.title||'자료명 없음')+'</div><div class="gantt-detail-item-sub">'+esc(doc.due_date?('회수 희망일 '+doc.due_date):'회수 희망일 미지정')+'</div></div>'
       +'<span class="badge badge-orange">대기</span>'
     +'</div>';
@@ -2899,7 +2899,7 @@ function renderGanttProjectMemoSection(project){
   return ''
     +'<div class="gantt-detail-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'documents\')">자료요청 관리</button></div>'
+        +'<div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div>'
         +'<div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
       +'</div>'
       +'<div class="gantt-detail-section">'
@@ -3721,7 +3721,7 @@ renderGanttDetailPanel=function(projs,schs){
       +'<div><div class="gantt-detail-label">빌링 금액</div><div class="gantt-detail-value">'+formatGanttCurrency(billingAmount)+'</div></div>'
     +'</div>'
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">이슈 미리보기</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">전체 이슈 보기</button></div><div class="gantt-detail-list" id="ganttDetailIssueList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
-    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청 미리보기</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'documents\')">자료요청 관리</button></div><div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청 미리보기</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div><div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">팀 일정 충돌</div></div><div class="gantt-detail-list">'+(memberSchedules.map(schedule=>'<div class="gantt-detail-item is-clickable" onclick="openScheduleModal(\''+schedule.id+'\')"><div><div class="gantt-detail-item-title">'+esc(getScheduleMemberLabel(schedule))+' '+esc(scheduleLabel(schedule.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((schedule.start||'')+' ~ '+(schedule.end||'')+(schedule.location?' · '+schedule.location:''))+'</div></div><span class="badge '+(schedule.schedule_type==='leave'?'badge-orange':'badge-blue')+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span></div>').join('')||'<div class="gantt-detail-empty">담당자 휴가/필드웍 일정이 없습니다.</div>')+'</div></div>'
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">메모 미리보기</div></div>'+(project.memo?'<button type="button" class="gantt-detail-memo" onclick="openProjModal(\''+project.id+'\')">'+esc(project.memo)+'</button>':'<div class="gantt-detail-empty">등록된 메모가 없습니다.</div>')+'</div>';
   loadGanttDetailAsync(project);
@@ -4669,7 +4669,7 @@ function renderGanttDetailDocumentPreview(projectId,documents){
     return;
   }
   container.innerHTML=rows.map(doc=>''
-    +'<div class="gantt-detail-item is-clickable" onclick="openProjModal(\''+projectId+'\',null,null,\'documents\')">'
+    +'<div class="gantt-detail-item is-clickable" onclick="openProjModal(\''+projectId+'\',null,null,\'document-requests\')">'
       +'<div>'
         +'<div class="gantt-detail-item-title">'+esc(doc.title||'자료 요청')+'</div>'
         +'<div class="gantt-detail-item-sub">프로젝트 단위 · 자료 요청'+(doc.due_date?' · 회수 희망일 '+esc(doc.due_date):' · 회수 희망일 미정')+'</div>'
@@ -4684,7 +4684,7 @@ function renderGanttProjectMemoSection(project){
   return ''
     +'<div class="gantt-detail-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">자료 요청 / 실행 자료</div><div class="gantt-detail-meta">프로젝트 실행에 필요한 자료 요청과 회수 상태를 확인합니다. 현재 자료 요청은 프로젝트 단위로 관리됩니다.</div></div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'documents\')">자료요청 관리</button></div>'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">자료 요청 / 실행 자료</div><div class="gantt-detail-meta">프로젝트 실행에 필요한 자료 요청과 회수 상태를 확인합니다. 현재 자료 요청은 프로젝트 단위로 관리됩니다.</div></div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div>'
         +'<div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
       +'</div>'
       +'<div class="gantt-detail-section">'

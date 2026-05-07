@@ -1737,16 +1737,16 @@ renderHomeDailyWorkSection = function(payload,options={}){
   };
   const contentHtml=options.loading
     ?'<div class="weekly-empty">불러오는 중..</div>'
-    :buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다')
+    :buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.')
       +'<div class="home-daily-work-section-stack">'
         +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
         +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
       +'</div>';
   const queueCardHtml='<div class="card home-card home-queue-card home-queue-card--main">'
     +'<div class="home-daily-work-head">'
-      +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
+      +'<div><div class="home-daily-work-title">오늘 처리할 업무</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
     +'</div>'
-    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다'))
+    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.'))
   +'</div>';
   const attentionCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
     +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
@@ -1765,7 +1765,7 @@ renderHomeDailyWorkSection = function(payload,options={}){
   }
   el.innerHTML='<div class="card home-card home-queue-card">'
     +'<div class="home-daily-work-head">'
-      +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
+      +'<div><div class="home-daily-work-title">오늘 처리할 업무</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
     +'</div>'
     +contentHtml
   +'</div>';
@@ -3437,16 +3437,16 @@ renderHomeDailyWorkSection = function(payload,options={}){
   };
   const contentHtml=options.loading
     ?'<div class="weekly-empty">불러오는 중..</div>'
-    :buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다')
+    :buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.')
       +'<div class="home-daily-work-section-stack">'
         +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
         +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
       +'</div>';
   const queueCardHtml='<div class="card home-card home-queue-card home-queue-card--main">'
     +'<div class="home-daily-work-head">'
-      +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
+      +'<div><div class="home-daily-work-title">오늘 처리할 업무</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
     +'</div>'
-    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 처리할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다'))
+    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.'))
   +'</div>';
   const attentionCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
     +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
@@ -3465,7 +3465,7 @@ renderHomeDailyWorkSection = function(payload,options={}){
   }
   el.innerHTML='<div class="card home-card home-queue-card">'
     +'<div class="home-daily-work-head">'
-      +'<div><div class="home-daily-work-title">실행 큐</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
+      +'<div><div class="home-daily-work-title">오늘 처리할 업무</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
     +'</div>'
     +contentHtml
   +'</div>';
