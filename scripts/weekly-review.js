@@ -310,6 +310,19 @@ function isWeeklyReviewProjectOverdue(project,baseDate=getHomeBaseDate()){
 function getWeeklyReviewProjectClient(project){
   return (clients||[]).find(client=>String(client.id)===String(project?.client_id||''))||null;
 }
+function getWeeklyReviewProjectById(projectId){
+  return (projects||[]).find(project=>String(project?.id||'')===String(projectId||''))||null;
+}
+function getWeeklyReviewProjectContextLabel(project,options={}){
+  if(!project&&options.omitMissing)return '';
+  const client=getWeeklyReviewProjectClient(project);
+  const clientName=client?.name||'거래처 미지정';
+  const projectName=project?.name||options.projectFallback||'프로젝트 미지정';
+  return [clientName,projectName].filter(Boolean).join(' · ');
+}
+function getWeeklyReviewTaskContextLabel(task){
+  return getWeeklyReviewProjectContextLabel(getWeeklyReviewProjectById(task?.project_id));
+}
 function getWeeklyReviewContract(contractId){
   return (contracts||[]).find(contract=>String(contract.id)===String(contractId||''))||null;
 }
@@ -543,12 +556,12 @@ function getWeeklyReviewProjectKeyTaskActionHint(tasks,fallback){
   return '다음 주 확인: '+String(rows[0]?.followUp||fallback||'Project Management > Work 확인 필요');
 }
 function createWeeklyReviewProjectItem(project,options={}){
-  const client=getWeeklyReviewProjectClient(project);
   const members=Array.isArray(project?.members)?project.members.filter(Boolean):[];
-  const meta=[client?.name||'',project?.type||'',members.join(', ')].filter(Boolean).join(' · ');
+  const meta=[project?.type||'',members.join(', ')].filter(Boolean).join(' · ');
   const keyTasks=(Array.isArray(options?.keyTasks)?options.keyTasks:[]).slice(0,3);
   return {
     title:String(project?.name||'이름 없는 프로젝트'),
+    contextLabel:options.contextLabel||getWeeklyReviewProjectContextLabel(project),
     meta,
     badgeLabel:options.badgeLabel||(isWeeklyReviewCompletedProject(project)?'완료':isWeeklyReviewProjectOverdue(project)?'지연':'진행중'),
     badgeClass:options.badgeClass||(isWeeklyReviewCompletedProject(project)?'badge-green':isWeeklyReviewProjectOverdue(project)?'badge-red':'badge-blue'),
@@ -564,10 +577,10 @@ function createWeeklyReviewProjectItem(project,options={}){
 }
 function createWeeklyReviewIssueItem(issue,options={}){
   const project=getWeeklyReviewIssueProject(issue);
-  const client=getWeeklyReviewProjectClient(project);
-  const meta=[client?.name||'',project?.name||'',issue?.assignee_name||issue?.owner_name||''].filter(Boolean).join(' · ');
+  const meta=[issue?.assignee_name||issue?.owner_name||''].filter(Boolean).join(' · ');
   return {
     title:String(issue?.title||'제목 없는 이슈'),
+    contextLabel:options.contextLabel||getWeeklyReviewProjectContextLabel(project,{omitMissing:!issue?.project_id}),
     meta,
     badgeLabel:options.badgeLabel||formatWeeklyReviewPriorityLabel(issue?.priority),
     badgeClass:options.badgeClass||getWeeklyReviewPriorityBadgeClass(issue?.priority),
@@ -580,8 +593,10 @@ function createWeeklyReviewIssueItem(issue,options={}){
 }
 function createWeeklyReviewScheduleItem(schedule,options={}){
   const scheduleType=String(schedule?.schedule_type||'').trim();
+  const project=getWeeklyReviewProjectById(schedule?.project_id);
   return {
     title:String(schedule?.title||scheduleLabel(scheduleType)),
+    contextLabel:options.contextLabel||getWeeklyReviewProjectContextLabel(project,{omitMissing:!schedule?.project_id}),
     meta:[scheduleLabel(scheduleType),getScheduleMemberLabel(schedule),schedule?.location||''].filter(Boolean).join(' · '),
     badgeLabel:options.badgeLabel||scheduleLabel(scheduleType),
     badgeClass:options.badgeClass||getWeeklyReviewScheduleBadgeClass(scheduleType),
@@ -1220,8 +1235,10 @@ function renderWeeklyReviewItemMarkup(item){
   const keyTaskHtml=renderWeeklyReviewKeyTaskListMarkup(item?.keyTasks);
   const actionHintHtml=item?.actionHint?'<div class="weekly-review-item-action">'+esc(item.actionHint)+'</div>':'';
   const onclickAttr=item?.action?' onclick="'+item.action+'"':'';
+  const contextHtml=item?.contextLabel?'<div class="weekly-review-item-meta weekly-review-item-context">'+esc(item.contextLabel)+'</div>':'';
   return '<button type="button" class="weekly-review-item"'+onclickAttr+'>'
     +'<div class="weekly-review-item-main">'
+      +contextHtml
       +'<div class="weekly-review-item-title">'+esc(item?.title||'-')+'</div>'
       +(item?.meta?'<div class="weekly-review-item-meta">'+esc(item.meta)+'</div>':'')
       +keyTaskHtml
@@ -2193,9 +2210,11 @@ function createWeeklyReviewDocumentListItem(item,options={}){
   const elapsedLabel=String(columns?.[4]||'').trim();
   const dueLabel=String(columns?.[3]||'').trim();
   const isOverdue=/경과/.test(elapsedLabel);
+  const contextLabel=[columns?.[0]||'거래처 미지정',columns?.[1]||'프로젝트 미지정'].filter(Boolean).join(' · ');
   return {
     title:String(columns?.[2]||'자료 요청'),
-    meta:[columns?.[0]||'',columns?.[1]||'',elapsedLabel||''].filter(Boolean).join(' · '),
+    contextLabel,
+    meta:[elapsedLabel||''].filter(Boolean).join(' · '),
     badgeLabel:options.badgeLabel||'자료',
     badgeClass:options.badgeClass||(isOverdue?'badge-red':'badge-orange'),
     sideText:dueLabel||elapsedLabel||'-',
@@ -2220,11 +2239,12 @@ function createWeeklyReviewOperationalMemberItem(summary,options={}){
   };
 }
 function createWeeklyReviewActionPlanTableItem(item,actionLabel){
+  const contextLabel=String(item?.contextLabel||'').trim();
   return {
     action:item?.action||'',
     columns:[
       getWeeklyReviewItemOwnerLabel(item),
-      [actionLabel,item?.title||'-'].filter(Boolean).join(' · '),
+      [contextLabel,actionLabel,item?.title||'-'].filter(Boolean).join(' · '),
       item?.sideText||'-',
       item?.badgeLabel||'-'
     ],
@@ -2232,11 +2252,12 @@ function createWeeklyReviewActionPlanTableItem(item,actionLabel){
   };
 }
 function createWeeklyReviewThisWeekActionTableItem(item,actionLabel,options={}){
+  const contextLabel=String(options.contextLabel||item?.contextLabel||'').trim();
   return {
     action:options.action||item?.action||'',
     columns:[
       options.owner||getWeeklyReviewItemOwnerLabel(item),
-      [actionLabel,options.title||item?.title||'-'].filter(Boolean).join(' · '),
+      [contextLabel,actionLabel,options.title||item?.title||'-'].filter(Boolean).join(' · '),
       options.due||item?.sideText||'-',
       options.status||item?.badgeLabel||'-'
     ],
@@ -2244,13 +2265,13 @@ function createWeeklyReviewThisWeekActionTableItem(item,actionLabel,options={}){
   };
 }
 function createWeeklyReviewCompletedTaskItem(task){
-  const project=(projects||[]).find(item=>String(item?.id||'')===String(task?.project_id||''))||null;
-  const client=getWeeklyReviewProjectClient(project);
+  const project=getWeeklyReviewProjectById(task?.project_id);
   const basisDate=getWeeklyReviewTaskCompletionBasisDate(task);
   const assignee=(members||[]).find(member=>String(member?.id||'')===String(task?.assignee_member_id||''))?.name||'담당 확인';
   return {
     title:String(task?.title||'완료 업무'),
-    meta:[client?.name||'',project?.name||'',assignee].filter(Boolean).join(' · '),
+    contextLabel:getWeeklyReviewProjectContextLabel(project),
+    meta:[assignee,String(task?.status||'완료')||'완료'].filter(Boolean).join(' · '),
     badgeLabel:String(task?.status||'완료')||'완료',
     badgeClass:'badge-green',
     sideText:basisDate?('완료 '+getWeeklyReviewShortDate(basisDate)):'완료일 없음',
@@ -2265,14 +2286,17 @@ function renderWeeklyReviewOutputsMarkup(outputs,taskRows=[]){
       +rows.map(output=>{
         const project=getWeeklyReviewOutputProject(output);
         const task=getWeeklyReviewOutputTask(output,taskRows);
-        const client=getWeeklyReviewProjectClient(project);
-        const meta=[client?.name||'',project?.name||'프로젝트 미지정',task?.title?('태스크 '+task.title):'',getWeeklyReviewOutputAuthorLabel(output),formatCommentDate(output?.created_at||'')].filter(Boolean).join(' · ');
+        const contextLabel=getWeeklyReviewProjectContextLabel(project);
+        const taskLabel=task?.title?('태스크 '+task.title):'';
+        const meta=[getWeeklyReviewOutputAuthorLabel(output),formatCommentDate(output?.created_at||'')].filter(Boolean).join(' · ');
         const outputIdJs=getWeeklyReviewJsString(output?.id||'');
         const editButtonHtml=canManageWeeklyReviewOutput(output)
           ?'<button type="button" class="btn ghost sm" onclick="openWeeklyReviewOutputModal(\''+outputIdJs+'\')" style="font-size:12px">수정</button>'
           :'';
         return '<div class="weekly-review-item" style="align-items:flex-start;cursor:default">'
           +'<div class="weekly-review-item-main">'
+            +'<div class="weekly-review-item-meta weekly-review-item-context">'+esc(contextLabel)+'</div>'
+            +(taskLabel?'<div class="weekly-review-item-meta">'+esc(taskLabel)+'</div>':'')
             +'<div class="weekly-review-item-title">'+esc(output?.title||'제목 없는 산출물')+'</div>'
             +'<div class="weekly-review-item-meta">'+esc(meta)+'</div>'
             +(output?.memo?'<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-top:6px;white-space:pre-wrap;word-break:break-word">'+esc(output.memo)+'</div>':'')
@@ -2799,8 +2823,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     })
     .sort((a,b)=>getWeeklyReviewTimestamp(a?.due_date)-getWeeklyReviewTimestamp(b?.due_date))
     .map(task=>{
-      const project=(projects||[]).find(p=>String(p?.id||'')===String(task?.project_id||''))||null;
-      const client=getWeeklyReviewProjectClient(project);
+      const project=getWeeklyReviewProjectById(task?.project_id);
       const assignee=(members||[]).find(m=>String(m?.id||'')===String(task?.assignee_member_id||''))?.name||'담당 확인';
       const taskId=String(task?.id||'');
       const projectId=String(task?.project_id||project?.id||'');
@@ -2808,7 +2831,8 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
         taskId,
         projectId,
         title:String(task?.title||'미완료 업무'),
-        meta:[client?.name||'',project?.name||'',assignee].filter(Boolean).join(' · '),
+        contextLabel:getWeeklyReviewProjectContextLabel(project),
+        meta:[assignee,String(task?.status||'미완료')||'미완료'].filter(Boolean).join(' · '),
         badgeLabel:'지연',
         badgeClass:'badge-red',
         sideText:getWeeklyReviewShortDate(task?.due_date)||'-',

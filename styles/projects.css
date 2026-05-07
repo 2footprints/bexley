@@ -3518,48 +3518,54 @@ td{
 }
 #pageGantt .gantt-controls-shell{
   border:1px solid rgba(148,163,184,.18)!important;
-  border-radius:24px!important;
-  background:linear-gradient(180deg,#FFFFFF 0%,#F9FBFD 100%)!important;
-  padding:16px 18px!important;
-  box-shadow:0 16px 36px rgba(15,23,42,.05)!important;
+  border-radius:18px!important;
+  background:#FFFFFF!important;
+  padding:10px 12px!important;
+  box-shadow:0 10px 24px rgba(15,23,42,.04)!important;
 }
 #pageGantt .gantt-toolbar{
-  gap:14px!important;
-  align-items:stretch!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  margin:0!important;
 }
 #pageGantt .gantt-toolbar-zone{
-  gap:10px!important;
-  padding:12px 14px!important;
-  border:1px solid rgba(148,163,184,.18)!important;
-  border-radius:18px!important;
-  background:linear-gradient(180deg,#FFFFFF 0%,#FCFDFE 100%)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.72)!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
 }
 #pageGantt .gantt-toolbar-zone::before{
-  font-size:10.5px!important;
-  letter-spacing:.09em!important;
-  color:#7B8794!important;
-  margin-bottom:4px!important;
+  display:none!important;
+  content:none!important;
 }
 #pageGantt .gantt-toolbar-zone--nav{
-  flex:0 1 320px!important;
+  flex:0 0 auto!important;
 }
 #pageGantt .gantt-toolbar-zone--view{
-  flex:1 1 320px!important;
+  flex:1 1 auto!important;
+  justify-content:center!important;
+  min-width:260px!important;
 }
 #pageGantt .gantt-toolbar-zone--actions{
-  flex:1 1 300px!important;
+  flex:0 0 auto!important;
   justify-content:flex-end!important;
+  margin-left:0!important;
 }
 #pageGantt .month-nav{
   display:inline-flex!important;
   align-items:center!important;
   gap:6px!important;
-  padding:6px!important;
+  padding:4px!important;
   border:1px solid rgba(148,163,184,.18)!important;
-  border-radius:16px!important;
-  background:#FFFFFF!important;
-  box-shadow:0 6px 14px rgba(15,23,42,.04)!important;
+  border-radius:14px!important;
+  background:#F8FAFC!important;
+  box-shadow:none!important;
 }
 #pageGantt .month-nav-btn{
   width:34px!important;
@@ -3604,7 +3610,7 @@ td{
   display:inline-flex!important;
   align-items:center!important;
   gap:4px!important;
-  padding:5px!important;
+  padding:4px!important;
   border:1px solid rgba(148,163,184,.16)!important;
   border-radius:16px!important;
   background:#F7FAFC!important;
@@ -3656,8 +3662,8 @@ td{
   margin-top:2px!important;
 }
 #pageGantt #ganttToolbarActions .btn{
-  min-height:40px!important;
-  border-radius:14px!important;
+  min-height:36px!important;
+  border-radius:12px!important;
   font-weight:800!important;
 }
 #pageGantt #scheduleAddBtn{
@@ -3993,25 +3999,39 @@ td{
 }
 
 @media(max-width:1100px){
+  #pageGantt .gantt-toolbar{
+    justify-content:flex-start!important;
+  }
   #pageGantt .gantt-toolbar-zone--nav,
   #pageGantt .gantt-toolbar-zone--view,
   #pageGantt .gantt-toolbar-zone--actions{
-    flex:1 1 100%!important;
+    flex:1 1 auto!important;
+  }
+  #pageGantt .gantt-toolbar-zone--view{
+    justify-content:flex-start!important;
+  }
+  #pageGantt .gantt-toolbar-zone--actions{
+    justify-content:flex-start!important;
   }
 }
 
 @media(max-width:768px){
   #pageGantt .gantt-controls-shell{
-    padding:14px!important;
-    border-radius:20px!important;
+    padding:12px!important;
+    border-radius:18px!important;
+  }
+  #pageGantt .gantt-toolbar{
+    align-items:flex-start!important;
+    gap:10px!important;
   }
   #pageGantt .gantt-toolbar-zone{
     width:100%!important;
-    padding:11px 12px!important;
+    flex:1 1 100%!important;
+    padding:0!important;
   }
   #pageGantt .month-nav{
     width:100%!important;
-    justify-content:center!important;
+    justify-content:flex-start!important;
     flex-wrap:wrap!important;
   }
   #pageGantt .month-label{
@@ -4024,6 +4044,15 @@ td{
   #pageGantt #ganttLayoutToggle .toggle-btn{
     flex:1 1 0!important;
     min-width:0!important;
+  }
+  #pageGantt .gantt-toolbar-zone--actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+  }
+  #pageGantt .gantt-toolbar-zone--actions .btn{
+    width:100%!important;
+    justify-content:center!important;
   }
   #pageGantt .gantt-calendar-board{
     min-width:840px!important;
