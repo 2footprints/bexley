@@ -15,6 +15,7 @@
 .client-health-dot.is-warning{background:#F59E0B}
 .client-health-dot.is-risk{background:#DC2626}
 .client-footer{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border)}
+.client-card-actions{display:flex;gap:6px;padding-top:10px}
 .client-members{font-size:11px;color:var(--text3)}
 .client-active{font-size:12px;color:var(--blue);font-weight:700}
 

@@ -78,6 +78,7 @@ function renderClients(){
       +'<div class="chip-row">'+chips+(cp.length>3?'<span style="font-size:11px;color:var(--text3);padding:3px 0">외 '+(cp.length-3)+'건</span>':'')+'</div>'
       +'<div class="client-footer"><span class="client-members">'+mems.slice(0,3).join(' · ')+'</span>'
       +'<span class="client-active">'+active.length+'건 진행중'+(activeContracts?' · 계약 '+activeContracts:'')+'</span></div>'
+      +'<div class="client-card-actions"><button class="btn ghost sm" onclick="event.stopPropagation();window.open(\'/portal?client='+c.id+'\',\'_blank\')">포털 열기 →</button></div>'
       +'</div>';
   }).join('');
 }
