@@ -900,6 +900,8 @@ function renderGanttOverviewCards(projs,schs){
   const projectIds=(projs||[]).map(project=>project?.id).filter(Boolean);
   loadGanttListTaskSummaries(projectIds);
   const activeCount=projs.filter(isGanttProjectInProgress).length;
+  const overdueProjects=projs.filter(project=>isGanttProjectOverdue(project));
+  const overdueCount=overdueProjects.length;
   const taskKpiStats=getGanttOverviewTaskKpiStats(projs);
   const unbilledProjects=projs.filter(project=>isGanttProjectCompleted(project)&&project?.is_billable!==false&&String(project?.billing_status||'').trim()==='미청구');
   const unbilledAmount=unbilledProjects.reduce((sum,project)=>sum+getGanttProjectBillingAmount(project),0);
@@ -920,16 +922,16 @@ function renderGanttOverviewCards(projs,schs){
       className:''
     },
     {
-      label:'지연 태스크',
-      value:taskKpiStats.overdue?taskKpiStats.overdue+'건':'0건',
-      sub:taskKpiStats.overdue?'기한을 넘긴 미완료 업무':'지연 태스크 없음',
-      className:taskKpiStats.overdue?'is-danger':'is-good'
+      label:'지연 프로젝트',
+      value:overdueCount===0?'없음 ✓':overdueCount+'건',
+      sub:overdueCount?((overdueProjects.sort((a,b)=>toDate(a.end)-toDate(b.end))[0]?.name||'지연 프로젝트')+' 포함'):'지연 프로젝트 없음',
+      className:overdueCount?'is-danger':'is-good'
     },
     {
-      label:'이번 주 마감',
-      value:taskKpiStats.dueThisWeek?taskKpiStats.dueThisWeek+'건':'0건',
-      sub:'오늘부터 7일 내 마감 태스크',
-      className:taskKpiStats.dueThisWeek?'is-warn':''
+      label:'지연 태스크',
+      value:taskKpiStats.overdue?taskKpiStats.overdue+'건':'0건',
+      sub:taskKpiStats.overdue?'마감일이 지난 미완료 업무':'현재 필터 기준 지연 업무 없음',
+      className:taskKpiStats.overdue?'is-danger':'is-good'
     },
     {
       label:'미청구',
@@ -1437,6 +1439,7 @@ async function loadGanttListTaskSummaries(projectIds){
       ganttListTaskSummaryByProjectId[id]=buildGanttListTaskSummary(grouped[id]||[]);
     });
   }catch(error){
+    console.error('loadGanttListTaskSummaries failed',error);
     missingIds.forEach(id=>{
       ganttListTaskSummaryByProjectId[id]=null;
     });
@@ -2854,10 +2857,10 @@ function renderGanttProjectWorkSection(project,memberSchedules){
     +'<div class="gantt-detail-pane">'
       +'<div class="gantt-detail-work-hero">'
         +'<div><div class="gantt-detail-label">Work</div><div class="gantt-detail-value">'+esc(remainingMeta.label)+'</div><div class="gantt-detail-meta">'+esc(remainingMeta.detail)+'</div></div>'
-        +'<div class="gantt-detail-work-hero-progress"><div class="gantt-detail-label">실행 진행률</div><div class="gantt-detail-work-hero-value">'+progress+'%</div><div class="gantt-detail-work-progress-track"><div class="gantt-detail-work-progress-fill" style="width:'+progress+'%"></div></div></div>'
+        +'<div class="gantt-detail-work-hero-progress"><div class="gantt-detail-label">기간 경과율</div><div class="gantt-detail-work-hero-value">'+progress+'%</div><div class="gantt-detail-work-progress-track"><div class="gantt-detail-work-progress-fill" style="width:'+progress+'%"></div></div></div>'
       +'</div>'
       +'<div class="gantt-detail-work-grid">'
-        +'<div class="gantt-detail-work-card"><div class="gantt-detail-label">기간 진행률</div><div class="gantt-detail-value">'+progress+'%</div><div class="gantt-detail-meta">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div></div>'
+        +'<div class="gantt-detail-work-card"><div class="gantt-detail-label">기간 경과율</div><div class="gantt-detail-value">'+progress+'%</div><div class="gantt-detail-meta">시작일과 종료일 기준 · 실제 업무 완료율과 다를 수 있음</div></div>'
         +'<div class="gantt-detail-work-card"><div class="gantt-detail-label">투입 시간</div><div class="gantt-detail-value">'+estimatedHours+' / '+actualHours+'</div><div class="gantt-detail-meta">'+esc(hourDeltaText)+'</div></div>'
         +'<div class="gantt-detail-work-card"><div class="gantt-detail-label">완료 기준</div><div class="gantt-detail-value">'+esc(completionText)+'</div><div class="gantt-detail-meta">'+esc(project?.project_code||'프로젝트 코드 없음')+'</div></div>'
         +'<div class="gantt-detail-work-card"><div class="gantt-detail-label">후속 액션</div><div class="gantt-detail-value">'+esc(followUpText)+'</div><div class="gantt-detail-meta">'+(project?.follow_up_needed?'완료 후 조치 필요':'현재 등록 없음')+'</div></div>'
@@ -4077,7 +4080,7 @@ function renderGanttEntryViewChrome(){
     if(sidebarTitle)sidebarTitle.textContent='빠른 선택';
     if(sidebarSub)sidebarSub.textContent='리스트에서 바로 열 프로젝트를 고르면 아래 상세 패널로 이어집니다.';
     if(mainTitle)mainTitle.textContent='프로젝트 목록';
-    if(mainCopy)mainCopy.textContent='상태, 기한, 진행률을 먼저 훑고 필요한 프로젝트만 아래 상세 패널로 이어서 확인하세요.';
+    if(mainCopy)mainCopy.textContent='상태, 기한, 기간 경과율을 먼저 훑고 필요한 프로젝트만 아래 상세 패널로 이어서 확인하세요.';
     renderGanttSupportViewCue();
     return;
   }
