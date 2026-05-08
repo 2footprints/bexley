@@ -187,6 +187,9 @@
 .portal-doc-input{width:100%;padding:10px 12px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--text);font-family:inherit}
 .portal-doc-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(49,130,246,.1)}
 .portal-doc-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.portal-doc-admin-toolbar{padding:10px 0 4px;display:flex;align-items:center}
+.portal-doc-admin-form{margin:10px 0;padding:14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);display:grid;gap:10px}
+.portal-doc-delete-btn{padding:4px 8px!important;min-height:unset!important;font-size:13px!important;line-height:1!important;color:var(--text3)!important}
 .login-type-toggle{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
 .login-type-btn{padding:6px 16px;font-size:12px;font-weight:600;border:1px solid var(--border2);border-radius:20px;cursor:pointer;background:transparent;color:var(--text3);font-family:inherit;transition:all .15s}
 .login-type-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
@@ -6685,6 +6688,21 @@ document.getElementById('memberFilter').onchange=renderGantt;
 document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;border-color:var(--navy)';
 
 (async()=>{
+  // URL ?client= 파라미터 확인 (포털 직접 진입)
+  const _urlParams=new URLSearchParams(window.location.search);
+  const _urlClientId=_urlParams.get('client');
+  if(_urlClientId){
+    try{
+      const _res=await fetch(SB_URL+'/rest/v1/clients?id=eq.'+encodeURIComponent(_urlClientId)+'&select=*',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+      const _data=await _res.json();
+      if(_data&&_data.length){
+        portalClient=_data[0];
+        showPage('portal');
+        renderPortal();
+        return;
+      }
+    }catch(e){}
+  }
   // 포털 세션 먼저 확인
   if(localStorage.getItem('portal_client_id')){
     const ok=await restorePortalSession();

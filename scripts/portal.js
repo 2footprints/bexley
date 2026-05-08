@@ -6,6 +6,7 @@ const PORTAL_DOCUMENT_STATUS_META={
 
 let portalDocumentRequestsCurrentProjectId='';
 let portalDocumentSubmitFormId='';
+let portalAdminAddFormOpen=false;
 
 function getPortalEscaper(){
   return typeof esc==='function'
@@ -25,6 +26,10 @@ function escapePortalJsValue(value){
 function getPortalDocumentStatusMeta(status){
   const key=String(status||'pending').trim();
   return PORTAL_DOCUMENT_STATUS_META[key]||PORTAL_DOCUMENT_STATUS_META.pending;
+}
+
+function isPortalAdminView(){
+  return typeof portalPreviewMode!=='undefined'&&portalPreviewMode===true;
 }
 
 async function loadPortalDocumentRequests(projectId){
@@ -60,6 +65,8 @@ function renderPortalDocumentRequests(items){
   }).length;
   const projectId=portalDocumentRequestsCurrentProjectId;
   const projectIdJs=escapePortalJsValue(projectId);
+  const adminView=isPortalAdminView();
+
   const listHtml=rows.length
     ?'<div class="portal-doc-list">'
       +rows.map(item=>{
@@ -69,12 +76,17 @@ function renderPortalDocumentRequests(items){
         const titleJs=escapePortalJsValue(title);
         const status=String(item?.status||'pending').trim();
         const meta=getPortalDocumentStatusMeta(status);
-        const isFormOpen=portalDocumentSubmitFormId===requestId&&status==='pending';
-        const actionHtml=status==='pending'
-          ?'<button type="button" class="btn sm" onclick="openPortalSubmitForm(\''+requestIdJs+'\',\''+projectIdJs+'\')">제출 완료</button>'
-          :status==='uploaded'
-            ?'<span class="portal-doc-disabled">제출완료</span>'
-            :'';
+        const isFormOpen=!adminView&&portalDocumentSubmitFormId===requestId&&status==='pending';
+        let actionHtml;
+        if(adminView){
+          actionHtml='<button type="button" class="btn ghost sm portal-doc-delete-btn" onclick="deletePortalDocumentRequest(\''+requestIdJs+'\',\''+projectIdJs+'\')" title="삭제">🗑</button>';
+        } else {
+          actionHtml=status==='pending'
+            ?'<button type="button" class="btn sm" onclick="openPortalSubmitForm(\''+requestIdJs+'\',\''+projectIdJs+'\')">제출 완료</button>'
+            :status==='uploaded'
+              ?'<span class="portal-doc-disabled">제출완료</span>'
+              :'';
+        }
         return '<div class="portal-doc-item">'
           +'<div class="portal-doc-row">'
             +'<div class="portal-doc-main">'
@@ -91,11 +103,21 @@ function renderPortalDocumentRequests(items){
       }).join('')
     +'</div>'
     :'<div class="portal-empty">요청된 자료가 없습니다.</div>';
+
+  const adminToolbarHtml=adminView
+    ?'<div class="portal-doc-admin-toolbar">'
+      +(portalAdminAddFormOpen
+        ?renderPortalAdminAddFormMarkup(projectIdJs)
+        :'<button type="button" class="btn sm" onclick="openPortalAdminRequestModal(\''+projectIdJs+'\')">+ 자료 요청 추가</button>')
+    +'</div>'
+    :'';
+
   el.innerHTML=''
     +'<div class="portal-doc-summary">'
       +'<div class="portal-doc-summary-label">자료 제출 현황: '+completedCount+'건 완료 / 전체 '+totalCount+'건</div>'
       +'<progress class="portal-doc-progress" value="'+completedCount+'" max="'+Math.max(totalCount,1)+'"></progress>'
     +'</div>'
+    +adminToolbarHtml
     +listHtml;
 }
 
@@ -108,6 +130,63 @@ function renderPortalSubmitFormMarkup(requestIdJs,projectIdJs,titleJs){
       +'<button type="button" class="btn primary sm" onclick="handlePortalDocumentSubmit(\''+requestIdJs+'\',\''+projectIdJs+'\',\''+titleJs+'\')">제출</button>'
     +'</div>'
   +'</div>';
+}
+
+function renderPortalAdminAddFormMarkup(projectIdJs){
+  return '<div class="portal-doc-admin-form">'
+    +'<div class="form-row"><label class="form-label">자료명 <span style="color:var(--red)">*</span></label><input id="portalAdminReqTitle" type="text" placeholder="요청할 자료명을 입력하세요"></div>'
+    +'<div class="form-row"><label class="form-label">상세 설명</label><textarea id="portalAdminReqDesc" rows="2" placeholder="추가 설명 (선택)"></textarea></div>'
+    +'<div class="form-row"><label class="form-label">회수 희망일</label><input id="portalAdminReqDue" type="date"></div>'
+    +'<div class="portal-doc-actions">'
+      +'<button type="button" class="btn ghost sm" onclick="cancelPortalAdminAddForm(\''+projectIdJs+'\')">취소</button>'
+      +'<button type="button" class="btn primary sm" onclick="savePortalAdminRequest(\''+projectIdJs+'\')">저장</button>'
+    +'</div>'
+  +'</div>';
+}
+
+function openPortalAdminRequestModal(projectId){
+  portalAdminAddFormOpen=true;
+  loadPortalDocumentRequests(projectId||portalDocumentRequestsCurrentProjectId);
+}
+
+function cancelPortalAdminAddForm(projectId){
+  portalAdminAddFormOpen=false;
+  loadPortalDocumentRequests(projectId||portalDocumentRequestsCurrentProjectId);
+}
+
+async function savePortalAdminRequest(projectId){
+  const safeProjectId=String(projectId||portalDocumentRequestsCurrentProjectId||'').trim();
+  const title=String(document.getElementById('portalAdminReqTitle')?.value||'').trim();
+  if(!title){alert('자료명을 입력해주세요.');return;}
+  const description=String(document.getElementById('portalAdminReqDesc')?.value||'').trim()||null;
+  const due_date=String(document.getElementById('portalAdminReqDue')?.value||'').trim()||null;
+  try{
+    await api('POST','document_requests',{
+      project_id:safeProjectId,
+      title,
+      description,
+      due_date,
+      status:'pending',
+      sort_order:0
+    });
+    portalAdminAddFormOpen=false;
+    await loadPortalDocumentRequests(safeProjectId);
+  }catch(error){
+    console.error('[portal] add request failed',error);
+    alert('자료 요청 등록에 실패했습니다.');
+  }
+}
+
+async function deletePortalDocumentRequest(requestId,projectId){
+  const safeProjectId=String(projectId||portalDocumentRequestsCurrentProjectId||'').trim();
+  if(!confirm('이 자료 요청을 삭제할까요?'))return;
+  try{
+    await api('DELETE','document_requests?id=eq.'+String(requestId||''));
+    await loadPortalDocumentRequests(safeProjectId);
+  }catch(error){
+    console.error('[portal] delete request failed',error);
+    alert('자료 요청 삭제에 실패했습니다.');
+  }
 }
 
 function openPortalSubmitForm(requestId,projectId){
@@ -167,6 +246,10 @@ async function notifyDocumentSubmitted(requestId,projectId,title){
 
 window.loadPortalDocumentRequests=loadPortalDocumentRequests;
 window.renderPortalDocumentRequests=renderPortalDocumentRequests;
+window.openPortalAdminRequestModal=openPortalAdminRequestModal;
+window.cancelPortalAdminAddForm=cancelPortalAdminAddForm;
+window.savePortalAdminRequest=savePortalAdminRequest;
+window.deletePortalDocumentRequest=deletePortalDocumentRequest;
 window.openPortalSubmitForm=openPortalSubmitForm;
 window.closePortalSubmitForm=closePortalSubmitForm;
 window.handlePortalDocumentSubmit=handlePortalDocumentSubmit;
