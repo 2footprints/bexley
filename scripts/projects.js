@@ -603,7 +603,9 @@ function goToCurrentGanttMonth(){
 }
 
 function setGanttStatusFilter(value){
-  ganttStatusFilter=value||'all';
+  const normalized=String(value||'all').trim()||'all';
+  ganttStatusFilter=normalized;
+  if(normalized==='all')ganttListExecutionRiskFilters=[];
   renderGantt();
 }
 
@@ -6138,7 +6140,7 @@ function getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,
     {label:'현재 병목',value:bottleneckValue,meta:overdueCount>0?'Work에서 우선 조정 필요':issueLinkedCount>0?'Issues와 함께 확인':'큰 병목 없음',tone:bottleneckTone},
     {label:'고객 대기',value:customerWaitingValue,meta:pendingDocSummary?.nearestDueLabel?'다음 회수 '+pendingDocSummary.nearestDueLabel:'자료 요청/응답 기준',tone:customerWaitingTone},
     {label:'내부 검토 대기',value:internalWaitingValue,meta:waitingCount>0?'대기·보류 업무 우선 확인':'내부 일정/검토 기준',tone:internalWaitingTone},
-    {label:'청구 상태',value:billingValue,meta:billingMeta,tone:billingValue==='미청구'?'warn':'neutral'}
+    {label:'청구 상태',value:billingValue,meta:billingMeta,tone:billingValue==='미청구'?'warn':'neutral',action:'<button type="button" class="gantt-signal-card-action" onclick="openBillingQuickEditModal(\''+projectId+'\')">수정</button>'}
   ];
 }
 
@@ -6163,7 +6165,7 @@ renderGanttProjectOverviewSection=function(project,client,linkedContract,project
       +'<div class="gantt-detail-section gantt-detail-section--flush gantt-overview-section gantt-overview-section--actions">'
         +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">실행 요약</div><div class="gantt-detail-meta">설명보다 다음 일정과 병목, 고객 대기, 청구 상태를 먼저 봅니다.</div></div></div>'
         +'<div class="gantt-overview-signal-grid gantt-overview-signal-grid--actions">'
-          +actionCards.map(item=>'<div class="gantt-overview-signal-card is-'+item.tone+'"><div class="gantt-detail-label">'+esc(item.label)+'</div><div class="gantt-detail-value">'+esc(item.value)+'</div><div class="gantt-detail-meta">'+esc(item.meta)+'</div></div>').join('')
+          +actionCards.map(item=>'<div class="gantt-overview-signal-card is-'+item.tone+'"><div class="gantt-signal-card-head"><div class="gantt-detail-label">'+esc(item.label)+'</div>'+(item.action||'')+'</div><div class="gantt-detail-value">'+esc(item.value)+'</div><div class="gantt-detail-meta">'+esc(item.meta)+'</div></div>').join('')
         +'</div>'
       +'</div>'
       +'<div class="gantt-overview-context-grid gantt-overview-context-grid--static">'
@@ -6209,14 +6211,15 @@ function openBillingQuickEditModal(projectId){
       +'<div class="project-task-form">'
         +'<div class="project-task-form-section">'
           +'<div class="project-task-form-section-title">청구 설정</div>'
-          +'<div class="form-row"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="billingIsBillable"'+(isBillable?' checked':'')+' onchange="syncBillingQuickEditUI()"> <span class="form-label" style="margin:0">청구 대상 프로젝트</span></label></div>'
-          +'<div id="billingQuickFields"'+(!isBillable?' style="display:none"':'')+'>'
-            +'<div class="form-grid two">'
-              +'<div class="form-row"><label class="form-label">청구 상태</label><select id="billingStatus"><option value="미청구"'+(billingStatus==='미청구'?' selected':'')+'>미청구</option><option value="청구완료"'+(billingStatus==='청구완료'?' selected':'')+'>청구완료</option><option value="수금완료"'+(billingStatus==='수금완료'?' selected':'')+'>수금완료</option></select></div>'
-              +'<div class="form-row"><label class="form-label">금액 (원)</label><input type="number" id="billingAmount" value="'+esc(String(billingAmount))+'" placeholder="예: 5000000" min="0" step="100000"></div>'
-            +'</div>'
-            +'<div class="form-row"><label class="form-label">비고</label><textarea id="billingNote" class="project-modal-memo" placeholder="청구 관련 메모 (선택)">'+esc(billingNote)+'</textarea></div>'
+          +'<label class="billing-quick-toggle-card" for="billingIsBillable">'
+            +'<input type="checkbox" id="billingIsBillable"'+(isBillable?' checked':'')+' onchange="syncBillingQuickEditUI()">'
+            +'<span class="billing-quick-toggle-copy"><span class="billing-quick-toggle-title">청구 대상 프로젝트</span><span id="billingQuickToggleHelp" class="billing-quick-toggle-help">'+(isBillable?'이 프로젝트는 청구 및 수금 관리 대상입니다.':'이 프로젝트는 청구 관리 대상이 아닙니다.')+'</span></span>'
+          +'</label>'
+          +'<div id="billingQuickFields" class="billing-quick-billable-fields"'+(!isBillable?' style="display:none"':'')+'>'
+            +'<div class="form-row"><label class="form-label">청구 상태</label><select id="billingStatus"><option value="미청구"'+(billingStatus==='미청구'?' selected':'')+'>미청구</option><option value="청구완료"'+(billingStatus==='청구완료'?' selected':'')+'>청구완료</option><option value="수금완료"'+(billingStatus==='수금완료'?' selected':'')+'>수금완료</option></select></div>'
+            +'<div class="form-row"><label class="form-label">청구 금액</label><input type="number" id="billingAmount" value="'+esc(String(billingAmount))+'" placeholder="예: 5000000" min="0" step="100000"></div>'
           +'</div>'
+          +'<div class="form-row billing-quick-note-row"><label id="billingNoteLabel" class="form-label">'+(isBillable?'청구 메모':'비청구 사유 / 메모')+'</label><textarea id="billingNote" class="project-modal-memo" placeholder="'+(isBillable?'청구 기준, 인보이스 기준, 특이사항 등':'내부 검토용, 계약 외 지원, 별도 청구 없음 등')+'">'+esc(billingNote)+'</textarea><div id="billingQuickPreserveHelp" class="billing-quick-preserve-help"'+(isBillable?' style="display:none"':'')+'>청구 대상에서 제외해도 기존 금액은 삭제되지 않습니다. 다시 청구 대상으로 변경하면 기존 입력값을 이어서 사용할 수 있습니다.</div></div>'
         +'</div>'
       +'</div>'
       +'<div class="modal-footer"><div class="muted">저장하면 청구 정보가 즉시 반영됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveBillingQuickEdit(\''+projectId+'\')">저장</button></div></div>'
@@ -6230,6 +6233,14 @@ function syncBillingQuickEditUI(){
   const isBillable=document.getElementById('billingIsBillable')?.checked;
   const fields=document.getElementById('billingQuickFields');
   if(fields)fields.style.display=isBillable?'':'none';
+  const toggleHelp=document.getElementById('billingQuickToggleHelp');
+  if(toggleHelp)toggleHelp.textContent=isBillable?'이 프로젝트는 청구 및 수금 관리 대상입니다.':'이 프로젝트는 청구 관리 대상이 아닙니다.';
+  const noteLabel=document.getElementById('billingNoteLabel');
+  if(noteLabel)noteLabel.textContent=isBillable?'청구 메모':'비청구 사유 / 메모';
+  const note=document.getElementById('billingNote');
+  if(note)note.placeholder=isBillable?'청구 기준, 인보이스 기준, 특이사항 등':'내부 검토용, 계약 외 지원, 별도 청구 없음 등';
+  const preserveHelp=document.getElementById('billingQuickPreserveHelp');
+  if(preserveHelp)preserveHelp.style.display=isBillable?'none':'block';
 }
 
 async function saveBillingQuickEdit(projectId){
@@ -6240,8 +6251,8 @@ async function saveBillingQuickEdit(projectId){
   if(isBillable){
     const billingAmountRaw=document.getElementById('billingAmount')?.value;
     patchBody.billing_amount=billingAmountRaw?parseInt(billingAmountRaw,10):null;
-    patchBody.billing_note=document.getElementById('billingNote')?.value?.trim()||null;
   }
+  patchBody.billing_note=document.getElementById('billingNote')?.value?.trim()||null;
   try{
     await api('PATCH','projects?id=eq.'+projectId,patchBody);
   }catch(error){
@@ -6413,7 +6424,6 @@ renderGanttDetailPanel=function(projs,schs){
       +'<div class="gantt-detail-actions gantt-detail-actions--ops">'
         +primaryAction
         +'<button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')" title="프로젝트명, 고객사, 계약 연결, 빌링 대상 여부 같은 기본 설정을 수정합니다.">프로젝트 설정</button>'
-        +'<button class="btn sm" onclick="openBillingQuickEditModal(\''+project.id+'\')">청구 정보 수정</button>'
         +'<button type="button" class="gantt-detail-link-btn" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
         +'<button type="button" class="gantt-detail-link-btn gantt-detail-close-link" onclick="closeGanttProjectDetail()">목록으로 돌아가기</button>'
       +'</div>'

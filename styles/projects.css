@@ -742,6 +742,31 @@ td{
   border-radius:14px!important;
   background:#F8FAFC!important;
 }
+.gantt-signal-card-head{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:8px!important;
+  margin-bottom:4px!important;
+}
+.gantt-signal-card-action{
+  flex:0 0 auto!important;
+  min-height:24px!important;
+  padding:0 8px!important;
+  border:1px solid rgba(148,163,184,.24)!important;
+  border-radius:999px!important;
+  background:#fff!important;
+  color:var(--text2)!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+}
+.gantt-signal-card-action:hover{
+  border-color:rgba(37,99,235,.28)!important;
+  color:var(--blue)!important;
+  background:#F8FBFF!important;
+}
 .gantt-overview-signal-card.is-warn{
   border-color:rgba(245,158,11,.18)!important;
   background:#FFF9F1!important;
@@ -1224,6 +1249,59 @@ td{
   font-weight:800!important;
   color:var(--navy)!important;
   letter-spacing:.02em!important;
+}
+.billing-quick-toggle-card{
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr)!important;
+  gap:10px!important;
+  align-items:start!important;
+  padding:12px 14px!important;
+  border:1px solid rgba(148,163,184,.2)!important;
+  border-radius:14px!important;
+  background:#FBFCFE!important;
+  cursor:pointer!important;
+}
+.billing-quick-toggle-card:hover{
+  border-color:rgba(37,99,235,.2)!important;
+  background:#F8FBFF!important;
+}
+.billing-quick-toggle-card input{
+  width:16px!important;
+  height:16px!important;
+  margin:2px 0 0!important;
+  accent-color:var(--blue)!important;
+}
+.billing-quick-toggle-copy{
+  display:grid!important;
+  gap:3px!important;
+  min-width:0!important;
+}
+.billing-quick-toggle-title{
+  color:var(--navy)!important;
+  font-size:13px!important;
+  font-weight:800!important;
+  line-height:1.35!important;
+}
+.billing-quick-toggle-help,
+.billing-quick-preserve-help{
+  color:var(--text3)!important;
+  font-size:12px!important;
+  line-height:1.55!important;
+}
+.billing-quick-billable-fields{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:14px!important;
+}
+.billing-quick-note-row{
+  margin-bottom:0!important;
+}
+.billing-quick-preserve-help{
+  margin-top:6px!important;
+  padding:10px 12px!important;
+  border:1px dashed rgba(148,163,184,.34)!important;
+  border-radius:12px!important;
+  background:#F8FAFC!important;
 }
 .project-modal{
   max-width:min(760px,calc(100vw - 32px))!important;
@@ -2065,6 +2143,9 @@ td{
     justify-content:flex-start!important;
   }
   .project-task-form .form-grid.two{
+    grid-template-columns:1fr!important;
+  }
+  .billing-quick-billable-fields{
     grid-template-columns:1fr!important;
   }
   .gantt-detail-tab{
