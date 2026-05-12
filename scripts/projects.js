@@ -3741,6 +3741,10 @@ function getGanttDetailRenderSignature(projs){
     String(project.type||''),
     String(project.client_id||''),
     String(project.contract_id||''),
+    String(project.is_billable),
+    String(project.billing_status||''),
+    String(project.billing_amount||''),
+    String(project.billing_note||''),
     String(project.start||project.start_date||''),
     String(project.end||project.end_date||''),
     JSON.stringify(project.members||[]),
@@ -6240,6 +6244,11 @@ async function saveBillingQuickEdit(projectId){
   }
   try{
     await api('PATCH','projects?id=eq.'+projectId,patchBody);
+  }catch(error){
+    alert('청구 정보 저장에 실패했습니다. '+error.message);
+    return;
+  }
+  try{
     // 선택된 프로젝트/탭을 유지하면서 해당 프로젝트만 갱신
     const updated=await api('GET','projects?id=eq.'+projectId+'&select=*');
     if(updated?.[0]){
@@ -6250,14 +6259,19 @@ async function saveBillingQuickEdit(projectId){
         projects[idx]={...raw,start:raw.start_date,end:raw.end_date,members:pm.filter(x=>x.project_id===raw.id).map(x=>x.members?.name).filter(Boolean)};
       }
     }
-    if(typeof logActivity==='function'){
-      const project=projects.find(p=>String(p?.id||'')===String(projectId||''));
-      await logActivity('청구 정보 수정','project',projectId,project?.name||'');
-    }
     closeModal();
     renderGantt();
   }catch(error){
-    alert('저장 오류: '+error.message);
+    alert('저장은 완료되었지만 화면 갱신에 실패했습니다. 새로고침 후 확인해주세요. '+error.message);
+    return;
+  }
+  if(typeof logActivity==='function'){
+    try{
+      const project=projects.find(p=>String(p?.id||'')===String(projectId||''));
+      await logActivity('청구 정보 수정','project',projectId,project?.name||'');
+    }catch(error){
+      console.warn('Billing quick edit activity log failed',error);
+    }
   }
 }
 
@@ -6399,6 +6413,7 @@ renderGanttDetailPanel=function(projs,schs){
       +'<div class="gantt-detail-actions gantt-detail-actions--ops">'
         +primaryAction
         +'<button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')" title="프로젝트명, 고객사, 계약 연결, 빌링 대상 여부 같은 기본 설정을 수정합니다.">프로젝트 설정</button>'
+        +'<button class="btn sm" onclick="openBillingQuickEditModal(\''+project.id+'\')">청구 정보 수정</button>'
         +'<button type="button" class="gantt-detail-link-btn" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
         +'<button type="button" class="gantt-detail-link-btn gantt-detail-close-link" onclick="closeGanttProjectDetail()">목록으로 돌아가기</button>'
       +'</div>'
