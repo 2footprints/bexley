@@ -192,6 +192,9 @@
       if(typeof loadIssueFeed === 'function') loadIssueFeed(true);
       if(typeof renderMyWeek === 'function') renderMyWeek();
       if(typeof renderWeeklyScheduleSummary === 'function') renderWeeklyScheduleSummary();
+    }else if(curPage === 'home'){
+      if(typeof renderHomeDashboardIssues==='function') renderHomeDashboardIssues();
+      if(typeof renderHomeRiskSummary==='function') renderHomeRiskSummary();
     }else{
       renderClients();
     }

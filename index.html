@@ -2798,11 +2798,22 @@ async function initApp(){
 
 // ── API ──
 async function apiEx(method,path,body,prefer){
-  const headers={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(accessToken||SB_KEY)};
-  if(prefer)headers['Prefer']=prefer;
-  else if(body)headers['Prefer']='return=representation';
-  const r=await fetch(SB_URL+'/rest/v1/'+path,{method,headers,body:body?JSON.stringify(body):undefined});
-  if(!r.ok){const e=await r.text();throw new Error(e);}
+  const makeHeaders=()=>({'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(accessToken||SB_KEY)});
+  const makePrefer=()=>{if(prefer)return prefer;if(body)return 'return=representation';return null;};
+  const doFetch=async()=>{
+    const h=makeHeaders();const p=makePrefer();if(p)h['Prefer']=p;
+    return fetch(SB_URL+'/rest/v1/'+path,{method,headers:h,body:body?JSON.stringify(body):undefined});
+  };
+  let r=await doFetch();
+  if(!r.ok){
+    const e=await r.text();
+    let parsed=null;try{parsed=JSON.parse(e);}catch(_){}
+    if(parsed?.code==='PGRST303'||r.status===401){
+      const refreshed=await restoreSession().catch(()=>false);
+      if(refreshed){r=await doFetch();if(!r.ok){const e2=await r.text();throw new Error(e2);}const t2=await r.text();return t2?JSON.parse(t2):null;}
+    }
+    throw new Error(e);
+  }
   const t=await r.text();return t?JSON.parse(t):null;
 }
 async function api(method,path,body){

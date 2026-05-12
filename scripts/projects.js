@@ -3171,7 +3171,7 @@ async function saveProjectTask(){
     alert('업무 제목을 입력해 주세요.');
     return;
   }
-  const status=String(existingTask?.status||'예정').trim()||'예정';
+  const status=String(document.getElementById('taskStatus')?.value||existingTask?.status||'예정').trim()||'예정';
   const priority=String(existingTask?.priority||'medium').trim()||'medium';
   const assigneeMemberId=document.getElementById('taskAssignee')?.value||null;
   const startDate=existingTask?.start_date||null;
@@ -3210,6 +3210,7 @@ async function saveProjectTask(){
     closeModal();
     await loadGanttProjectTasks(projectId,true);
     refreshGanttProjectTaskListState(projectId);
+    if(curPage==='home'&&typeof renderHomeDashboardIssues==='function')renderHomeDashboardIssues();
   }catch(error){
     alert(isMissingGanttProjectTaskTableError(error)
       ?getMissingGanttProjectTaskTableMessage()
@@ -3524,6 +3525,7 @@ function openProjectTaskModal(projectId,taskId){
           +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
           +'<div class="form-grid two">'
             +'<div class="form-row"><label class="form-label">담당자</label><select id="taskAssignee">'+getProjectTaskModalMemberOptions(task?.assignee_member_id||'')+'</select></div>'
+            +'<div class="form-row"><label class="form-label">상태</label><select id="taskStatus" onchange="syncProjectTaskStatusUI()">'+GANTT_TASK_STATUS_OPTIONS.map(status=>'<option value="'+status+'"'+((task?.status||'예정')===status?' selected':'')+'>'+status+'</option>').join('')+'</select></div>'
             +'<div class="form-row"><label class="form-label">기한</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
           +'</div>'
           +'<div class="form-row"><label class="form-label">설명</label><textarea id="taskDescription" class="project-modal-memo" placeholder="업무 메모나 다음 액션을 간단히 적어 주세요">'+esc(task?.description||'')+'</textarea></div>'
