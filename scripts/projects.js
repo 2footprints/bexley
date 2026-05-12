@@ -3692,6 +3692,7 @@ renderGanttDetailPanel=function(projs,schs){
       +'</div>'
       +'<div class="gantt-detail-actions">'
         +'<button class="btn primary sm" onclick="openProjModal(\''+project.id+'\')">수정</button>'
+        +'<button class="btn sm" onclick="openBillingQuickEditModal(\''+project.id+'\')">청구 정보 수정</button>'
         +'<button class="btn sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
         +'<button class="btn ghost sm" onclick="closeGanttProjectDetail()">닫기</button>'
       +'</div>'
@@ -6167,9 +6168,90 @@ renderGanttProjectOverviewSection=function(project,client,linkedContract,project
         +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">기본 기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div><div class="gantt-detail-meta">'+esc(getGanttProjectCurrentLifecycleMeta(project)?.detail||'프로젝트 일정 확인')+'</div></div>'
         +'<div class="gantt-overview-context-card '+((memberSchedules||[]).length?'is-warn':'')+'"><div class="gantt-detail-label">개인 일정 / 제약</div><div class="gantt-detail-value">'+esc((memberSchedules||[]).length?('개인 일정 '+memberSchedules.length+'건'):'연결 일정 없음')+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.total?('다음 일정 · '+scheduleMeta.nextMeta):'프로젝트 업무와 분리된 보조 레이어로만 관리합니다.')+'</div></div>'
       +'</div>'
+      +'<div class="gantt-detail-section gantt-billing-section">'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">청구 정보</div><div class="gantt-detail-meta">청구 여부, 상태, 금액을 확인하고 바로 수정합니다.</div></div>'
+        +'<button type="button" class="btn ghost sm" onclick="openBillingQuickEditModal(\''+project.id+'\')">수정</button>'
+        +'</div>'
+        +'<div class="gantt-overview-context-grid gantt-overview-context-grid--billing">'
+          +'<div class="gantt-overview-context-card'+(project.is_billable===false?'':billingStatus==='미청구'?' is-warn':'')+'"><div class="gantt-detail-label">청구 여부</div><div class="gantt-detail-value">'+(project.is_billable===false?'비청구 대상':'청구 대상')+'</div><div class="gantt-detail-meta">'+(project.is_billable===false?'청구 대상에서 제외':'청구 관리 대상 프로젝트')+'</div></div>'
+          +(project.is_billable!==false
+            ?'<div class="gantt-overview-context-card'+(billingStatus==='미청구'?' is-warn':'')+'"><div class="gantt-detail-label">청구 상태</div><div class="gantt-detail-value"><span class="badge '+getGanttListBillingBadgeClass(billingStatus)+'">'+esc(billingStatus)+'</span></div><div class="gantt-detail-meta">'+(billingStatus==='미청구'?'청구 처리 필요':billingStatus==='청구완료'?'수금 확인 필요':'청구 정리 완료')+'</div></div>'
+            :'')
+          +(billingAmount>0
+            ?'<div class="gantt-overview-context-card"><div class="gantt-detail-label">금액</div><div class="gantt-detail-value">'+formatGanttCurrency(billingAmount)+'</div><div class="gantt-detail-meta">'+(Number(project?.billing_amount||0)>0?'기준 금액':'계약 금액 참조')+'</div></div>'
+            :'')
+          +(String(project?.billing_note||'').trim()
+            ?'<div class="gantt-overview-context-card"><div class="gantt-detail-label">비고</div><div class="gantt-detail-value">'+esc(String(project.billing_note||'').trim())+'</div><div class="gantt-detail-meta">청구 관련 메모</div></div>'
+            :'')
+        +'</div>'
+      +'</div>'
       +renderGanttProjectMemoSummarySection(project)
     +'</div>';
 };
+
+function openBillingQuickEditModal(projectId){
+  const project=projects.find(p=>String(p?.id||'')===String(projectId||''));
+  if(!project)return;
+  const isBillable=project.is_billable!==false;
+  const billingStatus=String(project.billing_status||'미청구').trim();
+  const billingAmount=Number(project.billing_amount||0)||'';
+  const billingNote=String(project.billing_note||'').trim();
+  const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
+  document.getElementById('modalArea').innerHTML=''
+    +overlayHtml
+    +'<div class="modal project-task-modal">'
+      +'<div class="modal-header"><div><div class="modal-title">청구 정보 수정</div><div class="modal-sub">'+esc(project.name||'')+'</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
+      +'<div class="project-task-modal-intro">청구 여부와 상태를 변경하면 홈 화면 및 리스트에 즉시 반영됩니다.</div>'
+      +'<div class="project-task-form">'
+        +'<div class="project-task-form-section">'
+          +'<div class="project-task-form-section-title">청구 설정</div>'
+          +'<div class="form-row"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="billingIsBillable"'+(isBillable?' checked':'')+' onchange="syncBillingQuickEditUI()"> <span class="form-label" style="margin:0">청구 대상 프로젝트</span></label></div>'
+          +'<div id="billingQuickFields"'+(!isBillable?' style="display:none"':'')+'>'
+            +'<div class="form-grid two">'
+              +'<div class="form-row"><label class="form-label">청구 상태</label><select id="billingStatus"><option value="미청구"'+(billingStatus==='미청구'?' selected':'')+'>미청구</option><option value="청구완료"'+(billingStatus==='청구완료'?' selected':'')+'>청구완료</option><option value="수금완료"'+(billingStatus==='수금완료'?' selected':'')+'>수금완료</option></select></div>'
+              +'<div class="form-row"><label class="form-label">금액 (원)</label><input type="number" id="billingAmount" value="'+esc(String(billingAmount))+'" placeholder="예: 5000000" min="0" step="100000"></div>'
+            +'</div>'
+            +'<div class="form-row"><label class="form-label">비고</label><textarea id="billingNote" class="project-modal-memo" placeholder="청구 관련 메모 (선택)">'+esc(billingNote)+'</textarea></div>'
+          +'</div>'
+        +'</div>'
+      +'</div>'
+      +'<div class="modal-footer"><div class="muted">저장하면 청구 정보가 즉시 반영됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveBillingQuickEdit(\''+projectId+'\')">저장</button></div></div>'
+    +'</div>'
+    +'</div>';
+  if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
+  if(typeof lockBodyScroll==='function')lockBodyScroll();
+}
+
+function syncBillingQuickEditUI(){
+  const isBillable=document.getElementById('billingIsBillable')?.checked;
+  const fields=document.getElementById('billingQuickFields');
+  if(fields)fields.style.display=isBillable?'':'none';
+}
+
+async function saveBillingQuickEdit(projectId){
+  const isBillable=!!document.getElementById('billingIsBillable')?.checked;
+  const billingStatus=isBillable?(document.getElementById('billingStatus')?.value||'미청구'):'미청구';
+  const billingAmountRaw=document.getElementById('billingAmount')?.value;
+  const billingAmount=billingAmountRaw?parseInt(billingAmountRaw,10):null;
+  const billingNote=document.getElementById('billingNote')?.value?.trim()||null;
+  try{
+    await api('PATCH','projects?id=eq.'+projectId,{
+      is_billable:isBillable,
+      billing_status:billingStatus,
+      billing_amount:billingAmount,
+      billing_note:billingNote
+    });
+    if(typeof logActivity==='function'){
+      const project=projects.find(p=>String(p?.id||'')===String(projectId||''));
+      await logActivity('청구 정보 수정','project',projectId,project?.name||'');
+    }
+    closeModal();
+    await loadAll();
+    renderGantt();
+  }catch(error){
+    alert('저장 오류: '+error.message);
+  }
+}
 
 function getGanttProjectWorkPriorityTasks(projectId,limit=3){
   const tasks=[...getGanttTaskDisplayRows(projectId)].filter(task=>String(task?.status||'').trim()!=='완료');
