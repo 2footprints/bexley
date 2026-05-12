@@ -166,10 +166,26 @@ td{
   gap:12px!important;
 }
 .gantt-kpi{
+  width:100%!important;
+  appearance:none!important;
   border:1px solid var(--border)!important;
   border-radius:18px!important;
   background:#fff!important;
   padding:16px 18px!important;
+  text-align:left!important;
+  font-family:inherit!important;
+  cursor:pointer!important;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease, transform .15s ease!important;
+}
+.gantt-kpi:hover{
+  border-color:rgba(37,99,235,.22)!important;
+  box-shadow:0 10px 22px rgba(15,23,42,.08)!important;
+  transform:translateY(-1px)!important;
+}
+.gantt-kpi.active{
+  border-color:rgba(37,99,235,.38)!important;
+  background:#F8FBFF!important;
+  box-shadow:0 12px 24px rgba(37,99,235,.12)!important;
 }
 .gantt-kpi-label{
   font-size:11px!important;
@@ -1477,6 +1493,43 @@ td{
   gap:10px!important;
   flex-wrap:wrap!important;
   flex:1 1 420px!important;
+}
+.gantt-list-quick-filter-notice{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  flex-wrap:wrap!important;
+  margin-top:10px!important;
+  padding:11px 13px!important;
+  border:1px solid rgba(37,99,235,.16)!important;
+  border-radius:14px!important;
+  background:#F8FBFF!important;
+  color:var(--text2)!important;
+}
+.gantt-list-quick-filter-notice>div{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+  min-width:0!important;
+  font-size:12px!important;
+}
+.gantt-list-quick-filter-notice strong{
+  color:var(--navy)!important;
+  font-size:13px!important;
+  font-weight:800!important;
+}
+.gantt-list-quick-filter-kicker{
+  display:inline-flex!important;
+  align-items:center!important;
+  min-height:22px!important;
+  padding:0 8px!important;
+  border-radius:999px!important;
+  background:#EFF6FF!important;
+  color:var(--blue)!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
 }
 .gantt-list-search{
   min-height:40px!important;

@@ -609,6 +609,46 @@ function setGanttStatusFilter(value){
   renderGantt();
 }
 
+function getGanttKpiQuickFilterKey(){
+  const riskFilters=(Array.isArray(ganttListExecutionRiskFilters)?ganttListExecutionRiskFilters:[]).filter(Boolean);
+  if(ganttStatusFilter==='all'&&!riskFilters.length)return 'all';
+  if(ganttStatusFilter==='in_progress'&&!riskFilters.length)return 'in_progress';
+  if(ganttStatusFilter==='overdue'&&!riskFilters.length)return 'overdue';
+  if(ganttStatusFilter==='all'&&riskFilters.length===1&&riskFilters[0]==='overdue_task')return 'overdue_task';
+  if((ganttStatusFilter==='all'||ganttStatusFilter==='completed')&&riskFilters.length===1&&riskFilters[0]==='unbilled')return 'unbilled';
+  return '';
+}
+
+function setGanttKpiQuickFilter(filterKey){
+  const key=String(filterKey||'all').trim()||'all';
+  if(key==='in_progress'){
+    ganttStatusFilter='in_progress';
+    ganttListExecutionRiskFilters=[];
+  }else if(key==='overdue'){
+    ganttStatusFilter='overdue';
+    ganttListExecutionRiskFilters=[];
+  }else if(key==='overdue_task'){
+    ganttStatusFilter='all';
+    ganttListExecutionRiskFilters=['overdue_task'];
+  }else if(key==='unbilled'){
+    ganttStatusFilter='all';
+    ganttListExecutionRiskFilters=['unbilled'];
+  }else{
+    ganttStatusFilter='all';
+    ganttListExecutionRiskFilters=[];
+  }
+  if(key==='overdue_task'&&typeof loadGanttListTaskSummaries==='function'){
+    try{
+      const visibleData=typeof getGanttVisibleData==='function'?getGanttVisibleData():{projs:projects||[]};
+      const ids=(visibleData.projs||[]).map(project=>project?.id).filter(Boolean);
+      loadGanttListTaskSummaries(ids).then(()=>{
+        if(getGanttKpiQuickFilterKey()==='overdue_task')renderGantt();
+      }).catch(()=>{});
+    }catch(e){}
+  }
+  renderGantt();
+}
+
 function toggleGanttTypeFilter(type){
   const value=String(type||'').trim();
   if(!value)return;
@@ -912,37 +952,43 @@ function renderGanttOverviewCards(projs,schs){
   const activeDelta=activeCount-prevActiveCount;
   const cards=[
     {
+      key:'all',
       label:'전체',
       value:projs.length+'건',
       sub:'이번 달 기준',
       className:''
     },
     {
+      key:'in_progress',
       label:'진행중',
       value:activeCount+'건',
       sub:getGanttMonthDeltaText(activeDelta),
       className:''
     },
     {
+      key:'overdue',
       label:'지연 프로젝트',
       value:overdueCount===0?'없음 ✓':overdueCount+'건',
       sub:overdueCount?((overdueProjects.sort((a,b)=>toDate(a.end)-toDate(b.end))[0]?.name||'지연 프로젝트')+' 포함'):'지연 프로젝트 없음',
       className:overdueCount?'is-danger':'is-good'
     },
     {
+      key:'overdue_task',
       label:'지연 태스크',
       value:taskKpiStats.overdue?taskKpiStats.overdue+'건':'0건',
       sub:taskKpiStats.overdue?'마감일이 지난 미완료 업무':'현재 필터 기준 지연 업무 없음',
       className:taskKpiStats.overdue?'is-danger':'is-good'
     },
     {
+      key:'unbilled',
       label:'미청구',
       value:unbilledProjects.length+'건',
       sub:'미청구 금액 '+formatGanttCurrency(unbilledAmount),
       className:unbilledProjects.length?'is-warn':''
     }
   ];
-  el.innerHTML=cards.map(card=>'<div class="gantt-kpi '+card.className+'"><div class="gantt-kpi-label">'+card.label+'</div><div class="gantt-kpi-value">'+card.value+'</div><div class="gantt-kpi-sub">'+card.sub+'</div></div>').join('');
+  const activeQuickFilter=getGanttKpiQuickFilterKey();
+  el.innerHTML=cards.map(card=>'<button type="button" class="gantt-kpi '+card.className+(activeQuickFilter===card.key?' active':'')+'" onclick="setGanttKpiQuickFilter(\''+card.key+'\')"><div class="gantt-kpi-label">'+card.label+'</div><div class="gantt-kpi-value">'+card.value+'</div><div class="gantt-kpi-sub">'+card.sub+'</div></button>').join('');
 }
 
 renderGanttSidebarList=function(projs){
@@ -1838,6 +1884,26 @@ function rowMatchesGanttListExecutionRiskFilters(row){
     if(filterKey==='unbilled')return isGanttListUnbilledAttentionRow(row);
     return true;
   });
+}
+
+function getGanttQuickFilterNoticeMeta(){
+  const key=getGanttKpiQuickFilterKey();
+  if(!key||key==='all')return null;
+  if(key==='in_progress')return {label:'진행중 프로젝트'};
+  if(key==='overdue')return {label:'지연 프로젝트'};
+  if(key==='overdue_task')return {label:'지연 태스크 보유 프로젝트'};
+  if(key==='unbilled')return {label:'미청구 프로젝트'};
+  return null;
+}
+
+function renderGanttQuickFilterNotice(rows){
+  const meta=getGanttQuickFilterNoticeMeta();
+  if(!meta)return '';
+  const count=Array.isArray(rows)?rows.length:0;
+  return '<div class="gantt-list-quick-filter-notice">'
+    +'<div><span class="gantt-list-quick-filter-kicker">빠른 필터</span><strong>'+esc(meta.label)+'</strong><span>'+esc(meta.label+' '+count+'건을 보고 있습니다.')+'</span></div>'
+    +'<button type="button" class="btn ghost sm" onclick="setGanttKpiQuickFilter(\'all\')">필터 해제</button>'
+  +'</div>';
 }
 
 function filterGanttListRows(rows){
@@ -6007,12 +6073,13 @@ renderGanttListView=function(projs,schs){
   const availableMembers=getAvailableGanttMembers();
   const priorityCount=rows.filter(row=>['danger','warn','issue'].includes(getGanttListPriorityState(row).tone)).length;
   const clientGroups=getGanttListClientGroups(rows);
+  const quickFilterNoticeHtml=renderGanttQuickFilterNotice(rows);
   const selectableIdsJs=selectableRows.map(row=>{
     const safeId=String(row?.project?.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return '\''+safeId+'\'';
   }).join(',');
   if(!rows.length){
-    wrap.innerHTML='<div class="empty-state" style="padding:40px">현재 필터에서 표시할 프로젝트가 없습니다.</div>';
+    wrap.innerHTML=quickFilterNoticeHtml+'<div class="empty-state" style="padding:40px">현재 필터에서 표시할 프로젝트가 없습니다.</div>';
     return;
   }
   wrap.innerHTML=''
@@ -6024,6 +6091,7 @@ renderGanttListView=function(projs,schs){
         +'</div>'
         +(ganttListSelectedIds.length?'<div class="gantt-list-selection-summary">'+ganttListSelectedIds.length+'건 선택</div>':'')
       +'</div>'
+      +quickFilterNoticeHtml
       +'<div class="gantt-list-signalbar">'
         +renderGanttListPriorityQueueBar(rows)
       +'</div>'

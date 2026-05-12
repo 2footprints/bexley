@@ -1162,6 +1162,21 @@ function normalizeWeeklyReviewOutputUrl(url){
   if(!raw)return '';
   return /^https?:\/\//i.test(raw)?raw:'https://'+raw;
 }
+function getWeeklyReviewApiErrorDetail(error){
+  const raw=String(error?.message||error?.code||error||'').trim();
+  if(!raw)return '';
+  try{
+    const parsed=JSON.parse(raw);
+    return [
+      parsed.message,
+      parsed.code?'code: '+parsed.code:'',
+      parsed.details,
+      parsed.hint
+    ].filter(Boolean).join(' / ');
+  }catch(parseError){
+    return raw;
+  }
+}
 function openWeeklyReviewOutputUrl(url){
   const normalized=normalizeWeeklyReviewOutputUrl(url);
   if(!normalized){
@@ -1237,8 +1252,8 @@ async function saveWeeklyReviewOutput(outputId=''){
     alert('산출물 링크를 수정할 권한이 없습니다.');
     return;
   }
-  const projectId=document.getElementById('weeklyOutputProject')?.value||'';
-  const taskId=document.getElementById('weeklyOutputTask')?.value||'';
+  const projectId=String(document.getElementById('weeklyOutputProject')?.value||'').trim();
+  const taskId=String(document.getElementById('weeklyOutputTask')?.value||'').trim();
   const title=String(document.getElementById('weeklyOutputTitle')?.value||'').trim();
   const onedriveUrl=String(document.getElementById('weeklyOutputUrl')?.value||'').trim();
   const memo=String(document.getElementById('weeklyOutputMemo')?.value||'').trim();
@@ -1276,8 +1291,9 @@ async function saveWeeklyReviewOutput(outputId=''){
     closeModal();
     await renderWeeklyReviewPage(weeklyReviewWeekOffset);
   }catch(error){
+    const detail=getWeeklyReviewApiErrorDetail(error);
     console.error(existing?'[weekly-review] project_outputs update failed':'[weekly-review] project_outputs insert failed',error);
-    alert(existing?'산출물 링크 수정에 실패했습니다.':'산출물 링크 저장에 실패했습니다.');
+    alert((existing?'산출물 링크 수정에 실패했습니다.':'산출물 링크 저장에 실패했습니다.')+(detail?'\n\n오류: '+detail:''));
   }
 }
 async function deleteWeeklyReviewOutput(outputId=''){
