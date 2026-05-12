@@ -6231,22 +6231,30 @@ function syncBillingQuickEditUI(){
 async function saveBillingQuickEdit(projectId){
   const isBillable=!!document.getElementById('billingIsBillable')?.checked;
   const billingStatus=isBillable?(document.getElementById('billingStatus')?.value||'미청구'):'미청구';
-  const billingAmountRaw=document.getElementById('billingAmount')?.value;
-  const billingAmount=billingAmountRaw?parseInt(billingAmountRaw,10):null;
-  const billingNote=document.getElementById('billingNote')?.value?.trim()||null;
+  // 비청구 해제 시 amount/note는 PATCH에서 제외해 기존 DB 값 보존
+  const patchBody={is_billable:isBillable,billing_status:billingStatus};
+  if(isBillable){
+    const billingAmountRaw=document.getElementById('billingAmount')?.value;
+    patchBody.billing_amount=billingAmountRaw?parseInt(billingAmountRaw,10):null;
+    patchBody.billing_note=document.getElementById('billingNote')?.value?.trim()||null;
+  }
   try{
-    await api('PATCH','projects?id=eq.'+projectId,{
-      is_billable:isBillable,
-      billing_status:billingStatus,
-      billing_amount:billingAmount,
-      billing_note:billingNote
-    });
+    await api('PATCH','projects?id=eq.'+projectId,patchBody);
+    // 선택된 프로젝트/탭을 유지하면서 해당 프로젝트만 갱신
+    const updated=await api('GET','projects?id=eq.'+projectId+'&select=*');
+    if(updated?.[0]){
+      const raw=updated[0];
+      const idx=projects.findIndex(p=>String(p?.id||'')===String(projectId||''));
+      if(idx!==-1){
+        const pm=projectMemberLinks||[];
+        projects[idx]={...raw,start:raw.start_date,end:raw.end_date,members:pm.filter(x=>x.project_id===raw.id).map(x=>x.members?.name).filter(Boolean)};
+      }
+    }
     if(typeof logActivity==='function'){
       const project=projects.find(p=>String(p?.id||'')===String(projectId||''));
       await logActivity('청구 정보 수정','project',projectId,project?.name||'');
     }
     closeModal();
-    await loadAll();
     renderGantt();
   }catch(error){
     alert('저장 오류: '+error.message);
