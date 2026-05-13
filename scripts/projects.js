@@ -1794,8 +1794,7 @@ function renderGanttListTaskDrilldownRow(row){
     +'</div>';
   }
   return '<tr class="gantt-list-child-row">'
-    +'<td class="gantt-list-check-col"></td>'
-    +'<td colspan="8">'
+    +'<td class="gantt-list-task-detail-cell" colspan="8">'
       +'<div class="gantt-list-task-drill-shell">'
         +'<div class="gantt-list-task-drill-head">'
         +'<div><div class="gantt-list-task-drill-title">핵심 업무</div><div class="gantt-list-task-drill-sub">프로젝트 비교는 그대로 두고, 리스크나 다음 확인이 필요한 업무만 가볍게 펼쳐 봅니다.</div></div>'
@@ -6040,8 +6039,7 @@ renderGanttListTaskDrilldownRow=function(row){
     +'</div>';
   }
   return '<tr class="gantt-list-child-row">'
-    +'<td class="gantt-list-check-col"></td>'
-    +'<td colspan="8">'
+    +'<td class="gantt-list-task-detail-cell" colspan="8">'
       +'<div class="gantt-list-task-drill-shell">'
         +'<div class="gantt-list-task-drill-head">'
           +'<div><div class="gantt-list-task-drill-title">프로젝트 업무</div><div class="gantt-list-task-drill-sub">업무명, 담당자, 마감일, 상태와 메모를 빠르게 확인하고 클릭해서 수정합니다.</div></div>'

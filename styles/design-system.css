@@ -925,6 +925,179 @@ body{
   color:var(--text3)!important;
 }
 
+#pageWeeklyReview .weekly-review-project-meeting-view{
+  display:grid!important;
+  gap:16px!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-intro{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:16px!important;
+  padding:20px 22px!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-total{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:58px!important;
+  min-height:34px!important;
+  padding:0 12px!important;
+  border-radius:999px!important;
+  background:#F1F5F9!important;
+  color:var(--navy)!important;
+  font-size:13px!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:14px!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-card{
+  display:grid!important;
+  gap:12px!important;
+  min-width:0!important;
+  padding:18px!important;
+  border:1px solid rgba(148,163,184,.18)!important;
+  border-radius:18px!important;
+  background:#fff!important;
+  box-shadow:0 14px 32px rgba(16,32,51,.06)!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-card.is-score-danger{
+  border-color:rgba(220,38,38,.18)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFF8F7 100%)!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-card.is-score-warn{
+  border-color:rgba(245,158,11,.2)!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FFFBF3 100%)!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-card-head,
+#pageWeeklyReview .weekly-review-project-meeting-footer{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  flex-wrap:wrap!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-badges,
+#pageWeeklyReview .weekly-review-project-meeting-counts{
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  flex-wrap:wrap!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-badge,
+#pageWeeklyReview .weekly-review-project-meeting-counts span{
+  display:inline-flex!important;
+  align-items:center!important;
+  min-height:22px!important;
+  padding:2px 8px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(148,163,184,.18)!important;
+  background:#F8FAFC!important;
+  color:#475569!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-badge.is-danger{
+  background:#FEE2E2!important;
+  border-color:#FECACA!important;
+  color:#B91C1C!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-badge.is-warn{
+  background:#FEF3C7!important;
+  border-color:#FDE68A!important;
+  color:#92400E!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-badge.is-good{
+  background:#DCFCE7!important;
+  border-color:#BBF7D0!important;
+  color:#166534!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-status,
+#pageWeeklyReview .weekly-review-project-meeting-muted,
+#pageWeeklyReview .weekly-review-project-meeting-footer span{
+  font-size:11px!important;
+  font-weight:700!important;
+  color:var(--text3)!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-title{
+  min-width:0!important;
+  color:var(--navy)!important;
+  font-size:16px!important;
+  font-weight:850!important;
+  line-height:1.35!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-client{
+  color:var(--text2)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-meta-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-meta-grid div{
+  min-width:0!important;
+  padding:10px!important;
+  border:1px solid rgba(148,163,184,.14)!important;
+  border-radius:12px!important;
+  background:rgba(248,250,252,.78)!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-meta-grid span{
+  display:block!important;
+  margin-bottom:4px!important;
+  color:var(--text3)!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-meta-grid strong{
+  display:block!important;
+  min-width:0!important;
+  color:var(--text)!important;
+  font-size:12px!important;
+  line-height:1.45!important;
+  word-break:keep-all!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-block{
+  display:grid!important;
+  gap:6px!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-block-title{
+  color:var(--navy)!important;
+  font-size:12px!important;
+  font-weight:850!important;
+}
+#pageWeeklyReview .weekly-review-project-meeting-block ul{
+  margin:0!important;
+  padding-left:18px!important;
+  display:grid!important;
+  gap:4px!important;
+  color:var(--text2)!important;
+  font-size:12px!important;
+  line-height:1.55!important;
+}
+
+@media(max-width:980px){
+  #pageWeeklyReview .weekly-review-project-meeting-grid{
+    grid-template-columns:1fr!important;
+  }
+}
+
+@media(max-width:720px){
+  #pageWeeklyReview .weekly-review-project-meeting-intro,
+  #pageWeeklyReview .weekly-review-project-meeting-card-head,
+  #pageWeeklyReview .weekly-review-project-meeting-footer{
+    align-items:flex-start!important;
+  }
+  #pageWeeklyReview .weekly-review-project-meeting-meta-grid{
+    grid-template-columns:1fr!important;
+  }
+}
+
 @media(max-width:1200px){
   #pageWeeklyReview .weekly-review-grid{
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
