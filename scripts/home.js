@@ -742,6 +742,139 @@ async function openHomeProjectTask(projectId,taskId){
   fallbackHomeProjectTaskView('openProjectTaskModal unavailable or failed',safeProjectId,safeTaskId);
 }
 
+function getHomeQuickTaskProjectClient(project){
+  return (clients||[]).find(client=>String(client?.id||'')===String(project?.client_id||''))||null;
+}
+
+function isHomeQuickTaskCompletedProject(project){
+  const status=String(project?.status||'').trim();
+  const key=status.toLowerCase().replace(/[\s-]+/g,'_');
+  return status==='완료'||status==='완전 종료'||key==='completed'||key==='done'||key==='closed';
+}
+
+function isHomeQuickTaskOverdueProject(project){
+  if(isHomeQuickTaskCompletedProject(project))return false;
+  const endValue=project?.end||project?.end_date;
+  if(!endValue)return false;
+  const endDate=toDate(endValue);
+  if(Number.isNaN(endDate.getTime()))return false;
+  return endDate<getHomeBaseDate();
+}
+
+function getHomeQuickTaskProjectStatusLabel(project){
+  if(isHomeQuickTaskOverdueProject(project))return '지연';
+  return String(project?.status||'상태 미정').trim()||'상태 미정';
+}
+
+function getHomeQuickTaskProjectSortRank(project){
+  const status=String(project?.status||'').trim();
+  if(status==='진행중'&&!isHomeQuickTaskOverdueProject(project))return 0;
+  if(isHomeQuickTaskOverdueProject(project))return 1;
+  if(status==='예정')return 2;
+  if(isHomeQuickTaskCompletedProject(project))return 4;
+  return 3;
+}
+
+function getHomeQuickTaskProjectRows(query=''){
+  const keyword=String(query||'').trim().toLowerCase();
+  return (projects||[])
+    .map(project=>{
+      const client=getHomeQuickTaskProjectClient(project);
+      const clientName=client?.name||'거래처 없음';
+      const projectName=project?.name||'프로젝트명 없음';
+      const statusLabel=getHomeQuickTaskProjectStatusLabel(project);
+      const endValue=project?.end||project?.end_date||'';
+      const haystack=[clientName,projectName,statusLabel,endValue,(project?.members||[]).join(' ')].join(' ').toLowerCase();
+      return {project,clientName,projectName,statusLabel,endValue,haystack};
+    })
+    .filter(row=>!keyword||row.haystack.includes(keyword))
+    .sort((a,b)=>{
+      const rankDiff=getHomeQuickTaskProjectSortRank(a.project)-getHomeQuickTaskProjectSortRank(b.project);
+      if(rankDiff)return rankDiff;
+      const endA=String(a.endValue||'9999-12-31');
+      const endB=String(b.endValue||'9999-12-31');
+      if(endA!==endB)return endA.localeCompare(endB);
+      return (a.clientName+' '+a.projectName).localeCompare(b.clientName+' '+b.projectName,'ko');
+    });
+}
+
+function renderHomeQuickTaskProjectList(){
+  const listEl=document.getElementById('homeQuickTaskProjectList');
+  if(!listEl)return;
+  const query=document.getElementById('homeQuickTaskProjectSearch')?.value||'';
+  const rows=getHomeQuickTaskProjectRows(query);
+  const selectedId=String(window.homeQuickTaskSelectedProjectId||'');
+  if(!rows.length){
+    listEl.innerHTML='<div class="weekly-review-empty">검색 조건에 맞는 프로젝트가 없습니다.</div>';
+    return;
+  }
+  listEl.innerHTML=rows.slice(0,40).map(row=>{
+    const projectId=String(row.project?.id||'');
+    const selected=projectId===selectedId;
+    const dueText=row.endValue?('마감 '+row.endValue):'마감일 없음';
+    const statusClass=isHomeQuickTaskOverdueProject(row.project)?'badge-red':(isHomeQuickTaskCompletedProject(row.project)?'badge-green':'badge-blue');
+    return '<button type="button" class="weekly-review-item" style="width:100%;text-align:left;'+(selected?'border-color:rgba(37,99,235,.48);background:#F8FBFF;':'')+'" onclick="selectHomeQuickTaskProject(\''+getHomeJsString(projectId)+'\')">'
+      +'<div class="weekly-review-item-main">'
+        +'<div class="weekly-review-item-meta weekly-review-item-context">'+esc(row.clientName)+'</div>'
+        +'<div class="weekly-review-item-title">'+esc(row.projectName)+'</div>'
+        +'<div class="weekly-review-item-meta">'+esc([dueText,(row.project?.members||[]).join(', ')||'담당자 미정'].join(' · '))+'</div>'
+      +'</div>'
+      +'<div class="weekly-review-item-side"><span class="badge '+statusClass+'">'+esc(row.statusLabel)+'</span></div>'
+    +'</button>';
+  }).join('');
+}
+
+function selectHomeQuickTaskProject(projectId){
+  window.homeQuickTaskSelectedProjectId=String(projectId||'');
+  renderHomeQuickTaskProjectList();
+}
+
+function openHomeQuickTaskProjectPicker(){
+  const modalArea=document.getElementById('modalArea');
+  if(!modalArea)return;
+  window.homeQuickTaskSelectedProjectId='';
+  const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
+  modalArea.innerHTML=''
+    +overlayHtml
+    +'<div class="modal ui-modal-600" style="width:600px">'
+      +'<div class="modal-header"><div><div class="modal-title">새 태스크 등록</div><div class="modal-sub">태스크를 추가할 프로젝트를 먼저 선택해주세요.</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
+      +'<div class="form-row"><label class="form-label">프로젝트 검색</label><input id="homeQuickTaskProjectSearch" placeholder="거래처명 또는 프로젝트명으로 검색" oninput="renderHomeQuickTaskProjectList()"></div>'
+      +'<div id="homeQuickTaskProjectList" class="weekly-review-list" style="max-height:360px;overflow:auto;margin-top:12px"></div>'
+      +'<div class="modal-footer"><div class="muted">프로젝트를 선택하면 기존 업무 추가 화면으로 이어집니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="proceedHomeQuickTaskProjectPicker()">다음</button></div></div>'
+    +'</div></div>';
+  renderHomeQuickTaskProjectList();
+  if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
+  if(typeof lockBodyScroll==='function')lockBodyScroll();
+  setTimeout(()=>document.getElementById('homeQuickTaskProjectSearch')?.focus(),0);
+}
+
+async function proceedHomeQuickTaskProjectPicker(){
+  const projectId=String(window.homeQuickTaskSelectedProjectId||'').trim();
+  if(!projectId){
+    alert('태스크를 추가할 프로젝트를 선택해 주세요.');
+    return;
+  }
+  const project=(projects||[]).find(row=>String(row?.id||'')===projectId);
+  if(!project){
+    alert('선택한 프로젝트를 찾지 못했습니다. 다시 선택해 주세요.');
+    return;
+  }
+  if(typeof openProjectTaskModal!=='function'){
+    closeModal();
+    setPage('gantt');
+    return;
+  }
+  closeModal();
+  try{
+    if(typeof loadGanttProjectTasks==='function'){
+      await loadGanttProjectTasks(projectId,false);
+    }
+  }catch(error){
+    console.warn('[home] quick task project task preload failed',error);
+  }
+  openProjectTaskModal(projectId,null);
+}
+
 function getHomeAttentionItems(today,todayScheduleItems,issueRows,taskRows=[]){
   const dueLimit=new Date(today);
   dueLimit.setDate(today.getDate()+3);

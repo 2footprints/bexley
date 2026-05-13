@@ -1757,6 +1757,11 @@ input,textarea{border-radius:12px!important}
                     <div class="team-fun-title">새 이슈 등록</div>
                     <div class="team-fun-desc">확인이 필요한 이슈를 바로 등록합니다.</div>
                   </button>
+                  <button type="button" class="team-fun-card" onclick="if(typeof openHomeQuickTaskProjectPicker==='function')openHomeQuickTaskProjectPicker();else setPage('gantt')">
+                    <div class="team-fun-kicker">태스크</div>
+                    <div class="team-fun-title">새 태스크 등록</div>
+                    <div class="team-fun-desc">프로젝트에 새 업무를 바로 추가합니다.</div>
+                  </button>
                   <button type="button" class="team-fun-card" onclick="setPage('gantt');if(typeof setGanttLayout==='function')setGanttLayout('task')">
                     <div class="team-fun-kicker">태스크</div>
                     <div class="team-fun-title">태스크 보기</div>

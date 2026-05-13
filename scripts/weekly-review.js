@@ -2476,7 +2476,7 @@ function renderWeeklyReviewSnapshotNotice(snapshotMeta){
   if(!snapshotMeta?.mode)return '';
   const isSnapshot=snapshotMeta.mode==='snapshot';
   const message=isSnapshot
-    ? '이 화면은 저장된 주간회의 스냅샷 기준입니다. 현재 프로젝트 상태와 다를 수 있습니다.'
+    ? '이 화면은 저장된 주간회의 스냅샷 기준입니다. 현재 프로젝트 상태와 다를 수 있습니다. 상세 열기는 현재 데이터 기준으로 열립니다.'
     : '이 주차의 회의자료는 아직 저장되지 않았습니다. 현재 프로젝트 상태를 기준으로 임시 계산된 화면입니다.';
   const buttonLabel=isSnapshot?'스냅샷 갱신':'회의자료 저장';
   const warning=snapshotMeta.warning?'<div style="font-size:11px;color:#B45309;margin-top:4px">'+esc(snapshotMeta.warning)+'</div>':'';
@@ -3112,7 +3112,7 @@ async function getWeeklyReviewSnapshot(weekStart){
 function cloneWeeklyReviewSnapshotValue(value){
   try{
     return JSON.parse(JSON.stringify(value,(key,item)=>{
-      if(key==='action'||key==='actionsHtml')return undefined;
+      if(key==='actionsHtml')return undefined;
       if(typeof item==='function')return undefined;
       return item;
     }));
@@ -3120,6 +3120,40 @@ function cloneWeeklyReviewSnapshotValue(value){
     console.warn('[weekly-review] snapshot value clone failed',error);
     return null;
   }
+}
+function sanitizeWeeklyReviewSnapshotHtml(html){
+  let next=String(html||'');
+  next=next.replace(/<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button[^>]*onclick="openWeeklyReviewOutputModal\(\)"[^>]*>[\s\S]*?<\/button><\/div>/g,'');
+  next=next.replace(/<button[^>]*onclick="openWeeklyReviewOutputModal\('[^']*'\)"[^>]*>수정<\/button>/g,'');
+  next=next.replace(/<button[^>]*onclick="deleteWeeklyReviewOutput\('[^']*'\)"[^>]*>[\s\S]*?<\/button>/g,'');
+  return next;
+}
+function sanitizeWeeklyReviewSnapshotItem(item){
+  if(!item||typeof item!=='object')return item;
+  const next={...item};
+  const action=String(next.action||'');
+  const canOpenCurrentDetail=/^(openProjModal|openWeeklyReviewProjectTaskModal)\(/.test(action);
+  if(!canOpenCurrentDetail)delete next.action;
+  return next;
+}
+function sanitizeWeeklyReviewSnapshotSections(sections=[]){
+  return (Array.isArray(sections)?sections:[]).map(section=>{
+    const next={...section};
+    delete next.actionsHtml;
+    if(Array.isArray(next.groups)){
+      next.groups=next.groups.map(group=>{
+        const cleanGroup={...group};
+        if(typeof cleanGroup.html==='string'){
+          cleanGroup.html=sanitizeWeeklyReviewSnapshotHtml(cleanGroup.html);
+        }
+        if(Array.isArray(cleanGroup.items)){
+          cleanGroup.items=cleanGroup.items.map(sanitizeWeeklyReviewSnapshotItem);
+        }
+        return cleanGroup;
+      });
+    }
+    return next;
+  });
 }
 function getWeeklyReviewSnapshotWeekMeta(offsetWeeks=weeklyReviewWeekOffset){
   const bounds=getWeeklyReviewBusinessWeekBounds(offsetWeeks);
@@ -3181,9 +3215,9 @@ function getWeeklyReviewSnapshotDisplayItems(sections=[]){
 function buildWeeklyReviewSnapshotJson(calculatedData,offsetWeeks=weeklyReviewWeekOffset){
   const meta=getWeeklyReviewSnapshotWeekMeta(offsetWeeks);
   const cards=cloneWeeklyReviewSnapshotValue(calculatedData?.cards||[])||[];
-  const sections=cloneWeeklyReviewSnapshotValue(
+  const sections=sanitizeWeeklyReviewSnapshotSections(cloneWeeklyReviewSnapshotValue(
     (calculatedData?.sections||[]).filter(section=>String(section?.id||'')!=='comments')
-  )||[];
+  )||[]);
   return {
     schema:'weekly-review-snapshot',
     snapshotVersion:1,
@@ -3223,8 +3257,10 @@ async function getWeeklyReviewSnapshotPageData(snapshot,offsetWeeks=weeklyReview
   const snapshotJson=snapshot?.snapshot_json||{};
   const weekStart=String(snapshot?.week_start||snapshotJson.weekStart||getWeekStart(offsetWeeks));
   const {commentsSection,weeklyReviews}=await getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks);
-  const sections=(Array.isArray(snapshotJson.sections)?snapshotJson.sections:[])
-    .filter(section=>String(section?.id||'')!=='comments');
+  const sections=sanitizeWeeklyReviewSnapshotSections(
+    (Array.isArray(snapshotJson.sections)?snapshotJson.sections:[])
+      .filter(section=>String(section?.id||'')!=='comments')
+  );
   return {
     cards:Array.isArray(snapshotJson.cards)?snapshotJson.cards:[],
     sections:[...sections,commentsSection],
