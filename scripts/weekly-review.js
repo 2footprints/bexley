@@ -601,6 +601,11 @@ function createWeeklyReviewScheduleItem(schedule,options={}){
   const scheduleType=String(schedule?.schedule_type||'').trim();
   const project=getWeeklyReviewProjectById(schedule?.project_id);
   return {
+    source_type:options.source_type||schedule?.source_type||schedule?.item_type||'personal_schedule',
+    item_type:options.item_type||schedule?.item_type||schedule?.source_type||scheduleType||'personal_schedule',
+    schedule_type:scheduleType,
+    projectId:String(schedule?.project_id||''),
+    taskId:String(schedule?.task_id||''),
     title:String(schedule?.title||scheduleLabel(scheduleType)),
     contextLabel:options.contextLabel||getWeeklyReviewProjectContextLabel(project,{omitMissing:!schedule?.project_id}),
     meta:[scheduleLabel(scheduleType),getScheduleMemberLabel(schedule),schedule?.location||''].filter(Boolean).join(' · '),
@@ -2367,6 +2372,11 @@ function createWeeklyReviewOperationalMemberItem(summary,options={}){
 function createWeeklyReviewActionPlanTableItem(item,actionLabel){
   const contextLabel=String(item?.contextLabel||'').trim();
   return {
+    source_type:item?.source_type||item?.sourceType||'',
+    item_type:item?.item_type||item?.itemType||'',
+    schedule_type:item?.schedule_type||item?.scheduleType||'',
+    projectId:item?.projectId||item?.project_id||'',
+    taskId:item?.taskId||item?.task_id||'',
     action:item?.action||'',
     columns:[
       getWeeklyReviewItemOwnerLabel(item),
@@ -2380,6 +2390,11 @@ function createWeeklyReviewActionPlanTableItem(item,actionLabel){
 function createWeeklyReviewThisWeekActionTableItem(item,actionLabel,options={}){
   const contextLabel=String(options.contextLabel||item?.contextLabel||'').trim();
   return {
+    source_type:options.source_type||item?.source_type||item?.sourceType||'',
+    item_type:options.item_type||item?.item_type||item?.itemType||'',
+    schedule_type:options.schedule_type||item?.schedule_type||item?.scheduleType||'',
+    projectId:options.projectId||item?.projectId||item?.project_id||'',
+    taskId:options.taskId||item?.taskId||item?.task_id||'',
     action:options.action||item?.action||'',
     columns:[
       options.owner||getWeeklyReviewItemOwnerLabel(item),
@@ -2562,8 +2577,73 @@ function applyWeeklyReviewProjectMeetingCurrentProject(item,project,preferCurren
   }
   return item;
 }
-function getWeeklyReviewProjectMeetingSeedFromItem(item,sectionId,groupIndex){
-  const projectId=String(item?.projectId||getWeeklyReviewProjectMeetingActionProjectId(item?.action)||'');
+const WEEKLY_REVIEW_PERSONAL_REVIEW_TYPES=new Set([
+  'personal_schedule',
+  'leave',
+  'vacation',
+  'personal',
+  'calendar_event',
+  'holiday',
+  'absence',
+  '병원',
+  '백신',
+  '연차',
+  '휴가',
+  '개인 일정',
+  '개인일정'
+]);
+function normalizeWeeklyReviewTypeValue(value){
+  return String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
+}
+function getWeeklyReviewTaskProjectIdByTaskId(taskId,data){
+  const key=String(taskId||'').trim();
+  if(!key)return '';
+  const task=(data?.taskRows||[]).find(row=>String(row?.id||'')===key)||null;
+  return String(task?.project_id||'').trim();
+}
+function getWeeklyReviewProjectMeetingItemTaskId(item){
+  const direct=String(item?.taskId||item?.task_id||'').trim();
+  if(direct)return direct;
+  const typeText=String(item?.source_type||item?.item_type||item?.kind||'').toLowerCase();
+  return typeText.includes('task')?String(item?.id||'').trim():'';
+}
+function getWeeklyReviewProjectMeetingItemProjectId(item,data){
+  const direct=String(
+    item?.projectId||
+    item?.project_id||
+    item?.project?.id||
+    item?.project?.project_id||
+    ''
+  ).trim();
+  if(direct)return direct;
+  const actionProjectId=getWeeklyReviewProjectMeetingActionProjectId(item?.action);
+  if(actionProjectId)return String(actionProjectId).trim();
+  return getWeeklyReviewTaskProjectIdByTaskId(getWeeklyReviewProjectMeetingItemTaskId(item),data);
+}
+function isWeeklyReviewPersonalReviewType(item){
+  const values=[
+    item?.source_type,
+    item?.sourceType,
+    item?.item_type,
+    item?.itemType,
+    item?.schedule_type,
+    item?.scheduleType,
+    item?.type,
+    item?.kind
+  ].map(normalizeWeeklyReviewTypeValue).filter(Boolean);
+  return values.some(value=>WEEKLY_REVIEW_PERSONAL_REVIEW_TYPES.has(value));
+}
+function shouldIncludeWeeklyReviewProjectMeetingSourceItem(item,data){
+  const projectId=getWeeklyReviewProjectMeetingItemProjectId(item,data);
+  if(!projectId)return false;
+  if(isWeeklyReviewPersonalReviewType(item)){
+    return !!(String(item?.projectId||item?.project_id||'').trim()||getWeeklyReviewTaskProjectIdByTaskId(getWeeklyReviewProjectMeetingItemTaskId(item),data));
+  }
+  return true;
+}
+function getWeeklyReviewProjectMeetingSeedFromItem(item,sectionId,groupIndex,data){
+  const projectId=getWeeklyReviewProjectMeetingItemProjectId(item,data);
+  if(!projectId)return null;
   const columns=Array.isArray(item?.columns)?item.columns:[];
   const context=splitWeeklyReviewProjectMeetingContext(item?.contextLabel||'');
   const project=getWeeklyReviewProjectById(projectId);
@@ -2660,7 +2740,9 @@ function buildWeeklyReviewProjectMeetingItems(data){
     (section?.groups||[]).forEach((group,groupIndex)=>{
       if(group?.variant==='html')return;
       (Array.isArray(group?.items)?group.items:[]).forEach(sourceItem=>{
-        const seed=getWeeklyReviewProjectMeetingSeedFromItem(sourceItem,sectionId,groupIndex);
+        if(!shouldIncludeWeeklyReviewProjectMeetingSourceItem(sourceItem,data))return;
+        const seed=getWeeklyReviewProjectMeetingSeedFromItem(sourceItem,sectionId,groupIndex,data);
+        if(!seed?.projectId)return;
         if(!seed.projectId&&(!seed.projectName||seed.projectName==='프로젝트명 미정'))return;
         const item=ensureWeeklyReviewProjectMeetingItem(map,seed.key,seed);
         if(seed.project&&!isSnapshot)applyWeeklyReviewProjectMeetingCurrentProject(item,seed.project,true);

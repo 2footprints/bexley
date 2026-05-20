@@ -25,6 +25,12 @@ let ganttTaskViewProjectKey='';
 let ganttTaskViewLoading=false;
 let ganttTaskViewError='';
 let ganttTaskViewStatusFilter='open';
+let ganttCalendarDisplayMode='full';
+let ganttCalendarTaskRefreshTimer=0;
+let ganttDetailInlineEditKey='';
+let ganttDetailInlineSaveMessage='';
+let ganttDetailIssueSaveMessage='';
+let ganttIssueModalProjectId='';
 let editingProjectTaskProjectId='';
 let editingProjectTaskId='';
 const GANTT_ACTION_DEBUG_PREFIX='[projects-action]';
@@ -677,6 +683,32 @@ function clearGanttFilterTag(kind,value=''){
   renderGantt();
 }
 
+renderGanttProjectMemoSection=function(project){
+  const noteCards=buildGanttMemoSupportCards(project)
+    .filter(card=>String(card.value||'')!==String(project?.memo||'')&&String(card.value||'')!==String(project?.work_summary||''));
+  return ''
+    +'<div class="gantt-detail-pane">'
+      +'<div class="gantt-detail-section gantt-detail-section--flush">'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">자료 요청 / 실행 자료</div><div class="gantt-detail-meta">프로젝트 실행에 필요한 자료 요청, 실행 자료 위치, 회수 상태를 확인합니다.</div></div><div class="gantt-detail-section-actions"><button type="button" class="gantt-detail-link" onclick="startGanttDetailInlineMemoEdit(\''+project.id+'\',\'work_summary\')">수정</button><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div></div>'
+        +renderGanttDetailInlineMemoEditor(project,{field:'work_summary',title:'실행 자료 메모',emptyText:'등록된 메모가 없습니다.',placeholder:'자료 요청 배경, 실행 자료 위치, 회수 상태 메모를 남겨 주세요.'})
+        +'<div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
+      +'</div>'
+      +'<div class="gantt-detail-section">'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">메모 / 운영 노트</div><div class="gantt-detail-meta">운영 메모, 리스크 메모, 후속 액션, 참고 기록을 모아 두는 실행 지원 영역입니다.</div></div><div class="gantt-detail-section-actions"><button type="button" class="gantt-detail-link" onclick="startGanttDetailInlineMemoEdit(\''+project.id+'\',\'memo\')">수정</button></div></div>'
+        +renderGanttDetailInlineMemoEditor(project,{field:'memo',title:'운영 노트',emptyText:'등록된 메모가 없습니다.',placeholder:'운영 메모, 회의 메모, 공유할 참고사항을 남겨 주세요.'})
+        +(noteCards.length
+          ?'<div class="gantt-detail-note-grid">'+noteCards.map(card=>''
+            +'<button type="button" class="gantt-detail-note-card" onclick="openProjModal(\''+project.id+'\',null,null,\''+card.tab+'\')">'
+              +'<div class="gantt-detail-note-label">'+esc(card.label)+'</div>'
+              +'<div class="gantt-detail-meta">'+esc(card.context)+'</div>'
+              +'<div class="gantt-detail-note-text">'+esc(card.value)+'</div>'
+            +'</button>'
+          ).join('')+'</div>'
+          :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">등록된 추가 운영 노트가 없습니다.</div><div class="gantt-detail-meta">필요하면 위 운영 노트에서 바로 작성하거나 전체 프로젝트 수정 화면에서 리스크, 결과 요약, 후속 액션을 정리할 수 있습니다.</div></div>')
+      +'</div>'
+    +'</div>';
+};
+
 function getGanttStatusFilterLabel(value){
   return (GANTT_STATUS_OPTIONS.find(option=>option.value===value)?.label)||'전체';
 }
@@ -1172,6 +1204,71 @@ function buildGanttCalendarItemsForDate(cellDate,projs,schs){
   });
 }
 
+function setGanttCalendarDisplayMode(mode){
+  ganttCalendarDisplayMode=mode==='compact'?'compact':'full';
+  if(typeof renderGantt==='function')renderGantt();
+}
+
+function scheduleGanttCalendarTaskRefresh(){
+  if(ganttCalendarTaskRefreshTimer)return;
+  ganttCalendarTaskRefreshTimer=setTimeout(()=>{
+    ganttCalendarTaskRefreshTimer=0;
+    if(curGanttLayout==='calendar'&&typeof renderGantt==='function')renderGantt();
+  },0);
+}
+
+function ensureGanttCalendarProjectTasksLoaded(projs){
+  if(curGanttLayout!=='calendar')return;
+  (projs||[]).forEach(project=>{
+    const key=String(project?.id||'').trim();
+    if(!key)return;
+    const loadMeta=getGanttProjectTaskLoadMeta(key);
+    if(Array.isArray(ganttProjectTasksByProjectId[key])||loadMeta.loading)return;
+    loadGanttProjectTasks(key,false).then(scheduleGanttCalendarTaskRefresh).catch(scheduleGanttCalendarTaskRefresh);
+  });
+}
+
+function buildGanttCalendarTaskItem(project,task,isDueDay,dateValue){
+  const projectId=String(project?.id||'');
+  const assignee=getGanttTaskMemberName(task?.assignee_member_id)||'담당자 미지정';
+  const issueCount=getGanttTaskLinkedIssueCount(projectId,task?.id);
+  const dueMeta=isDueDay?getGanttTaskDueMeta(task):{label:'시작',tone:'neutral'};
+  const title=String(task?.title||'제목 없는 업무');
+  return {
+    kind:'task',
+    id:task?.id,
+    projectId,
+    label:(isDueDay?'업무 · ':'시작 · ')+title,
+    title:[
+      project?.name||'프로젝트',
+      title,
+      assignee,
+      task?.status||'예정',
+      (isDueDay?'기한 ':'시작 ')+formatGanttTaskShortDate(dateValue),
+      issueCount?('이슈 '+issueCount+'건'):''
+    ].filter(Boolean).join(' | '),
+    tone:dueMeta.tone
+  };
+}
+
+function getGanttCalendarTaskItemsForProjectAndDate(project,cellDate){
+  const projectId=String(project?.id||'').trim();
+  if(!projectId)return [];
+  const dayValue=getGanttCalendarDateValue(cellDate);
+  if(!dayValue)return [];
+  const tasks=Array.isArray(ganttProjectTasksByProjectId[projectId])?ganttProjectTasksByProjectId[projectId]:[];
+  return tasks.reduce((rows,task)=>{
+    if(String(task?.status||'').trim()==='완료')return rows;
+    const dueValue=getGanttTaskDateValue(task?.due_date);
+    const startValue=getGanttTaskDateValue(task?.start_date);
+    const isDueDay=Boolean(dueValue)&&dueValue===dayValue;
+    const isStartOnlyDay=!isDueDay&&!dueValue&&Boolean(startValue)&&startValue===dayValue;
+    if(!isDueDay&&!isStartOnlyDay)return rows;
+    rows.push(buildGanttCalendarTaskItem(project,task,isDueDay,isDueDay?dueValue:startValue));
+    return rows;
+  },[]);
+}
+
 function buildGanttCalendarItemMap(projs,schs){
   const itemMap={};
   const monthBounds=getGanttMonthBounds();
@@ -1200,6 +1297,19 @@ function buildGanttCalendarItemMap(projs,schs){
         dueToday:isDueToday(project)&&getGanttCalendarDateValue(endDate)===dateValue
       });
     }
+    const tasks=Array.isArray(ganttProjectTasksByProjectId[String(project.id||'')])
+      ?ganttProjectTasksByProjectId[String(project.id||'')]
+      :[];
+    tasks.forEach(task=>{
+      if(String(task?.status||'').trim()==='완료')return;
+      const dueValue=getGanttTaskDateValue(task?.due_date);
+      const startValue=getGanttTaskDateValue(task?.start_date);
+      const dateValue=dueValue||startValue;
+      if(!dateValue)return;
+      const taskDate=toDate(dateValue);
+      if(Number.isNaN(taskDate.getTime())||taskDate<monthFirst||taskDate>monthLast)return;
+      pushItem(dateValue,buildGanttCalendarTaskItem(project,task,Boolean(dueValue),dateValue));
+    });
   });
   (schs||[]).forEach(schedule=>{
     const startDate=toDate(schedule?.start||'');
@@ -1223,7 +1333,14 @@ function buildGanttCalendarItemMap(projs,schs){
   });
   Object.keys(itemMap).forEach(dateValue=>{
     itemMap[dateValue].sort((a,b)=>{
-      if(a.kind!==b.kind)return a.kind==='project'?-1:1;
+      const rank=value=>value==='project'?0:value==='task'?1:2;
+      const kindDiff=rank(a.kind)-rank(b.kind);
+      if(kindDiff)return kindDiff;
+      if(a.kind==='task'||b.kind==='task'){
+        const toneRank=value=>value==='danger'?0:value==='warn'?1:2;
+        const toneDiff=toneRank(a.tone)-toneRank(b.tone);
+        if(toneDiff)return toneDiff;
+      }
       return a.label.localeCompare(b.label,'ko');
     });
   });
@@ -1233,6 +1350,7 @@ function buildGanttCalendarItemMap(projs,schs){
 function renderGanttCalendarGrid(projs,schs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
+  ensureGanttCalendarProjectTasksLoaded(projs);
   const weekdayLabels=['일','월','화','수','목','금','토'];
   const totalDays=daysInMonth(curYear,curMonth);
   const firstDay=new Date(curYear,curMonth-1,1);
@@ -1255,8 +1373,10 @@ function renderGanttCalendarGrid(projs,schs){
     const cellDate=new Date(curYear,curMonth-1,dayNumber);
     cellDate.setHours(0,0,0,0);
     const items=itemMap[getGanttCalendarDateValue(cellDate)]||[];
-    const preview=items.slice(0,4).map(buildGanttCalendarItemHtml).join('');
-    const overflow=items.length>4?'<div class="gantt-calendar-item more">+'+(items.length-4)+'건</div>':'';
+    const isCompact=ganttCalendarDisplayMode==='compact';
+    const visibleItems=isCompact?items.slice(0,4):items;
+    const preview=visibleItems.map(buildGanttCalendarItemHtml).join('');
+    const overflow=isCompact&&items.length>4?'<div class="gantt-calendar-item more">+'+(items.length-4)+'건</div>':'';
     const isWeekendCell=cellDate.getDay()===0||cellDate.getDay()===6;
     const todayClass=isToday(curYear,curMonth,dayNumber)?' is-today':'';
     const weekendClass=isWeekendCell?' is-weekend':'';
@@ -1265,7 +1385,18 @@ function renderGanttCalendarGrid(projs,schs){
       +'<div class="gantt-calendar-items">'+preview+overflow+'</div>'
       +'</div>';
   }
-  wrap.innerHTML='<div class="gantt-calendar-wrap"><div class="gantt-calendar-board"><div class="gantt-calendar-weekdays">'+weekdayHead+'</div><div class="gantt-calendar-grid">'+cells+'</div></div></div>';
+  wrap.innerHTML=''
+    +'<div class="gantt-calendar-viewbar">'
+      +'<div class="gantt-calendar-viewbar-copy">'
+        +'<div class="gantt-calendar-viewbar-title">월간 표시</div>'
+        +'<div class="gantt-calendar-viewbar-sub">'+(ganttCalendarDisplayMode==='compact'?'하루 4개까지 표시하고 나머지는 접습니다.':'각 날짜의 프로젝트와 업무를 모두 표시합니다.')+'</div>'
+      +'</div>'
+      +'<div class="toggle-wrap gantt-calendar-view-toggle">'
+        +'<button type="button" class="toggle-btn'+(ganttCalendarDisplayMode==='compact'?' active':'')+'" onclick="setGanttCalendarDisplayMode(\'compact\')">간략 보기</button>'
+        +'<button type="button" class="toggle-btn'+(ganttCalendarDisplayMode!=='compact'?' active':'')+'" onclick="setGanttCalendarDisplayMode(\'full\')">전체 보기</button>'
+      +'</div>'
+    +'</div>'
+    +'<div class="gantt-calendar-wrap"><div class="gantt-calendar-board"><div class="gantt-calendar-weekdays">'+weekdayHead+'</div><div class="gantt-calendar-grid">'+cells+'</div></div></div>';
   renderLegend();
 }
 
@@ -2970,6 +3101,8 @@ function renderGanttProjectMemoSection(project){
         +'<div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
       +'</div>'
       +'<div class="gantt-detail-section">'
+        +'<div class="gantt-inline-note-top-actions"><button type="button" class="gantt-detail-link" onclick="startGanttDetailInlineMemoEdit(\''+project.id+'\',\'memo\')">수정</button></div>'
+        +renderGanttDetailInlineMemoEditor(project,{field:'memo',title:'운영 노트',emptyText:'등록된 메모가 없습니다.',placeholder:'운영 메모, 회의 메모, 공유할 참고사항을 남겨 주세요.'})
         +'<div class="gantt-detail-section-head"><div class="gantt-panel-title">메모 / 운영 노트</div></div>'
         +(noteCards.length
           ?'<div class="gantt-detail-note-grid">'+noteCards.map(card=>'<button type="button" class="gantt-detail-note-card" onclick="openProjModal(\''+project.id+'\',null,null,\''+card.tab+'\')"><div class="gantt-detail-note-label">'+esc(card.label)+'</div><div class="gantt-detail-note-text">'+esc(card.value)+'</div></button>').join('')+'</div>'
@@ -3694,8 +3827,11 @@ async function loadGanttDetailAsync(project){
   const projectId=project?.id||'';
   if(!projectId)return;
   try{
+    const issueStatusFilter=ganttDetailTab==='issues'
+      ?''
+      :'&'+(typeof getIssueActiveStatusFilter==='function'?getIssueActiveStatusFilter():'status=neq.resolved');
     const [issueRows,documentRows,taskRows]=await Promise.all([
-      api('GET','project_issues?project_id=eq.'+projectId+'&'+(typeof getIssueActiveStatusFilter==='function'?getIssueActiveStatusFilter():'status=neq.resolved')+'&select=id,project_id,task_id,title,status,priority,is_pinned,assignee_name,assignee_member_id,owner_name,created_at').catch(()=>[]),
+      api('GET','project_issues?project_id=eq.'+projectId+issueStatusFilter+'&select=id,project_id,task_id,title,status,priority,is_pinned,assignee_name,assignee_member_id,owner_name,created_at').catch(()=>[]),
       api('GET','document_requests?project_id=eq.'+projectId+'&status=eq.pending&select=id,project_id,title,due_date,sort_order&order=sort_order.asc').catch(()=>[]),
       api('GET','project_tasks?project_id=eq.'+projectId+'&select=id,title&order=sort_order.asc,created_at.asc').catch(()=>[])
     ]);
@@ -3815,8 +3951,15 @@ function getGanttDetailRenderSignature(projs){
     String(project.start||project.start_date||''),
     String(project.end||project.end_date||''),
     JSON.stringify(project.members||[]),
+    String(project.memo||''),
+    String(project.work_summary||''),
+    String(project.result_summary||''),
+    String(project.issue_note||''),
     String(project.follow_up_needed||''),
-    String(project.follow_up_note||'')
+    String(project.follow_up_note||''),
+    String(project.updated_at||''),
+    String(ganttDetailInlineEditKey||''),
+    String(ganttDetailInlineSaveMessage||'')
   ];
   if(ganttDetailTab==='overview'){
     baseParts.push(JSON.stringify(getGanttOverviewTaskSummary(project.id)||{}));
@@ -4071,7 +4214,7 @@ function getGanttCalendarTaskItemsForDate(cellDate){
     const diff=toneRank(a.tone)-toneRank(b.tone);
     if(diff)return diff;
     return String(a.label||'').localeCompare(String(b.label||''),'ko');
-  }).slice(0,2);
+  });
 }
 
 function buildGanttCalendarItemsForDate(cellDate,projs,schs){
@@ -4719,6 +4862,109 @@ function renderGanttProjectIssuesSection(project){
       +'</div>'
     +'</div>';
 }
+function setGanttDetailIssueSaveMessage(projectId,message){
+  if(String(projectId||'')!==String(ganttFocusProjectId||''))return;
+  ganttDetailIssueSaveMessage=String(message||'');
+  const detail=document.getElementById('ganttDetail');
+  if(detail)detail.dataset.renderSignature='';
+}
+
+function clearGanttDetailIssueSaveMessage(message){
+  if(message&&ganttDetailIssueSaveMessage!==message)return;
+  ganttDetailIssueSaveMessage='';
+  const detail=document.getElementById('ganttDetail');
+  if(detail&&String(detail.dataset.activeTab||'')==='issues'){
+    detail.dataset.renderSignature='';
+    if(typeof renderGantt==='function')renderGantt();
+  }
+}
+
+function renderGanttIssueAddButton(projectId,classes='btn primary sm'){
+  return '<button type="button" class="'+classes+'" onclick="event.stopPropagation();openGanttProjectIssueModal(\''+projectId+'\')">+ 이슈 추가</button>';
+}
+
+function openGanttProjectIssueModal(projectId,issueId=''){
+  ganttIssueModalProjectId=issueId?'':String(projectId||'');
+  if(typeof openIssueModal==='function')openIssueModal(projectId,issueId);
+}
+
+function renderGanttIssueEmptyState(projectId){
+  return ''
+    +'<div class="gantt-detail-empty-state">'
+      +'<div class="gantt-detail-value">등록된 프로젝트 이슈가 없습니다.</div>'
+      +'<div class="gantt-detail-meta">프로젝트 단위 이슈나 특정 업무에 연결된 이슈를 추가해 진행 리스크를 관리할 수 있습니다.</div>'
+      +'<div>'+renderGanttIssueAddButton(projectId)+'</div>'
+    +'</div>';
+}
+
+function renderGanttDetailIssueItem(projectId,issue){
+  const statusMeta=typeof getIssueStatusMeta==='function'?getIssueStatusMeta(issue.status):{label:'상태',badgeCls:'badge-blue'};
+  const editable=typeof canEditIssue==='function'?canEditIssue(issue):false;
+  const isResolved=typeof isIssueResolvedStatus==='function'?isIssueResolvedStatus(issue.status):String(issue?.status||'')==='resolved';
+  const canResolve=editable&&!isResolved;
+  const canReopen=editable&&isResolved;
+  const assigneeLabel=issue?.assignee_name||issue?.owner_name||'담당자 미정';
+  const issueHint=getGanttIssueOperationalHint(issue);
+  const contextParts=[getGanttIssueContextLabel(issue),assigneeLabel];
+  if(issue.priority==='high')contextParts.push('우선 확인');
+  const modalProjectId=issue.project_id||projectId||'';
+  const openAction='openIssueModal(\''+modalProjectId+'\',\''+issue.id+'\')';
+  return '<div class="gantt-detail-item gantt-detail-issue-row is-clickable'+(isResolved?' is-resolved':'')+'" role="button" tabindex="0" onclick="'+openAction+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+openAction+';}">'
+    +'<div class="gantt-detail-item-main"><div class="gantt-detail-item-title gantt-detail-issue-title">'+(issue.is_pinned?'PIN ':'')+esc(issue.title||'제목 없음')+'</div><div class="gantt-detail-item-sub">'+esc(contextParts.join(' · '))+'</div><div class="gantt-issue-item-note">'+esc(issueHint)+'</div></div>'
+    +'<div class="gantt-detail-item-side"><span class="badge '+statusMeta.badgeCls+'">'+statusMeta.label+'</span><div class="gantt-detail-item-actions"><button type="button" class="btn sm" onclick="event.stopPropagation();'+openAction+'">수정</button>'+(canResolve?'<button type="button" class="btn sm" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')">완료 처리</button>':'')+(canReopen?'<button type="button" class="btn sm" onclick="event.stopPropagation();reopenIssue(\''+issue.id+'\')">다시 열기</button>':'')+'</div></div>'
+  +'</div>';
+}
+
+function renderGanttDetailIssuePreview(projectId,issues){
+  const container=document.getElementById('ganttDetailIssueList');
+  if(!container||String(ganttFocusProjectId||'')!==String(projectId||''))return;
+  const rows=Array.isArray(issues)?issues:[];
+  if(!rows.length){
+    container.innerHTML=renderGanttIssueEmptyState(projectId);
+    return;
+  }
+  if(ganttDetailTab!=='issues'){
+    const activeRows=rows.filter(issue=>!(typeof isIssueResolvedStatus==='function'?isIssueResolvedStatus(issue.status):String(issue?.status||'')==='resolved'));
+    container.innerHTML=(activeRows.length?activeRows:rows).map(issue=>renderGanttDetailIssueItem(projectId,issue)).join('');
+    return;
+  }
+  const activeIssues=rows.filter(issue=>!(typeof isIssueResolvedStatus==='function'?isIssueResolvedStatus(issue.status):String(issue?.status||'')==='resolved'));
+  const resolvedIssues=rows.filter(issue=>typeof isIssueResolvedStatus==='function'?isIssueResolvedStatus(issue.status):String(issue?.status||'')==='resolved');
+  const projectLevelIssues=activeIssues.filter(issue=>!String(issue?.task_id||'').trim());
+  const taskLinkedIssues=activeIssues.filter(issue=>!!String(issue?.task_id||'').trim());
+  container.innerHTML=''
+    +(ganttDetailIssueSaveMessage?'<div class="gantt-detail-save-message">'+esc(ganttDetailIssueSaveMessage)+'</div>':'')
+    +renderGanttIssueGroup(
+      '프로젝트 단위 이슈',
+      '범위, 일정, 의사결정처럼 프로젝트 전체에 영향을 주는 이슈입니다.',
+      projectLevelIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
+      '현재 프로젝트 전체에서 확인할 이슈가 없습니다.'
+    )
+    +renderGanttIssueGroup(
+      '업무 연결 이슈',
+      '특정 업무 진행을 막거나 추가 확인이 필요한 이슈입니다.',
+      taskLinkedIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
+      '현재 업무에 연결된 이슈가 없습니다.'
+    )
+    +(resolvedIssues.length?renderGanttIssueGroup(
+      '완료된 이슈',
+      '해결 처리된 이슈는 목록 하단에서 따로 확인합니다.',
+      resolvedIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
+      ''
+    ):'');
+}
+
+function renderGanttProjectIssuesSection(project){
+  const projectId=project?.id||'';
+  return ''
+    +'<div class="gantt-detail-pane">'
+      +'<div class="gantt-detail-section gantt-detail-section--flush">'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">프로젝트 이슈</div><div class="gantt-detail-meta">프로젝트 전체 리스크와 업무 연결 이슈를 함께 확인합니다. 행이나 제목을 클릭하면 수정할 수 있습니다.</div></div><div class="gantt-detail-head-actions">'+renderGanttIssueAddButton(projectId)+'<button type="button" class="gantt-detail-link" onclick="openProjModal(\''+projectId+'\',null,null,\'issue\')">전체 이슈 보기</button></div></div>'
+        +'<div class="gantt-detail-list" id="ganttDetailIssueList">'+(ganttDetailIssueSaveMessage?'<div class="gantt-detail-save-message">'+esc(ganttDetailIssueSaveMessage)+'</div>':'')+'<div class="gantt-detail-empty">불러오는 중...</div></div>'
+      +'</div>'
+    +'</div>';
+}
+
 function buildGanttMemoSupportCards(project){
   return [
     {label:'프로젝트 메모',context:'프로젝트 단위 · 운영 메모',value:project?.memo||'',tab:'basic'},
@@ -4727,6 +4973,116 @@ function buildGanttMemoSupportCards(project){
     {label:'이슈 / 리스크 메모',context:'프로젝트 단위 · 리스크 메모',value:project?.issue_note||'',tab:'completion'},
     {label:'후속 액션',context:'프로젝트 단위 · 다음 액션',value:project?.follow_up_note||'',tab:'completion'}
   ].filter(card=>String(card.value||'').trim());
+}
+
+function getGanttDetailInlineEditKey(projectId,field){
+  return String(projectId||'')+':'+String(field||'');
+}
+
+function getGanttDetailInlineEditMeta(project){
+  const updatedValue=project?.updated_at||project?.modified_at||project?.created_at||'';
+  const updatedText=updatedValue&&typeof formatCommentDate==='function'
+    ?formatCommentDate(updatedValue)
+    :String(updatedValue||'');
+  const actor=project?.updated_by_name||project?.modified_by_name||project?.author_name||currentMember?.name||currentUser?.email||'기록 없음';
+  return '최종 수정: '+actor+(updatedText?' / '+updatedText:'');
+}
+
+function renderGanttDetailInlineMemoEditor(project,config){
+  const projectId=String(project?.id||'');
+  const field=String(config?.field||'memo');
+  const key=getGanttDetailInlineEditKey(projectId,field);
+  const value=String(project?.[field]||'');
+  const hasValue=!!value.trim();
+  const isEditing=ganttDetailInlineEditKey===key;
+  const title=String(config?.title||'메모');
+  const emptyText=String(config?.emptyText||'등록된 메모가 없습니다.');
+  const placeholder=String(config?.placeholder||'메모를 입력하세요.');
+  const canEdit=typeof canManageGanttListProject==='function'?canManageGanttListProject(project):true;
+  const success=ganttDetailInlineSaveMessage===key;
+  if(isEditing){
+    return ''
+      +'<div class="gantt-inline-note is-editing" data-inline-note="'+esc(key)+'">'
+        +'<label class="gantt-inline-note-label" for="ganttInlineNoteInput">'+esc(title)+'</label>'
+        +'<textarea id="ganttInlineNoteInput" class="gantt-inline-note-input" placeholder="'+esc(placeholder)+'">'+esc(value)+'</textarea>'
+        +'<div class="gantt-inline-note-footer">'
+          +'<div class="gantt-inline-note-meta">'+esc(getGanttDetailInlineEditMeta(project))+'</div>'
+          +'<div class="gantt-inline-note-actions">'
+            +'<button type="button" class="btn ghost sm" onclick="cancelGanttDetailInlineMemoEdit()">취소</button>'
+            +'<button type="button" class="btn primary sm" onclick="saveGanttDetailInlineMemo(\''+projectId+'\',\''+field+'\')">저장</button>'
+          +'</div>'
+        +'</div>'
+      +'</div>';
+  }
+  return ''
+    +'<div class="gantt-inline-note'+(hasValue?'':' is-empty')+'" '+(canEdit?'onclick="startGanttDetailInlineMemoEdit(\''+projectId+'\',\''+field+'\')" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();startGanttDetailInlineMemoEdit(\''+projectId+'\',\''+field+'\')}"':'')+'>'
+      +'<div class="gantt-inline-note-body">'
+        +(hasValue
+          ?'<div class="gantt-inline-note-text">'+esc(value)+'</div>'
+          :'<div class="gantt-inline-note-empty">'+esc(emptyText)+'</div>')
+        +(canEdit?'<div class="gantt-inline-note-hint">클릭하여 수정</div>':'')
+      +'</div>'
+      +'<div class="gantt-inline-note-footer">'
+        +'<div class="gantt-inline-note-meta">'+esc(getGanttDetailInlineEditMeta(project))+'</div>'
+        +'<div class="gantt-inline-note-actions">'
+          +(canEdit?'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();startGanttDetailInlineMemoEdit(\''+projectId+'\',\''+field+'\')">'+(hasValue?'수정':'+ 메모 작성')+'</button>':'')
+        +'</div>'
+      +'</div>'
+      +(success?'<div class="gantt-inline-note-success">저장되었습니다.</div>':'')
+    +'</div>';
+}
+
+function refreshGanttDetailInlineMemoPanel(projectId){
+  const el=document.getElementById('ganttDetail');
+  if(el)el.dataset.renderSignature='';
+  const currentData=typeof getGanttFilteredData==='function'?getGanttFilteredData():{projs:projects||[],schs:schedules||[]};
+  renderGanttDetailPanel(currentData.projs||[],currentData.schs||[]);
+}
+
+function startGanttDetailInlineMemoEdit(projectId,field){
+  ganttDetailInlineEditKey=getGanttDetailInlineEditKey(projectId,field);
+  ganttDetailInlineSaveMessage='';
+  refreshGanttDetailInlineMemoPanel(projectId);
+  requestAnimationFrame(()=>{
+    const input=document.getElementById('ganttInlineNoteInput');
+    if(input){
+      input.focus();
+      input.setSelectionRange(input.value.length,input.value.length);
+    }
+  });
+}
+
+function cancelGanttDetailInlineMemoEdit(){
+  const key=ganttDetailInlineEditKey;
+  ganttDetailInlineEditKey='';
+  refreshGanttDetailInlineMemoPanel(key.split(':')[0]||ganttFocusProjectId);
+}
+
+async function saveGanttDetailInlineMemo(projectId,field){
+  const key=getGanttDetailInlineEditKey(projectId,field);
+  const input=document.getElementById('ganttInlineNoteInput');
+  const nextValue=input?input.value.trim():'';
+  const patchBody={[field]:nextValue||null,updated_at:new Date().toISOString()};
+  try{
+    await api('PATCH','projects?id=eq.'+projectId,patchBody);
+    const idx=(projects||[]).findIndex(project=>String(project?.id||'')===String(projectId||''));
+    if(idx!==-1)projects[idx]={...projects[idx],...patchBody};
+    ganttDetailInlineEditKey='';
+    ganttDetailInlineSaveMessage=key;
+    refreshGanttDetailInlineMemoPanel(projectId);
+    setTimeout(()=>{
+      if(ganttDetailInlineSaveMessage===key){
+        ganttDetailInlineSaveMessage='';
+        refreshGanttDetailInlineMemoPanel(projectId);
+      }
+    },2200);
+    if(typeof logActivity==='function'){
+      const project=(projects||[]).find(project=>String(project?.id||'')===String(projectId||''));
+      logActivity('프로젝트 메모 수정','project',projectId,project?.name||'').catch(()=>{});
+    }
+  }catch(error){
+    alert('메모 저장에 실패했습니다. '+(error?.message||''));
+  }
 }
 
 function renderGanttDetailDocumentPreview(projectId,documents){
@@ -4754,7 +5110,8 @@ function renderGanttDetailDocumentPreview(projectId,documents){
 }
 
 function renderGanttProjectMemoSection(project){
-  const noteCards=buildGanttMemoSupportCards(project);
+  const noteCards=buildGanttMemoSupportCards(project)
+    .filter(card=>String(card.value||'')!==String(project?.memo||'')&&String(card.value||'')!==String(project?.work_summary||''));
   return ''
     +'<div class="gantt-detail-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush">'

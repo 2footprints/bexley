@@ -2909,6 +2909,8 @@ async function refreshIssueDependentViews(){
     return;
   }
   if(curPage==='gantt'){
+    const ganttDetail=document.getElementById('ganttDetail');
+    if(ganttDetail)ganttDetail.dataset.renderSignature='';
     renderGantt();
     return;
   }
@@ -5783,6 +5785,7 @@ function renderIssueFeed(el,pinned,recent){
 
 async function openIssueModal(projId='',issueId=''){
   if(!issueId&&!canCreateIssueRole()){alert('승인 후 사용할 수 있습니다.');return;}
+  if(typeof ganttIssueModalProjectId!=='undefined'&&(!projId||issueId))ganttIssueModalProjectId='';
   let issue=null;
   if(issueId){
     try{issue=(await api('GET','project_issues?id=eq.'+issueId+'&select=*'))?.[0]||null;}catch(e){issue=null;}
@@ -5845,7 +5848,8 @@ async function saveIssue(issueId=''){
   const title=document.getElementById('issueTitle').value.trim();
   if(!title){alert('이슈 제목을 입력해주세요.');return;}
   const content=document.getElementById('issueContent').value.trim()||null;
-  const project_id=document.getElementById('issueProj').value||null;
+  let project_id=document.getElementById('issueProj').value||null;
+  if(!issueId&&typeof ganttIssueModalProjectId!=='undefined'&&ganttIssueModalProjectId)project_id=ganttIssueModalProjectId;
   let task_id=document.getElementById('issueTask')?.value||null;
   if(project_id&&task_id){
     const tasks=await loadIssueModalTasks(project_id);
@@ -5918,9 +5922,13 @@ async function saveIssue(issueId=''){
         'issue',createdId);
     }
     await logActivity(issueId ? '이슈 수정' : '이슈 추가', 'issue', createdId, truncateText(title, 40));
+    const detailMessage=issueId?'이슈가 수정되었습니다.':'이슈가 추가되었습니다.';
+    if(typeof setGanttDetailIssueSaveMessage==='function')setGanttDetailIssueSaveMessage(project_id,detailMessage);
     closeModal();
     await loadIssueFeed();
     await refreshIssueDependentViews();
+    if(typeof ganttIssueModalProjectId!=='undefined')ganttIssueModalProjectId='';
+    if(typeof clearGanttDetailIssueSaveMessage==='function')setTimeout(()=>clearGanttDetailIssueSaveMessage(detailMessage),2500);
     if(createdId)focusTargetElement('issue-card-'+createdId);
   }catch(e){alert('저장 오류: '+e.message);}
 }
@@ -5949,8 +5957,11 @@ async function resolveIssue(id){
       resolved_by:currentMember?.name||currentUser?.email||'익명'
     });
     await logActivity('이슈 해결', 'issue', id, '');
+    const detailMessage='이슈가 완료 처리되었습니다.';
+    if(typeof setGanttDetailIssueSaveMessage==='function')setGanttDetailIssueSaveMessage(ganttFocusProjectId,detailMessage);
     await loadIssueFeed();
     await refreshIssueDependentViews();
+    if(typeof clearGanttDetailIssueSaveMessage==='function')setTimeout(()=>clearGanttDetailIssueSaveMessage(detailMessage),2500);
   }catch(e){alert('오류: '+e.message);}
 }
 
@@ -5965,8 +5976,11 @@ async function reopenIssue(id){
       resolved_by:null
     });
     await logActivity('이슈 재오픈', 'issue', id, '');
+    const detailMessage='이슈를 다시 열었습니다.';
+    if(typeof setGanttDetailIssueSaveMessage==='function')setGanttDetailIssueSaveMessage(ganttFocusProjectId,detailMessage);
     await loadIssueFeed();
     await refreshIssueDependentViews();
+    if(typeof clearGanttDetailIssueSaveMessage==='function')setTimeout(()=>clearGanttDetailIssueSaveMessage(detailMessage),2500);
   }catch(e){alert('오류: '+e.message);}
 }
 
