@@ -596,6 +596,7 @@ openClientDetail=async function(id, tab='projects', focusSection=''){
     +'<div class="info-row"><span class="info-label">연락처</span><span class="info-value">'+(c.contact_phone||'-')+'</span></div>'
     +'<div class="info-row"><span class="info-label">내부 담당</span><span class="info-value">'+(mems.join(', ')||'-')+'</span></div>'
     +'<div class="info-row"><span class="info-label">업종</span><span class="info-value">'+(c.industry||'-')+'</span></div>'
+    +'<div class="info-row"><span class="info-label">담당 팀</span><span class="info-value"><span class="client-team-badge is-'+getClientAssignedTeamTone(c)+'">'+esc(getClientAssignedTeamLabel(c))+'</span></span></div>'
     +'<div class="info-row"><span class="info-label">태그</span><span class="info-value">'+(formatClientTags(c.tags)||'-')+'</span></div>'
     +'<div class="info-row"><span class="info-label">사업자등록번호</span><span class="info-value">'+(c.business_number||'-')+'</span></div>'
     +'<div class="info-row"><span class="info-label">대표자명</span><span class="info-value">'+(c.representative_name||'-')+'</span></div>'
@@ -758,10 +759,11 @@ let clientPendingDocRequests=[];
 let clientPendingDocRequestsLoaded=false;
 let clientPendingDocRequestsLoading=false;
 let clientScopeFilter='team';
-const clientToolbarState={industry:'',manager:'',health:'all',search:'',sort:'name'};
+const clientToolbarState={industry:'',manager:'',team:'',health:'all',search:'',sort:'name'};
 const clientTableSelectedIds=new Set();
 let clientTableLastRows=[];
 let clientPortalAccessLogCache={};
+const CLIENT_DEFAULT_TEAMS=['BPO 1팀','BPO 2팀','PA팀','FP&A팀','관리팀'];
 
 function normalizeClientTags(value){
   if(Array.isArray(value))return value.map(tag=>String(tag||'').trim()).filter(Boolean);
@@ -775,6 +777,37 @@ function mergeClientTags(baseTags,newTags){
 
 function formatClientTags(tags){
   return normalizeClientTags(tags).join(', ');
+}
+
+function getClientAssignedTeamValue(client){
+  return String(client?.assigned_team||'').trim();
+}
+
+function getClientAssignedTeamLabel(clientOrTeam){
+  const value=typeof clientOrTeam==='string'?String(clientOrTeam||'').trim():getClientAssignedTeamValue(clientOrTeam);
+  return value||'미지정';
+}
+
+function getClientAssignedTeamTone(clientOrTeam){
+  const value=typeof clientOrTeam==='string'?String(clientOrTeam||'').trim():getClientAssignedTeamValue(clientOrTeam);
+  return value?'assigned':'empty';
+}
+
+function getClientTeamOptions(){
+  const memberTeams=(members||[])
+    .map(member=>typeof normalizeMemberTeam==='function'?normalizeMemberTeam(member?.team):String(member?.team||'').trim())
+    .filter(Boolean);
+  const clientTeams=(clients||[]).map(client=>getClientAssignedTeamValue(client)).filter(Boolean);
+  return [...new Set([...CLIENT_DEFAULT_TEAMS,...memberTeams,...clientTeams])].sort((a,b)=>a.localeCompare(b,'ko'));
+}
+
+function buildClientAssignedTeamOptions(selectedTeam=''){
+  const selected=String(selectedTeam||'').trim();
+  const options=getClientTeamOptions();
+  if(selected&&!options.includes(selected))options.push(selected);
+  options.sort((a,b)=>a.localeCompare(b,'ko'));
+  return '<option value=""'+(!selected?' selected':'')+'>미지정</option>'
+    +options.map(team=>'<option value="'+esc(team)+'"'+(team===selected?' selected':'')+'>'+esc(team)+'</option>').join('');
 }
 
 function getClientAccessLogMeta(logs){
@@ -851,14 +884,43 @@ function clientMatchesScope(clientProjects,scope=clientScopeFilter){
   return (clientProjects||[]).some(project=>clientProjectMatchesScope(project,scope));
 }
 
+function clientMatchesAssignedTeam(client,teamName=getClientCurrentTeamName()){
+  const normalizedTeam=String(teamName||'').trim();
+  if(!normalizedTeam)return true;
+  return getClientAssignedTeamValue(client)===normalizedTeam;
+}
+
+function getClientScopeLabel(scope=clientScopeFilter){
+  if(scope==='mine')return '내 고객사';
+  if(scope==='all')return '전체 거래처';
+  return '내 팀 거래처';
+}
+
+clientMatchesScope=function(clientProjects,scope=clientScopeFilter,client=null){
+  if(scope==='all')return true;
+  if(scope==='team'&&client)return clientMatchesAssignedTeam(client);
+  return (clientProjects||[]).some(project=>clientProjectMatchesScope(project,scope));
+};
+
 function syncClientPrimaryToggle(){
-  document.getElementById('teamFilterBtn')?.classList.toggle('active',clientScopeFilter==='team');
+  const teamBtn=document.getElementById('teamFilterBtn');
+  if(teamBtn){
+    teamBtn.classList.toggle('active',clientScopeFilter==='team');
+    teamBtn.disabled=!getClientCurrentTeamName();
+    teamBtn.title=getClientCurrentTeamName()?('내 팀: '+getClientCurrentTeamName()):'현재 사용자 팀 정보가 없습니다.';
+  }
   document.getElementById('myFilterBtn')?.classList.toggle('active',clientScopeFilter==='mine');
   document.getElementById('allFilterBtn')?.classList.toggle('active',clientScopeFilter==='all');
 }
 
 function setClientScope(scope){
   const normalized=['team','mine','all'].includes(String(scope||''))?String(scope):'team';
+  if(normalized==='team'&&!getClientCurrentTeamName()){
+    clientScopeFilter='all';
+    syncClientPrimaryToggle();
+    renderClients();
+    return;
+  }
   if(clientScopeFilter===normalized){
     syncClientPrimaryToggle();
     return;
@@ -910,6 +972,11 @@ function clearClientFilterTag(key){
   if(key==='manager'){
     clientToolbarState.manager='';
     const el=document.getElementById('clientManagerFilter');
+    if(el)el.value='';
+  }
+  if(key==='team'){
+    clientToolbarState.team='';
+    const el=document.getElementById('clientTeamFilter');
     if(el)el.value='';
   }
   if(key==='health'){
@@ -1157,7 +1224,7 @@ function getClientBaseRows(){
   return (clients||[])
     .filter(client=>{
       const clientProjects=(projects||[]).filter(project=>project?.client_id===client.id);
-      if(!clientMatchesScope(clientProjects))return false;
+      if(!clientMatchesScope(clientProjects,clientScopeFilter,client))return false;
       if(statusFilter==='active'&&!clientProjects.some(isClientProjectActive))return false;
       return true;
     })
@@ -1168,6 +1235,7 @@ function clientMatchesDetailFilters(row){
   const search=clientToolbarState.search.trim().toLowerCase();
   if(clientToolbarState.industry&&String(row.client?.industry||'')!==clientToolbarState.industry)return false;
   if(clientToolbarState.manager&&!row.managerNames.includes(clientToolbarState.manager))return false;
+  if(clientToolbarState.team&&getClientAssignedTeamValue(row.client)!==clientToolbarState.team)return false;
   if(clientToolbarState.health!=='all'&&row.healthCode!==clientToolbarState.health)return false;
   if(search){
     const haystack=[row.client?.name||'',...row.managerNames].join(' ').toLowerCase();
@@ -1259,6 +1327,7 @@ function getClientBoardReasonTags(row){
 function renderClientFilterOptions(baseRows){
   const industrySelect=document.getElementById('clientIndustryFilter');
   const managerSelect=document.getElementById('clientManagerFilter');
+  const teamSelect=document.getElementById('clientTeamFilter');
   const healthSelect=document.getElementById('clientHealthFilter');
   if(industrySelect){
     const industries=[...new Set(baseRows.map(row=>String(row.client?.industry||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
@@ -1271,6 +1340,12 @@ function renderClientFilterOptions(baseRows){
     managerSelect.innerHTML='<option value="">담당자 전체</option>'+managers.map(name=>'<option value="'+esc(name)+'">'+esc(name)+'</option>').join('');
     managerSelect.value=clientToolbarState.manager;
     if(managerSelect.value!==clientToolbarState.manager)clientToolbarState.manager=managerSelect.value;
+  }
+  if(teamSelect){
+    const teams=[...new Set([...getClientTeamOptions(),...baseRows.map(row=>getClientAssignedTeamValue(row.client)).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'ko'));
+    teamSelect.innerHTML='<option value="">담당 팀 전체</option>'+teams.map(team=>'<option value="'+esc(team)+'">'+esc(team)+'</option>').join('');
+    teamSelect.value=clientToolbarState.team;
+    if(teamSelect.value!==clientToolbarState.team)clientToolbarState.team=teamSelect.value;
   }
   if(healthSelect){
     const normalizedHealth=clientToolbarState.health==='issue'?'risk':clientToolbarState.health;
@@ -1333,6 +1408,22 @@ function renderClientFilterTags(){
   el.innerHTML=tags.map(tag=>'<span class="client-filter-tag">'+esc(tag.label)+'<button type="button" onclick="clearClientFilterTag(\''+tag.key+'\')">×</button></span>').join('');
 }
 
+renderClientFilterTags=function(){
+  const el=document.getElementById('clientFilterTags');
+  if(!el)return;
+  const tags=[];
+  const statusFilter=document.getElementById('projStatusFilter')?.value||'';
+  if(clientScopeFilter!=='team')tags.push({key:'scope',label:getClientScopeLabel(clientScopeFilter)});
+  else if(getClientCurrentTeamName())tags.push({key:'scope',label:'내 팀 · '+getClientCurrentTeamName()});
+  if(statusFilter==='active')tags.push({key:'status',label:'진행중 프로젝트만'});
+  if(clientToolbarState.industry)tags.push({key:'industry',label:'업종 · '+clientToolbarState.industry});
+  if(clientToolbarState.manager)tags.push({key:'manager',label:'담당자 · '+clientToolbarState.manager});
+  if(clientToolbarState.team)tags.push({key:'team',label:'담당 팀 · '+clientToolbarState.team});
+  if(clientToolbarState.health!=='all')tags.push({key:'health',label:'건강상태 · '+getClientHealthLabel(clientToolbarState.health)});
+  if(clientToolbarState.search)tags.push({key:'search',label:'검색 · '+clientToolbarState.search});
+  el.innerHTML=tags.map(tag=>'<span class="client-filter-tag">'+esc(tag.label)+'<button type="button" onclick="clearClientFilterTag(\''+tag.key+'\')">×</button></span>').join('');
+};
+
 function renderClientCard(detail){
   const chips=detail.activeProjectTypes.slice(0,3).map(type=>'<span class="chip" style="background:'+(TYPES[type]||'#94A3B8')+'">'+esc(type)+'</span>').join('');
   const cardHealth=detail.cardHealthMeta||getClientCardHealthMeta(detail);
@@ -1347,6 +1438,23 @@ function renderClientCard(detail){
     +'<div class="client-footer"><span class="client-members">'+esc(detail.managerNames.slice(0,3).join(' · ')||'담당자 미배정')+'</span><span class="client-active">'+detail.activeProjectCount+'건 진행중'+(detail.activeContractCount?' · 계약 '+detail.activeContractCount:'')+'</span></div>'
     +'</div>';
 }
+
+renderClientCard=function(detail){
+  const chips=detail.activeProjectTypes.slice(0,3).map(type=>'<span class="chip" style="background:'+(TYPES[type]||'#94A3B8')+'">'+esc(type)+'</span>').join('');
+  const cardHealth=detail.cardHealthMeta||getClientCardHealthMeta(detail);
+  const recentActivity=detail.recentActivityMeta||getClientRecentActivityMeta(detail.recentActivityAt);
+  const assignedTeamLabel=getClientAssignedTeamLabel(detail.client);
+  const assignedTeamTone=getClientAssignedTeamTone(detail.client);
+  return '<div class="client-card" onclick="openClientDetail(this.dataset.id)" data-id="'+detail.client.id+'">'
+    +'<div class="client-card-head"><div class="client-avatar">'+esc((detail.client.name||'?').charAt(0))+'</div><div class="client-card-head-status"><span class="client-team-badge is-'+assignedTeamTone+'">'+esc(assignedTeamLabel)+'</span><span class="client-health-dot is-'+cardHealth.tone+'" title="'+esc(cardHealth.label+' · '+cardHealth.reasonText)+'"></span></div></div>'
+    +'<div class="client-name">'+esc(detail.client.name||'거래처')+'</div>'
+    +'<div class="client-industry">'+esc(detail.client.industry||'업종 미입력')+'</div>'
+    +'<div class="chip-row">'+chips+(detail.activeProjectTypes.length>3?'<span style="font-size:11px;color:var(--text3);padding:3px 0">+'+(detail.activeProjectTypes.length-3)+'건</span>':'')+'</div>'
+    +'<div class="client-key-stats">진행 '+detail.activeProjectCount+' · 이슈 '+detail.openIssueCount+' · 계약 '+detail.contractCount+'</div>'
+    +'<div class="client-recent'+(recentActivity.isStale?' is-stale':'')+'">'+esc(recentActivity.text)+'</div>'
+    +'<div class="client-footer"><span class="client-members">'+esc(detail.managerNames.slice(0,3).join(' · ')||'담당자 미배정')+'</span><span class="client-active">'+detail.activeProjectCount+'건 진행중'+(detail.activeContractCount?' · 계약 '+detail.activeContractCount:'')+'</span></div>'
+    +'</div>';
+};
 
 function renderClientTable(rows){
   const tableRows=sortClientTableRows(rows);
@@ -1582,10 +1690,12 @@ renderPinned=function(){};
 renderClients=function(){
   const grid=document.getElementById('clientGrid');
   if(!grid)return;
+  if(clientScopeFilter==='team'&&!getClientCurrentTeamName())clientScopeFilter='all';
   syncClientPrimaryToggle();
   if(!clientPendingDocRequestsLoaded&&!clientPendingDocRequestsLoading)ensureClientPendingDocRequestsLoaded();
   clientToolbarState.industry=document.getElementById('clientIndustryFilter')?.value||'';
   clientToolbarState.manager=document.getElementById('clientManagerFilter')?.value||'';
+  clientToolbarState.team=document.getElementById('clientTeamFilter')?.value||'';
   clientToolbarState.health=document.getElementById('clientHealthFilter')?.value||'all';
   clientToolbarState.search=document.getElementById('clientSearchInput')?.value?.trim()||'';
   clientToolbarState.sort=document.getElementById('clientSortFilter')?.value||clientToolbarState.sort||'name';

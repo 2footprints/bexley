@@ -1624,6 +1624,9 @@ input,textarea{border-radius:12px!important}
             <select id="clientManagerFilter" onchange="renderClients()">
               <option value="">담당자 전체</option>
             </select>
+            <select id="clientTeamFilter" onchange="renderClients()">
+              <option value="">담당 팀 전체</option>
+            </select>
             <select id="clientHealthFilter" onchange="renderClients()">
               <option value="all">건강 상태 전체</option>
               <option value="normal">정상</option>
@@ -3684,6 +3687,10 @@ function openClientModal(eid){
   editingClientId=eid||null;const c=eid?clients.find(x=>x.id===eid):null;
   const canPortal=canManagePortalSettings();
   const portalMeta=typeof getClientPortalStatusMeta==='function'?getClientPortalStatusMeta(c||{}):{label:(c&&c.portal_email?'활성':'미설정'),tone:(c&&c.portal_email?'active':'empty')};
+  const assignedTeamValue=typeof getClientAssignedTeamValue==='function'?getClientAssignedTeamValue(c):String(c?.assigned_team||'').trim();
+  const assignedTeamOptions=typeof buildClientAssignedTeamOptions==='function'
+    ?buildClientAssignedTeamOptions(assignedTeamValue)
+    :'<option value="">미지정</option><option value="BPO 1팀">BPO 1팀</option><option value="BPO 2팀">BPO 2팀</option><option value="PA팀">PA팀</option><option value="FP&A팀">FP&A팀</option><option value="관리팀">관리팀</option>';
   const portalSection=canPortal
     ?'<div class="divider">고객사 포털 설정</div>'
       +'<div class="form-half"><div class="form-row"><label class="form-label">포털 로그인 이메일</label><input id="cPortalEmail" type="email" value="'+(c?c.portal_email||'':'')+'" placeholder="고객사 담당자 이메일"/></div>'
@@ -3701,6 +3708,7 @@ function openClientModal(eid){
     +'<div class="form-row"><label class="form-label">업종</label><input id="cInd" value="'+(c?c.industry||'':'')+'" placeholder="예) 제조업"/></div></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">담당자</label><input id="cCN" value="'+(c?c.contact_name||'':'')+'"/></div>'
     +'<div class="form-row"><label class="form-label">연락처</label><input id="cCP" value="'+(c?c.contact_phone||'':'')+'"/></div></div>'
+    +'<div class="form-row"><label class="form-label">담당 팀</label><select id="cAssignedTeam">'+assignedTeamOptions+'</select></div>'
     +'<div class="form-row"><label class="form-label">이메일</label><input id="cCE" value="'+(c?c.contact_email||'':'')+'"/></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">태그</label><input id="cTags" value="'+esc(formatClientTags(c?c.tags||[]:[]))+'" placeholder="쉼표로 구분"/></div>'
     +'<div class="form-row"><label class="form-label">사업자등록번호</label><input id="cBizNo" value="'+esc(c?c.business_number||'':'')+'" placeholder="예) 123-45-67890"/></div></div>'
@@ -3725,6 +3733,7 @@ async function saveClient(){
     contact_name:document.getElementById('cCN').value.trim(),
     contact_phone:document.getElementById('cCP').value.trim(),
     contact_email:document.getElementById('cCE').value.trim(),
+    assigned_team:document.getElementById('cAssignedTeam')?.value||null,
     tags:typeof normalizeClientTags==='function'?normalizeClientTags(document.getElementById('cTags').value):document.getElementById('cTags').value.trim(),
     business_number:document.getElementById('cBizNo').value.trim()||null,
     representative_name:document.getElementById('cRepName').value.trim()||null,
