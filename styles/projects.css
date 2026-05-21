@@ -4617,6 +4617,103 @@ td{
   color:var(--navy)!important;
   box-shadow:0 8px 16px rgba(15,23,42,.08)!important;
 }
+#pageGantt .gantt-checklist-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:12px;
+}
+#pageGantt .gantt-checklist-summary>div{
+  padding:12px 14px;
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:12px;
+  background:#FBFDFF;
+}
+#pageGantt .gantt-checklist-summary strong{
+  display:block;
+  color:var(--navy);
+  font-size:20px;
+  line-height:1.2;
+}
+#pageGantt .gantt-checklist-summary span{
+  display:block;
+  margin-top:4px;
+  color:var(--text3);
+  font-size:11px;
+  font-weight:800;
+}
+#pageGantt .gantt-checklist-progress{
+  height:8px;
+  overflow:hidden;
+  margin:2px 0 16px;
+  border-radius:999px;
+  background:#E5E7EB;
+}
+#pageGantt .gantt-checklist-progress span{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:#1D4ED8;
+}
+#pageGantt .gantt-checklist-section{
+  margin-top:16px;
+}
+#pageGantt .gantt-checklist-section-title{
+  margin-bottom:8px;
+  color:var(--navy);
+  font-size:12px;
+  font-weight:900;
+}
+#pageGantt .gantt-checklist-rows{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+#pageGantt .gantt-checklist-row{
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) 128px 150px minmax(180px,.8fr);
+  gap:10px;
+  align-items:start;
+  padding:12px;
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:12px;
+  background:#FFFFFF;
+}
+#pageGantt .gantt-checklist-title strong{
+  color:var(--text);
+  font-size:13px;
+}
+#pageGantt .gantt-checklist-required{
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  margin-left:8px;
+  padding:0 7px;
+  border-radius:999px;
+  background:#FEF3C7;
+  color:#92400E;
+  font-size:10px;
+  font-weight:900;
+}
+#pageGantt .gantt-checklist-row select,
+#pageGantt .gantt-checklist-row textarea{
+  width:100%;
+  min-height:36px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:#FFFFFF;
+  font-family:inherit;
+  font-size:12px;
+}
+#pageGantt .gantt-checklist-row textarea{
+  resize:vertical;
+  min-height:44px;
+  padding:8px 9px;
+}
+#pageGantt .gantt-checklist-footer{
+  justify-content:flex-end;
+  margin-top:14px;
+}
 
 @media(max-width:768px){
   #pageGantt .gantt-detail-header--ops{
@@ -4628,5 +4725,11 @@ td{
   }
   #pageGantt .gantt-detail-tabbar{
     width:100%!important;
+  }
+  #pageGantt .gantt-checklist-summary{
+    grid-template-columns:1fr;
+  }
+  #pageGantt .gantt-checklist-row{
+    grid-template-columns:1fr;
   }
 }

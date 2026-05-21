@@ -145,7 +145,15 @@ create index if not exists idx_weekly_reviews_week_start
   on public.weekly_reviews(week_start, created_at desc);
 
 alter table if exists public.weekly_review_snapshots
-  add column if not exists status text default 'draft';
+  add column if not exists status text default 'draft',
+  add column if not exists finalized_at timestamptz,
+  add column if not exists finalized_by uuid,
+  add column if not exists discarded_at timestamptz,
+  add column if not exists discarded_by uuid;
+
+update public.weekly_review_snapshots
+set status = 'draft'
+where status is null;
 
 create index if not exists idx_weekly_review_snapshots_status
   on public.weekly_review_snapshots(status);

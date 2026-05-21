@@ -1,4 +1,4 @@
-let weeklyReviewWeekOffset=0;
+﻿let weeklyReviewWeekOffset=0;
 let weeklyReviewMemberScope='me';
 const WEEKLY_REVIEW_MODE_STORAGE_KEY='weeklyReviewMode:v2';
 const WEEKLY_REVIEW_SECTION_STATE_STORAGE_KEY='weeklyReviewSectionState:v1';
@@ -60,6 +60,10 @@ saveWeeklyReviewSnapshot=async function(){
       snapshot_version:1,
       base_date:snapshotJson.baseDate||null,
       status:'draft',
+      finalized_at:null,
+      finalized_by:null,
+      discarded_at:null,
+      discarded_by:null,
       created_by:currentUser?.id||null
     };
     if(existing?.id){
@@ -92,7 +96,11 @@ async function discardWeeklyReviewDraft(){
       alert('확정된 주간 리뷰는 초안 삭제할 수 없습니다. 관리자라면 먼저 확정 해제를 해주세요.');
       return;
     }
-    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{status:'discarded'});
+    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{
+      status:'discarded',
+      discarded_at:new Date().toISOString(),
+      discarded_by:currentUser?.id||null
+    });
     await renderWeeklyReviewPage(offsetWeeks);
     showWeeklyReviewToast('주간 리뷰 초안이 삭제되었습니다.');
   }catch(error){
@@ -108,7 +116,13 @@ async function finalizeWeeklyReviewSnapshot(){
   try{
     const existing=await getWeeklyReviewSnapshot(meta.weekStart);
     if(!existing?.id){alert('확정할 초안이 없습니다. 먼저 초안을 저장해주세요.');return;}
-    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{status:'finalized'});
+    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{
+      status:'finalized',
+      finalized_at:new Date().toISOString(),
+      finalized_by:currentUser?.id||null,
+      discarded_at:null,
+      discarded_by:null
+    });
     await renderWeeklyReviewPage(offsetWeeks);
     showWeeklyReviewToast('주간 리뷰 회의록이 확정되었습니다.');
   }catch(error){
@@ -125,7 +139,11 @@ async function unfinalizeWeeklyReviewSnapshot(){
   try{
     const existing=await getWeeklyReviewSnapshotAnyStatus(meta.weekStart);
     if(!existing?.id||String(existing.status||'')!=='finalized'){alert('확정된 주간 리뷰가 없습니다.');return;}
-    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{status:'draft'});
+    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{
+      status:'draft',
+      finalized_at:null,
+      finalized_by:null
+    });
     await renderWeeklyReviewPage(offsetWeeks);
     showWeeklyReviewToast('확정이 해제되었습니다.');
   }catch(error){
@@ -1779,14 +1797,15 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   weeklyReviewDebugLog('overloaded staff query start',{selectedWeek:offsetWeeks});
   await loadContracts();
   const ws=getWeekStart(offsetWeeks);
-  const [issueRows,billingRows,pendingDocumentRequests,weeklyReviews,kudosVotes,taskRows,projectOutputs]=await Promise.all([
+  const [issueRows,billingRows,pendingDocumentRequests,weeklyReviews,kudosVotes,taskRows,projectOutputs,checklistRows]=await Promise.all([
     api('GET','project_issues?select=id,project_id,task_id,title,priority,status,resolved_at,updated_at,created_at,assignee_name,owner_name,is_pinned,status_changed_at').catch(()=>[]),
     api('GET','billing_records?select=id,contract_id,amount,status,billing_date,memo').catch(()=>[]),
     api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date,created_at').catch(()=>[]),
     api('GET','weekly_reviews?week_start=eq.'+ws+'&select=*&order=created_at.desc').catch(()=>[]),
     api('GET','kudos_votes?week_start=eq.'+ws+'&select=*').catch(()=>[]),
     api('GET','project_tasks?select=id,project_id,title,status,due_date,priority,assignee_member_id,description,actual_done_at,created_at,updated_at').catch(()=>[]),
-    getWeeklyReviewProjectOutputs(ws)
+    getWeeklyReviewProjectOutputs(ws),
+    api('GET','project_checklist_items?select=id,project_id,status,is_required,weight').catch(()=>[])
   ]);
   const completedProjects=(projects||[]).filter(project=>
     isWeeklyReviewCompletedProject(project)
@@ -1961,6 +1980,27 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   const unavailableMemberNames=new Set([...currentLeaveNames,...currentFieldworkNames]);
   const availableMemberCount=Math.max(0,operationalMemberCount-unavailableMemberNames.size);
   const activeProjectsNow=(projects||[]).filter(project=>isWeeklyReviewActiveProject(project));
+  const checklistProjectMap=new Map();
+  (checklistRows||[]).forEach(item=>{
+    const key=String(item?.project_id||'').trim();
+    if(!key)return;
+    const current=checklistProjectMap.get(key)||{total:0,doneWeight:0,totalWeight:0,requiredOpen:0};
+    const weight=Number(item?.weight||1);
+    const status=String(item?.status||'not_started');
+    const done=status==='completed'||status==='not_applicable';
+    current.total+=1;
+    current.totalWeight+=weight;
+    if(done)current.doneWeight+=weight;
+    if(item?.is_required&&!done)current.requiredOpen+=1;
+    checklistProjectMap.set(key,current);
+  });
+  const activeChecklistSummaries=activeProjectsNow
+    .map(project=>({project,summary:checklistProjectMap.get(String(project.id))}))
+    .filter(row=>row.summary&&row.summary.total>0);
+  const checklistAverageCompletion=activeChecklistSummaries.length
+    ?Math.round(activeChecklistSummaries.reduce((sum,row)=>sum+(row.summary.totalWeight?row.summary.doneWeight/row.summary.totalWeight*100:0),0)/activeChecklistSummaries.length)
+    :0;
+  const checklistRequiredOpenCount=activeChecklistSummaries.reduce((sum,row)=>sum+Number(row.summary.requiredOpen||0),0);
   const currentLeaveCount=currentLeaveNames.length;
   const currentFieldworkCount=currentFieldworkNames.length;
   const nextFieldworkCount=nextFieldworkNames.length;
@@ -2054,6 +2094,13 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       tone:overdueProjects.length||highPriorityActiveIssues.length?'danger':'success'
     },
     {
+      title:'체크리스트',
+      badge:'진행률',
+      value:activeChecklistSummaries.length?`${checklistAverageCompletion}%`:'없음',
+      meta:`적용 프로젝트 ${activeChecklistSummaries.length}건 · 필수 미완료 ${checklistRequiredOpenCount}건`,
+      tone:checklistRequiredOpenCount?'warning':(activeChecklistSummaries.length?'success':'')
+    },
+    {
       title:'수금 현황',
       badge:'실시간',
       value:formatWeeklyReviewCurrency(unbilledAmount),
@@ -2084,10 +2131,11 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   ];
   if(cards[0])cards[0].key='revenue';
   if(cards[1])cards[1].key='risks';
-  if(cards[2])cards[2].key='billing';
-  if(cards[3])cards[3].key='next';
-  if(cards[4])cards[4].key='resources';
-  if(cards[5])cards[5].key='customers';
+  if(cards[2])cards[2].key='checklist';
+  if(cards[3])cards[3].key='billing';
+  if(cards[4])cards[4].key='next';
+  if(cards[5])cards[5].key='resources';
+  if(cards[6])cards[6].key='customers';
   if(cards[0]){
     cards[0].helper=completedProjects.length
       ? `완료 ${completedProjects.length}건이 이번 주 실적으로 반영됩니다.`
@@ -2099,35 +2147,40 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
       : '즉시 회의가 필요한 큰 리스크는 없습니다.';
   }
   if(cards[2]){
-    cards[2].helper=unbilledAmount||billedOutstandingAmount
+    cards[2].helper=activeChecklistSummaries.length
+      ? `체크리스트 적용 프로젝트 ${activeChecklistSummaries.length}건의 평균 완료율입니다.`
+      : '체크리스트가 적용된 진행 프로젝트가 아직 없습니다.';
+  }
+  if(cards[3]){
+    cards[3].helper=unbilledAmount||billedOutstandingAmount
       ? '청구와 수금 후속 조치를 회의에서 바로 정리하세요.'
       : '이번 주 기준 청구·수금 이슈가 크지 않습니다.';
   }
-  if(cards[3]){
-    cards[3].helper=nextWeekItemCount
+  if(cards[4]){
+    cards[4].helper=nextWeekItemCount
       ? '차주 마감과 착수 준비 상태를 먼저 맞춰보세요.'
       : '다음 주 주요 일정은 비교적 안정적입니다.';
   }
-  if(cards[4]){
-    cards[4].title='인력 가용성';
-    cards[4].badge=absenceImpactCount?'확인':'이번 주';
-    cards[4].value=absenceImpactCount
+  if(cards[5]){
+    cards[5].title='인력 가용성';
+    cards[5].badge=absenceImpactCount?'확인':'이번 주';
+    cards[5].value=absenceImpactCount
       ? `부재 영향 ${absenceImpactCount}명`
       : currentLeaveCount
         ? `휴가 ${currentLeaveCount}명`
         : currentFieldworkCount
           ? `필드웍 ${currentFieldworkCount}명`
           : '안정';
-    cards[4].meta=`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 다음 주 필드웍 ${nextFieldworkCount}명`;
-    cards[4].helper=absenceImpactCount
+    cards[5].meta=`휴가 ${currentLeaveCount}명 · 이번 주 필드웍 ${currentFieldworkCount}명 · 다음 주 필드웍 ${nextFieldworkCount}명`;
+    cards[5].helper=absenceImpactCount
       ? '휴가·필드웍이 진행 프로젝트와 겹치는 인원을 먼저 확인합니다.'
       : currentLeaveCount||currentFieldworkCount||nextFieldworkCount
         ? '휴가와 필드웍 기준으로 팀 가용성을 간단히 확인합니다.'
         : '이번 주 인력 가용성은 안정적인 편입니다.';
-    cards[4].tone=absenceImpactCount||currentLeaveCount||currentFieldworkCount||nextFieldworkCount?'warning':'success';
+    cards[5].tone=absenceImpactCount||currentLeaveCount||currentFieldworkCount||nextFieldworkCount?'warning':'success';
   }
-  if(cards[5]){
-    cards[5].helper=clientIssueSummary.length
+  if(cards[6]){
+    cards[6].helper=clientIssueSummary.length
       ? '고객사별 이슈 집중도를 같이 확인해 대응 우선순위를 맞추세요.'
       : '현재 고객 이슈는 비교적 안정적인 상태입니다.';
   }
@@ -3871,3 +3924,4 @@ async function saveWeeklyReviewSnapshot(){
     alert('주간회의 스냅샷 저장에 실패했습니다.'+(detail?'\n\n오류: '+detail:''));
   }
 }
+

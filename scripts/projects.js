@@ -2939,7 +2939,9 @@ function renderGanttDetailTabBar(){
     {key:'overview',label:'Overview'},
     {key:'work',label:'Work'},
     {key:'issues',label:'Issues'},
-    {key:'memo',label:'Memo / Documents'}
+    {key:'checklist',label:'Checklist'},
+    {key:'memo',label:'Memo'},
+    {key:'documents',label:'Documents'}
   ];
   return '<div class="gantt-detail-tabbar">'
     +tabs.map(tab=>'<button type="button" class="gantt-detail-tab'+(ganttDetailTab===tab.key?' active':'')+'" onclick="setGanttDetailTab(\''+tab.key+'\')">'+tab.label+'</button>').join('')
@@ -3879,7 +3881,9 @@ renderGanttDetailPanel=function(projs,schs){
   let sectionHtml=renderGanttProjectOverviewSection(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount);
   if(ganttDetailTab==='work')sectionHtml=renderGanttProjectWorkSection(project,memberSchedules);
   else if(ganttDetailTab==='issues')sectionHtml=renderGanttProjectIssuesSection(project);
+  else if(ganttDetailTab==='checklist')sectionHtml=renderGanttProjectChecklistSection(project);
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
+  else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectMemoSection(project);
   el.innerHTML=''
     +'<div class="gantt-detail-header">'
       +'<div class="gantt-detail-head-copy">'
@@ -3979,6 +3983,8 @@ function getGanttDetailRenderSignature(projs){
     baseParts.push(JSON.stringify(getGanttProjectTaskLoadMeta(project.id)||{}));
     baseParts.push(JSON.stringify(getGanttProjectPendingDocSummary(project.id)||{}));
     baseParts.push(String(getGanttProjectTaskIssueTotal(project.id)||0));
+  }else if(ganttDetailTab==='checklist'){
+    baseParts.push(JSON.stringify(getGanttProjectChecklistState(project.id)||{}));
   }
   return baseParts.join('||');
 }
@@ -6856,5 +6862,266 @@ renderGanttDetailPanel=function(projs,schs){
     +sectionHtml;
   loadGanttDetailAsync(project);
   if(ganttDetailTab==='work')loadGanttProjectTasks(project.id);
+  if(ganttDetailTab==='checklist')loadGanttProjectChecklist(project.id);
   el.dataset.renderSignature=renderSignature;
 };
+
+let ganttChecklistTemplates=[];
+let ganttChecklistTemplatesLoaded=false;
+let ganttProjectChecklistByProjectId={};
+let ganttProjectChecklistLoadMetaByProjectId={};
+
+const GANTT_CHECKLIST_STATUSES=[
+  {value:'not_started',label:'미시작'},
+  {value:'in_progress',label:'진행중'},
+  {value:'completed',label:'완료'},
+  {value:'not_applicable',label:'해당없음'}
+];
+
+function getGanttProjectChecklistState(projectId){
+  const key=String(projectId||'');
+  return {
+    meta:ganttProjectChecklistLoadMetaByProjectId[key]||{},
+    checklist:ganttProjectChecklistByProjectId[key]?.checklist||null,
+    items:ganttProjectChecklistByProjectId[key]?.items||[],
+    templateCount:ganttChecklistTemplates.length,
+    templatesLoaded:ganttChecklistTemplatesLoaded
+  };
+}
+
+function invalidateGanttProjectChecklistRender(projectId){
+  const el=document.getElementById('ganttDetail');
+  if(el&&String(el.dataset.projectId||'')===String(projectId||'')){
+    el.dataset.renderSignature='';
+  }
+}
+
+async function loadGanttChecklistTemplates(force=false){
+  if(ganttChecklistTemplatesLoaded&&!force)return ganttChecklistTemplates;
+  try{
+    ganttChecklistTemplates=await api('GET','checklist_templates?is_active=eq.true&select=*&order=service_type.asc,name.asc')||[];
+    ganttChecklistTemplatesLoaded=true;
+  }catch(error){
+    console.error('[projects] checklist_templates select failed',error);
+    ganttChecklistTemplates=[];
+    ganttChecklistTemplatesLoaded=true;
+  }
+  return ganttChecklistTemplates;
+}
+
+async function loadGanttProjectChecklist(projectId,force=false){
+  const key=String(projectId||'');
+  if(!key)return;
+  const state=ganttProjectChecklistByProjectId[key];
+  const meta=ganttProjectChecklistLoadMetaByProjectId[key]||{};
+  if(state&&!force)return;
+  if(meta.loading)return;
+  ganttProjectChecklistLoadMetaByProjectId[key]={loading:true,error:''};
+  invalidateGanttProjectChecklistRender(key);
+  try{
+    await loadGanttChecklistTemplates();
+    const checklists=await api('GET','project_checklists?project_id=eq.'+key+'&status=neq.archived&select=*&order=created_at.desc&limit=1')||[];
+    const checklist=checklists[0]||null;
+    const items=checklist
+      ?await api('GET','project_checklist_items?project_checklist_id=eq.'+checklist.id+'&select=*&order=section.asc,sort_order.asc,created_at.asc')||[]
+      :[];
+    ganttProjectChecklistByProjectId[key]={checklist,items};
+    ganttProjectChecklistLoadMetaByProjectId[key]={loading:false,error:''};
+  }catch(error){
+    console.error('[projects] project checklist load failed',error);
+    ganttProjectChecklistByProjectId[key]={checklist:null,items:[]};
+    ganttProjectChecklistLoadMetaByProjectId[key]={loading:false,error:'체크리스트를 불러오지 못했습니다. migration 적용 후 다시 시도해 주세요.'};
+  }
+  invalidateGanttProjectChecklistRender(key);
+  if(ganttDetailTab==='checklist'&&String(ganttFocusProjectId||'')===key)renderGantt();
+}
+
+function getGanttChecklistCompletionSummary(items){
+  const rows=Array.isArray(items)?items:[];
+  const weightedTotal=rows.reduce((sum,item)=>sum+Number(item?.weight||1),0);
+  const weightedDone=rows
+    .filter(item=>['completed','not_applicable'].includes(String(item?.status||'')))
+    .reduce((sum,item)=>sum+Number(item?.weight||1),0);
+  const completion=weightedTotal?Math.round((weightedDone/weightedTotal)*100):0;
+  const requiredOpen=rows.filter(item=>item?.is_required&&!['completed','not_applicable'].includes(String(item?.status||''))).length;
+  return {total:rows.length,completion,requiredOpen};
+}
+
+function getGanttChecklistStatusLabel(value){
+  return GANTT_CHECKLIST_STATUSES.find(item=>item.value===value)?.label||'미시작';
+}
+
+function renderGanttChecklistStatusOptions(value){
+  const current=String(value||'not_started');
+  return GANTT_CHECKLIST_STATUSES.map(status=>
+    '<option value="'+status.value+'" '+(current===status.value?'selected':'')+'>'+esc(status.label)+'</option>'
+  ).join('');
+}
+
+function renderGanttChecklistAssigneeOptions(value){
+  const current=String(value||'');
+  const memberOptions=(members||[]).map(member=>{
+    const id=String(member?.id||'');
+    const label=member?.name||member?.email||id;
+    return '<option value="'+esc(id)+'" '+(current===id?'selected':'')+'>'+esc(label)+'</option>';
+  }).join('');
+  return '<option value="">미지정</option>'+memberOptions;
+}
+
+function renderGanttChecklistTemplateOptions(project){
+  const projectType=String(project?.type||project?.service_type||'').trim();
+  const rows=[...(ganttChecklistTemplates||[])].sort((a,b)=>{
+    const aMatch=projectType&&String(a?.service_type||'')===projectType?0:1;
+    const bMatch=projectType&&String(b?.service_type||'')===projectType?0:1;
+    if(aMatch!==bMatch)return aMatch-bMatch;
+    return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+  });
+  return rows.map(template=>{
+    const meta=[template.service_type,template.description].filter(Boolean).join(' · ');
+    return '<option value="'+esc(template.id)+'">'+esc(template.name+(meta?' - '+meta:''))+'</option>';
+  }).join('');
+}
+
+function openGanttChecklistTemplateModal(projectId){
+  const project=(projects||[]).find(item=>String(item?.id||'')===String(projectId||''))||null;
+  loadGanttChecklistTemplates(true).then(()=>{
+    const options=renderGanttChecklistTemplateOptions(project);
+    document.getElementById('modalArea').innerHTML=''
+      +'<div class="overlay" onclick="if(event.target===this)closeModal()">'
+        +'<div class="modal" style="max-width:560px">'
+          +'<div class="modal-head"><div><h2>체크리스트 적용</h2><p class="modal-sub">활성 템플릿을 선택하면 항목이 이 프로젝트로 복사됩니다.</p></div><button class="modal-x" onclick="closeModal()">×</button></div>'
+          +(options
+            ?'<div class="form-row"><label class="form-label">템플릿</label><select id="ganttChecklistTemplateSelect">'+options+'</select></div>'
+            :'<div class="gantt-detail-empty">활성화된 체크리스트 템플릿이 없습니다. 먼저 템플릿을 등록해 주세요.</div>')
+          +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button>'+(options?'<button class="btn primary" onclick="applyGanttChecklistTemplate(\''+projectId+'\')">적용</button>':'')+'</div></div>'
+        +'</div>'
+      +'</div>';
+  });
+}
+
+async function applyGanttChecklistTemplate(projectId){
+  const templateId=String(document.getElementById('ganttChecklistTemplateSelect')?.value||'').trim();
+  if(!templateId){alert('템플릿을 선택해 주세요.');return;}
+  try{
+    const existing=await api('GET','project_checklists?project_id=eq.'+projectId+'&status=neq.archived&select=id&limit=1')||[];
+    if(existing.length&&!confirm('이미 적용된 체크리스트가 있습니다. 새 체크리스트를 추가로 적용할까요?'))return;
+    const created=await api('POST','project_checklists',{
+      project_id:projectId,
+      template_id:templateId,
+      status:'active',
+      created_by:currentUser?.id||null
+    })||[];
+    const checklist=created[0];
+    if(!checklist?.id)throw new Error('project_checklists 생성 결과를 확인할 수 없습니다.');
+    const templateItems=await api('GET','checklist_template_items?template_id=eq.'+templateId+'&select=*&order=section.asc,sort_order.asc,created_at.asc')||[];
+    const rows=templateItems.map(item=>({
+      project_checklist_id:checklist.id,
+      project_id:projectId,
+      template_item_id:item.id,
+      section:item.section||'기본',
+      title:item.title,
+      status:'not_started',
+      memo:null,
+      sort_order:item.sort_order||0,
+      is_required:!!item.is_required,
+      weight:item.weight||1
+    }));
+    if(rows.length)await api('POST','project_checklist_items',rows);
+    closeModal();
+    delete ganttProjectChecklistByProjectId[String(projectId)];
+    await loadGanttProjectChecklist(projectId,true);
+    if(typeof showToast==='function')showToast('체크리스트가 적용되었습니다.','success');
+  }catch(error){
+    console.error('[projects] apply checklist template failed',error);
+    alert('체크리스트 적용 실패: '+error.message);
+  }
+}
+
+function renderGanttChecklistEmptyState(project){
+  return '<div class="gantt-detail-empty-state">'
+    +'<div class="gantt-detail-value">적용된 체크리스트가 없습니다.</div>'
+    +'<div class="gantt-detail-meta">반복 업무 템플릿을 프로젝트에 적용하면 섹션별 확인 항목과 완료율을 관리할 수 있습니다.</div>'
+    +'<div><button type="button" class="btn primary sm" onclick="openGanttChecklistTemplateModal(\''+project.id+'\')">체크리스트 적용</button></div>'
+  +'</div>';
+}
+
+function renderGanttChecklistItemRow(item){
+  const id=String(item?.id||'');
+  return '<div class="gantt-checklist-row" data-checklist-item="'+esc(id)+'">'
+    +'<div class="gantt-checklist-title"><div><strong>'+esc(item?.title||'체크 항목')+'</strong>'+(item?.is_required?'<span class="gantt-checklist-required">필수</span>':'')+'</div><div class="gantt-detail-meta">'+esc(item?.description||'')+'</div></div>'
+    +'<select class="gantt-checklist-status" data-field="status">'+renderGanttChecklistStatusOptions(item?.status)+'</select>'
+    +'<select class="gantt-checklist-assignee" data-field="assignee_member_id">'+renderGanttChecklistAssigneeOptions(item?.assignee_member_id)+'</select>'
+    +'<textarea class="gantt-checklist-memo" data-field="memo" rows="2" placeholder="메모">'+esc(item?.memo||'')+'</textarea>'
+  +'</div>';
+}
+
+function renderGanttChecklistItems(items){
+  const grouped=new Map();
+  (items||[]).forEach(item=>{
+    const section=String(item?.section||'기본').trim()||'기본';
+    if(!grouped.has(section))grouped.set(section,[]);
+    grouped.get(section).push(item);
+  });
+  return [...grouped.entries()].map(([section,rows])=>
+    '<div class="gantt-checklist-section">'
+      +'<div class="gantt-checklist-section-title">'+esc(section)+'</div>'
+      +'<div class="gantt-checklist-rows">'+rows.map(renderGanttChecklistItemRow).join('')+'</div>'
+    +'</div>'
+  ).join('');
+}
+
+function renderGanttProjectChecklistSection(project){
+  const projectId=String(project?.id||'');
+  const state=getGanttProjectChecklistState(projectId);
+  const meta=state.meta||{};
+  const summary=getGanttChecklistCompletionSummary(state.items||[]);
+  return '<div class="gantt-detail-pane gantt-checklist-pane">'
+    +'<div class="gantt-detail-section gantt-detail-section--flush">'
+      +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">프로젝트 체크리스트</div><div class="gantt-detail-meta">반복 업무 확인 항목을 프로젝트별로 적용하고 완료율을 관리합니다.</div></div><div class="gantt-detail-head-actions"><button type="button" class="btn sm" onclick="openGanttChecklistTemplateModal(\''+projectId+'\')">체크리스트 적용</button>'+(state.checklist?'<button type="button" class="btn primary sm" onclick="saveGanttProjectChecklistItems(\''+projectId+'\')">저장</button>':'')+'</div></div>'
+      +(meta.loading?'<div class="gantt-detail-empty">체크리스트를 불러오는 중...</div>'
+        :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
+        :!state.checklist?renderGanttChecklistEmptyState(project)
+        :'<div class="gantt-checklist-summary"><div><strong>'+summary.completion+'%</strong><span>완료율</span></div><div><strong>'+summary.requiredOpen+'</strong><span>필수 미완료</span></div><div><strong>'+summary.total+'</strong><span>전체 항목</span></div></div>'
+          +'<div class="gantt-checklist-progress"><span style="width:'+Math.max(0,Math.min(100,summary.completion))+'%"></span></div>'
+          +renderGanttChecklistItems(state.items||[])
+          +'<div class="gantt-detail-inline-actions gantt-checklist-footer"><button type="button" class="btn primary sm" onclick="saveGanttProjectChecklistItems(\''+projectId+'\')">체크리스트 저장</button></div>')
+    +'</div>'
+  +'</div>';
+}
+
+async function saveGanttProjectChecklistItems(projectId){
+  const rows=[...document.querySelectorAll('#ganttDetail [data-checklist-item]')];
+  if(!rows.length)return;
+  try{
+    await Promise.all(rows.map(row=>{
+      const id=row.getAttribute('data-checklist-item');
+      const status=row.querySelector('[data-field="status"]')?.value||'not_started';
+      const assignee=row.querySelector('[data-field="assignee_member_id"]')?.value||null;
+      const memo=row.querySelector('[data-field="memo"]')?.value?.trim()||null;
+      const body={
+        status,
+        assignee_member_id:assignee,
+        memo,
+        updated_at:new Date().toISOString()
+      };
+      if(status==='completed'){
+        body.completed_at=new Date().toISOString();
+        body.completed_by=currentUser?.id||null;
+      }else{
+        body.completed_at=null;
+        body.completed_by=null;
+      }
+      return api('PATCH','project_checklist_items?id=eq.'+id,body);
+    }));
+    const state=ganttProjectChecklistByProjectId[String(projectId)];
+    if(state?.checklist?.id){
+      await api('PATCH','project_checklists?id=eq.'+state.checklist.id,{updated_at:new Date().toISOString()}).catch(()=>null);
+    }
+    delete ganttProjectChecklistByProjectId[String(projectId)];
+    await loadGanttProjectChecklist(projectId,true);
+    if(typeof showToast==='function')showToast('체크리스트가 저장되었습니다.','success');
+  }catch(error){
+    console.error('[projects] checklist save failed',error);
+    alert('체크리스트 저장 실패: '+error.message);
+  }
+}
