@@ -8,6 +8,17 @@
 .client-team-badge.is-empty{border-color:var(--border);background:#F3F6F8;color:var(--text3)}
 .client-team-badge.is-assigned{border-color:rgba(37,99,235,.16);background:rgba(37,99,235,.08);color:#1D4ED8}
 .client-team-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.client-team-inline{display:flex;align-items:center;gap:6px;margin:8px 0 0}
+.client-card-check{position:absolute;top:14px;left:14px;z-index:2;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);cursor:pointer}
+.client-card-check input{position:absolute;opacity:0;pointer-events:none}
+.client-card-check span{width:14px;height:14px;border-radius:4px;border:1px solid var(--border);background:#fff}
+.client-card-check input:checked+span{background:var(--blue);border-color:var(--blue);box-shadow:inset 0 0 0 3px #fff}
+.client-bulk-selection-bar{align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;border:1px solid rgba(37,99,235,.18);border-radius:12px;background:rgba(37,99,235,.06)}
+.client-bulk-selection-bar strong{display:block;font-size:13px;color:var(--navy)}
+.client-bulk-selection-bar span{display:block;margin-top:2px;font-size:12px;color:var(--text3)}
+.client-bulk-selection-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.client-action-toast{position:fixed;right:24px;bottom:24px;z-index:9999;padding:12px 16px;border-radius:12px;background:var(--navy);color:#fff;font-size:13px;font-weight:700;box-shadow:0 12px 30px rgba(15,23,42,.22);transition:opacity .22s ease,transform .22s ease}
+.client-action-toast.is-hide{opacity:0;transform:translateY(8px)}
 .client-avatar{width:44px;height:44px;border-radius:12px;background:var(--navy);color:#fff;font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;letter-spacing:-.5px}
 .client-warn{background:var(--red-bg);color:var(--red);font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
 .client-name{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:3px;letter-spacing:-.3px}

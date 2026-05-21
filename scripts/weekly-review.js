@@ -42,6 +42,97 @@ function formatWeeklyReviewDebugDate(value){
   if(Number.isNaN(date.getTime()))return null;
   return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
 }
+
+saveWeeklyReviewSnapshot=async function(){
+  const offsetWeeks=weeklyReviewWeekOffset;
+  const meta=getWeeklyReviewSnapshotWeekMeta(offsetWeeks);
+  try{
+    const existing=await getWeeklyReviewSnapshotAnyStatus(meta.weekStart);
+    if(String(existing?.status||'draft')==='finalized'){
+      alert('확정된 주간 리뷰는 바로 갱신할 수 없습니다. 먼저 확정 해제를 해주세요.');
+      return;
+    }
+    const calculatedData=await getWeeklyReviewCalculatedPageData(offsetWeeks);
+    const snapshotJson=buildWeeklyReviewSnapshotJson(calculatedData,offsetWeeks);
+    const body={
+      week_start:meta.weekStart,
+      snapshot_json:snapshotJson,
+      snapshot_version:1,
+      base_date:snapshotJson.baseDate||null,
+      status:'draft',
+      created_by:currentUser?.id||null
+    };
+    if(existing?.id){
+      await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,body);
+    }else if(typeof apiEx==='function'){
+      await apiEx('POST',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?on_conflict=week_start',body,'resolution=merge-duplicates,return=representation');
+    }else{
+      await api('POST',WEEKLY_REVIEW_SNAPSHOT_TABLE,body);
+    }
+    await renderWeeklyReviewPage(offsetWeeks);
+    showWeeklyReviewToast(existing?.status==='discarded'?'주간 리뷰 초안을 다시 저장했습니다.':'주간 리뷰 초안이 저장되었습니다.');
+  }catch(error){
+    console.error('[weekly-review] snapshot save failed',error);
+    const detail=typeof getWeeklyReviewApiErrorDetail==='function'?getWeeklyReviewApiErrorDetail(error):String(error?.message||error||'');
+    alert('주간 리뷰 초안 저장에 실패했습니다.'+(detail?'\n\n오류: '+detail:''));
+  }
+};
+
+async function discardWeeklyReviewDraft(){
+  const offsetWeeks=weeklyReviewWeekOffset;
+  const meta=getWeeklyReviewSnapshotWeekMeta(offsetWeeks);
+  if(!confirm('이번 주 저장된 주간 리뷰 초안을 삭제할까요? 삭제하면 현재 화면은 최신 프로젝트 현황 기준으로 다시 표시됩니다.'))return;
+  try{
+    const existing=await getWeeklyReviewSnapshotAnyStatus(meta.weekStart);
+    if(!existing?.id||String(existing?.status||'draft')==='discarded'){
+      await renderWeeklyReviewPage(offsetWeeks);
+      return;
+    }
+    if(String(existing.status||'draft')==='finalized'){
+      alert('확정된 주간 리뷰는 초안 삭제할 수 없습니다. 관리자라면 먼저 확정 해제를 해주세요.');
+      return;
+    }
+    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{status:'discarded'});
+    await renderWeeklyReviewPage(offsetWeeks);
+    showWeeklyReviewToast('주간 리뷰 초안이 삭제되었습니다.');
+  }catch(error){
+    console.error('[weekly-review] draft discard failed',error);
+    alert('주간 리뷰 초안 삭제에 실패했습니다. '+(error?.message||''));
+  }
+}
+
+async function finalizeWeeklyReviewSnapshot(){
+  const offsetWeeks=weeklyReviewWeekOffset;
+  const meta=getWeeklyReviewSnapshotWeekMeta(offsetWeeks);
+  if(!confirm('이번 주 주간 리뷰를 회의록으로 확정할까요?'))return;
+  try{
+    const existing=await getWeeklyReviewSnapshot(meta.weekStart);
+    if(!existing?.id){alert('확정할 초안이 없습니다. 먼저 초안을 저장해주세요.');return;}
+    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{status:'finalized'});
+    await renderWeeklyReviewPage(offsetWeeks);
+    showWeeklyReviewToast('주간 리뷰 회의록이 확정되었습니다.');
+  }catch(error){
+    console.error('[weekly-review] finalize failed',error);
+    alert('회의록 확정에 실패했습니다. '+(error?.message||''));
+  }
+}
+
+async function unfinalizeWeeklyReviewSnapshot(){
+  if(!(typeof roleIsAdmin==='function'&&roleIsAdmin())){alert('관리자만 확정 해제할 수 있습니다.');return;}
+  const offsetWeeks=weeklyReviewWeekOffset;
+  const meta=getWeeklyReviewSnapshotWeekMeta(offsetWeeks);
+  if(!confirm('확정된 주간 리뷰를 다시 초안 상태로 변경할까요?'))return;
+  try{
+    const existing=await getWeeklyReviewSnapshotAnyStatus(meta.weekStart);
+    if(!existing?.id||String(existing.status||'')!=='finalized'){alert('확정된 주간 리뷰가 없습니다.');return;}
+    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{status:'draft'});
+    await renderWeeklyReviewPage(offsetWeeks);
+    showWeeklyReviewToast('확정이 해제되었습니다.');
+  }catch(error){
+    console.error('[weekly-review] unfinalize failed',error);
+    alert('확정 해제에 실패했습니다. '+(error?.message||''));
+  }
+}
 function weeklyReviewDebugLog(message,payload){
   try{
     if(payload!==undefined)console.log(`${WEEKLY_REVIEW_DEBUG_PREFIX} ${message}`,payload);
@@ -2872,6 +2963,52 @@ function renderWeeklyReviewSnapshotNotice(snapshotMeta){
     +'<button type="button" class="btn primary sm" onclick="saveWeeklyReviewSnapshot()">'+esc(buttonLabel)+'</button>'
   +'</div>';
 }
+function showWeeklyReviewToast(message){
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;right:24px;bottom:24px;z-index:9999;padding:12px 16px;border-radius:12px;background:var(--navy);color:#fff;font-size:13px;font-weight:700;box-shadow:0 12px 30px rgba(15,23,42,.22);transition:opacity .22s ease,transform .22s ease';
+  toast.textContent=message;
+  document.body.appendChild(toast);
+  setTimeout(()=>{
+    toast.style.opacity='0';
+    toast.style.transform='translateY(8px)';
+    setTimeout(()=>toast.remove(),260);
+  },2600);
+}
+
+renderWeeklyReviewSnapshotNotice=function(snapshotMeta){
+  if(!snapshotMeta?.mode)return '';
+  const isSnapshot=snapshotMeta.mode==='snapshot';
+  const status=String(snapshotMeta.status||'draft').trim()||'draft';
+  const isFinalized=isSnapshot&&status==='finalized';
+  const message=isSnapshot
+    ?(isFinalized?'확정된 주간 리뷰입니다. 확정된 회의록은 관리자만 다시 초안으로 되돌릴 수 있습니다.':'저장된 주간 리뷰 초안 기준입니다. 현재 프로젝트 상태와 다를 수 있습니다.')
+    :'이번 주 주간 리뷰 초안이 아직 저장되지 않았습니다. 현재 프로젝트 현황 기준으로 표시됩니다.';
+  const warning=snapshotMeta.warning?'<div style="font-size:11px;color:#B45309;margin-top:4px">'+esc(snapshotMeta.warning)+'</div>':'';
+  const metaText=isSnapshot&&snapshotMeta.updatedAt
+    ?'최근 갱신 '+formatCommentDate(snapshotMeta.updatedAt)+(status==='finalized'?' · 회의록 확정':' · 초안')
+    :(snapshotMeta.baseDate?'기준일 '+esc(snapshotMeta.baseDate):'');
+  const primaryButton=isSnapshot
+    ?(isFinalized?'':'<button type="button" class="btn primary sm" onclick="saveWeeklyReviewSnapshot()">최신 현황 반영</button>')
+    :'<button type="button" class="btn primary sm" onclick="saveWeeklyReviewSnapshot()">초안 저장</button>';
+  const discardButton=isSnapshot&&!isFinalized
+    ?'<button type="button" class="btn ghost sm" onclick="discardWeeklyReviewDraft()">초안 삭제</button>'
+    :'';
+  const finalizeButton=isSnapshot&&!isFinalized
+    ?'<button type="button" class="btn sm" onclick="finalizeWeeklyReviewSnapshot()">회의록 확정</button>'
+    :'';
+  const unfinalizeButton=isFinalized&&typeof roleIsAdmin==='function'&&roleIsAdmin()
+    ?'<button type="button" class="btn sm" onclick="unfinalizeWeeklyReviewSnapshot()">확정 해제</button>'
+    :'';
+  return '<div class="weekly-review-snapshot-notice" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border:1px solid rgba(37,99,235,.16);border-radius:14px;background:#F8FBFF">'
+    +'<div style="min-width:0;flex:1 1 360px">'
+      +'<div style="font-size:12px;font-weight:800;color:var(--navy);line-height:1.5">'+esc(message)+'</div>'
+      +(metaText?'<div style="font-size:11px;color:var(--text3);margin-top:3px">'+metaText+'</div>':'')
+      +warning
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+primaryButton+discardButton+finalizeButton+unfinalizeButton+'</div>'
+  +'</div>';
+};
+
 renderWeeklyReviewModeToggleMarkup=function(){
   return '<div class="weekly-review-mode-toggle" role="tablist" aria-label="주간 리뷰 보기 모드">'
     +'<button type="button" class="weekly-review-mode-btn'+(weeklyReviewMode==='management'?' is-active':'')+'" onclick="setWeeklyReviewMode(\'management\')">경영 요약</button>'
@@ -3494,6 +3631,12 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
 async function getWeeklyReviewSnapshot(weekStart){
   const key=String(weekStart||'').trim();
   if(!key)return null;
+  const rows=await api('GET',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?week_start=eq.'+key+'&status=neq.discarded&select=*&limit=1');
+  return Array.isArray(rows)&&rows.length?rows[0]:null;
+}
+async function getWeeklyReviewSnapshotAnyStatus(weekStart){
+  const key=String(weekStart||'').trim();
+  if(!key)return null;
   const rows=await api('GET',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?week_start=eq.'+key+'&select=*&limit=1');
   return Array.isArray(rows)&&rows.length?rows[0]:null;
 }
@@ -3658,6 +3801,7 @@ async function getWeeklyReviewSnapshotPageData(snapshot,offsetWeeks=weeklyReview
     _snapshotMeta:{
       mode:'snapshot',
       snapshotId:String(snapshot?.id||'')||null,
+      status:String(snapshot?.status||'draft').trim()||'draft',
       generatedAt:snapshotJson.generatedAt||null,
       updatedAt:snapshot?.updated_at||snapshot?.created_at||null,
       weekStart,
@@ -3687,6 +3831,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   liveData._snapshotMeta={
     mode:'live',
     snapshotId:null,
+    status:'live',
     generatedAt:null,
     updatedAt:null,
     weekStart:meta.weekStart,

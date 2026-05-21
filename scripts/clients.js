@@ -1963,6 +1963,109 @@ renderClientHealthBoard=function(rows){
   }).join('')+'</div>';
 };
 
+function getClientBulkSelectedIds(){
+  return [...clientTableSelectedIds].filter(id=>(clients||[]).some(client=>String(client?.id||'')===String(id)));
+}
+
+function showClientActionToast(message){
+  const toast=document.createElement('div');
+  toast.className='client-action-toast';
+  toast.textContent=message;
+  document.body.appendChild(toast);
+  setTimeout(()=>{
+    toast.classList.add('is-hide');
+    setTimeout(()=>toast.remove(),260);
+  },2600);
+}
+
+function ensureClientBulkSelectionBar(){
+  const grid=document.getElementById('clientGrid');
+  if(!grid)return null;
+  let bar=document.getElementById('clientBulkSelectionBar');
+  if(!bar){
+    bar=document.createElement('div');
+    bar.id='clientBulkSelectionBar';
+    bar.className='client-bulk-selection-bar';
+    grid.parentNode.insertBefore(bar,grid);
+  }
+  return bar;
+}
+
+function renderClientBulkSelectionBar(){
+  const bar=ensureClientBulkSelectionBar();
+  if(!bar)return;
+  const selectedIds=getClientBulkSelectedIds();
+  if(!canManageClientBulkActions()||!selectedIds.length){
+    bar.innerHTML='';
+    bar.style.display='none';
+    return;
+  }
+  bar.style.display='flex';
+  bar.innerHTML=''
+    +'<div><strong>'+selectedIds.length+'개 거래처 선택</strong><span>선택한 거래처의 담당 팀을 한 번에 변경할 수 있습니다.</span></div>'
+    +'<div class="client-bulk-selection-actions">'
+      +'<button type="button" class="btn primary sm" onclick="openClientBulkTeamModal()">담당 팀 일괄 변경</button>'
+      +'<button type="button" class="btn ghost sm" onclick="clearClientTableSelection()">선택 해제</button>'
+    +'</div>';
+}
+
+async function applyClientBulkTeam(teamName,clientIds){
+  if(!canManageClientBulkActions()||!clientIds?.length)return;
+  const assignedTeam=String(teamName||'').trim()||null;
+  try{
+    for(const clientId of clientIds){
+      await api('PATCH','clients?id=eq.'+clientId,{assigned_team:assignedTeam});
+      const client=(clients||[]).find(row=>String(row?.id||'')===String(clientId));
+      if(client)client.assigned_team=assignedTeam;
+    }
+    closeModal();
+    clientTableSelectedIds.clear();
+    await loadAll();
+    renderClients();
+    showClientActionToast('담당 팀이 일괄 변경되었습니다.');
+    if(typeof setStatus==='function')setStatus('담당 팀이 일괄 변경되었습니다.','ok');
+  }catch(e){
+    alert('담당 팀 일괄 변경 오류: '+e.message);
+  }
+}
+
+function openClientBulkTeamModal(){
+  if(!canManageClientBulkActions())return;
+  const selectedIds=getClientBulkSelectedIds();
+  if(!selectedIds.length){alert('거래처를 먼저 선택해주세요.');return;}
+  const selectedClients=(clients||[]).filter(client=>selectedIds.includes(String(client?.id||'')));
+  const currentTeams=[...new Set(selectedClients.map(client=>getClientAssignedTeamValue(client)))];
+  const defaultTeam=currentTeams.length===1?currentTeams[0]:'';
+  window.__clientBulkTargetIds=selectedIds;
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal" style="width:420px"><div class="modal-title">담당 팀 일괄 변경</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:12px">'+selectedIds.length+'개 거래처에 같은 담당 팀을 적용합니다.</div>'
+    +'<div class="form-row"><label class="form-label">담당 팀</label><select id="clientBulkAssignedTeam">'+buildClientAssignedTeamOptions(defaultTeam)+'</select></div>'
+    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="applyClientBulkTeam(document.getElementById(\'clientBulkAssignedTeam\').value,window.__clientBulkTargetIds||[])">저장</button></div></div>'
+    +'</div></div>';
+}
+
+const renderClientCardBulkTeamBase=renderClientCard;
+renderClientCard=function(detail){
+  const checked=clientTableSelectedIds.has(detail.client.id)?' checked':'';
+  const selectable=canManageClientBulkActions()
+    ?'<label class="client-card-check" onclick="event.stopPropagation()" title="거래처 선택"><input type="checkbox"'+checked+' onchange="toggleClientTableSelection(\''+detail.client.id+'\',this.checked)"/><span></span></label>'
+    :'';
+  const assignedTeam='<span class="client-team-badge is-'+getClientAssignedTeamTone(detail.client)+'">'+esc(getClientAssignedTeamLabel(detail.client))+'</span>';
+  return renderClientCardBulkTeamBase(detail)
+    .replace('<div class="client-card-accent" aria-hidden="true"></div>','<div class="client-card-accent" aria-hidden="true"></div>'+selectable)
+    .replace('<div class="client-owner">','<div class="client-team-inline">'+assignedTeam+'</div><div class="client-owner">');
+};
+
+const renderClientTableBulkTeamBase=renderClientTable;
+renderClientTable=function(rows){
+  return renderClientTableBulkTeamBase(rows).replace(
+    /(<span class="client-bulk-count">[^<]+<\/span>)/,
+    '$1<button type="button" class="btn primary sm" onclick="openClientBulkTeamModal()">담당 팀 일괄 변경</button>'
+  );
+};
+
 renderClients=function(){
   const grid=document.getElementById('clientGrid');
   if(!grid)return;
@@ -2767,4 +2870,10 @@ renderClientHealthBoard=function(rows){
         :'<div class="empty-state client-health-empty">해당 상태의 거래처가 없습니다.</div>')
       +'</div></div>';
   }).join('')+'</div>';
+};
+
+const renderClientsBulkTeamFinalBase=renderClients;
+renderClients=function(){
+  renderClientsBulkTeamFinalBase();
+  renderClientBulkSelectionBar();
 };
