@@ -1315,12 +1315,176 @@ function renderWeeklyReviewOutputTaskOptions(projectId,selectedTaskId=''){
     +(missingSelectedTask?'<option value="'+esc(selectedTaskId)+'" selected>'+(selectedTask?esc(selectedTask.title||'제목 없는 태스크'):'삭제된 태스크')+'</option>':'')
     +rows.map(task=>'<option value="'+esc(task?.id||'')+'"'+(String(task?.id||'')===String(selectedTaskId||'')?' selected':'')+'>'+esc(task?.title||'제목 없는 태스크')+'</option>').join('');
 }
-function updateWeeklyReviewOutputTaskOptions(){
-  const projectId=document.getElementById('weeklyOutputProject')?.value||'';
-  const taskSelect=document.getElementById('weeklyOutputTask');
-  if(!taskSelect)return;
-  taskSelect.innerHTML=renderWeeklyReviewOutputTaskOptions(projectId);
-  taskSelect.disabled=!projectId;
+let weeklyOutputProjectCombobox=null;
+let weeklyOutputTaskCombobox=null;
+
+function getWeeklyOutputProjectClientName(project){
+  return (clients||[]).find(client=>String(client?.id||'')===String(project?.client_id||''))?.name||'';
+}
+
+function getWeeklyOutputProjectContractText(project){
+  const contract=(contracts||[]).find(row=>String(row?.id||'')===String(project?.contract_id||''))||null;
+  if(!contract)return '';
+  return [contract.contract_name||contract.title||contract.name||'',contract.contract_code||contract.contract_no||''].filter(Boolean).join(' ');
+}
+
+function getWeeklyOutputProjectSubLabel(project){
+  const parts=[];
+  const clientName=getWeeklyOutputProjectClientName(project);
+  if(clientName)parts.push(clientName);
+  if(Array.isArray(project?.members)&&project.members.length)parts.push(project.members.join(', '));
+  if(project?.status)parts.push(project.status);
+  const endDate=project?.end_date||project?.end;
+  if(endDate)parts.push('마감 '+endDate);
+  return parts.join(' · ');
+}
+
+function getWeeklyOutputProjectSearchText(project){
+  return [
+    project?.name,
+    getWeeklyOutputProjectClientName(project),
+    Array.isArray(project?.members)?project.members.join(' '):'',
+    project?.status,
+    project?.service_type,
+    project?.type,
+    project?.project_code,
+    project?.code,
+    getWeeklyOutputProjectContractText(project)
+  ].filter(Boolean).join(' ');
+}
+
+function getWeeklyOutputProjectItems(selectedProjectId=''){
+  const rows=[...(projects||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  const selectedKey=String(selectedProjectId||'');
+  if(selectedKey&&!rows.some(project=>String(project?.id||'')===selectedKey)){
+    rows.unshift({id:selectedKey,name:'삭제된 프로젝트'});
+  }
+  return rows;
+}
+
+function mountWeeklyOutputProjectCombobox(selectedProjectId=''){
+  const mount=document.getElementById('weeklyOutputProjectCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  if(weeklyOutputProjectCombobox&&typeof weeklyOutputProjectCombobox.destroy==='function'){
+    weeklyOutputProjectCombobox.destroy();
+  }
+  weeklyOutputProjectCombobox=createCombobox({
+    mount,
+    items:getWeeklyOutputProjectItems(selectedProjectId),
+    getLabel:item=>item?.name||'프로젝트명 없음',
+    getSubLabel:getWeeklyOutputProjectSubLabel,
+    getSearchText:getWeeklyOutputProjectSearchText,
+    getValue:item=>item?.id||'',
+    value:selectedProjectId||'',
+    placeholder:'프로젝트명을 입력하세요',
+    disabled:false,
+    required:true,
+    maxItems:10,
+    allowClear:true,
+    onSelect:()=>updateWeeklyReviewOutputTaskOptions(),
+    onClear:()=>updateWeeklyReviewOutputTaskOptions()
+  });
+}
+
+function getWeeklyOutputProjectIdFromForm(){
+  if(weeklyOutputProjectCombobox&&typeof weeklyOutputProjectCombobox.getValue==='function'){
+    return weeklyOutputProjectCombobox.getValue()||'';
+  }
+  return document.getElementById('weeklyOutputProject')?.value||'';
+}
+
+function validateWeeklyOutputProjectSelection(){
+  if(weeklyOutputProjectCombobox&&typeof weeklyOutputProjectCombobox.hasUncommittedText==='function'&&weeklyOutputProjectCombobox.hasUncommittedText()){
+    alert('목록에서 프로젝트를 선택해 주세요.');
+    weeklyOutputProjectCombobox.input?.focus();
+    return false;
+  }
+  return true;
+}
+
+function getWeeklyOutputTaskProjectName(task){
+  const project=(projects||[]).find(row=>String(row?.id||'')===String(task?.project_id||''))||null;
+  return project?.name||'';
+}
+
+function getWeeklyOutputTaskAssigneeName(task){
+  return (members||[]).find(member=>String(member?.id||'')===String(task?.assignee_member_id||''))?.name||'';
+}
+
+function getWeeklyOutputTaskItems(projectId){
+  const taskRows=weeklyReviewLastRenderPayload?.data?.taskRows||[];
+  const projectKey=String(projectId||'');
+  if(!projectKey)return [];
+  return (taskRows||[])
+    .filter(task=>String(task?.project_id||'')===projectKey)
+    .sort((a,b)=>String(a?.title||a?.name||'').localeCompare(String(b?.title||b?.name||''),'ko'));
+}
+
+function getWeeklyOutputTaskSubLabel(task){
+  return [
+    getWeeklyOutputTaskAssigneeName(task),
+    task?.status,
+    task?.priority,
+    task?.due_date?('마감 '+task.due_date):''
+  ].filter(Boolean).join(' · ');
+}
+
+function getWeeklyOutputTaskSearchText(task){
+  return [
+    task?.title,
+    task?.name,
+    task?.status,
+    task?.priority,
+    getWeeklyOutputTaskAssigneeName(task),
+    task?.due_date,
+    getWeeklyOutputTaskProjectName(task)
+  ].filter(Boolean).join(' ');
+}
+
+function mountWeeklyOutputTaskCombobox(selectedTaskId=''){
+  const mount=document.getElementById('weeklyOutputTaskCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  if(weeklyOutputTaskCombobox&&typeof weeklyOutputTaskCombobox.destroy==='function'){
+    weeklyOutputTaskCombobox.destroy();
+  }
+  const projectId=getWeeklyOutputProjectIdFromForm();
+  const taskItems=getWeeklyOutputTaskItems(projectId);
+  const validTaskId=taskItems.some(task=>String(task?.id||'')===String(selectedTaskId||''))?selectedTaskId:'';
+  weeklyOutputTaskCombobox=createCombobox({
+    mount,
+    items:taskItems,
+    getLabel:item=>item?.title||item?.name||'제목 없는 태스크',
+    getSubLabel:getWeeklyOutputTaskSubLabel,
+    getSearchText:getWeeklyOutputTaskSearchText,
+    getValue:item=>item?.id||'',
+    value:validTaskId||'',
+    placeholder:projectId?'태스크명을 입력하세요':'프로젝트를 먼저 선택하세요',
+    disabled:!projectId,
+    required:false,
+    maxItems:10,
+    allowClear:true
+  });
+}
+
+function getWeeklyOutputTaskIdFromForm(){
+  if(weeklyOutputTaskCombobox&&typeof weeklyOutputTaskCombobox.getValue==='function'){
+    return weeklyOutputTaskCombobox.getValue()||'';
+  }
+  return document.getElementById('weeklyOutputTask')?.value||'';
+}
+
+function validateWeeklyOutputTaskSelection(){
+  if(weeklyOutputTaskCombobox&&typeof weeklyOutputTaskCombobox.hasUncommittedText==='function'&&weeklyOutputTaskCombobox.hasUncommittedText()){
+    alert('목록에서 태스크를 선택해 주세요.');
+    weeklyOutputTaskCombobox.input?.focus();
+    return false;
+  }
+  return true;
+}
+
+function updateWeeklyReviewOutputTaskOptions(preferredTaskId){
+  const currentTaskId=preferredTaskId!==undefined?preferredTaskId:getWeeklyOutputTaskIdFromForm();
+  mountWeeklyOutputTaskCombobox(currentTaskId);
 }
 function openWeeklyReviewOutputModal(outputId=''){
   const modalArea=document.getElementById('modalArea');
@@ -1337,13 +1501,6 @@ function openWeeklyReviewOutputModal(outputId=''){
   const isEdit=!!existing?.id;
   const sortedProjects=(projects||[]).slice().sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
   const selectedProjectId=String(existing?.project_id||sortedProjects[0]?.id||'');
-  const hasSelectedProject=selectedProjectId&&sortedProjects.some(project=>String(project?.id||'')===selectedProjectId);
-  const projectOptions=(sortedProjects.length
-    ? (hasSelectedProject?'':'<option value="'+esc(selectedProjectId)+'" selected>삭제된 프로젝트</option>')
-      +sortedProjects.map(project=>'<option value="'+esc(project?.id||'')+'"'+(String(project?.id||'')===selectedProjectId?' selected':'')+'>'+esc(project?.name||'프로젝트명 없음')+'</option>').join('')
-    : (selectedProjectId
-      ? '<option value="'+esc(selectedProjectId)+'" selected>삭제된 프로젝트</option>'
-      : '<option value="">등록된 프로젝트가 없습니다</option>'));
   const outputIdJs=getWeeklyReviewJsString(existing?.id||'');
   const selectedTaskId=String(existing?.task_id||'');
   const deleteButtonHtml=isEdit
@@ -1354,14 +1511,16 @@ function openWeeklyReviewOutputModal(outputId=''){
     +overlayHtml
     +'<div class="modal ui-modal-540" style="width:540px">'
       +'<div class="modal-header"><div><div class="modal-title">'+(isEdit?'산출물 링크 수정':'산출물 링크 추가')+'</div><div class="modal-sub">이번 주 회의에서 공유할 결과물 위치와 맥락을 등록합니다.</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
-      +'<div class="form-row"><label class="form-label">관련 프로젝트</label><select id="weeklyOutputProject" onchange="updateWeeklyReviewOutputTaskOptions()">'+projectOptions+'</select></div>'
-      +'<div class="form-row"><label class="form-label">관련 태스크 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><select id="weeklyOutputTask" '+(selectedProjectId?'':'disabled')+'>'+renderWeeklyReviewOutputTaskOptions(selectedProjectId,selectedTaskId)+'</select></div>'
+      +'<div class="form-row"><label class="form-label">관련 프로젝트</label><div id="weeklyOutputProjectCombo"></div></div>'
+      +'<div class="form-row"><label class="form-label">관련 태스크 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><div id="weeklyOutputTaskCombo"></div></div>'
       +'<div class="form-row"><label class="form-label">제목</label><input id="weeklyOutputTitle" value="'+esc(existing?.title||'')+'" placeholder="예: 5월 결산 결과보고 초안"/></div>'
       +'<div class="form-row"><label class="form-label">원드라이브 링크</label><input id="weeklyOutputUrl" value="'+esc(existing?.onedrive_url||'')+'" placeholder="https://..."/></div>'
       +'<div class="form-row"><label class="form-label">메모 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><textarea id="weeklyOutputMemo" class="project-modal-memo" rows="3" placeholder="회의에서 설명할 맥락이나 확인 포인트">'+esc(existing?.memo||'')+'</textarea></div>'
       +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--text2);font-weight:700"><input id="weeklyOutputShare" type="checkbox" '+(existing?.share_in_weekly_review===false?'':'checked')+'/> 이번 주 회의에서 공유</label>'
       +'<div class="modal-footer"><div>'+deleteButtonHtml+'</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveWeeklyReviewOutput(\''+outputIdJs+'\')">저장</button></div></div>'
     +'</div></div>';
+  mountWeeklyOutputProjectCombobox(selectedProjectId);
+  mountWeeklyOutputTaskCombobox(selectedTaskId);
   if(typeof lockBodyScroll==='function')lockBodyScroll();
   if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
 }
@@ -1371,8 +1530,10 @@ async function saveWeeklyReviewOutput(outputId=''){
     alert('산출물 링크를 수정할 권한이 없습니다.');
     return;
   }
-  const projectId=String(document.getElementById('weeklyOutputProject')?.value||'').trim();
-  const taskId=String(document.getElementById('weeklyOutputTask')?.value||'').trim();
+  if(!validateWeeklyOutputProjectSelection())return;
+  if(!validateWeeklyOutputTaskSelection())return;
+  const projectId=String(getWeeklyOutputProjectIdFromForm()||'').trim();
+  const taskId=String(getWeeklyOutputTaskIdFromForm()||'').trim();
   const title=String(document.getElementById('weeklyOutputTitle')?.value||'').trim();
   const onedriveUrl=String(document.getElementById('weeklyOutputUrl')?.value||'').trim();
   const memo=String(document.getElementById('weeklyOutputMemo')?.value||'').trim();

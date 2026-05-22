@@ -322,10 +322,11 @@ function createCombobox(options={}){
     input.focus();
     openMenu();
   });
-  doc.addEventListener('mousedown',event=>{
+  function handleDocumentMouseDown(event){
     if(mount.contains(event.target)||menu.contains(event.target))return;
     closeMenu();
-  });
+  }
+  doc.addEventListener('mousedown',handleDocumentMouseDown);
   win.addEventListener('resize',positionMenu);
   win.addEventListener('scroll',positionMenu,true);
 
@@ -359,6 +360,7 @@ function createCombobox(options={}){
     destroy(){
       closeMenu();
       menu.remove();
+      doc.removeEventListener('mousedown',handleDocumentMouseDown);
       win.removeEventListener('resize',positionMenu);
       win.removeEventListener('scroll',positionMenu,true);
       mount.innerHTML='';
