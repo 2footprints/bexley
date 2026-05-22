@@ -4705,6 +4705,16 @@ td{
   font-family:inherit;
   font-size:12px;
 }
+#pageGantt .gantt-checklist-assignee{
+  width:100%;
+  min-width:0;
+}
+#pageGantt .gantt-checklist-assignee .bx-combobox-input{
+  min-height:36px;
+  padding:8px 34px 8px 10px;
+  border-radius:9px;
+  font-size:12px;
+}
 #pageGantt .gantt-checklist-row textarea{
   resize:vertical;
   min-height:44px;

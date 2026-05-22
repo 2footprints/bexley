@@ -2186,14 +2186,148 @@ function renderIssueContextSummary(projectId,taskId,tasks){
       +'</div>'
     +'</div>';
 }
+
+let issueProjectCombobox=null;
+let issueOwnerCombobox=null;
+let issueAssigneeCombobox=null;
+
+function getIssueProjectClientName(project){
+  return clients.find(client=>String(client?.id||'')===String(project?.client_id||''))?.name||'';
+}
+
+function getIssueProjectContractText(project){
+  const contract=contracts.find(row=>String(row?.id||'')===String(project?.contract_id||''))||null;
+  if(!contract)return '';
+  return [contract.contract_name||contract.title||contract.name||'',contract.contract_code||contract.contract_no||''].filter(Boolean).join(' ');
+}
+
+function getIssueProjectComboSubLabel(project){
+  const parts=[];
+  const clientName=getIssueProjectClientName(project);
+  if(clientName)parts.push(clientName);
+  if(Array.isArray(project?.members)&&project.members.length)parts.push(project.members.join(', '));
+  if(project?.status)parts.push(project.status);
+  const endDate=project?.end_date||project?.end;
+  if(endDate)parts.push('마감 '+endDate);
+  return parts.join(' · ');
+}
+
+function getIssueProjectComboSearchText(project){
+  return [
+    project?.name,
+    getIssueProjectClientName(project),
+    Array.isArray(project?.members)?project.members.join(' '):'',
+    project?.status,
+    project?.service_type,
+    project?.type,
+    project?.project_code,
+    project?.code,
+    getIssueProjectContractText(project)
+  ].filter(Boolean).join(' ');
+}
+
+function getIssueMemberComboItems(){
+  return [...(members||[])].sort((a,b)=>{
+    const activeDiff=(b?.is_active!==false?1:0)-(a?.is_active!==false?1:0);
+    if(activeDiff)return activeDiff;
+    return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+  });
+}
+
+function getIssueMemberComboSubLabel(member){
+  return [member?.team,member?.rank,member?.email,member?.is_active===false?'비활성':'' ].filter(Boolean).join(' · ');
+}
+
+function getIssueMemberComboSearchText(member){
+  return [member?.name,member?.email,member?.team,member?.rank].filter(Boolean).join(' ');
+}
+
+function mountIssueProjectCombobox(selectedProjectId,editable){
+  const mount=document.getElementById('issueProjCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  if(issueProjectCombobox&&typeof issueProjectCombobox.destroy==='function')issueProjectCombobox.destroy();
+  issueProjectCombobox=createCombobox({
+    mount,
+    items:[...(projects||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko')),
+    getLabel:item=>item?.name||'프로젝트명 없음',
+    getSubLabel:getIssueProjectComboSubLabel,
+    getSearchText:getIssueProjectComboSearchText,
+    getValue:item=>item?.id||'',
+    value:selectedProjectId||'',
+    placeholder:'프로젝트명을 입력하세요',
+    disabled:!editable,
+    required:false,
+    maxItems:10,
+    allowClear:true,
+    onSelect:()=>syncIssueTaskField(),
+    onClear:()=>syncIssueTaskField('')
+  });
+}
+
+function mountIssueMemberCombobox(kind,selectedMemberId,editable){
+  const mount=document.getElementById(kind==='owner'?'issueOwnerCombo':'issueAssigneeCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  const current=kind==='owner'?issueOwnerCombobox:issueAssigneeCombobox;
+  if(current&&typeof current.destroy==='function')current.destroy();
+  const instance=createCombobox({
+    mount,
+    items:getIssueMemberComboItems(),
+    getLabel:item=>item?.name||'이름 없음',
+    getSubLabel:getIssueMemberComboSubLabel,
+    getSearchText:getIssueMemberComboSearchText,
+    getValue:item=>item?.id||'',
+    value:selectedMemberId||'',
+    placeholder:kind==='owner'?'오너를 검색하세요':'담당자를 검색하세요',
+    disabled:!editable,
+    required:false,
+    maxItems:10,
+    allowClear:true
+  });
+  if(kind==='owner')issueOwnerCombobox=instance;
+  else issueAssigneeCombobox=instance;
+}
+
+function getIssueProjectIdFromForm(){
+  if(issueProjectCombobox&&typeof issueProjectCombobox.getValue==='function')return issueProjectCombobox.getValue()||'';
+  return document.getElementById('issueProj')?.value||'';
+}
+
+function getIssueOwnerMemberIdFromForm(){
+  if(issueOwnerCombobox&&typeof issueOwnerCombobox.getValue==='function')return issueOwnerCombobox.getValue()||'';
+  return document.getElementById('issueOwner')?.value||'';
+}
+
+function getIssueAssigneeMemberIdFromForm(){
+  if(issueAssigneeCombobox&&typeof issueAssigneeCombobox.getValue==='function')return issueAssigneeCombobox.getValue()||'';
+  return document.getElementById('issueAssignee')?.value||'';
+}
+
+function validateIssueComboboxSelections(){
+  if(issueProjectCombobox&&typeof issueProjectCombobox.hasUncommittedText==='function'&&issueProjectCombobox.hasUncommittedText()){
+    alert('목록에서 프로젝트를 선택해 주세요.');
+    issueProjectCombobox.input?.focus();
+    return false;
+  }
+  if(issueOwnerCombobox&&typeof issueOwnerCombobox.hasUncommittedText==='function'&&issueOwnerCombobox.hasUncommittedText()){
+    alert('목록에서 담당자를 선택해 주세요.');
+    issueOwnerCombobox.input?.focus();
+    return false;
+  }
+  if(issueAssigneeCombobox&&typeof issueAssigneeCombobox.hasUncommittedText==='function'&&issueAssigneeCombobox.hasUncommittedText()){
+    alert('목록에서 담당자를 선택해 주세요.');
+    issueAssigneeCombobox.input?.focus();
+    return false;
+  }
+  return true;
+}
+
 async function syncIssueTaskField(preferredTaskId=''){
-  const projectEl=document.getElementById('issueProj');
   const taskWrap=document.getElementById('issueTaskWrap');
   const taskEl=document.getElementById('issueTask');
   const helpEl=document.getElementById('issueTaskHelp');
   const summaryEl=document.getElementById('issueContextSummary');
-  if(!projectEl||!taskWrap||!taskEl||!helpEl||!summaryEl)return;
-  const projectId=String(projectEl.value||'').trim();
+  if(!taskWrap||!taskEl||!helpEl||!summaryEl)return;
+  const projectId=String(getIssueProjectIdFromForm()||'').trim();
   const fallbackTaskId=preferredTaskId!==undefined&&preferredTaskId!==null?String(preferredTaskId||''):String(taskEl.value||'');
   if(!projectId){
     taskWrap.style.display='block';
@@ -3125,6 +3259,197 @@ function getNextDateString(dateValue){
   return date.toISOString().slice(0,10);
 }
 
+let contractClientCombobox=null;
+
+function getContractClientComboSubLabel(client){
+  const parts=[];
+  const team=String(client?.assigned_team||'').trim();
+  const tags=Array.isArray(client?.tags)?client.tags.filter(Boolean):String(client?.tags||'').split(',').map(tag=>tag.trim()).filter(Boolean);
+  if(team)parts.push(team);
+  if(tags.length)parts.push('태그: '+tags.join(', '));
+  if(client?.portal_email)parts.push('포털 활성');
+  return parts.join(' · ');
+}
+
+function getContractClientComboSearchText(client){
+  const tags=Array.isArray(client?.tags)?client.tags.join(' '):String(client?.tags||'');
+  return [
+    client?.name,
+    client?.assigned_team,
+    tags,
+    client?.representative_name,
+    client?.memo
+  ].filter(Boolean).join(' ');
+}
+
+function mountContractClientCombobox(selectedClientId,editable){
+  const mount=document.getElementById('ctClientCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  if(contractClientCombobox&&typeof contractClientCombobox.destroy==='function'){
+    contractClientCombobox.destroy();
+  }
+  contractClientCombobox=createCombobox({
+    mount,
+    items:[...(clients||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko')),
+    getLabel:item=>item?.name||'고객사명 없음',
+    getSubLabel:getContractClientComboSubLabel,
+    getSearchText:getContractClientComboSearchText,
+    getValue:item=>item?.id||'',
+    value:selectedClientId||'',
+    placeholder:'고객사명을 입력하세요',
+    disabled:!editable,
+    required:true,
+    maxItems:10,
+    allowClear:true
+  });
+}
+
+function getContractClientIdFromForm(){
+  if(contractClientCombobox&&typeof contractClientCombobox.getValue==='function'){
+    return contractClientCombobox.getValue()||'';
+  }
+  return document.getElementById('ctClient')?.value||'';
+}
+
+function validateContractClientSelection(){
+  if(contractClientCombobox&&typeof contractClientCombobox.hasUncommittedText==='function'&&contractClientCombobox.hasUncommittedText()){
+    alert('목록에서 고객사를 선택해 주세요.');
+    contractClientCombobox.input?.focus();
+    return false;
+  }
+  if(!getContractClientIdFromForm()){
+    alert('목록에서 고객사를 선택해 주세요.');
+    contractClientCombobox?.input?.focus();
+    return false;
+  }
+  return true;
+}
+
+let projectClientCombobox=null;
+let projectContractCombobox=null;
+
+function getProjectClientComboSubLabel(client){
+  return getContractClientComboSubLabel(client);
+}
+
+function getProjectClientComboSearchText(client){
+  return getContractClientComboSearchText(client);
+}
+
+function getProjectContractName(contract){
+  return contract?.contract_name||contract?.title||contract?.name||'계약명 없음';
+}
+
+function getProjectContractClientName(contract){
+  return clients.find(client=>String(client?.id||'')===String(contract?.client_id||''))?.name||'';
+}
+
+function getProjectContractComboSubLabel(contract){
+  const parts=[];
+  if(contract?.contract_status)parts.push(contract.contract_status);
+  const period=[contract?.contract_start_date,contract?.contract_end_date].filter(Boolean).join(' ~ ');
+  if(period)parts.push(period);
+  if(contract?.contract_amount)parts.push(Number(contract.contract_amount).toLocaleString()+'원');
+  return parts.join(' · ');
+}
+
+function getProjectContractComboSearchText(contract){
+  return [
+    getProjectContractName(contract),
+    contract?.contract_no,
+    contract?.contract_code,
+    contract?.contract_status,
+    contract?.contract_start_date,
+    contract?.contract_end_date,
+    contract?.contract_amount,
+    getProjectContractClientName(contract)
+  ].filter(Boolean).join(' ');
+}
+
+function getProjectContractsForClient(clientId){
+  if(!clientId)return [];
+  return (contracts||[]).filter(contract=>String(contract?.client_id||'')===String(clientId));
+}
+
+function mountProjectClientCombobox(selectedClientId,editable){
+  const mount=document.getElementById('fClientCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  if(projectClientCombobox&&typeof projectClientCombobox.destroy==='function'){
+    projectClientCombobox.destroy();
+  }
+  projectClientCombobox=createCombobox({
+    mount,
+    items:[...(clients||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko')),
+    getLabel:item=>item?.name||'고객사명 없음',
+    getSubLabel:getProjectClientComboSubLabel,
+    getSearchText:getProjectClientComboSearchText,
+    getValue:item=>item?.id||'',
+    value:selectedClientId||'',
+    placeholder:'고객사명을 입력하세요',
+    disabled:!editable,
+    required:false,
+    maxItems:10,
+    allowClear:true,
+    onSelect:onClientChange,
+    onClear:onClientChange
+  });
+}
+
+function mountProjectContractCombobox(selectedContractId,editable){
+  const mount=document.getElementById('fContractCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  if(projectContractCombobox&&typeof projectContractCombobox.destroy==='function'){
+    projectContractCombobox.destroy();
+  }
+  const clientId=getProjectClientIdFromForm();
+  const contractItems=getProjectContractsForClient(clientId);
+  const validContractId=contractItems.some(contract=>String(contract?.id||'')===String(selectedContractId||''))?selectedContractId:'';
+  projectContractCombobox=createCombobox({
+    mount,
+    items:contractItems,
+    getLabel:getProjectContractName,
+    getSubLabel:getProjectContractComboSubLabel,
+    getSearchText:getProjectContractComboSearchText,
+    getValue:item=>item?.id||'',
+    value:validContractId||'',
+    placeholder:clientId?'계약명을 입력하세요':'고객사를 먼저 선택하세요',
+    disabled:!editable||!clientId,
+    required:false,
+    maxItems:10,
+    allowClear:true,
+    onSelect:item=>onContractChange(item?.id||''),
+    onClear:()=>onContractChange('')
+  });
+}
+
+function getProjectClientIdFromForm(){
+  if(projectClientCombobox&&typeof projectClientCombobox.getValue==='function'){
+    return projectClientCombobox.getValue()||'';
+  }
+  return document.getElementById('fClient')?.value||'';
+}
+
+function getProjectContractIdFromForm(){
+  if(projectContractCombobox&&typeof projectContractCombobox.getValue==='function'){
+    return projectContractCombobox.getValue()||'';
+  }
+  return document.getElementById('fContract')?.value||'';
+}
+
+function validateProjectClientAndContractSelection(){
+  if(projectClientCombobox&&typeof projectClientCombobox.hasUncommittedText==='function'&&projectClientCombobox.hasUncommittedText()){
+    alert('목록에서 고객사를 선택해 주세요.');
+    projectClientCombobox.input?.focus();
+    return false;
+  }
+  if(projectContractCombobox&&typeof projectContractCombobox.hasUncommittedText==='function'&&projectContractCombobox.hasUncommittedText()){
+    alert('목록에서 계약을 선택해 주세요.');
+    projectContractCombobox.input?.focus();
+    return false;
+  }
+  return true;
+}
+
 function openContractModal(eid, preClientId, renewalSourceId){
   if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   editingContractId=eid||null;
@@ -3133,7 +3458,6 @@ function openContractModal(eid, preClientId, renewalSourceId){
   const base=ct||renewalSource||null;
   const editable=!ct||isAdmin||ct.created_by===currentUser?.id;
   const selectedClientId=(ct&&ct.client_id)||preClientId||(renewalSource&&renewalSource.client_id)||'';
-  const cOpts=clients.map(c=>'<option value="'+c.id+'"'+(selectedClientId===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
   const statusOpts=['검토중','진행중','완료','해지'].map(s=>'<option '+(ct&&ct.contract_status===s?'selected':'')+'>'+s+'</option>').join('');
   const isManaged=ct?ct.is_managed===true:(renewalSource?renewalSource.is_managed===true:true);
   const initialName=ct?ct.contract_name||'':(renewalSource?((renewalSource.contract_name||'')+' (갱신)'):'' );
@@ -3148,7 +3472,7 @@ function openContractModal(eid, preClientId, renewalSourceId){
     +'<input type="checkbox" id="ctManaged" '+(isManaged?'checked':'')+' '+(editable?'':'disabled')+'/>'
     +'<label for="ctManaged" style="font-size:13px;font-weight:700;color:var(--blue)">우리 팀 관리 계약 (계약 탭에 표시)</label></div>'
     +(renewalSource&&!ct?'<div class="helper-box" style="margin-bottom:16px"><div class="helper-title">갱신 계약 생성</div><div class="helper-text">이전 계약으로 <strong>'+esc(renewalSource.contract_name||'계약')+'</strong>이 연결됩니다.</div></div>':'')
-    +'<div class="form-row"><label class="form-label">고객사</label><select id="ctClient" '+(editable?'':'disabled')+'><option value="">고객사 선택</option>'+cOpts+'</select></div>'
+    +'<div class="form-row"><label class="form-label">고객사</label><div id="ctClientCombo"></div></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">계약명</label><input id="ctName" value="'+esc(initialName)+'" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
     +'<div class="form-row"><label class="form-label">계약 코드</label><input id="ctCode" value="'+esc(base?base.contract_code||'':'')+'" placeholder="예) BX-2026-001" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div></div>'
     +'<div class="form-half"><div class="form-row"><label class="form-label">계약 유형</label><input id="ctType" value="'+esc(base?base.contract_type||'':'')+'" placeholder="예) 감사, 세무자문" '+(editable?'':'readonly style="background:var(--bg)"')+'/></div>'
@@ -3175,12 +3499,14 @@ function openContractModal(eid, preClientId, renewalSourceId){
     +'<div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">'+(editable?'취소':'닫기')+'</button>'
     +(editable?'<button class="btn primary" onclick="saveContract()">저장</button>':'')
     +'</div></div></div></div>';
+  mountContractClientCombobox(selectedClientId,editable);
   if(editable) document.getElementById('ctName').focus();
 }
 
 async function saveContract(){
   if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
-  const client_id=document.getElementById('ctClient').value;
+  if(!validateContractClientSelection())return;
+  const client_id=getContractClientIdFromForm();
   const contract_name=document.getElementById('ctName').value.trim();
   if(!contract_name){alert('계약명을 입력해주세요.');return;}
   const body={
@@ -4262,12 +4588,11 @@ function renderProjModal(p,editable,preClientId,preContractId){
   const d=daysInMonth(curYear,curMonth);
   const selClientId=p?.client_id||preClientId||'';
   const selContractId=p?.contract_id||preContractId||'';
-  const cOpts=clients.map(c=>'<option value="'+c.id+'"'+(selClientId===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('');
   const clientContracts=contracts.filter(ct=>ct.client_id===selClientId);
-  const ctOpts=clientContracts.map(ct=>'<option value="'+ct.id+'"'+(selContractId===ct.id?' selected':'')+'>'+esc(ct.contract_name)+(ct.contract_amount?' ('+Number(ct.contract_amount).toLocaleString()+'원)':'')+'</option>').join('');
+  const resolvedContractId=clientContracts.some(ct=>String(ct.id)===String(selContractId))?selContractId:'';
   const mOpts=members.map(m=>'<option value="'+m.name+'">'+esc(m.name)+'</option>').join('');
   const isBillable=p?p.is_billable!==false:true;
-  const linkedContract=selContractId?contracts.find(x=>x.id===selContractId):null;
+  const linkedContract=resolvedContractId?contracts.find(x=>x.id===resolvedContractId):null;
   const completionHelper=(p&&p.status==='완료')
     ?'<div class="helper-box" style="margin-bottom:12px"><div class="helper-title">완료 후속 정리</div><div class="helper-text">실제 완료일, 결과 요약, 내부 메모, 후속 액션을 한 번에 정리해두면 청구/재제안/사후관리 흐름이 훨씬 매끈해집니다.</div></div>'
     :'<div class="readonly-notice" style="margin-bottom:12px">프로젝트 상태가 완료가 아니어도 미리 작성할 수 있습니다. 완료 처리 시 실제 완료일과 후속 액션을 함께 점검해보세요.</div>';
@@ -4289,8 +4614,8 @@ function renderProjModal(p,editable,preClientId,preContractId){
         <div class="modal-tab-content project-modal-basic${projModalTab==='basic'?' active':''}" data-tab="basic">
           <div class="form-row"><label class="form-label">프로젝트명</label><input id="fName" value="${esc(p?p.name:'')}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
           <div class="form-half project-basic-grid">
-            <div class="form-row"><label class="form-label">고객사</label><select id="fClient" ${editable?'onchange="onClientChange()"':'disabled'}><option value="">고객사 없음</option>${cOpts}</select></div>
-            <div class="form-row"><label class="form-label">계약 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><select id="fContract" ${editable?'onchange="onContractChange()"':'disabled'}><option value="">계약 없음</option>${ctOpts}</select></div>
+            <div class="form-row"><label class="form-label">고객사</label><div id="fClientCombo"></div></div>
+            <div class="form-row"><label class="form-label">계약 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><div id="fContractCombo"></div></div>
           </div>
           <div id="contractHint" class="project-contract-link" style="${linkedContract?'':'display:none'}">${linkedContract?'<span class="project-contract-link-kicker">연결 계약</span><strong>'+esc(linkedContract.contract_name)+'</strong>'+(linkedContract.contract_amount?'<span>'+Number(linkedContract.contract_amount).toLocaleString()+'원</span>':''):''}</div>
           <div class="form-half project-basic-grid">
@@ -4391,21 +4716,22 @@ function renderProjModal(p,editable,preClientId,preContractId){
     document.getElementById('fStart').oninput=refreshConflict;
     document.getElementById('fEnd').oninput=refreshConflict;
   }
+  mountProjectClientCombobox(selClientId,editable);
+  mountProjectContractCombobox(resolvedContractId,editable);
   document.getElementById('fName')?.focus();
 }
 
 function onClientChange(){
-  const clientId=document.getElementById('fClient')?.value||'';
-  const ctSel=document.getElementById('fContract');
-  if(!ctSel)return;
-  const clientContracts=contracts.filter(ct=>ct.client_id===clientId);
-  ctSel.innerHTML='<option value="">계약 없음</option>'
-    +clientContracts.map(ct=>'<option value="'+ct.id+'">'+esc(ct.contract_name)+(ct.contract_amount?' ('+Number(ct.contract_amount).toLocaleString()+'원)':'')+'</option>').join('');
-  updateContractHint('');
+  const clientId=getProjectClientIdFromForm();
+  const currentContractId=getProjectContractIdFromForm();
+  const clientContracts=getProjectContractsForClient(clientId);
+  const nextContractId=clientContracts.some(contract=>String(contract?.id||'')===String(currentContractId||''))?currentContractId:'';
+  mountProjectContractCombobox(nextContractId,!!document.getElementById('fName')&&!document.getElementById('fName').readOnly);
+  updateContractHint(nextContractId);
 }
 
-function onContractChange(){
-  const ctId=document.getElementById('fContract')?.value||'';
+function onContractChange(selectedContractId){
+  const ctId=selectedContractId!=null?selectedContractId:(getProjectContractIdFromForm()||'');
   updateContractHint(ctId);
   autoFillFromContract(ctId);
 }
@@ -4461,8 +4787,9 @@ async function saveProj(){
   const status=document.getElementById('fStatus').value;
   const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseInt(document.getElementById('fEstimatedHours').value,10):null;
   const priority=document.getElementById('fPriority')?.value||'medium';
-  const client_id=document.getElementById('fClient').value||null;
-  const contract_id=document.getElementById('fContract')?.value||null;
+  if(!validateProjectClientAndContractSelection())return;
+  const client_id=getProjectClientIdFromForm()||null;
+  const contract_id=getProjectContractIdFromForm()||null;
   const is_billable=document.getElementById('fBillable').checked;
   const billing_status=is_billable?document.getElementById('fBilling').value:'미청구';
   const billing_amount=is_billable&&document.getElementById('fAmt').value?parseInt(document.getElementById('fAmt').value):null;
@@ -5808,15 +6135,13 @@ async function openIssueModal(projId='',issueId=''){
   const dueDateValue=normalizeIssueDueDate(issue?.due_date)||'';
   const estimatedHoursValue=normalizeIssueEstimatedHours(issue?.estimated_hours);
   const projectTasks=selectedProjectId?await loadIssueModalTasks(selectedProjectId):[];
-  const projOpts=projects.map(p=>{const c=clients.find(x=>x.id===p.client_id);const selected=(issue?issue.project_id===p.id:p.id===projId);return '<option value="'+p.id+'"'+(selected?' selected':'')+'>'+esc((c?c.name+' · ':'')+p.name)+'</option>';}).join('');
   const ownerSelected=issue?.owner_member_id||(currentMember?.id||'');
   const assigneeSelected=issue?.assignee_member_id||'';
-  const memberOptions=(selectedId)=>members.map(m=>'<option value="'+m.id+'"'+(selectedId===m.id?' selected':'')+'>'+esc(m.name)+'</option>').join('');
   document.getElementById('modalArea').innerHTML=`
     ${editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">'}
       <div class="modal ui-modal-540">
         <div class="modal-title">${issue?(editable?'🚨 이슈 수정':'🚨 이슈 상세'):'🚨 이슈 등록'}</div>
-        <div class="form-row"><label class="form-label">관련 프로젝트</label><select id="issueProj" ${editable?'onchange="syncIssueTaskField()"':'disabled'}><option value="">선택 (선택사항)</option>${projOpts}</select></div>
+        <div class="form-row"><label class="form-label">관련 프로젝트</label><div id="issueProjCombo"></div></div>
         <div class="form-row" id="issueTaskWrap"><label class="form-label">관련 업무</label><select id="issueTask" ${editable?'onchange="syncIssueTaskField()"':'disabled'}>${selectedProjectId?buildIssueTaskOptions(projectTasks,selectedTaskId):'<option value="">프로젝트를 먼저 선택하세요</option>'}</select><div id="issueTaskHelp" style="font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5">${selectedProjectId?(projectTasks.length?'특정 업무를 고르면 업무 연결 이슈로, 비워두면 프로젝트 단위 이슈로 저장됩니다.':'이 프로젝트에 등록된 업무가 없어 프로젝트 단위 이슈로만 저장할 수 있습니다.'):'프로젝트를 선택하면 특정 업무에 연결할 수 있습니다. 선택하지 않으면 프로젝트 단위 이슈로 저장됩니다.'}</div></div>
         <div id="issueContextSummary">${renderIssueContextSummary(selectedProjectId,selectedTaskId,projectTasks)}</div>
         <div class="form-row"><label class="form-label">이슈 제목 *</label><input id="issueTitle" value="${esc(issue?.title||'')}" placeholder="예) DB 접근 오류 발생" ${editable?'':'readonly style="background:var(--bg)"'} autofocus/></div>
@@ -5826,8 +6151,8 @@ async function openIssueModal(projId='',issueId=''){
           <div class="form-row"><label class="form-label">예상 시간</label><div style="display:flex;align-items:center;gap:8px"><input type="number" id="issueEstimatedHours" min="0" step="0.5" value="${estimatedHoursValue??''}" placeholder="예) 2.5" ${editable?'':'readonly style="background:var(--bg)"'}/><span style="font-size:12px;color:var(--text3);white-space:nowrap">시간</span></div></div>
         </div>
         <div class="form-half">
-          <div class="form-row"><label class="form-label">오너</label><select id="issueOwner" ${editable?'':'disabled'}><option value="">선택 안 함</option>${memberOptions(ownerSelected)}</select></div>
-          <div class="form-row"><label class="form-label">담당자</label><select id="issueAssignee" ${editable?'':'disabled'}><option value="">선택 안 함</option>${memberOptions(assigneeSelected)}</select></div>
+          <div class="form-row"><label class="form-label">오너</label><div id="issueOwnerCombo"></div></div>
+          <div class="form-row"><label class="form-label">담당자</label><div id="issueAssigneeCombo"></div></div>
         </div>
         <div class="form-half">
           <div class="form-row"><label class="form-label">상태</label><select id="issueStatus" ${editable?'onchange="syncIssueWaitingReasonVisibility()"':'disabled'}><option value="open" ${statusValue==='open'?'selected':''}>열림</option><option value="in_progress" ${statusValue==='in_progress'?'selected':''}>진행중</option><option value="waiting" ${statusValue==='waiting'?'selected':''}>대기</option><option value="resolved" ${statusValue==='resolved'?'selected':''}>해결</option></select></div>
@@ -5849,6 +6174,9 @@ async function openIssueModal(projId='',issueId=''){
         </div>
       </div>
     </div>`;
+  mountIssueProjectCombobox(selectedProjectId,editable);
+  mountIssueMemberCombobox('owner',ownerSelected,editable);
+  mountIssueMemberCombobox('assignee',assigneeSelected,editable);
   syncIssueWaitingReasonVisibility();
   syncIssueTaskField(selectedTaskId);
 }
@@ -5857,7 +6185,8 @@ async function saveIssue(issueId=''){
   const title=document.getElementById('issueTitle').value.trim();
   if(!title){alert('이슈 제목을 입력해주세요.');return;}
   const content=document.getElementById('issueContent').value.trim()||null;
-  let project_id=document.getElementById('issueProj').value||null;
+  if(!validateIssueComboboxSelections())return;
+  let project_id=getIssueProjectIdFromForm()||null;
   if(!issueId&&typeof ganttIssueModalProjectId!=='undefined'&&ganttIssueModalProjectId)project_id=ganttIssueModalProjectId;
   let task_id=document.getElementById('issueTask')?.value||null;
   if(project_id&&task_id){
@@ -5866,8 +6195,8 @@ async function saveIssue(issueId=''){
   }else{
     task_id=null;
   }
-  const owner_member_id=document.getElementById('issueOwner').value||null;
-  const assignee_member_id=document.getElementById('issueAssignee').value||null;
+  const owner_member_id=getIssueOwnerMemberIdFromForm()||null;
+  const assignee_member_id=getIssueAssigneeMemberIdFromForm()||null;
   const ownerMember=getMemberById(owner_member_id);
   const assigneeMember=getMemberById(assignee_member_id);
   const priority=document.getElementById('issuePriority')?.value||'medium';
@@ -7023,12 +7352,10 @@ saveProj = async function(){
   const status=document.getElementById('fStatus')?.value;
   const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseFloat(document.getElementById('fEstimatedHours').value):null;
   const priority=document.getElementById('fPriority')?.value||'medium';
-  const client_id=document.getElementById('fClient')?.value||null;
-  const contract_id=document.getElementById('fContract')?.value||null;
+  if(!validateProjectClientAndContractSelection())return;
+  const client_id=getProjectClientIdFromForm()||null;
+  const contract_id=getProjectContractIdFromForm()||null;
   const is_billable=!!document.getElementById('fBillable')?.checked;
-  legacy billing status placeholder removed for reference only
-  const billing_status=is_billable?(document.getElementById('fBilling')?.value||'미청구'):'미청구';
-  legacy billing status placeholder end
   const billingPendingStatus='\uBBF8\uCCAD\uAD6C';
   const doneStatus='\uC644\uB8CC';
   const billing_status=is_billable?(document.getElementById('fBilling')?.value||billingPendingStatus):billingPendingStatus;
@@ -8297,8 +8624,9 @@ window.saveProj = async function(){
   const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseFloat(document.getElementById('fEstimatedHours').value):null;
   const actual_hours=document.getElementById('fActualHours')?.value?parseFloat(document.getElementById('fActualHours').value):null;
   const priority=document.getElementById('fPriority')?.value||'medium';
-  const client_id=document.getElementById('fClient')?.value||null;
-  const contract_id=document.getElementById('fContract')?.value||null;
+  if(!validateProjectClientAndContractSelection())return;
+  const client_id=getProjectClientIdFromForm()||null;
+  const contract_id=getProjectContractIdFromForm()||null;
   const is_billable=!!document.getElementById('fBillable')?.checked;
   const billingPendingStatus='\uBBF8\uCCAD\uAD6C';
   const doneStatus='\uC644\uB8CC';

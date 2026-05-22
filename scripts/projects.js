@@ -3302,6 +3302,62 @@ function getProjectTaskModalMemberOptions(selectedId){
       .map(member=>'<option value="'+member.id+'"'+(String(member.id)===normalized?' selected':'')+'>'+esc(member.name||'이름 없음')+'</option>').join('');
 }
 
+let projectTaskAssigneeCombobox=null;
+
+function getProjectTaskAssigneeItems(){
+  return [...(members||[])].sort((a,b)=>{
+    const activeDiff=(b?.is_active!==false?1:0)-(a?.is_active!==false?1:0);
+    if(activeDiff)return activeDiff;
+    return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+  });
+}
+
+function getProjectTaskAssigneeSubLabel(member){
+  return [member?.team,member?.rank,member?.email,member?.is_active===false?'비활성':'' ].filter(Boolean).join(' · ');
+}
+
+function getProjectTaskAssigneeSearchText(member){
+  return [member?.name,member?.email,member?.team,member?.rank].filter(Boolean).join(' ');
+}
+
+function mountProjectTaskAssigneeCombobox(selectedMemberId=''){
+  const mount=document.getElementById('taskAssigneeCombo');
+  if(!mount||typeof createCombobox!=='function')return;
+  if(projectTaskAssigneeCombobox&&typeof projectTaskAssigneeCombobox.destroy==='function'){
+    projectTaskAssigneeCombobox.destroy();
+  }
+  projectTaskAssigneeCombobox=createCombobox({
+    mount,
+    items:getProjectTaskAssigneeItems(),
+    getLabel:item=>item?.name||'이름 없음',
+    getSubLabel:getProjectTaskAssigneeSubLabel,
+    getSearchText:getProjectTaskAssigneeSearchText,
+    getValue:item=>item?.id||'',
+    value:selectedMemberId||'',
+    placeholder:'담당자를 검색하세요',
+    disabled:false,
+    required:false,
+    maxItems:10,
+    allowClear:true
+  });
+}
+
+function getProjectTaskAssigneeIdFromForm(){
+  if(projectTaskAssigneeCombobox&&typeof projectTaskAssigneeCombobox.getValue==='function'){
+    return projectTaskAssigneeCombobox.getValue()||'';
+  }
+  return document.getElementById('taskAssignee')?.value||'';
+}
+
+function validateProjectTaskAssigneeSelection(){
+  if(projectTaskAssigneeCombobox&&typeof projectTaskAssigneeCombobox.hasUncommittedText==='function'&&projectTaskAssigneeCombobox.hasUncommittedText()){
+    alert('목록에서 담당자를 선택해 주세요.');
+    projectTaskAssigneeCombobox.input?.focus();
+    return false;
+  }
+  return true;
+}
+
 async function loadGanttProjectTasks(projectId,force){
   const key=String(projectId||'');
   if(!key)return;
@@ -3347,7 +3403,7 @@ function openProjectTaskModal(projectId,taskId){
       +'<div class="project-task-form">'
         +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
         +'<div class="form-grid two">'
-          +'<div class="form-row"><label class="form-label">담당자</label><select id="taskAssignee">'+getProjectTaskModalMemberOptions(task?.assignee_member_id||'')+'</select></div>'
+          +'<div class="form-row"><label class="form-label">담당자</label><div id="taskAssigneeCombo"></div></div>'
           +'<div class="form-row"><label class="form-label">상태</label><select id="taskStatus">'+GANTT_TASK_STATUS_OPTIONS.map(status=>'<option value="'+status+'"'+((task?.status||'예정')===status?' selected':'')+'>'+status+'</option>').join('')+'</select></div>'
           +'<div class="form-row"><label class="form-label">우선순위</label><select id="taskPriority">'+GANTT_TASK_PRIORITY_OPTIONS.map(option=>'<option value="'+option.value+'"'+((String(task?.priority||'medium')===option.value)?' selected':'')+'>'+option.label+'</option>').join('')+'</select></div>'
           +'<div class="form-row"><label class="form-label">진행률</label><div class="project-hours-input"><input id="taskProgress" type="number" min="0" max="100" step="5" value="'+progressValue+'"><span>%</span></div></div>'
@@ -3359,6 +3415,7 @@ function openProjectTaskModal(projectId,taskId){
       +'<div class="modal-footer"><div class="muted">필수 입력은 업무 제목만이며, 나머지는 나중에 보강해도 됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveProjectTask()">저장</button></div></div>'
     +'</div>'
     +'</div>';
+  mountProjectTaskAssigneeCombobox(task?.assignee_member_id||'');
   if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
   if(typeof lockBodyScroll==='function')lockBodyScroll();
 }
@@ -3373,9 +3430,10 @@ async function saveProjectTask(){
     alert('업무 제목을 입력해 주세요.');
     return;
   }
+  if(!validateProjectTaskAssigneeSelection())return;
   const status=String(document.getElementById('taskStatus')?.value||existingTask?.status||'예정').trim()||'예정';
   const priority=String(existingTask?.priority||'medium').trim()||'medium';
-  const assigneeMemberId=document.getElementById('taskAssignee')?.value||null;
+  const assigneeMemberId=getProjectTaskAssigneeIdFromForm()||null;
   const startDate=existingTask?.start_date||null;
   const dueDate=document.getElementById('taskDue')?.value||null;
   const description=document.getElementById('taskDescription')?.value.trim()||null;
@@ -3726,7 +3784,7 @@ function openProjectTaskModal(projectId,taskId){
           +'<div class="project-task-form-section-title">업무 기본 정보</div>'
           +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
           +'<div class="form-grid two">'
-            +'<div class="form-row"><label class="form-label">담당자</label><select id="taskAssignee">'+getProjectTaskModalMemberOptions(task?.assignee_member_id||'')+'</select></div>'
+            +'<div class="form-row"><label class="form-label">담당자</label><div id="taskAssigneeCombo"></div></div>'
             +'<div class="form-row"><label class="form-label">상태</label><select id="taskStatus" onchange="syncProjectTaskStatusUI()">'+GANTT_TASK_STATUS_OPTIONS.map(status=>'<option value="'+status+'"'+((task?.status||'예정')===status?' selected':'')+'>'+status+'</option>').join('')+'</select></div>'
             +'<div class="form-row"><label class="form-label">기한</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
           +'</div>'
@@ -3736,6 +3794,7 @@ function openProjectTaskModal(projectId,taskId){
       +'<div class="modal-footer"><div class="muted">필수 입력은 업무 제목만이며, 나머지는 운영 상황에 맞춰 나중에 보강해도 됩니다.</div><div class="modal-footer-right">'+(task?'<button class="btn ghost gantt-task-delete-btn" onclick="deleteProjectTask(\''+projectId+'\',\''+task.id+'\')">삭제</button>':'')+'<button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveProjectTask()">저장</button></div></div>'
     +'</div>'
     +'</div>';
+  mountProjectTaskAssigneeCombobox(task?.assignee_member_id||'');
   if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
   if(typeof lockBodyScroll==='function')lockBodyScroll();
 }
@@ -6806,6 +6865,7 @@ renderGanttDetailPanel=function(projs,schs){
   if(!project){
     const placeholderKey='placeholder:'+String(ganttFocusProjectId||'');
     if(el.dataset.renderSignature===placeholderKey)return;
+    destroyGanttChecklistAssigneeComboboxes();
     el.classList.remove('is-open');
     el.dataset.projectId='';
     el.dataset.activeTab='';
@@ -6815,6 +6875,7 @@ renderGanttDetailPanel=function(projs,schs){
   }
   const renderSignature=getGanttDetailRenderSignature(projs);
   if(el.dataset.renderSignature===renderSignature)return;
+  destroyGanttChecklistAssigneeComboboxes();
   el.classList.add('is-open');
   el.dataset.projectId=String(project.id||'');
   el.dataset.activeTab=String(ganttDetailTab||'overview');
@@ -6833,6 +6894,7 @@ renderGanttDetailPanel=function(projs,schs){
   let sectionHtml=renderGanttProjectOverviewSection(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount);
   if(ganttDetailTab==='work')sectionHtml=renderGanttProjectWorkSection(project,memberSchedules);
   else if(ganttDetailTab==='issues')sectionHtml=renderGanttProjectIssuesSection(project);
+  else if(ganttDetailTab==='checklist')sectionHtml=renderGanttProjectChecklistSection(project);
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
   const primaryAction=ganttDetailTab==='work'
     ?'<button class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button>'
@@ -6860,6 +6922,7 @@ renderGanttDetailPanel=function(projs,schs){
     +renderGanttProjectLifecycleActionPanel(project)
     +renderGanttDetailTabBar()
     +sectionHtml;
+  if(ganttDetailTab==='checklist')mountGanttChecklistAssigneeComboboxes();
   loadGanttDetailAsync(project);
   if(ganttDetailTab==='work')loadGanttProjectTasks(project.id);
   if(ganttDetailTab==='checklist')loadGanttProjectChecklist(project.id);
@@ -6870,6 +6933,73 @@ let ganttChecklistTemplates=[];
 let ganttChecklistTemplatesLoaded=false;
 let ganttProjectChecklistByProjectId={};
 let ganttProjectChecklistLoadMetaByProjectId={};
+let ganttChecklistAssigneeComboboxes={};
+
+function destroyGanttChecklistAssigneeComboboxes(){
+  Object.values(ganttChecklistAssigneeComboboxes||{}).forEach(instance=>{
+    if(instance&&typeof instance.destroy==='function')instance.destroy();
+  });
+  ganttChecklistAssigneeComboboxes={};
+}
+
+function getGanttChecklistAssigneeItems(){
+  const source=typeof getProjectTaskAssigneeItems==='function'
+    ?getProjectTaskAssigneeItems()
+    :[...(members||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  return source;
+}
+
+function getGanttChecklistAssigneeSubLabel(member){
+  if(typeof getProjectTaskAssigneeSubLabel==='function')return getProjectTaskAssigneeSubLabel(member);
+  return [member?.team,member?.rank,member?.email,member?.is_active===false?'비활성':'' ].filter(Boolean).join(' · ');
+}
+
+function getGanttChecklistAssigneeSearchText(member){
+  if(typeof getProjectTaskAssigneeSearchText==='function')return getProjectTaskAssigneeSearchText(member);
+  return [member?.name,member?.email,member?.team,member?.rank].filter(Boolean).join(' ');
+}
+
+function mountGanttChecklistAssigneeComboboxes(){
+  destroyGanttChecklistAssigneeComboboxes();
+  document.querySelectorAll('#ganttDetail [data-checklist-assignee-combo]').forEach(mount=>{
+    const itemId=String(mount.getAttribute('data-checklist-assignee-combo')||'');
+    const selectedValue=String(mount.getAttribute('data-selected-value')||'');
+    if(!itemId||typeof createCombobox!=='function')return;
+    ganttChecklistAssigneeComboboxes[itemId]=createCombobox({
+      mount,
+      items:getGanttChecklistAssigneeItems(),
+      getLabel:item=>item?.name||'이름 없음',
+      getSubLabel:getGanttChecklistAssigneeSubLabel,
+      getSearchText:getGanttChecklistAssigneeSearchText,
+      getValue:item=>item?.id||'',
+      value:selectedValue,
+      placeholder:'담당자 검색',
+      disabled:false,
+      required:false,
+      maxItems:10,
+      allowClear:true
+    });
+  });
+}
+
+function getGanttChecklistAssigneeValue(itemId){
+  const instance=ganttChecklistAssigneeComboboxes[String(itemId||'')];
+  if(instance&&typeof instance.getValue==='function')return instance.getValue()||'';
+  const row=[...document.querySelectorAll('#ganttDetail [data-checklist-item]')]
+    .find(item=>String(item.getAttribute('data-checklist-item')||'')===String(itemId||''));
+  return row?.querySelector('[data-field="assignee_member_id"]')?.value||'';
+}
+
+function validateGanttChecklistAssigneeComboboxes(){
+  for(const instance of Object.values(ganttChecklistAssigneeComboboxes||{})){
+    if(instance&&typeof instance.hasUncommittedText==='function'&&instance.hasUncommittedText()){
+      alert('목록에서 담당자를 선택해 주세요.');
+      instance.input?.focus();
+      return false;
+    }
+  }
+  return true;
+}
 
 const GANTT_CHECKLIST_STATUSES=[
   {value:'not_started',label:'미시작'},
@@ -7050,7 +7180,7 @@ function renderGanttChecklistItemRow(item){
   return '<div class="gantt-checklist-row" data-checklist-item="'+esc(id)+'">'
     +'<div class="gantt-checklist-title"><div><strong>'+esc(item?.title||'체크 항목')+'</strong>'+(item?.is_required?'<span class="gantt-checklist-required">필수</span>':'')+'</div><div class="gantt-detail-meta">'+esc(item?.description||'')+'</div></div>'
     +'<select class="gantt-checklist-status" data-field="status">'+renderGanttChecklistStatusOptions(item?.status)+'</select>'
-    +'<select class="gantt-checklist-assignee" data-field="assignee_member_id">'+renderGanttChecklistAssigneeOptions(item?.assignee_member_id)+'</select>'
+    +'<div class="gantt-checklist-assignee" data-field="assignee_member_id" data-checklist-assignee-combo="'+esc(id)+'" data-selected-value="'+esc(item?.assignee_member_id||'')+'"></div>'
     +'<textarea class="gantt-checklist-memo" data-field="memo" rows="2" placeholder="메모">'+esc(item?.memo||'')+'</textarea>'
   +'</div>';
 }
@@ -7092,11 +7222,12 @@ function renderGanttProjectChecklistSection(project){
 async function saveGanttProjectChecklistItems(projectId){
   const rows=[...document.querySelectorAll('#ganttDetail [data-checklist-item]')];
   if(!rows.length)return;
+  if(!validateGanttChecklistAssigneeComboboxes())return;
   try{
     await Promise.all(rows.map(row=>{
       const id=row.getAttribute('data-checklist-item');
       const status=row.querySelector('[data-field="status"]')?.value||'not_started';
-      const assignee=row.querySelector('[data-field="assignee_member_id"]')?.value||null;
+      const assignee=getGanttChecklistAssigneeValue(id)||null;
       const memo=row.querySelector('[data-field="memo"]')?.value?.trim()||null;
       const body={
         status,

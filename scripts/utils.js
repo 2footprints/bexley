@@ -119,6 +119,260 @@ function esc(s){
   return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+/*
+Combobox usage example:
+const clientBox=createCombobox({
+  mount:document.getElementById('someContainer'),
+  items:clients,
+  getLabel:item=>item.name,
+  getSubLabel:item=>item.assigned_team||'',
+  getValue:item=>item.id,
+  value:currentClientId,
+  onSelect:item=>{ selectedClientId=item.id; }
+});
+*/
+function createCombobox(options={}){
+  const mount=options.mount||options.container;
+  if(!mount)throw new Error('createCombobox requires a mount element.');
+  const doc=mount.ownerDocument||document;
+  const win=doc.defaultView||window;
+  const getLabel=typeof options.getLabel==='function'?options.getLabel:item=>String(item?.label??item?.name??item??'');
+  const getSubLabel=typeof options.getSubLabel==='function'?options.getSubLabel:()=> '';
+  const getValue=typeof options.getValue==='function'?options.getValue:item=>String(item?.value??item?.id??getLabel(item));
+  const getSearchText=typeof options.getSearchText==='function'?options.getSearchText:item=>[getLabel(item),getSubLabel(item)].join(' ');
+  const onSelect=typeof options.onSelect==='function'?options.onSelect:()=>{};
+  const onClear=typeof options.onClear==='function'?options.onClear:()=>{};
+  const maxItems=Number.isFinite(Number(options.maxItems))?Math.max(1,Number(options.maxItems)):10;
+  const allowClear=options.allowClear!==false;
+  const required=!!options.required;
+  const disabled=!!options.disabled;
+  let items=Array.isArray(options.items)?options.items:[];
+  let selectedItem=null;
+  let selectedValue=options.value??options.selectedValue??'';
+  let activeIndex=-1;
+  let isOpen=false;
+  let lastQuery='';
+
+  mount.innerHTML='';
+  mount.classList.add('bx-combobox');
+  if(disabled)mount.classList.add('is-disabled');
+
+  const input=doc.createElement('input');
+  input.type='text';
+  input.className='bx-combobox-input';
+  input.placeholder=options.placeholder||'검색 후 선택';
+  input.autocomplete='off';
+  input.disabled=disabled;
+  input.setAttribute('role','combobox');
+  input.setAttribute('aria-autocomplete','list');
+  input.setAttribute('aria-expanded','false');
+  if(required)input.setAttribute('aria-required','true');
+
+  const hidden=doc.createElement('input');
+  hidden.type='hidden';
+  hidden.className='bx-combobox-value';
+  if(options.name)hidden.name=options.name;
+
+  const clearBtn=doc.createElement('button');
+  clearBtn.type='button';
+  clearBtn.className='bx-combobox-clear';
+  clearBtn.setAttribute('aria-label','선택 해제');
+  clearBtn.textContent='×';
+  clearBtn.hidden=!allowClear||disabled;
+
+  const menu=doc.createElement('div');
+  menu.className='bx-combobox-menu';
+  menu.setAttribute('role','listbox');
+  menu.hidden=true;
+  doc.body.appendChild(menu);
+
+  mount.appendChild(input);
+  mount.appendChild(hidden);
+  mount.appendChild(clearBtn);
+
+  function normalize(value){
+    return String(value??'').trim().toLowerCase();
+  }
+  function findItemByValue(value){
+    const key=String(value??'');
+    return items.find(item=>String(getValue(item))===key)||null;
+  }
+  function setSelected(item,notify=true){
+    selectedItem=item||null;
+    selectedValue=selectedItem?String(getValue(selectedItem)):'';
+    hidden.value=selectedValue;
+    input.value=selectedItem?String(getLabel(selectedItem)||''):'';
+    lastQuery=input.value;
+    clearBtn.hidden=!allowClear||disabled||!selectedValue;
+    mount.classList.toggle('has-value',!!selectedValue);
+    if(notify&&selectedItem)onSelect(selectedItem);
+  }
+  function getFilteredItems(){
+    const query=normalize(input.value);
+    if(!query)return items.slice(0,maxItems);
+    return items.filter(item=>{
+      const label=normalize(getLabel(item));
+      const subLabel=normalize(getSubLabel(item));
+      const searchText=normalize(getSearchText(item));
+      return label.includes(query)||subLabel.includes(query)||searchText.includes(query);
+    }).slice(0,maxItems);
+  }
+  function positionMenu(){
+    if(!isOpen)return;
+    const rect=mount.getBoundingClientRect();
+    menu.style.left=Math.max(8,rect.left)+'px';
+    menu.style.top=(rect.bottom+4)+'px';
+    menu.style.width=Math.max(160,rect.width)+'px';
+  }
+  function renderMenu(){
+    const rows=getFilteredItems();
+    menu.innerHTML='';
+    if(!rows.length){
+      const empty=doc.createElement('div');
+      empty.className='bx-combobox-empty';
+      empty.textContent='검색 결과가 없습니다.';
+      menu.appendChild(empty);
+      activeIndex=-1;
+      return;
+    }
+    if(activeIndex<0||activeIndex>=rows.length)activeIndex=0;
+    rows.forEach((item,index)=>{
+      const option=doc.createElement('button');
+      option.type='button';
+      option.className='bx-combobox-option'+(index===activeIndex?' bx-combobox-option-active':'');
+      option.setAttribute('role','option');
+      option.setAttribute('aria-selected',index===activeIndex?'true':'false');
+      option.innerHTML='<span class="bx-combobox-option-label">'+esc(getLabel(item))+'</span>'
+        +(getSubLabel(item)?'<span class="bx-combobox-option-sub">'+esc(getSubLabel(item))+'</span>':'');
+      option.addEventListener('mousedown',event=>event.preventDefault());
+      option.addEventListener('click',()=>{
+        setSelected(item,true);
+        closeMenu();
+      });
+      menu.appendChild(option);
+    });
+  }
+  function openMenu(){
+    if(disabled)return;
+    isOpen=true;
+    input.setAttribute('aria-expanded','true');
+    menu.hidden=false;
+    renderMenu();
+    positionMenu();
+  }
+  function closeMenu(){
+    isOpen=false;
+    input.setAttribute('aria-expanded','false');
+    menu.hidden=true;
+  }
+  function clearSelection(notify=true){
+    selectedItem=null;
+    selectedValue='';
+    hidden.value='';
+    input.value='';
+    lastQuery='';
+    clearBtn.hidden=!allowClear||disabled;
+    mount.classList.remove('has-value');
+    if(notify)onClear();
+  }
+  function selectActive(){
+    const rows=getFilteredItems();
+    if(activeIndex>=0&&rows[activeIndex]){
+      setSelected(rows[activeIndex],true);
+      closeMenu();
+      return true;
+    }
+    return false;
+  }
+  function markTextAsUnselected(){
+    if(input.value!==lastQuery||String(hidden.value||'')!==String(selectedValue||'')){
+      selectedItem=null;
+      selectedValue='';
+      hidden.value='';
+      mount.classList.remove('has-value');
+      clearBtn.hidden=!allowClear||disabled||!input.value;
+    }
+  }
+
+  input.addEventListener('focus',openMenu);
+  input.addEventListener('input',()=>{
+    markTextAsUnselected();
+    activeIndex=0;
+    openMenu();
+  });
+  input.addEventListener('keydown',event=>{
+    if(event.key==='ArrowDown'){
+      event.preventDefault();
+      if(!isOpen)openMenu();
+      const rows=getFilteredItems();
+      if(rows.length){activeIndex=(activeIndex+1+rows.length)%rows.length;renderMenu();}
+    }else if(event.key==='ArrowUp'){
+      event.preventDefault();
+      if(!isOpen)openMenu();
+      const rows=getFilteredItems();
+      if(rows.length){activeIndex=(activeIndex-1+rows.length)%rows.length;renderMenu();}
+    }else if(event.key==='Enter'){
+      if(isOpen&&selectActive())event.preventDefault();
+    }else if(event.key==='Escape'){
+      closeMenu();
+    }
+  });
+  clearBtn.addEventListener('click',()=>{
+    clearSelection(true);
+    input.focus();
+    openMenu();
+  });
+  doc.addEventListener('mousedown',event=>{
+    if(mount.contains(event.target)||menu.contains(event.target))return;
+    closeMenu();
+  });
+  win.addEventListener('resize',positionMenu);
+  win.addEventListener('scroll',positionMenu,true);
+
+  setSelected(findItemByValue(selectedValue),false);
+  if(selectedValue&&!selectedItem){
+    hidden.value=String(selectedValue);
+  }
+
+  return {
+    mount,
+    input,
+    hidden,
+    menu,
+    getValue:()=>hidden.value,
+    getInputText:()=>input.value,
+    getSelectedItem:()=>selectedItem,
+    hasUncommittedText:()=>!hidden.value&&!!input.value.trim(),
+    setValue(value,notify=false){
+      setSelected(findItemByValue(value),notify);
+      if(value&&!selectedItem)hidden.value=String(value);
+    },
+    setItems(nextItems=[]){
+      items=Array.isArray(nextItems)?nextItems:[];
+      const currentValue=hidden.value;
+      setSelected(findItemByValue(currentValue),false);
+      if(isOpen)renderMenu();
+    },
+    clear:clearSelection,
+    open:openMenu,
+    close:closeMenu,
+    destroy(){
+      closeMenu();
+      menu.remove();
+      win.removeEventListener('resize',positionMenu);
+      win.removeEventListener('scroll',positionMenu,true);
+      mount.innerHTML='';
+      mount.classList.remove('bx-combobox','is-disabled','has-value');
+    }
+  };
+}
+
+const mountCombobox=createCombobox;
+const setupCombobox=createCombobox;
+window.createCombobox=createCombobox;
+window.mountCombobox=mountCombobox;
+window.setupCombobox=setupCombobox;
+
 async function copyText(text){
   try{
     await navigator.clipboard.writeText(text);
