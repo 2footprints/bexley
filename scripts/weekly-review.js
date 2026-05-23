@@ -3266,6 +3266,7 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
     +'</div>'
     +'<div class="weekly-review-body">'
       +bodyHtml
+      +(modeIsManagement ? renderWeeklyReviewNextWeekSection(pageData) : '')
     +'</div>'
   +'</div>';
 };
@@ -3596,6 +3597,8 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
       commentsSection.groups[0].emptyText='이번 주 회의 메모가 없습니다. 필요하면 회의 중 메모를 남겨 주세요.';
     }
   }
+  data._raw_nextWeekEnds = data.nextWeekEnds||[];
+  data._raw_nextWeekStarts = data.nextWeekStarts||[];
   data.sections=[
     risksSection,
     billingSection,
@@ -3839,6 +3842,8 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
       {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)}
     ];
   }
+  data._raw_nextWeekEnds=data.nextWeekEnds||[];
+  data._raw_nextWeekStarts=data.nextWeekStarts||[];
   data.sections=[risksSection,completedSection,nextSection,commentsSection].filter(Boolean);
   return data;
 }
@@ -4084,5 +4089,126 @@ async function saveWeeklyReviewSnapshot(){
     const detail=typeof getWeeklyReviewApiErrorDetail==='function'?getWeeklyReviewApiErrorDetail(error):String(error?.message||error||'');
     alert('주간회의 스냅샷 저장에 실패했습니다.'+(detail?'\n\n오류: '+detail:''));
   }
+}
+
+function renderWeeklyReviewNextWeekSection(data) {
+  if (!data) return '';
+  const nextBounds = getWeeklyReviewBusinessWeekBounds(weeklyReviewWeekOffset + 1);
+  const deadlineProjects = (data._raw_nextWeekEnds || [])
+    .map(project => {
+      const endDate = getWeeklyReviewProjectEndDate(project);
+      const today = getHomeBaseDate();
+      const dDiff = endDate
+        ? Math.ceil((getWeeklyReviewDate(endDate) - today) / (1000 * 60 * 60 * 24))
+        : null;
+      const isOverdue = dDiff !== null && dDiff < 0;
+      const memberNames = (projectMemberLinks || [])
+        .filter(link => String(link.project_id) === String(project.id))
+        .map(link => members.find(m => m.id === link.member_id)?.name || '')
+        .filter(Boolean);
+      const statusLabel = isWeeklyReviewProjectOverdue(project, today) ? '지연' : String(project.status || '진행중');
+      const toneClass = isOverdue ? 'wr-nw-date--danger' : dDiff !== null && dDiff <= 7 ? 'wr-nw-date--warn' : '';
+      const dLabel = dDiff === null ? '' : dDiff < 0 ? `D+${Math.abs(dDiff)}` : `D-${dDiff}`;
+      return { project, endDate, dDiff, dLabel, toneClass, statusLabel, memberNames, isOverdue };
+    })
+    .sort((a, b) => (a.dDiff ?? 999) - (b.dDiff ?? 999));
+  const nextLeaves = (schedules || []).filter(schedule => {
+    const type = String(schedule?.schedule_type || '').trim();
+    if (type !== 'leave') return false;
+    const startDate = getWeeklyReviewDate(schedule?.start || schedule?.start_date);
+    const endDate = getWeeklyReviewDate(schedule?.end || schedule?.end_date || schedule?.start || schedule?.start_date);
+    return !!startDate && !!endDate && startDate <= nextBounds.end && endDate >= nextBounds.start && scheduleHasOperationalMember(schedule);
+  });
+  const nextFieldwork = (schedules || []).filter(schedule => {
+    const type = String(schedule?.schedule_type || '').trim();
+    if (type !== 'fieldwork') return false;
+    const startDate = getWeeklyReviewDate(schedule?.start || schedule?.start_date);
+    const endDate = getWeeklyReviewDate(schedule?.end || schedule?.end_date || schedule?.start || schedule?.start_date);
+    return !!startDate && !!endDate && startDate <= nextBounds.end && endDate >= nextBounds.start && scheduleHasOperationalMember(schedule);
+  });
+  const nextStarts = (data._raw_nextWeekStarts || []);
+  const operationalMembers = typeof getOperationalMembers === 'function' ? getOperationalMembers() : [];
+  const leaveNameSet = new Set(nextLeaves.flatMap(s => getOperationalScheduleMemberNames(s)));
+  const fieldworkNameSet = new Set(nextFieldwork.flatMap(s => getOperationalScheduleMemberNames(s)));
+  const memberLoadMap = new Map();
+  (projectMemberLinks || []).forEach(link => {
+    const member = members.find(m => m.id === link.member_id);
+    if (!member) return;
+    const proj = (projects || []).find(p => String(p.id) === String(link.project_id));
+    if (!proj || isWeeklyReviewCompletedProject(proj)) return;
+    memberLoadMap.set(member.name, (memberLoadMap.get(member.name) || 0) + 1);
+  });
+  const memberStatusRows = operationalMembers.map(member => {
+    const name = member.name || '';
+    const isLeave = leaveNameSet.has(name);
+    const isField = fieldworkNameSet.has(name);
+    const load = memberLoadMap.get(name) || 0;
+    const statusLabel = isLeave ? '휴가' : isField ? '필드' : load >= 4 ? '주의' : '여유';
+    const toneClass = isLeave || load >= 4 ? 'wr-nw-member--warn' : isField ? 'wr-nw-member--field' : 'wr-nw-member--ok';
+    return { name, statusLabel, toneClass, load };
+  }).filter(r => r.name);
+  const deadlineRows = deadlineProjects.length
+    ? deadlineProjects.map(({ project, dLabel, toneClass, statusLabel, memberNames }) => {
+        const badgeCls = statusLabel === '지연' ? 'badge-red' : 'badge-gray';
+        return `<div class="wr-nw-deadline-row"><div><div class="wr-nw-proj-name">${esc(project.name || '')}</div><div class="wr-nw-proj-owner">${esc(memberNames.slice(0, 2).join(', ') || '-')}</div></div><div><span class="badge ${badgeCls}">${esc(statusLabel)}</span></div><div class="wr-nw-date ${toneClass}">${esc(getWeeklyReviewProjectEndDate(project) || '-')}${dLabel ? ` <span class="wr-nw-d-chip">(${dLabel})</span>` : ''}</div></div>`;
+      }).join('')
+    : `<div class="weekly-review-empty">다음 주 마감 예정 프로젝트가 없습니다.</div>`;
+  const leaveRows = nextLeaves.length
+    ? [...new Set(nextLeaves.flatMap(s => getOperationalScheduleMemberNames(s)))].map(name => {
+        const sched = nextLeaves.find(s => getOperationalScheduleMemberNames(s).includes(name));
+        const start = sched?.start || sched?.start_date || '';
+        const end = sched?.end || sched?.end_date || start;
+        const days = start && end ? Math.round((getWeeklyReviewDate(end) - getWeeklyReviewDate(start)) / (1000 * 60 * 60 * 24)) + 1 : null;
+        return `<div class="wr-nw-absence-item"><span class="wr-nw-absence-who">${esc(name)}</span><div style="display:flex;align-items:center;gap:6px"><span class="wr-nw-absence-period">${esc(start.slice(5).replace('-', '/') || '')}</span>${days ? `<span class="wr-nw-absence-days">${days}일</span>` : ''}</div></div>`;
+      }).join('')
+    : `<div class="wr-nw-absence-empty">차주 휴가·부재 없음</div>`;
+  const fieldRows = nextFieldwork.length
+    ? nextFieldwork.slice(0, 3).map(sched => {
+        const names = getOperationalScheduleMemberNames(sched).join(', ');
+        const start = sched?.start || sched?.start_date || '';
+        return `<div class="wr-nw-field-item"><div class="wr-nw-field-who">${esc(names)}</div><div class="wr-nw-field-desc">${esc(sched.title || '필드 일정')}</div><div class="wr-nw-field-date">${esc(start.slice(5).replace('-', '/') || '')}</div></div>`;
+      }).join('')
+    : `<div class="wr-nw-absence-empty">차주 필드 일정 없음</div>`;
+  const startRows = nextStarts.length
+    ? nextStarts.slice(0, 3).map(project => {
+        const startDate = getWeeklyReviewProjectStartDate(project);
+        const memberNames = (projectMemberLinks || [])
+          .filter(link => String(link.project_id) === String(project.id))
+          .map(link => members.find(m => m.id === link.member_id)?.name || '')
+          .filter(Boolean);
+        return `<div class="wr-nw-new-item"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><div class="wr-nw-proj-name">${esc(project.name || '')}</div><span class="badge badge-blue" style="font-size:10px">신규</span></div><div class="wr-nw-proj-owner">담당: ${esc(memberNames.slice(0, 2).join(', ') || '-')} · ${esc(startDate ? startDate.slice(5).replace('-', '/') : '')} 착수</div></div>`;
+      }).join('')
+    : `<div class="wr-nw-absence-empty">차주 신규 착수 프로젝트 없음</div>`;
+  const memberCards = memberStatusRows.slice(0, 6).map(({ name, statusLabel, toneClass, load }) =>
+    `<div class="wr-nw-member-card"><div class="wr-nw-member-name">${esc(name)}</div><div class="wr-nw-member-status ${toneClass}">${esc(statusLabel)}</div><div class="wr-nw-member-load">프로젝트 ${load}건</div></div>`
+  ).join('');
+  return `<section class="card weekly-review-section" data-section-id="next-week" style="margin-top:0">
+    <div class="weekly-review-section-head">
+      <div>
+        <div class="weekly-review-section-title">차주 준비</div>
+        <div class="weekly-review-section-sub">다음 주 마감·착수·일정·인력을 한눈에 점검합니다.</div>
+      </div>
+      <div class="weekly-review-section-controls">
+        <button type="button" class="btn ghost sm" onclick="setPage('gantt')">프로젝트 관리</button>
+      </div>
+    </div>
+    <div class="weekly-review-section-content">
+      <div class="weekly-review-section-expanded-body">
+        <div class="weekly-review-group">
+          <div class="weekly-review-group-title">차주 마감 예정</div>
+          <div class="wr-nw-deadline-list">
+            <div class="wr-nw-deadline-header"><span>프로젝트</span><span>상태</span><span>마감일</span></div>
+            ${deadlineRows}
+          </div>
+        </div>
+        <div class="wr-nw-three-col">
+          <div class="wr-nw-col-card"><div class="wr-nw-col-label">🏖 휴가 · 부재</div>${leaveRows}</div>
+          <div class="wr-nw-col-card"><div class="wr-nw-col-label">📍 필드 · 외부일정</div>${fieldRows}</div>
+          <div class="wr-nw-col-card"><div class="wr-nw-col-label">🚀 신규 착수</div>${startRows}</div>
+        </div>
+        ${memberCards ? `<div class="weekly-review-group"><div class="weekly-review-group-title">차주 인력 여유</div><div class="wr-nw-member-grid">${memberCards}</div></div>` : ''}
+      </div>
+    </div>
+  </section>`;
 }
 

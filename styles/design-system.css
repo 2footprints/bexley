@@ -1905,3 +1905,39 @@ textarea::placeholder,
     padding:18px 16px!important;
   }
 }
+
+/* ── 차주 준비 섹션 (wr-nw) ── */
+.wr-nw-deadline-list{border:0.5px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:4px}
+.wr-nw-deadline-header{display:grid;grid-template-columns:2fr 80px 100px;padding:8px 14px;background:var(--color-bg);border-bottom:0.5px solid var(--color-border)}
+.wr-nw-deadline-header span{font-size:11px;color:var(--color-text-muted);font-weight:500}
+.wr-nw-deadline-row{display:grid;grid-template-columns:2fr 80px 100px;padding:10px 14px;border-bottom:0.5px solid var(--color-border);align-items:center}
+.wr-nw-deadline-row:last-child{border-bottom:none}
+.wr-nw-proj-name{font-size:13px;font-weight:600;color:var(--color-primary)}
+.wr-nw-proj-owner{font-size:11px;color:var(--color-text-muted);margin-top:2px}
+.wr-nw-date{font-size:12px;color:var(--color-text)}
+.wr-nw-date--danger{color:var(--color-danger);font-weight:600}
+.wr-nw-date--warn{color:var(--color-warning)}
+.wr-nw-d-chip{font-size:10px;font-weight:400;opacity:.8}
+.wr-nw-three-col{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.wr-nw-col-card{background:var(--color-bg);border:0.5px solid var(--color-border);border-radius:var(--radius-md);padding:12px 14px}
+.wr-nw-col-label{font-size:11px;color:var(--color-text-muted);font-weight:500;margin-bottom:10px}
+.wr-nw-absence-item{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.wr-nw-absence-who{font-size:13px;font-weight:600;color:var(--color-primary)}
+.wr-nw-absence-period{font-size:12px;color:var(--color-text-secondary)}
+.wr-nw-absence-days{font-size:11px;padding:2px 7px;border-radius:var(--radius-sm);background:var(--color-bg);border:0.5px solid var(--color-border);color:var(--color-text-muted)}
+.wr-nw-absence-empty{font-size:12px;color:var(--color-text-muted)}
+.wr-nw-field-item{margin-bottom:8px}
+.wr-nw-field-who{font-size:11px;color:var(--color-text-muted)}
+.wr-nw-field-desc{font-size:13px;font-weight:600;color:var(--color-primary)}
+.wr-nw-field-date{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.wr-nw-new-item{margin-bottom:8px;padding-bottom:8px;border-bottom:0.5px solid var(--color-border)}
+.wr-nw-new-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.wr-nw-member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.wr-nw-member-card{background:var(--color-bg);border:0.5px solid var(--color-border);border-radius:var(--radius-md);padding:10px;text-align:center}
+.wr-nw-member-name{font-size:11px;color:var(--color-text-muted);margin-bottom:4px}
+.wr-nw-member-status{font-size:16px;font-weight:700;margin-bottom:2px}
+.wr-nw-member-load{font-size:10px;color:var(--color-text-muted)}
+.wr-nw-member--ok{color:var(--color-success)}
+.wr-nw-member--warn{color:var(--color-danger)}
+.wr-nw-member--field{color:var(--color-warning)}
+@media(max-width:768px){.wr-nw-three-col{grid-template-columns:1fr}.wr-nw-deadline-header,.wr-nw-deadline-row{grid-template-columns:2fr 60px 80px}}
