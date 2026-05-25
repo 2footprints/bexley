@@ -2526,6 +2526,8 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     billingRows,
     projectOutputs,
     taskRows,
+    nextWeekStarts,
+    nextWeekEnds,
     weeklyRevenue,
     weeklyReviews,
     kudosVotes
@@ -4054,7 +4056,7 @@ function renderWeeklyReviewNextWeekSection(data) {
   const fieldworkNameSet = new Set(nextFieldwork.flatMap(s => getOperationalScheduleMemberNames(s)));
   const memberLoadMap = new Map();
   (projectMemberLinks || []).forEach(link => {
-    const member = members.find(m => m.id === link.member_id);
+    const member = members.find(m => String(m.id) === String(link.member_id));
     if (!member) return;
     const proj = (projects || []).find(p => String(p.id) === String(link.project_id));
     if (!proj || isWeeklyReviewCompletedProject(proj)) return;
