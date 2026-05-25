@@ -974,23 +974,36 @@ function renderWeeklyReviewMeetingContentBlock(content){
     }).join('');
   return html||'<div style="font-size:12px;color:var(--text3)">입력된 회의 메모가 없습니다.</div>';
 }
-function renderWeeklyReviewMeetingFieldGroupMarkup(reviews,key,emptyText,showEdit=false){
+function renderWeeklyReviewMeetingFieldGroupMarkup(reviews,key,emptyText,isCurrentWeek=false){
+  const isFinalized=weeklyReviewLastRenderPayload?.data?._snapshotMeta?.status==='finalized';
+  const isEditable=isCurrentWeek&&!isFinalized;
+  const currentReview=(reviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
+  const currentParsed=parseWeeklyReviewMeetingContent(currentReview?.content||'');
+  const currentValue=String(currentParsed[key]||'');
   const rows=(reviews||[])
     .map(review=>{
       const parsed=parseWeeklyReviewMeetingContent(review?.content||'');
       const value=String(parsed[key]||'').trim();
       return {review,value};
     })
-    .filter(row=>row.value);
-  if(!rows.length){
+    .filter(row=>row.value&&(!isEditable||row.review?.created_by!==currentUser?.id));
+  if(!isEditable&&!rows.length){
     return '<div class="weekly-review-empty">'+esc(emptyText||'입력된 회의 메모가 없습니다.')+'</div>';
   }
+  const editableHtml=isEditable
+    ?'<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
+        +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(currentReview?.member_name||currentMember?.name||currentUser?.email||'익명')+'</div><div style="font-size:11px;color:var(--text3)">자동저장</div></div>'
+      +'</div>'
+      +'<textarea id="wr-memo-'+esc(key)+'" class="wr-memo-textarea" rows="3" placeholder="'+esc(emptyText||'')+'" onblur="autoSaveWeeklyReviewMeetingField(this,\''+esc(key)+'\')">'+esc(currentValue)+'</textarea>'
+    +'</div>'
+    :'';
   return '<div style="display:flex;flex-direction:column;gap:10px">'
+    +editableHtml
     +rows.map(({review,value})=>
       '<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
         +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
           +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(review?.member_name||'익명')+'</div><div style="font-size:11px;color:var(--text3)">'+esc(formatCommentDate(review?.updated_at||review?.created_at||''))+'</div></div>'
-          +(showEdit&&review?.created_by===currentUser?.id?'<button class="btn sm" data-id="'+review.id+'" onclick="openWeeklyReviewMeetingMemoModal(this.dataset.id)">수정</button>':'')
         +'</div>'
         +'<div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-word">'+esc(value)+'</div>'
       +'</div>'
@@ -1006,7 +1019,6 @@ function renderWeeklyReviewCommentsMarkup(reviews,isCurrentWeek){
       '<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
         +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
           +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(review?.member_name||'익명')+'</div><div style="font-size:11px;color:var(--text3)">'+esc(formatCommentDate(review?.updated_at||review?.created_at||''))+'</div></div>'
-          +(isCurrentWeek&&review?.created_by===currentUser?.id?'<button class="btn sm" onclick="enterWeeklyReviewMeetingEditMode()">수정</button>':'')
         +'</div>'
         +'<div style="display:flex;flex-direction:column;gap:8px">'+renderWeeklyReviewMeetingContentBlock(review?.content||'')+'</div>'
       +'</div>'
@@ -1123,18 +1135,12 @@ function buildWeeklyReviewCommentsSectionData(){
   const isCurrentWeek=weeklyReviewWeekOffset===0;
   const myReview=(reviews||[]).find(r=>r?.created_by===currentUser?.id)||null;
   let actionsHtml='';
+  const reviewIdJs=myReview?.id?getWeeklyReviewJsString(String(myReview.id)):'';
+  const deleteHtml=myReview?.id?'<button type="button" class="btn ghost sm" style="color:#B91C1C;border-color:rgba(239,68,68,.22);background:#FFF5F5" onclick="deleteWeeklyReviewMeetingMemoInline(\''+reviewIdJs+'\')">삭제</button>':'';
   if(isCurrentWeek){
-    if(weeklyReviewMeetingEditMode){
-      const reviewIdJs=myReview?.id?getWeeklyReviewJsString(String(myReview.id)):'';
-      const deleteHtml=myReview?.id?'<button type="button" class="btn ghost sm" style="color:#B91C1C;border-color:rgba(239,68,68,.22);background:#FFF5F5" onclick="deleteWeeklyReviewMeetingMemoInline(\''+reviewIdJs+'\')">삭제</button>':'';
-      actionsHtml=deleteHtml+'<button type="button" class="btn ghost sm" onclick="cancelWeeklyReviewMeetingEditMode()">취소</button><button type="button" class="btn primary sm" onclick="saveWeeklyReviewMeetingMemoInline()">저장</button>';
-    }else{
-      actionsHtml='<button type="button" class="btn sm" onclick="enterWeeklyReviewMeetingEditMode()">'+(myReview?'수정':'작성')+'</button>';
-    }
+    actionsHtml=deleteHtml||'';
   }
-  const contentHtml=weeklyReviewMeetingEditMode
-    ?renderWeeklyReviewMeetingInlineForm(myReview)
-    :renderWeeklyReviewKudosSummaryMarkup(kudosVotes)+renderWeeklyReviewCommentsMarkup(reviews,isCurrentWeek);
+  const contentHtml=renderWeeklyReviewKudosSummaryMarkup(kudosVotes)+renderWeeklyReviewCommentsMarkup(reviews,isCurrentWeek);
   return {
     id:'comments',
     title:'주간 코멘트',
@@ -1144,18 +1150,8 @@ function buildWeeklyReviewCommentsSectionData(){
     groups:[{title:'이번 주 팀 한마디',variant:'html',items:reviews,html:contentHtml}]
   };
 }
-function enterWeeklyReviewMeetingEditMode(){
-  weeklyReviewMeetingEditMode=true;
-  if(isWeeklyReviewSectionCollapsed('comments')){
-    weeklyReviewSectionCollapseState.comments=false;
-    persistWeeklyReviewSectionState();
-  }
-  replaceWeeklyReviewSectionMarkup(buildWeeklyReviewCommentsSectionData());
-}
-function cancelWeeklyReviewMeetingEditMode(){
-  weeklyReviewMeetingEditMode=false;
-  replaceWeeklyReviewSectionMarkup(buildWeeklyReviewCommentsSectionData());
-}
+function enterWeeklyReviewMeetingEditMode(){}
+function cancelWeeklyReviewMeetingEditMode(){}
 async function saveWeeklyReviewMeetingMemoInline(){
   const contentData={
     meeting_notes:document.getElementById('wrMemo_meeting_notes')?.value||'',
@@ -2240,9 +2236,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   };
   const memberSection=memberSectionsByScope[adminCanViewAll&&weeklyReviewMemberScope==='all'?'all':'me'];
   const myWeeklyReview=(weeklyReviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
-  const commentsActionHtml=offsetWeeks===0
-    ?'<button type="button" class="btn sm" onclick="enterWeeklyReviewMeetingEditMode()">'+(myWeeklyReview?'수정':'작성')+'</button>'
-    :'';
+  const commentsActionHtml='';
   const cards=[
     {
       title:'이번 주 매출',
@@ -3750,10 +3744,10 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
     commentsSection.sub='결정 사항, 코멘트, 액션 아이템을 회의 중 바로 기록합니다.';
     commentsSection.collapsedSummary=`메모 ${commentCount}건 · 액션 ${actionItems.length}건`;
     commentsSection.groups=[
-      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,true)},
-      {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText)},
-      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText)},
-      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)},
+      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
+      {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
+      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
+      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
       {title:'액션 아이템',variant:'html',countLabel:formatWeeklyReviewCount(actionItems.length),html:renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized)}
     ];
   }
@@ -3911,10 +3905,10 @@ async function getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks=week
     sub:'결정 사항, 코멘트, 액션 아이템을 회의 중 바로 기록합니다.',
     collapsedSummary:`메모 ${commentCount}건 · 액션 ${Array.isArray(actionItems)?actionItems.length:0}건`,
     groups:[
-      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,true)},
-      {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText)},
-      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText)},
-      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)},
+      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,offsetWeeks===0&&!isFinalized)},
+      {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText,offsetWeeks===0&&!isFinalized)},
+      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText,offsetWeeks===0&&!isFinalized)},
+      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText,offsetWeeks===0&&!isFinalized)},
       {title:'액션 아이템',variant:'html',countLabel:formatWeeklyReviewCount(Array.isArray(actionItems)?actionItems.length:0),html:renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized)}
     ]
   };
@@ -4262,5 +4256,50 @@ async function deleteWeeklyReviewActionItem(weekStart,itemId){
   const items=await getWeeklyReviewActionItems(weekStart);
   const ok=await saveWeeklyReviewActionItems(weekStart,items.filter(item=>String(item.id)!==String(itemId)));
   if(ok)await renderWeeklyReviewPage(weeklyReviewWeekOffset);
+}
+
+async function autoSaveWeeklyReviewMeetingField(el,key){
+  if(!el)return;
+  const value=el.value||'';
+  el.style.borderColor='var(--color-info)';
+  try{
+    const weekStart=getWeekStart(weeklyReviewWeekOffset);
+    const memberName=currentMember?.name||currentUser?.email||'익명';
+    const cached=(weeklyReviewLastRenderPayload?.data?.weeklyReviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
+    const rows=cached?.id
+      ?[cached]
+      :await api('GET','weekly_reviews?week_start=eq.'+weekStart+'&member_name=eq.'+encodeURIComponent(memberName)+'&select=*&order=created_at.desc&limit=1').catch(()=>[]);
+    const existing=Array.isArray(rows)?rows[0]||null:rows||null;
+    if(!existing?.id&&!String(value).trim()){
+      el.style.borderColor='';
+      return;
+    }
+    const parsed=parseWeeklyReviewMeetingContent(existing?.content||'');
+    parsed[key]=value;
+    const content=stringifyWeeklyReviewMeetingContent(parsed);
+    const nowIso=new Date().toISOString();
+    const body={
+      week_start:weekStart,
+      member_name:existing?.member_name||memberName,
+      content,
+      updated_at:nowIso
+    };
+    if(existing?.id){
+      await api('PATCH','weekly_reviews?id=eq.'+existing.id,body);
+      existing.content=content;
+      existing.updated_at=nowIso;
+    }else{
+      const inserted=await api('POST','weekly_reviews',{...body,created_by:currentUser?.id||null});
+      const nextRow=Array.isArray(inserted)?inserted[0]:null;
+      if(nextRow&&weeklyReviewLastRenderPayload?.data?.weeklyReviews){
+        weeklyReviewLastRenderPayload.data.weeklyReviews.unshift(nextRow);
+      }
+    }
+    el.style.borderColor='var(--color-success)';
+    setTimeout(()=>{if(el)el.style.borderColor='';},1200);
+  }catch(error){
+    el.style.borderColor='var(--color-danger)';
+    console.error('[weekly-review] autoSave failed',error);
+  }
 }
 

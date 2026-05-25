@@ -1971,3 +1971,8 @@ textarea::placeholder,
 .wr-action-delete{background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1;flex-shrink:0}
 .wr-action-delete:hover{color:var(--color-danger)}
 .wr-action-empty{font-size:12px;color:var(--color-text-muted);padding:8px 0}
+
+/* ── 회의 메모 인라인 편집 ── */
+.wr-memo-textarea{width:100%;min-height:72px;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--color-text);background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius-md);resize:vertical;line-height:1.6;transition:border-color .2s}
+.wr-memo-textarea:focus{outline:none;border-color:var(--color-info);box-shadow:0 0 0 3px rgba(49,130,246,.08)}
+.wr-memo-textarea[readonly]{background:var(--color-surface);color:var(--color-text-muted);cursor:default}
