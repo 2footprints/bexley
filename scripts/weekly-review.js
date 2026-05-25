@@ -27,7 +27,7 @@ const WEEKLY_REVIEW_MODE_DEFAULTS={
 const WEEKLY_REVIEW_JUMP_ITEMS=[
   {id:'risks',label:'리스크 / 지연'},
   {id:'completed',label:'완료 및 산출물'},
-  {id:'next',label:'차주 계획'},
+  {id:'next-week',label:'차주 준비'},
   {id:'comments',label:'회의 메모'}
 ];
 let weeklyReviewLastRenderPayload=null;
@@ -54,6 +54,9 @@ saveWeeklyReviewSnapshot=async function(){
     }
     const calculatedData=await getWeeklyReviewCalculatedPageData(offsetWeeks);
     const snapshotJson=buildWeeklyReviewSnapshotJson(calculatedData,offsetWeeks);
+    if(Array.isArray(existing?.snapshot_json?.action_items)){
+      snapshotJson.action_items=existing.snapshot_json.action_items;
+    }
     const body={
       week_start:meta.weekStart,
       snapshot_json:snapshotJson,
@@ -595,7 +598,7 @@ function isWeeklyReviewLeadershipRelevantTask(task){
 function getWeeklyReviewTaskFollowUpLabel(task,flags={}){
   const textBlob=getWeeklyReviewTaskTextBlob(task);
   if(flags.issueLinked)return 'Work와 Issues 확인 필요';
-  if(flags.docImpact||/자료|문서|증빙|제출/i.test(textBlob))return '자료 확인 필요';
+  if(flags.docImpact||/자료|문서|증빙|제출/i.test(textBlob))return '확인 필요';
   if(/청구|수금|계약|invoice|billing|collection/i.test(textBlob))return '계약/청구 확인 필요';
   if(/고객|미팅|커뮤니케이션/i.test(textBlob))return '고객 대응 일정 확인 필요';
   return 'Project Management > Work 확인 필요';
@@ -639,7 +642,7 @@ function getWeeklyReviewProjectKeyTasks(project,context={}){
       }else if(/고객|미팅|커뮤니케이션/i.test(getWeeklyReviewTaskTextBlob(task))){
         reasons.push('고객 대응 영향 가능');
       }else if(/자료|문서|증빙|제출/i.test(getWeeklyReviewTaskTextBlob(task))){
-        reasons.push('자료 확인 필요');
+        reasons.push('확인 필요');
       }else{
         reasons.push('주간 주요 항목');
       }
@@ -1871,6 +1874,7 @@ function renderWeeklyReviewModeToggleMarkup(){
 }
 function renderWeeklyReviewQuickJumpMarkup(sections){
   const availableIds=new Set((Array.isArray(sections)?sections:[]).map(section=>String(section?.id||'')).filter(Boolean));
+  availableIds.add('next-week');
   const items=WEEKLY_REVIEW_JUMP_ITEMS.filter(item=>availableIds.has(item.id));
   if(!items.length)return '';
   return '<div class="weekly-review-jump-row" aria-label="주간 리뷰 빠른 이동">'
@@ -1955,7 +1959,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   weeklyReviewDebugLog('delayed query start',{selectedWeek:offsetWeeks});
   weeklyReviewDebugLog('unbilled query start',{selectedWeek:offsetWeeks});
   weeklyReviewDebugLog('pending materials query start',{selectedWeek:offsetWeeks});
-  weeklyReviewDebugLog('overloaded staff query start',{selectedWeek:offsetWeeks});
+  weeklyReviewDebugLog('staff capacity query start',{selectedWeek:offsetWeeks});
   await loadContracts();
   const ws=getWeekStart(offsetWeeks);
   const [issueRows,billingRows,pendingDocumentRequests,weeklyReviews,kudosVotes,taskRows,projectOutputs,checklistRows]=await Promise.all([
@@ -2172,7 +2176,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     const hasNextWeekDeadline=nextWeekEnds.some(project=>(project?.members||[]).includes(memberName));
     return hasActiveProject||hasNextWeekDeadline;
   }).length;
-  weeklyReviewDebugLog('overloaded staff query result',{
+  weeklyReviewDebugLog('staff capacity query result',{
     count:absenceImpactCount,
     leaveCount:currentLeaveCount,
     currentFieldworkCount,
@@ -2710,11 +2714,17 @@ function createWeeklyReviewThisWeekActionTableItem(item,actionLabel,options={}){
     actionHint:options.actionHint||item?.actionHint||'연결 화면에서 이번 주 후속 조치를 확인하세요.'
   };
 }
-function createWeeklyReviewCompletedTaskItem(task){
+function createWeeklyReviewCompletedTaskItem(task,projectOutputs=[]){
   const project=getWeeklyReviewProjectById(task?.project_id);
   const basisDate=getWeeklyReviewTaskCompletionBasisDate(task);
   const assignee=(members||[]).find(member=>String(member?.id||'')===String(task?.assignee_member_id||''))?.name||'담당 확인';
+  const linkedOutputs=(projectOutputs||[]).filter(output=>
+    String(output?.task_id||'')===String(task?.id||'')
+    ||String(output?.project_id||'')===String(task?.project_id||'')
+  ).slice(0,2);
   return {
+    _task:task,
+    _linkedOutputs:linkedOutputs,
     title:String(task?.title||'완료 업무'),
     contextLabel:getWeeklyReviewProjectContextLabel(project),
     meta:[assignee,String(task?.status||'완료')||'완료'].filter(Boolean).join(' · '),
@@ -3233,7 +3243,11 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
   const modeIsManagement=weeklyReviewMode==='management';
   const pageData=data||weeklyReviewLastRenderPayload?.data||{cards,sections,_snapshotMeta:snapshotMeta};
   const bodyHtml=modeIsManagement
-    ? '<div class="weekly-review-body-grid">'+(sections||[]).map(renderWeeklyReviewSectionMarkup).join('')+'</div>'
+    ? '<div class="weekly-review-body-grid">'
+        +(sections||[]).filter(s=>s?.id!=='comments').map(renderWeeklyReviewSectionMarkup).join('')
+        +renderWeeklyReviewNextWeekSection(pageData)
+        +((sections||[]).find(s=>s?.id==='comments')?renderWeeklyReviewSectionMarkup((sections||[]).find(s=>s?.id==='comments')):'')
+      +'</div>'
     : renderWeeklyReviewProjectMeetingView(pageData);
   const shellClass=modeIsManagement?' is-management-mode':' is-team-mode';
   const kickerLabel=modeIsManagement?'운영 회의':'실무 회의';
@@ -3266,7 +3280,6 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
     +'</div>'
     +'<div class="weekly-review-body">'
       +bodyHtml
-      +(modeIsManagement ? renderWeeklyReviewNextWeekSection(pageData) : '')
     +'</div>'
   +'</div>';
 };
@@ -3344,27 +3357,14 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   const completedAmount=completedItems.reduce((sum,item)=>sum+parseWeeklyReviewMetricNumber(item?.columns?.[4]),0);
   const unbilledAmount=unbilledItems.reduce((sum,item)=>sum+parseWeeklyReviewMetricNumber(item?.sideText),0);
   const outstandingAmount=outstandingItems.reduce((sum,item)=>sum+parseWeeklyReviewMetricNumber(item?.sideText),0);
-  const documentOverdueCount=documentItems.filter(item=>getWeeklyReviewDayDiff(item?.columns?.[3],getHomeBaseDate())>0).length;
-  const documentDueSoonCount=documentItems.filter(item=>{
-    const diff=getWeeklyReviewDayDiff(item?.columns?.[3],getHomeBaseDate());
-    return diff!==null&&diff<=0&&diff>=-7;
-  }).length;
-  const absenceImpactMemberCount=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact'].includes(summary?._operationalState?.level)).length;
-  const scheduleCheckSummaries=memberSummaries.filter(summary=>summary?._operationalState?.level==='schedule-check');
-  const overloadedSummaries=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact','schedule-check'].includes(summary?._operationalState?.level));
   const reassignmentSummaries=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact'].includes(summary?._operationalState?.level));
   const nextAttentionCount=nextEndItems.length+nextStartItems.length+nextScheduleItems.length;
-  const documentListItems=documentItems.map(item=>createWeeklyReviewDocumentListItem(item));
   const scheduleAdjustmentItems=[...new Map(
     [...overdueItems,...nextEndItems].map(item=>[
       [item?.title||'',item?.meta||'',item?.sideText||''].join('|'),
       item
     ])
   ).values()];
-  const documentFollowUpItems=documentListItems.map(item=>({
-    ...item,
-    actionHint:'고객 자료 회신 일정과 재요청 담당자를 이번 주 안에 정리하세요.'
-  }));
   const unbilledFollowUpItems=unbilledItems.map(item=>({
     ...item,
     actionHint:'청구 발행 시점과 책임자, 이번 주 후속 확인 일정을 맞춰 보세요.'
@@ -3373,8 +3373,8 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     ...item,
     actionHint:'영향 범위와 고객 대응 필요 여부를 파트너와 함께 점검하세요.'
   }));
-  const warningSummary=`지연 ${overdueItems.length}건 · 미청구 ${unbilledItems.length}건 · 자료 미수령 ${documentItems.length}건 · 과부하 인력 ${overloadedSummaries.length}명`;
-  const decisionSummary=`재배정 ${reassignmentSummaries.length}건 · 일정 조정 ${scheduleAdjustmentItems.length}건 · 자료 재요청 ${documentFollowUpItems.length}건 · 미청구 확인 ${unbilledFollowUpItems.length}건 · 파트너 검토 ${partnerReviewItems.length}건`;
+  const warningSummary=`지연 ${overdueItems.length}건 · 미청구 ${unbilledItems.length}건`;
+  const decisionSummary=`재배정 ${reassignmentSummaries.length}건 · 일정 조정 ${scheduleAdjustmentItems.length}건 · 미청구 확인 ${unbilledFollowUpItems.length}건 · 파트너 검토 ${partnerReviewItems.length}건`;
   const nextSummary=`마감 준비 ${nextEndItems.length}건 · 착수 준비 ${nextStartItems.length}건 · 일정 공유 ${nextScheduleItems.length}건`;
 
   data.cards=[
@@ -3399,34 +3399,12 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
         : '이번 주 기준 미청구 follow-up은 크지 않습니다.',
       meta:`미청구 ${unbilledItems.length}건 · 수금 확인 ${outstandingItems.length}건`,
       tone:unbilledAmount?'warning':outstandingAmount?'danger':'success'
-    },
-    {
-      key:'documents',
-      title:'자료 미수령',
-      badge:'고객 대기',
-      value:formatWeeklyReviewCount(documentItems.length),
-      helper:documentItems.length
-        ? '자료 회신 지연이 차주 일정에 영향을 줄 수 있습니다.'
-        : '회수 관리가 필요한 자료 요청은 현재 적습니다.',
-      meta:`기한 경과 ${documentOverdueCount}건 · 이번 주 확인 ${documentDueSoonCount}건`,
-      tone:documentOverdueCount?'danger':documentItems.length?'warning':'success'
-    },
-    {
-      key:'resources',
-      title:'과부하 인력',
-      badge:'인력 확인',
-      value:`${Number(overloadedSummaries.length||0).toLocaleString()}명`,
-      helper:overloadedSummaries.length
-        ? '휴가·필드웍 또는 일정 집중으로 회의 확인이 필요한 인원입니다.'
-        : '즉시 조정이 필요한 인력 이슈는 크지 않습니다.',
-      meta:`부재 영향 ${absenceImpactMemberCount}명 · 일정 확인 ${scheduleCheckSummaries.length}명`,
-      tone:absenceImpactMemberCount?'danger':overloadedSummaries.length?'warning':'success'
     }
   ];
 
   if(risksSection){
     risksSection.title='이번 주 경고';
-    risksSection.sub='이번 주 회의에서 먼저 다뤄야 할 지연, 계약, 자료, 인력 경고를 한 번에 확인합니다.';
+    risksSection.sub='이번 주 회의에서 먼저 다뤄야 할 지연과 계약 경고를 한 번에 확인합니다.';
     risksSection.collapsedSummary=warningSummary;
     risksSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
       {label:'프로젝트 관리',action:"setPage('gantt')"},
@@ -3448,21 +3426,6 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
           actionHint:'계약 탭에서 청구 발행 시점과 책임자를 맞춰 확인하세요.'
         })),
         emptyText:'이번 주 우선 확인할 미청구 항목은 없습니다.'
-      },
-      {
-        title:'자료 미수령',
-        items:documentListItems.map(item=>({
-          ...item,
-          actionHint:'고객 자료 회신 일정과 담당자 follow-up 여부를 확인하세요.'
-        })),
-        emptyText:'이번 주 경고 수준의 자료 미수령 항목은 없습니다.'
-      },
-      {
-        title:'과부하 인력',
-        items:overloadedSummaries.map(summary=>createWeeklyReviewOperationalMemberItem(summary,{
-          actionHint:'프로젝트 관리에서 담당 분산과 차주 마감 커버 필요 여부를 확인하세요.'
-        })),
-        emptyText:'즉시 조정이 필요한 인력 이슈는 없습니다.'
       }
     ];
   }
@@ -3505,18 +3468,6 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
         emptyText:'회의에서 바로 일정 조정이 필요한 항목은 없습니다.'
       },
       {
-        title:'고객 자료 재요청 필요',
-        variant:'table',
-        tableTemplate:'.9fr 2fr 1fr .9fr',
-        tableHeaders:['누가','무엇을','언제','상태'],
-        tableAppendBadge:false,
-        items:documentFollowUpItems.map(item=>createWeeklyReviewThisWeekActionTableItem(item,'고객 자료 재요청',{
-          status:item?.badgeLabel||'자료',
-          actionHint:item?.actionHint||'고객 자료 회신 일정과 재요청 방향을 이번 주 안에 정리하세요.'
-        })),
-        emptyText:'즉시 자료 재요청이 필요한 항목은 많지 않습니다.'
-      },
-      {
         title:'미청구 후속 확인 필요',
         variant:'table',
         tableTemplate:'.9fr 2fr 1fr .9fr',
@@ -3541,52 +3492,6 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
       }
     ];
   }
-  if(nextSection){
-    nextSection.title='다음 주 액션';
-    nextSection.sub='회의가 끝난 뒤 바로 실행할 항목을 누가, 무엇을, 언제까지 기준으로 정리합니다.';
-    nextSection.collapsedSummary=nextSummary;
-    nextSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
-      {label:'프로젝트 관리',action:"setPage('gantt')"}
-    ]);
-    nextSection.groups=[
-      {
-        title:'마감 준비',
-        variant:'table',
-        tableTemplate:'.9fr 2fr 1fr .9fr',
-        tableHeaders:['누가','무엇을','언제까지','상태'],
-        tableAppendBadge:false,
-        items:nextEndItems.map(item=>createWeeklyReviewActionPlanTableItem({
-          ...item,
-          actionHint:'프로젝트 관리에서 차주 마감 준비 상태를 확인하세요.'
-        },'마감 준비')),
-        emptyText:'다음 주 마감 준비 항목은 없습니다.'
-      },
-      {
-        title:'착수 준비',
-        variant:'table',
-        tableTemplate:'.9fr 2fr 1fr .9fr',
-        tableHeaders:['누가','무엇을','언제까지','상태'],
-        tableAppendBadge:false,
-        items:nextStartItems.map(item=>createWeeklyReviewActionPlanTableItem({
-          ...item,
-          actionHint:'담당, 자료, 일정 준비가 맞춰졌는지 확인하세요.'
-        },'착수 준비')),
-        emptyText:'다음 주 착수 준비 항목은 없습니다.'
-      },
-      {
-        title:'일정 공유',
-        variant:'table',
-        tableTemplate:'.9fr 2fr 1fr .9fr',
-        tableHeaders:['누가','무엇을','언제까지','상태'],
-        tableAppendBadge:false,
-        items:nextScheduleItems.map(item=>createWeeklyReviewActionPlanTableItem({
-          ...item,
-          actionHint:'팀 일정과 커버 계획을 함께 공유하세요.'
-        },'일정 공유')),
-        emptyText:'다음 주 일정 공유 항목은 없습니다.'
-      }
-    ];
-  }
   if(commentsSection){
     commentsSection.title='회의 메모';
     commentsSection.sub='결정 사항과 코멘트는 참고용으로만 간단히 확인합니다.';
@@ -3602,7 +3507,6 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   data.sections=[
     risksSection,
     billingSection,
-    nextSection,
     commentsSection
   ].filter(Boolean);
   return data;
@@ -3700,7 +3604,6 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
   const nextStartItems=getWeeklyReviewSectionGroupItems(nextSection,1);
   const nextScheduleItems=getWeeklyReviewSectionGroupItems(nextSection,2);
   const documentItems=getWeeklyReviewSectionGroupItems(documentsSection,0);
-  const documentListItems=documentItems.map(item=>createWeeklyReviewDocumentListItem(item));
   const overdueTaskItems=(data.taskRows||[])
     .filter(task=>{
       const status=String(task?.status||'').trim().toLowerCase();
@@ -3733,11 +3636,9 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
   const completedTaskItems=(data.taskRows||[])
     .filter(task=>isWeeklyReviewCompletedTaskInRange(task,reviewBounds.start,reviewBounds.end))
     .sort((a,b)=>getWeeklyReviewTimestamp(getWeeklyReviewTaskCompletionBasisDate(b))-getWeeklyReviewTimestamp(getWeeklyReviewTaskCompletionBasisDate(a)))
-    .map(createWeeklyReviewCompletedTaskItem);
-  const overloadedSummaries=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact','schedule-check'].includes(summary?._operationalState?.level));
-  const absenceImpactMemberCount=memberSummaries.filter(summary=>['leave-impact','fieldwork-impact'].includes(summary?._operationalState?.level)).length;
+    .map(task=>createWeeklyReviewCompletedTaskItem(task,data.projectOutputs||[]));
   const riskTotal=overdueItems.length+urgentIssueItems.length+overdueTaskItems.length;
-  const completedTotal=completedItems.length;
+  const completedTotal=completedTaskItems.length;
   const nextTotal=nextEndItems.length+nextStartItems.length;
   const commentCount=(data.weeklyReviews||[]).length;
   data.cards=[
@@ -3758,8 +3659,8 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
       badge:'실적',
       value:formatWeeklyReviewCount(completedTotal),
       helper:completedTotal
-        ?'이번 주 완료 처리된 프로젝트를 함께 공유하세요.'
-        :'이번 주 완료된 프로젝트가 없습니다.',
+        ?'이번 주 완료 처리된 업무와 산출물을 함께 공유하세요.'
+        :'이번 주 완료된 업무가 없습니다.',
       meta:`완료 태스크 ${completedTaskItems.length}건 · 미청구 ${unbilledItems.length}건`,
       tone:completedTotal?'success':''
     },
@@ -3773,23 +3674,12 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
         :'다음 주 주요 일정이 비교적 안정적입니다.',
       meta:`마감 ${nextEndItems.length}건 · 착수 ${nextStartItems.length}건 · 일정 ${nextScheduleItems.length}건`,
       tone:nextTotal?'warning':'success'
-    },
-    {
-      key:'resources',
-      title:'인력 현황',
-      badge:'이번 주',
-      value:`${Number(overloadedSummaries.length||0).toLocaleString()}명`,
-      helper:overloadedSummaries.length
-        ?'휴가·필드웍 또는 과부하로 확인이 필요한 인원입니다.'
-        :'이번 주 인력 가용성은 안정적입니다.',
-      meta:`부재 영향 ${absenceImpactMemberCount}명 · 확인 필요 ${overloadedSummaries.length}명`,
-      tone:absenceImpactMemberCount?'danger':overloadedSummaries.length?'warning':'success'
     }
   ];
   if(risksSection){
     risksSection.title='1. 리스크 / 이슈 / 지연';
-    risksSection.sub='이번 주 먼저 다뤄야 할 지연 프로젝트·태스크, 긴급 이슈, 자료 미수령, 미청구, 과부하 인력을 확인합니다.';
-    risksSection.collapsedSummary=`지연 프로젝트 ${overdueItems.length}건 · 긴급 이슈 ${urgentIssueItems.length}건 · 지연 태스크 ${overdueTaskItems.length}건 · 자료 ${documentItems.length}건 · 미청구 ${unbilledItems.length}건 · 과부하 ${overloadedSummaries.length}명`;
+    risksSection.sub='이번 주 먼저 다뤄야 할 지연 프로젝트·태스크, 긴급 이슈, 미청구를 확인합니다.';
+    risksSection.collapsedSummary=`지연 프로젝트 ${overdueItems.length}건 · 긴급 이슈 ${urgentIssueItems.length}건 · 지연 태스크 ${overdueTaskItems.length}건 · 미청구 ${unbilledItems.length}건`;
     risksSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
       {label:'프로젝트 관리',action:"setPage('gantt')"},
       {label:'계약 확인',action:"setPage('contracts')"}
@@ -3798,53 +3688,76 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
       {title:'지연 프로젝트',items:overdueItems,emptyText:'이번 주 바로 논의할 지연 프로젝트는 없습니다.'},
       {title:'긴급 이슈',items:urgentIssueItems,emptyText:'즉시 점검할 긴급 이슈가 없습니다.'},
       {title:'지연 태스크',items:overdueTaskItems,emptyText:'마감이 경과된 미완료 태스크가 없습니다.',expandKey:'overdueTasks',defaultVisibleCount:WEEKLY_REVIEW_OVERDUE_TASK_DEFAULT_LIMIT},
-      {title:'자료 미수령',items:documentListItems,emptyText:'대기 중인 자료 요청이 없습니다.'},
-      {title:'미청구',items:unbilledItems,emptyText:'이번 주 우선 확인할 미청구 항목은 없습니다.'},
-      {title:'과부하 인력',items:overloadedSummaries.map(summary=>createWeeklyReviewOperationalMemberItem(summary)),emptyText:'즉시 조정이 필요한 인력 이슈는 없습니다.'}
+      {title:'미청구',items:unbilledItems,emptyText:'이번 주 우선 확인할 미청구 항목은 없습니다.'}
     ];
   }
-  const deliverableHtml=renderWeeklyReviewOutputsMarkup(data.projectOutputs||[],data.taskRows||[]);
   if(completedSection){
     completedSection.title='2. 완료 업무 및 산출물';
     completedSection.sub='이번 주 완료된 프로젝트와 업무를 공유하고, 관련 산출물을 함께 정리합니다.';
-    completedSection.collapsedSummary=`완료 프로젝트 ${completedItems.length}건 · 완료 태스크 ${completedTaskItems.length}건`;
+    completedSection.collapsedSummary=`완료 업무 ${completedTaskItems.length}건 · 산출물 ${(data.projectOutputs||[]).length}건`;
     completedSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
       {label:'프로젝트 관리',action:"setPage('gantt')"}
     ]);
     completedSection.groups=[
-      completedSection.groups[0]||{title:'완료 프로젝트',variant:'table',items:completedItems,emptyText:'이번 주 완료된 프로젝트가 없습니다.'},
-      {title:'완료 태스크',items:completedTaskItems,emptyText:'이번 주에 완료된 태스크가 없습니다.'},
-      {title:'산출물 링크',variant:'html',countLabel:formatWeeklyReviewCount((data.projectOutputs||[]).length),html:deliverableHtml}
-    ];
-  }
-  if(nextSection){
-    nextSection.title='3. 차주 계획';
-    nextSection.sub='다음 영업주 기준 마감 준비, 신규 착수, 주요 일정을 확인합니다.';
-    nextSection.collapsedSummary=`마감 준비 ${nextEndItems.length}건 · 착수 준비 ${nextStartItems.length}건 · 일정 ${nextScheduleItems.length}건`;
-    nextSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
-      {label:'프로젝트 관리',action:"setPage('gantt')"}
-    ]);
-    nextSection.groups=[
-      {title:'마감 준비',items:nextEndItems,emptyText:'다음 주 마감 예정 프로젝트가 없습니다.'},
-      {title:'신규 착수',items:nextStartItems,emptyText:'다음 주 신규 착수 프로젝트가 없습니다.'},
-      {title:'일정 (휴가 / 필드웍)',items:nextScheduleItems,emptyText:'다음 주 예정된 주요 일정이 없습니다.'}
+      {
+        title:'완료 업무',
+        variant:'html',
+        countLabel:formatWeeklyReviewCount(completedTaskItems.length),
+        html:completedTaskItems.length
+          ?completedTaskItems.map(item=>{
+              const outputs=item._linkedOutputs||[];
+              const outputHtml=outputs.length
+                ?outputs.map(output=>
+                    '<a href="'+esc(output.onedrive_url||'#')+'" target="_blank" rel="noopener" class="wr-output-link">'
+                    +'<span class="wr-output-icon">📎</span>'+esc(output.title||'산출물 링크')
+                    +'</a>'
+                  ).join('')
+                :'<span class="wr-output-none">산출물 미등록</span>';
+              return '<div class="wr-completed-card">'
+                +'<div class="wr-completed-card-main">'
+                  +'<div class="wr-completed-card-context">'+esc(item.meta||'')+'</div>'
+                  +'<div class="wr-completed-card-title">'+esc(item.title||'')+'</div>'
+                  +'<div class="wr-completed-card-outputs">'+outputHtml+'</div>'
+                +'</div>'
+                +'<div class="wr-completed-card-side">'
+                  +'<span class="badge badge-green">완료</span>'
+                  +'<div class="wr-completed-card-date">'+esc(item.sideText||'')+'</div>'
+                +'</div>'
+              +'</div>';
+            }).join('')
+          :'<div class="weekly-review-empty">이번 주에 완료된 업무가 없습니다.</div>'
+      },
+      {
+        title:'미연결 산출물',
+        variant:'html',
+        countLabel:formatWeeklyReviewCount((data.projectOutputs||[]).filter(output=>!output.task_id).length),
+        html:renderWeeklyReviewOutputsMarkup(
+          (data.projectOutputs||[]).filter(output=>!output.task_id),
+          data.taskRows||[]
+        )
+      }
     ];
   }
   if(commentsSection){
+    const actionSnapshot=await getWeeklyReviewSnapshotAnyStatus(getWeekStart(offsetWeeks)).catch(()=>null);
+    const actionItems=Array.isArray(actionSnapshot?.snapshot_json?.action_items)?actionSnapshot.snapshot_json.action_items:[];
+    const isFinalized=String(actionSnapshot?.status||'')==='finalized';
+    const weekStart=getWeekStart(offsetWeeks);
     const meetingSections=getWeeklyReviewMeetingSections();
     commentsSection.title='4. 회의 메모';
-    commentsSection.sub='회의 중 기록한 내용, 주요 결정사항, 다음 주 확인사항을 함께 정리합니다.';
-    commentsSection.collapsedSummary=`메모 ${commentCount}건`;
+    commentsSection.sub='결정 사항, 코멘트, 액션 아이템을 회의 중 바로 기록합니다.';
+    commentsSection.collapsedSummary=`메모 ${commentCount}건 · 액션 ${actionItems.length}건`;
     commentsSection.groups=[
       {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,true)},
       {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText)},
-      {title:'액션 아이템',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText)},
-      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)}
+      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText)},
+      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)},
+      {title:'액션 아이템',variant:'html',countLabel:formatWeeklyReviewCount(actionItems.length),html:renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized)}
     ];
   }
   data._raw_nextWeekEnds=data.nextWeekEnds||[];
   data._raw_nextWeekStarts=data.nextWeekStarts||[];
-  data.sections=[risksSection,completedSection,nextSection,commentsSection].filter(Boolean);
+  data.sections=[risksSection,completedSection,commentsSection].filter(Boolean);
   return data;
 }
 async function getWeeklyReviewSnapshot(weekStart){
@@ -3917,7 +3830,8 @@ function getWeeklyReviewSnapshotSummary(cards=[],sections=[]){
   const groupCount=(sectionId,groupTitle)=>{
     const section=(sections||[]).find(item=>String(item?.id||'')===sectionId);
     const group=(section?.groups||[]).find(item=>String(item?.title||'').includes(groupTitle));
-    return Array.isArray(group?.items)?group.items.length:0;
+    if(Array.isArray(group?.items))return group.items.length;
+    return parseWeeklyReviewMetricNumber(group?.countLabel||0);
   };
   return {
     cardCount:Array.isArray(cards)?cards.length:0,
@@ -3925,12 +3839,10 @@ function getWeeklyReviewSnapshotSummary(cards=[],sections=[]){
     overdueProjectCount:groupCount('risks','지연 프로젝트'),
     overdueTaskCount:groupCount('risks','지연 태스크'),
     unbilledProjectCount:groupCount('risks','미청구'),
-    completedProjectCount:groupCount('completed','완료 프로젝트'),
-    completedTaskCount:groupCount('completed','완료 태스크'),
+    completedProjectCount:0,
+    completedTaskCount:groupCount('completed','완료 업무'),
     nextDeadlineCount:groupCount('next','마감'),
-    nextStartCount:groupCount('next','착수'),
-    documentPendingCount:groupCount('risks','자료'),
-    resourceIssueCount:groupCount('risks','과부하')
+    nextStartCount:groupCount('next','착수')
   };
 }
 function getWeeklyReviewSnapshotDisplayItems(sections=[]){
@@ -3968,6 +3880,7 @@ function buildWeeklyReviewSnapshotJson(calculatedData,offsetWeeks=weeklyReviewWe
   const sections=sanitizeWeeklyReviewSnapshotSections(cloneWeeklyReviewSnapshotValue(
     (calculatedData?.sections||[]).filter(section=>String(section?.id||'')!=='comments')
   )||[]);
+  const actionItems=Array.isArray(calculatedData?._snapshotMeta?.action_items)?calculatedData._snapshotMeta.action_items:[];
   return {
     schema:'weekly-review-snapshot',
     snapshotVersion:1,
@@ -3977,12 +3890,13 @@ function buildWeeklyReviewSnapshotJson(calculatedData,offsetWeeks=weeklyReviewWe
     baseDate:meta.baseDate,
     source:'calculated-current-db',
     summary:getWeeklyReviewSnapshotSummary(cards,sections),
+    action_items:actionItems,
     cards,
     sections,
     displayItems:getWeeklyReviewSnapshotDisplayItems(sections)
   };
 }
-async function getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks=weeklyReviewWeekOffset){
+async function getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks=weeklyReviewWeekOffset,actionItems=[],isFinalized=false){
   const weeklyReviews=await api('GET','weekly_reviews?week_start=eq.'+weekStart+'&select=*&order=created_at.desc').catch(error=>{
     console.warn('[weekly-review] snapshot comments load failed',error);
     return [];
@@ -3992,13 +3906,14 @@ async function getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks=week
   const commentsSection={
     id:'comments',
     title:'4. 회의 메모',
-    sub:'회의 중 기록한 내용, 주요 결정사항, 다음 주 확인사항을 함께 정리합니다.',
-    collapsedSummary:`메모 ${commentCount}건`,
+    sub:'결정 사항, 코멘트, 액션 아이템을 회의 중 바로 기록합니다.',
+    collapsedSummary:`메모 ${commentCount}건 · 액션 ${Array.isArray(actionItems)?actionItems.length:0}건`,
     groups:[
       {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,true)},
       {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText)},
-      {title:'액션 아이템',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText)},
-      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)}
+      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText)},
+      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText)},
+      {title:'액션 아이템',variant:'html',countLabel:formatWeeklyReviewCount(Array.isArray(actionItems)?actionItems.length:0),html:renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized)}
     ]
   };
   return {commentsSection,weeklyReviews};
@@ -4006,7 +3921,9 @@ async function getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks=week
 async function getWeeklyReviewSnapshotPageData(snapshot,offsetWeeks=weeklyReviewWeekOffset){
   const snapshotJson=snapshot?.snapshot_json||{};
   const weekStart=String(snapshot?.week_start||snapshotJson.weekStart||getWeekStart(offsetWeeks));
-  const {commentsSection,weeklyReviews}=await getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks);
+  const actionItems=Array.isArray(snapshotJson.action_items)?snapshotJson.action_items:[];
+  const isFinalized=String(snapshot?.status||'draft').trim()==='finalized';
+  const {commentsSection,weeklyReviews}=await getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks,actionItems,isFinalized);
   const sections=sanitizeWeeklyReviewSnapshotSections(
     (Array.isArray(snapshotJson.sections)?snapshotJson.sections:[])
       .filter(section=>String(section?.id||'')!=='comments')
@@ -4024,7 +3941,8 @@ async function getWeeklyReviewSnapshotPageData(snapshot,offsetWeeks=weeklyReview
       generatedAt:snapshotJson.generatedAt||null,
       updatedAt:snapshot?.updated_at||snapshot?.created_at||null,
       weekStart,
-      baseDate:snapshotJson.baseDate||snapshot?.base_date||null
+      baseDate:snapshotJson.baseDate||snapshot?.base_date||null,
+      action_items:actionItems
     }
   };
 }
@@ -4055,6 +3973,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     updatedAt:null,
     weekStart:meta.weekStart,
     baseDate:meta.baseDate,
+    action_items:[],
     warning:snapshotWarning
   };
   return liveData;
@@ -4065,6 +3984,10 @@ async function saveWeeklyReviewSnapshot(){
   try{
     const calculatedData=await getWeeklyReviewCalculatedPageData(offsetWeeks);
     const snapshotJson=buildWeeklyReviewSnapshotJson(calculatedData,offsetWeeks);
+    const existing=await getWeeklyReviewSnapshotAnyStatus(meta.weekStart);
+    if(Array.isArray(existing?.snapshot_json?.action_items)){
+      snapshotJson.action_items=existing.snapshot_json.action_items;
+    }
     const body={
       week_start:meta.weekStart,
       snapshot_json:snapshotJson,
@@ -4075,7 +3998,6 @@ async function saveWeeklyReviewSnapshot(){
     if(typeof apiEx==='function'){
       await apiEx('POST',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?on_conflict=week_start',body,'resolution=merge-duplicates,return=representation');
     }else{
-      const existing=await getWeeklyReviewSnapshot(meta.weekStart);
       if(existing?.id){
         await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,body);
       }else{
@@ -4210,5 +4132,133 @@ function renderWeeklyReviewNextWeekSection(data) {
       </div>
     </div>
   </section>`;
+}
+
+function renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized){
+  const items=Array.isArray(actionItems)?actionItems:[];
+  const today=getHomeBaseDate();
+  today.setHours(0,0,0,0);
+  const itemsHtml=items.length
+    ?items.map(item=>{
+        const isDone=!!item.done;
+        const due=item.due?new Date(item.due):null;
+        if(due)due.setHours(0,0,0,0);
+        const isOverdue=due&&!isDone&&due<today;
+        const dueLabel=item.due?String(item.due).slice(5).replace('-','/'):'';
+        const dueCls=isOverdue?'wr-action-due--danger':'';
+        return '<div class="wr-action-item" data-id="'+esc(item.id||'')+'">'
+          +'<button type="button" class="wr-action-check'+(isDone?' is-done':'')+'" '
+          +'onclick="toggleWeeklyReviewActionItem(\''+esc(weekStart)+'\',\''+esc(item.id||'')+'\')">'
+          +(isDone?'✓':'')
+          +'</button>'
+          +'<div class="wr-action-body'+(isDone?' is-done':'')+'">'
+          +'<div class="wr-action-text">'+esc(item.text||'')+'</div>'
+          +'<div class="wr-action-meta">'
+          +(item.assignee?'<span class="wr-action-assignee">'+esc(item.assignee)+'</span>':'')
+          +(dueLabel?'<span class="wr-action-due '+dueCls+'">'+esc(dueLabel)+'</span>':'')
+          +'</div>'
+          +'</div>'
+          +(!isFinalized?'<button type="button" class="wr-action-delete" onclick="deleteWeeklyReviewActionItem(\''+esc(weekStart)+'\',\''+esc(item.id||'')+'\')">×</button>':'')
+          +'</div>';
+      }).join('')
+    :'<div class="wr-action-empty">등록된 액션 아이템이 없습니다.</div>';
+  const addButton=!isFinalized
+    ?'<button type="button" class="btn ghost sm" style="margin-top:8px" onclick="openWeeklyReviewActionItemModal(\''+esc(weekStart)+'\')">+ 액션 아이템 추가</button>'
+    :'';
+  return '<div class="wr-action-list">'+itemsHtml+'</div>'+addButton;
+}
+
+function openWeeklyReviewActionItemModal(weekStart){
+  const memberOptions=(members||[])
+    .filter(member=>member.name)
+    .map(member=>'<option value="'+esc(member.name)+'">'+esc(member.name)+'</option>')
+    .join('');
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal" style="width:420px"><div class="modal-title">액션 아이템 추가</div>'
+    +'<div class="form-row"><label class="form-label">내용</label>'
+    +'<input id="wrActionText" placeholder="예) 자료 전달, 일정 확인" autofocus/></div>'
+    +'<div class="form-half">'
+    +'<div class="form-row"><label class="form-label">담당자</label>'
+    +'<select id="wrActionAssignee"><option value="">선택 안 함</option>'+memberOptions+'</select></div>'
+    +'<div class="form-row"><label class="form-label">마감일</label>'
+    +'<input type="date" id="wrActionDue"/></div>'
+    +'</div>'
+    +'<div class="modal-footer"><div></div>'
+    +'<div class="modal-footer-right">'
+    +'<button class="btn ghost" onclick="closeModal()">취소</button>'
+    +'<button class="btn primary" onclick="saveWeeklyReviewActionItem(\''+esc(weekStart)+'\')">추가</button>'
+    +'</div>'
+    +'</div>'
+    +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
+}
+
+async function getWeeklyReviewActionItems(weekStart){
+  try{
+    const snap=await getWeeklyReviewSnapshotAnyStatus(weekStart);
+    const items=snap?.snapshot_json?.action_items;
+    return Array.isArray(items)?items:[];
+  }catch(e){
+    return [];
+  }
+}
+
+async function saveWeeklyReviewActionItems(weekStart,items){
+  try{
+    const snap=await getWeeklyReviewSnapshotAnyStatus(weekStart);
+    if(!snap?.id){
+      alert('먼저 초안을 저장해주세요.');
+      return false;
+    }
+    const nextJson={...(snap.snapshot_json||{}),action_items:items};
+    await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+snap.id,{
+      snapshot_json:nextJson
+    });
+    return true;
+  }catch(e){
+    alert('저장 실패: '+(e?.message||''));
+    return false;
+  }
+}
+
+async function saveWeeklyReviewActionItem(weekStart){
+  const text=document.getElementById('wrActionText')?.value.trim();
+  if(!text){alert('내용을 입력해주세요.');return;}
+  const assignee=document.getElementById('wrActionAssignee')?.value||'';
+  const due=document.getElementById('wrActionDue')?.value||'';
+  const items=await getWeeklyReviewActionItems(weekStart);
+  const newItem={
+    id:typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'
+      ?crypto.randomUUID()
+      :Date.now().toString(36)+Math.random().toString(36).slice(2),
+    text,
+    assignee,
+    due,
+    done:false,
+    created_at:new Date().toISOString()
+  };
+  const ok=await saveWeeklyReviewActionItems(weekStart,[...items,newItem]);
+  if(ok){
+    closeModal();
+    await renderWeeklyReviewPage(weeklyReviewWeekOffset);
+  }
+}
+
+async function toggleWeeklyReviewActionItem(weekStart,itemId){
+  const items=await getWeeklyReviewActionItems(weekStart);
+  const next=items.map(item=>
+    String(item.id)===String(itemId)?{...item,done:!item.done}:item
+  );
+  const ok=await saveWeeklyReviewActionItems(weekStart,next);
+  if(ok)await renderWeeklyReviewPage(weeklyReviewWeekOffset);
+}
+
+async function deleteWeeklyReviewActionItem(weekStart,itemId){
+  if(!confirm('이 액션 아이템을 삭제할까요?'))return;
+  const items=await getWeeklyReviewActionItems(weekStart);
+  const ok=await saveWeeklyReviewActionItems(weekStart,items.filter(item=>String(item.id)!==String(itemId)));
+  if(ok)await renderWeeklyReviewPage(weeklyReviewWeekOffset);
 }
 

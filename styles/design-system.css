@@ -1941,3 +1941,33 @@ textarea::placeholder,
 .wr-nw-member--warn{color:var(--color-danger)}
 .wr-nw-member--field{color:var(--color-warning)}
 @media(max-width:768px){.wr-nw-three-col{grid-template-columns:1fr}.wr-nw-deadline-header,.wr-nw-deadline-row{grid-template-columns:2fr 60px 80px}}
+
+/* ── 완료 업무 카드 ── */
+.wr-completed-card{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:0.5px solid var(--color-border)}
+.wr-completed-card:last-child{border-bottom:none}
+.wr-completed-card-main{flex:1;min-width:0}
+.wr-completed-card-context{font-size:11px;color:var(--color-text-muted);margin-bottom:3px}
+.wr-completed-card-title{font-size:13px;font-weight:600;color:var(--color-primary);margin-bottom:6px}
+.wr-completed-card-outputs{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.wr-output-link{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--color-info);text-decoration:none;padding:3px 8px;border-radius:var(--radius-sm);background:var(--color-bg);border:0.5px solid var(--color-border)}
+.wr-output-link:hover{border-color:var(--color-info);background:var(--color-bg-info,#EDF3FF)}
+.wr-output-icon{font-size:12px}
+.wr-output-none{font-size:11px;color:var(--color-text-muted)}
+.wr-completed-card-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.wr-completed-card-date{font-size:11px;color:var(--color-text-muted)}
+
+/* ── 액션 아이템 ── */
+.wr-action-list{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+.wr-action-item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:var(--color-bg);border:0.5px solid var(--color-border);border-radius:var(--radius-md)}
+.wr-action-check{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--color-border);background:#fff;cursor:pointer;flex-shrink:0;font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--color-success);font-weight:700}
+.wr-action-check.is-done{background:var(--color-success);border-color:var(--color-success);color:#fff}
+.wr-action-body{flex:1;min-width:0}
+.wr-action-body.is-done .wr-action-text{text-decoration:line-through;color:var(--color-text-muted)}
+.wr-action-text{font-size:13px;font-weight:500;color:var(--color-text)}
+.wr-action-meta{display:flex;gap:8px;margin-top:3px;flex-wrap:wrap}
+.wr-action-assignee{font-size:11px;color:var(--color-text-secondary)}
+.wr-action-due{font-size:11px;color:var(--color-text-muted)}
+.wr-action-due--danger{color:var(--color-danger);font-weight:600}
+.wr-action-delete{background:none;border:none;color:var(--color-text-muted);cursor:pointer;font-size:16px;padding:0 4px;line-height:1;flex-shrink:0}
+.wr-action-delete:hover{color:var(--color-danger)}
+.wr-action-empty{font-size:12px;color:var(--color-text-muted);padding:8px 0}

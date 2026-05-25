@@ -7,7 +7,7 @@ function getHomeBaseDate(){
 async function renderHomeRiskSummary(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+  const loadingLabels=['오늘 마감','지연 중','내 이슈','미청구','오늘 휴가'];
   el.innerHTML='<div class="home-risk-grid">'
     +loadingLabels.map(label=>
       '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">불러오는 중...</div></div>'
@@ -101,17 +101,6 @@ async function renderHomeRiskSummary(){
         action:"setPage('projects')"
       },
       {
-        label:'자료 확인 필요',
-        value:pendingDocRows.length?pendingDocRows.length+'건':'없음',
-        tone:pendingDocRows.length?'warning':'neutral',
-        quiet:!pendingDocRows.length,
-        emphasis:'action',
-        meta:pendingDocRows.length?('프로젝트 문서 탭에서 '+pendingDocRows.length+'건 확인'):'기한 자료 요청 없음',
-        action:pendingDocRows.length&&firstPendingProjectId
-          ?"openProjModal('"+firstPendingProjectId+"',null,null,'documents')"
-          :"alert('기한 자료 요청이 없습니다.')"
-      },
-      {
         label:'내 이슈',
         value:myOpenIssues.length?myOpenIssues.length+'건':'없음',
         tone:myOpenIssues.length?'warning':'neutral',
@@ -144,7 +133,7 @@ async function renderHomeRiskSummary(){
     ];
     el.innerHTML='<div class="home-risk-grid">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>';
   }catch(e){
-    const fallbackLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+    const fallbackLabels=['오늘 마감','지연 중','내 이슈','미청구','오늘 휴가'];
     el.innerHTML='<div class="home-risk-grid">'
       +fallbackLabels.map(label=>
         '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">상단 요약을 불러오지 못했습니다.</div></div>'
@@ -1536,7 +1525,7 @@ async function renderTeamWorkload(){
     +'<div class="home-section-head"><div class="home-section-title">팀 상황판</div></div>'
     +'<div class="home-team-summary-grid">'+summaryCards.map(card=>'<button type="button" class="home-team-summary-card" onclick="'+card.action+'"><span class="home-team-summary-label">'+card.label+'</span><span class="home-team-summary-value">'+card.value+'</span></button>').join('')+'</div>'
     +'<div class="home-team-actions">'+actionButtons+'</div>'
-    +'<div class="home-team-workload-head"><div class="home-subsection-title">팀 워크로드</div><div class="home-meta-text">가장 과부하인 멤버 순으로 정렬</div></div>'
+    +'<div class="home-team-workload-head"><div class="home-subsection-title">팀 워크로드</div><div class="home-meta-text">업무가 많은 멤버 순으로 정렬</div></div>'
     +workloadHtml
   +'</div>';
 }
@@ -1959,9 +1948,9 @@ renderHomeDashboardIssues = async function(){
 renderTeamWorkload = async function(){
   const el=document.getElementById('teamWorkloadWrap');
   if(!el)return;
-  const loadingLabels=['지연 프로젝트','미청구 금액','장기 자료 미수령','주의 필요 인력','위험 고객'];
+  const loadingLabels=['지연 프로젝트','미청구 금액','위험 고객'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
-    +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구·자료·인력 리스크를 보여줍니다.</div></div></div>'
+    +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구 리스크를 보여줍니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--warning">'
     +loadingLabels.map(label=>
       '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">불러오는 중..</div></div>'
@@ -2135,23 +2124,6 @@ renderTeamWorkload = async function(){
         action:"openHomePendingBillingProjectBoard()"
       },
       {
-        label:'장기 자료 미수령',
-        value:pendingDocRows.length?pendingDocRows.length+'건':'없음',
-        tone:pendingDocRows.length?'warning':'neutral',
-        quiet:!pendingDocRows.length,
-        meta:pendingDocRows[0]?.title||'대기 중인 자료 요청이 없습니다',
-        action:"setPage('projects')"
-      },
-      {
-        label:'주의 필요 인력',
-        value:attentionMemberRows.length?attentionMemberRows.length+'명':'없음',
-        tone:attentionMemberRows.length?'warning':'neutral',
-        quiet:!attentionMemberRows.length,
-        meta:attentionMemberMeta,
-        titleText:'지연 태스크·이번 주 마감·열린 이슈 기준',
-        action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
-      },
-      {
         label:'위험 고객',
         value:riskyClients.length?riskyClients.length+'곳':'없음',
         tone:riskyClients.length?'danger':'neutral',
@@ -2271,7 +2243,7 @@ renderTeamKudosAndReviews = async function(){
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','지연된 내 업무','자료 리마인드 필요','내가 확인할 이슈','오늘 일정'];
+  const loadingLabels=['오늘 마감','지연된 내 업무','내가 확인할 이슈','오늘 일정'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY ACTION</div><div class="home-layer-title">오늘 액션</div><div class="home-layer-sub">오늘 내가 직접 처리하거나 확인해야 할 업무입니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--actions">'
@@ -2343,17 +2315,6 @@ renderHomeRiskSummary = async function(){
         emphasis:'action',
         meta:firstOverdueProject?(firstOverdueProject.name+' · D+'+overdueDiff):'지연된 프로젝트가 없습니다',
         action:"setPage('projects')"
-      },
-      {
-        label:'자료 리마인드 필요',
-        value:myPendingDocs.length?myPendingDocs.length+'건':'없음',
-        tone:myPendingDocs.length?'warning':'neutral',
-        quiet:!myPendingDocs.length,
-        emphasis:'action',
-        meta:firstPendingDoc?(firstPendingDoc.title||'자료 요청'):'대기 중인 자료 요청이 없습니다',
-        action:firstPendingDoc?.project_id
-          ?"openProjModal('"+firstPendingDoc.project_id+"',null,null,'documents')"
-          :"setPage('projects')"
       },
       {
         label:'내가 확인할 이슈',
@@ -2841,7 +2802,7 @@ async function renderHomeRiskSummaryLegacy(){
       if(index===2){
         return {
           ...card,
-          label:'자료 확인 필요',
+          label:'확인 필요',
           meta:pendingDocRows.length?('프로젝트 문서 탭에서 '+pendingDocRows.length+'건 확인'):'기한 자료 요청 없음'
         };
       }
@@ -3398,7 +3359,7 @@ renderHomeDailyWorkCard = function(item){
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+  const loadingLabels=['오늘 마감','지연 중','내 이슈','미청구','오늘 휴가'];
   el.innerHTML='<div class="home-risk-grid">'
     +loadingLabels.map(label=>
       '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">불러오는 중...</div></div>'
@@ -3492,17 +3453,6 @@ renderHomeRiskSummary = async function(){
         action:"setPage('projects')"
       },
       {
-        label:'자료 확인 필요',
-        value:pendingDocRows.length?pendingDocRows.length+'건':'없음',
-        tone:pendingDocRows.length?'warning':'neutral',
-        quiet:!pendingDocRows.length,
-        emphasis:'action',
-        meta:pendingDocRows.length?('프로젝트 문서 탭에서 '+pendingDocRows.length+'건 확인'):'기한 자료 요청 없음',
-        action:pendingDocRows.length&&firstPendingProjectId
-          ?"openProjModal('"+firstPendingProjectId+"',null,null,'documents')"
-          :"alert('기한 자료 요청이 없습니다.')"
-      },
-      {
         label:'내 이슈',
         value:myOpenIssues.length?myOpenIssues.length+'건':'없음',
         tone:myOpenIssues.length?'warning':'neutral',
@@ -3535,7 +3485,7 @@ renderHomeRiskSummary = async function(){
     ];
     el.innerHTML='<div class="home-risk-grid">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>';
   }catch(e){
-    const fallbackLabels=['오늘 마감','지연 중','자료 확인 필요','내 이슈','미청구','오늘 휴가'];
+    const fallbackLabels=['오늘 마감','지연 중','내 이슈','미청구','오늘 휴가'];
     el.innerHTML='<div class="home-risk-grid">'
       +fallbackLabels.map(label=>
         '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">상단 요약을 불러오지 못했습니다.</div></div>'
@@ -3659,7 +3609,7 @@ renderHomeDashboardIssues = async function(){
 renderTeamWorkload = async function(){
   const el=document.getElementById('teamWorkloadWrap');
   if(!el)return;
-  const loadingLabels=['지연 프로젝트','미청구 금액','장기 자료 미수령','주의 필요 인력','위험 고객'];
+  const loadingLabels=['지연 프로젝트','미청구 금액','위험 고객'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구·자료·인력 리스크를 보여줍니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--warning">'
@@ -3823,23 +3773,6 @@ renderTeamWorkload = async function(){
         action:"openHomePendingBillingProjectBoard()"
       },
       {
-        label:'장기 자료 미수령',
-        value:pendingDocRows.length?pendingDocRows.length+'건':'없음',
-        tone:pendingDocRows.length?'warning':'neutral',
-        quiet:!pendingDocRows.length,
-        meta:pendingDocRows[0]?.title||'대기 중인 자료 요청이 없습니다',
-        action:"setPage('projects')"
-      },
-      {
-        label:'주의 필요 인력',
-        value:attentionMemberRows.length?attentionMemberRows.length+'명':'없음',
-        tone:attentionMemberRows.length?'warning':'neutral',
-        quiet:!attentionMemberRows.length,
-        meta:attentionMemberMeta,
-        titleText:'지연 태스크·이번 주 마감·열린 이슈 기준',
-        action:"document.getElementById('memberScheduleWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
-      },
-      {
         label:'위험 고객',
         value:riskyClients.length?riskyClients.length+'곳':'없음',
         tone:riskyClients.length?'danger':'neutral',
@@ -3959,7 +3892,7 @@ renderTeamKudosAndReviews = async function(){
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','지연된 내 업무','자료 리마인드 필요','내가 확인할 이슈','오늘 일정'];
+  const loadingLabels=['오늘 마감','지연된 내 업무','내가 확인할 이슈','오늘 일정'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY ACTION</div><div class="home-layer-title">오늘 액션</div><div class="home-layer-sub">오늘 내가 직접 처리하거나 확인해야 할 업무입니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--actions">'
@@ -4031,17 +3964,6 @@ renderHomeRiskSummary = async function(){
         emphasis:'action',
         meta:firstOverdueProject?(firstOverdueProject.name+' · D+'+overdueDiff):'지연된 프로젝트가 없습니다',
         action:"setPage('projects')"
-      },
-      {
-        label:'자료 리마인드 필요',
-        value:myPendingDocs.length?myPendingDocs.length+'건':'없음',
-        tone:myPendingDocs.length?'warning':'neutral',
-        quiet:!myPendingDocs.length,
-        emphasis:'action',
-        meta:firstPendingDoc?(firstPendingDoc.title||'자료 요청'):'대기 중인 자료 요청이 없습니다',
-        action:firstPendingDoc?.project_id
-          ?"openProjModal('"+firstPendingDoc.project_id+"',null,null,'documents')"
-          :"setPage('projects')"
       },
       {
         label:'내가 확인할 이슈',
