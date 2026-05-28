@@ -4966,3 +4966,127 @@ td{
     justify-content:flex-start!important;
   }
 }
+
+/* List-first project workspace: give the table most of the viewport. */
+#pageGantt .gantt-top-shell{
+  gap:8px!important;
+  margin-bottom:8px!important;
+}
+#pageGantt .gantt-controls-shell{
+  padding:8px 10px!important;
+  border-radius:14px!important;
+}
+#pageGantt .gantt-toolbar{
+  gap:6px!important;
+}
+#pageGantt .gantt-toolbar-zone{
+  gap:5px!important;
+}
+#pageGantt .month-nav{
+  padding:2px!important;
+}
+#pageGantt .month-nav-btn{
+  width:28px!important;
+  height:28px!important;
+}
+#pageGantt .month-label{
+  min-width:96px!important;
+  font-size:13px!important;
+}
+#pageGantt .gantt-top-filter-bar{
+  gap:8px!important;
+  margin:8px 0 0!important;
+  padding:8px 10px!important;
+  border-radius:14px!important;
+}
+#pageGantt .gantt-top-filter-group{
+  gap:6px!important;
+}
+#pageGantt .gantt-top-filter-group select,
+#pageGantt .gantt-client-search{
+  min-height:34px!important;
+  padding:6px 10px!important;
+  border-radius:10px!important;
+  font-size:12px!important;
+}
+#pageGantt .gantt-status-chip,
+#pageGantt .gantt-type-chip{
+  min-height:30px!important;
+  padding:0 9px!important;
+  border-radius:10px!important;
+  font-size:11px!important;
+}
+#pageGantt .member-filter-tabs{
+  margin-top:6px!important;
+  gap:4px!important;
+}
+#pageGantt .member-filter-tab{
+  min-height:28px!important;
+  padding:0 10px!important;
+  font-size:11px!important;
+}
+#pageGantt .gantt-view-settings{
+  gap:8px!important;
+  margin:8px 0 0!important;
+  padding:8px 10px!important;
+  border-radius:14px!important;
+}
+#pageGantt .gantt-view-settings-head{
+  gap:4px!important;
+}
+#pageGantt .gantt-view-settings-sub{
+  display:none!important;
+}
+#pageGantt .gantt-view-settings-summary{
+  padding:8px 10px!important;
+}
+#pageGantt .gantt-view-settings-disclosure-body{
+  padding:8px 10px!important;
+}
+#pageGantt .gantt-shell{
+  gap:12px!important;
+}
+#pageGantt .gantt-stage{
+  gap:12px!important;
+}
+#pageGantt .gantt-main{
+  gap:10px!important;
+  padding:12px!important;
+}
+#pageGantt .gantt-main-top{
+  padding-bottom:0!important;
+  margin-bottom:0!important;
+}
+#pageGantt .gantt-main-copy{
+  display:none!important;
+}
+#pageGantt .gantt-wrap{
+  border-radius:16px!important;
+}
+#pageGantt .gantt-list-table-shell{
+  height:clamp(520px,68vh,760px)!important;
+  max-height:clamp(520px,68vh,760px)!important;
+}
+#pageGantt .gantt-detail{
+  max-height:35vh!important;
+  overflow-y:auto!important;
+  padding:14px!important;
+}
+#pageGantt .gantt-detail-header--ops{
+  margin-bottom:12px!important;
+  padding:12px 14px!important;
+  border-radius:16px!important;
+}
+#pageGantt .gantt-detail-tabbar{
+  margin-bottom:10px!important;
+}
+
+@media(max-width:900px){
+  #pageGantt .gantt-list-table-shell{
+    height:clamp(420px,62vh,620px)!important;
+    max-height:clamp(420px,62vh,620px)!important;
+  }
+  #pageGantt .gantt-detail{
+    max-height:none!important;
+  }
+}
