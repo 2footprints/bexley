@@ -2034,6 +2034,9 @@ function normalizeAppRole(role){
   if(normalized==='member')return 'staff';
   return normalized;
 }
+function isMemberRoleAdmin(member){
+  return normalizeAppRole(member?.role)==='admin';
+}
 function getRoleLabel(role){
   const normalized=normalizeAppRole(role);
   return normalized==='admin'?'관리자':normalized==='partner'?'Partner':normalized==='team_lead'?'Team Lead':normalized==='manager'?'매니저':normalized==='staff'?'Staff':normalized==='observer'?'Observer':'미승인';
@@ -2047,7 +2050,7 @@ function isObserverRole(){return normalizeAppRole(currentRole)==='observer';}
 function canManageCore(){return ['staff','manager','team_lead','partner','admin'].includes(normalizeAppRole(currentRole));}
 function canCreateIssueRole(){return isApprovedRole();}
 function canPostCommentsRole(){return isApprovedRole();}
-function roleIsAdmin(){return normalizeAppRole(currentRole)==='admin'||isAdmin===true;}
+function roleIsAdmin(){return isMemberRoleAdmin(currentMember);}
 function canManagePortalSettings(){return roleIsAdmin();}
 function getAssignedMemberNames(clientId){
   return (clientAssignments||[])
@@ -2465,18 +2468,43 @@ function showPage(p){
 async function refreshRoleContext(){
   currentRoleRow=null;pendingRequest=null;currentRole='';isAdmin=false;
   try{
-    const [roles,mm,reqs]=await Promise.all([
+    const [roles,memberByAuth,memberByEmail,reqs]=await Promise.all([
       api('GET','user_roles?id=eq.'+currentUser.id+'&select=id,is_admin,role,approved_at,approved_by').catch(()=>[]),
+      api('GET','members?auth_user_id=eq.'+encodeURIComponent(currentUser.id)+'&select=*').catch(()=>[]),
       api('GET','members?email=eq.'+encodeURIComponent(currentUser.email)+'&select=*').catch(()=>[]),
       api('GET','access_requests?user_id=eq.'+currentUser.id+'&select=*').catch(()=>[])
     ]);
     currentRoleRow=roles&&roles[0]||null;
-    currentMember=mm&&mm[0]||null;
+    currentMember=(memberByAuth&&memberByAuth[0])||(memberByEmail&&memberByEmail[0])||null;
     pendingRequest=reqs&&reqs[0]||null;
-    currentRole=currentRoleRow?.role||(currentRoleRow?.is_admin?'admin':'');
-    isAdmin=currentRole==='admin'||currentRoleRow?.is_admin===true;
+    currentRole=normalizeAppRole(currentMember?.role||currentRoleRow?.role||(currentRoleRow?.is_admin?'admin':''));
+    isAdmin=isMemberRoleAdmin(currentMember);
+    if(currentRole&&!currentRoleRow){
+      currentRoleRow={id:currentUser.id,role:currentRole,is_admin:isAdmin,source:'members'};
+    }
   }catch(e){
     currentMember=currentMember||null;
+  }
+}
+async function refreshCurrentMemberRoleFromMembers(){
+  if(!currentUser?.id&&!currentUser?.email)return null;
+  try{
+    const byAuth=currentUser?.id
+      ?await api('GET','members?auth_user_id=eq.'+encodeURIComponent(currentUser.id)+'&select=*').catch(()=>[])
+      :[];
+    const byEmail=(!byAuth||!byAuth.length)&&currentUser?.email
+      ?await api('GET','members?email=eq.'+encodeURIComponent(currentUser.email)+'&select=*').catch(()=>[])
+      :[];
+    currentMember=(byAuth&&byAuth[0])||(byEmail&&byEmail[0])||currentMember||null;
+    currentRole=normalizeAppRole(currentMember?.role||'');
+    isAdmin=isMemberRoleAdmin(currentMember);
+    if(currentRole){
+      currentRoleRow={...(currentRoleRow||{}),id:currentUser?.id,role:currentRole,is_admin:isAdmin,source:'members'};
+    }
+    return currentMember;
+  }catch(e){
+    isAdmin=isMemberRoleAdmin(currentMember);
+    return currentMember||null;
   }
 }
 function renderPendingPage(){
@@ -2494,10 +2522,10 @@ function renderPendingPage(){
           updated_at:new Date().toISOString()
         });
         pendingRequest=saved?.[0]||null;
-        const admins=await api('GET','user_roles?select=id,role,is_admin&or=(role.eq.admin,is_admin.eq.true)')||[];
+        const admins=await api('GET','members?role=eq.admin&select=auth_user_id')||[];
         for(const admin of admins){
-          if(admin.id===currentUser.id)continue;
-          await createNotification(admin.id,'access_request',(name||currentUser.email)+'님이 새로 가입했습니다. 접근 요청을 검토해주세요.','access_request',saved?.[0]?.id||null);
+          if(!admin.auth_user_id||admin.auth_user_id===currentUser.id)continue;
+          await createNotification(admin.auth_user_id,'access_request',(name||currentUser.email)+'님이 새로 가입했습니다. 접근 요청을 검토해주세요.','access_request',saved?.[0]?.id||null);
         }
         updateAdminPendingBadge();
       }catch(e){}
@@ -2562,10 +2590,10 @@ async function submitAccessRequest(){
       pendingRequest=saved?.[0]||null;
     }
     try{
-      const admins=await api('GET','user_roles?select=id,role,is_admin&or=(role.eq.admin,is_admin.eq.true)')||[];
+      const admins=await api('GET','members?role=eq.admin&select=auth_user_id')||[];
       for(const admin of admins){
-        if(admin.id===currentUser.id)continue;
-        await createNotification(admin.id,'access_request',name+'님이 접근 권한을 요청했습니다.','access_request',pendingRequest?.id||saved?.[0]?.id||null);
+        if(!admin.auth_user_id||admin.auth_user_id===currentUser.id)continue;
+        await createNotification(admin.auth_user_id,'access_request',name+'님이 접근 권한을 요청했습니다.','access_request',pendingRequest?.id||saved?.[0]?.id||null);
       }
     }catch(e){}
     renderPendingPage();
@@ -2594,10 +2622,10 @@ function applyRolePermissions(){
     if(currentRole){
       chip.textContent=getRoleLabel(currentRole);
       chip.style.display='inline-block';
-      if(currentRole==='admin'){
+      if(roleIsAdmin()){
         chip.style.background='var(--blue-light)';
         chip.style.color='var(--blue)';
-      }else if(currentRole==='observer'){
+      }else if(isObserverRole()){
         chip.style.background='var(--bg2)';
         chip.style.color='var(--text2)';
       }else{
@@ -2984,6 +3012,15 @@ async function loadAll(){
       api('GET','schedule_members?select=schedule_id,member_id').catch(()=>[])
     ]);
     members=mems||[];
+    if(currentUser){
+      const refreshedMember=members.find(member=>String(member?.auth_user_id||'')===String(currentUser.id||''))
+        ||members.find(member=>String(member?.email||'').toLowerCase()===String(currentUser.email||'').toLowerCase());
+      if(refreshedMember){
+        currentMember=refreshedMember;
+        currentRole=normalizeAppRole(currentMember?.role||currentRole);
+        isAdmin=isMemberRoleAdmin(currentMember);
+      }
+    }
     projectMemberLinks=pm||[];
     scheduleMemberLinks=sm||[];
     projects=(projs||[]).map(p=>({...p,start:p.start_date,end:p.end_date,members:(pm||[]).filter(x=>x.project_id===p.id).map(x=>x.members?.name).filter(Boolean)}));
@@ -3108,6 +3145,10 @@ function updateNoticeDot(){
 var __adminBadgeTimer = null;
 var __adminBadgePending = false;
 function updateAdminPendingBadge(){
+  if(!roleIsAdmin()){
+    ['navAdmin','mNavAdmin'].forEach(id => document.getElementById(id)?.querySelector('.admin-pending-badge')?.remove());
+    return;
+  }
   if(__adminBadgePending) return;
   if(__adminBadgeTimer) return;
   __adminBadgeTimer = setTimeout(function(){
@@ -7688,7 +7729,7 @@ gRow = function(p,days){
   ];
 
   function isVisible(item){
-    if(item.adminOnly && !(window.isAdmin === true)) return false;
+    if(item.adminOnly && !(typeof roleIsAdmin==='function'&&roleIsAdmin())) return false;
     return true;
   }
 
@@ -8474,6 +8515,7 @@ async function enterLocalVerifyMode(){
   if(!currentMember){
     currentMember=members.find(m=>m.email&&/@bexleyintl\.com$/i.test(m.email))||members[0]||{id:'local-member',name:'로컬 검증'};
   }
+  currentMember={...currentMember,role:'admin'};
   applyRolePermissions();
   const userDisplay=document.getElementById('userDisplay');
   if(userDisplay) userDisplay.textContent=(currentMember?.name||'로컬 검증');

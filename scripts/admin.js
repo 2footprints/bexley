@@ -685,6 +685,10 @@ async function loadAdminManagementData(){
 async function renderAdminPage(){
   const el=document.getElementById('pageAdmin');
   if(!el)return;
+  if(typeof refreshCurrentMemberRoleFromMembers==='function'){
+    await refreshCurrentMemberRoleFromMembers();
+    if(typeof applyRolePermissions==='function')applyRolePermissions();
+  }
   if(!roleIsAdmin()){
     renderAdminPageContent();
     return;
