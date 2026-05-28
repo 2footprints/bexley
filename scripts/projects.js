@@ -6211,6 +6211,38 @@ function isGanttListClientGroupCollapsed(groupKey){
   return ganttListCollapsedClientIds.has(String(groupKey||''));
 }
 
+function getGanttListScrollContainer(){
+  return document.querySelector('#pageGantt .gantt-list-table-shell')
+    ||document.querySelector('#pageGantt .gantt-list-view')
+    ||document.querySelector('#pageGantt .gantt-main');
+}
+
+function captureGanttListScrollPosition(){
+  const container=getGanttListScrollContainer();
+  return {
+    windowX:window.scrollX||0,
+    windowY:window.scrollY||0,
+    listTop:container?container.scrollTop:0,
+    listLeft:container?container.scrollLeft:0
+  };
+}
+
+function restoreGanttListScrollPosition(snapshot){
+  if(!snapshot)return;
+  const apply=()=>{
+    const container=getGanttListScrollContainer();
+    if(container){
+      container.scrollTop=snapshot.listTop||0;
+      container.scrollLeft=snapshot.listLeft||0;
+    }
+    window.scrollTo(snapshot.windowX||0,snapshot.windowY||0);
+  };
+  requestAnimationFrame(()=>{
+    apply();
+    requestAnimationFrame(apply);
+  });
+}
+
 function hasActiveGanttListFilters(){
   const memberValue=document.getElementById('memberFilter')?.value||'';
   const typeFilterValue=typeof getGanttTypeFilterValue==='function'?getGanttTypeFilterValue():'all';
@@ -6223,13 +6255,19 @@ function hasActiveGanttListFilters(){
     ||(Array.isArray(ganttListExecutionRiskFilters)&&ganttListExecutionRiskFilters.filter(Boolean).length>0);
 }
 
-function toggleGanttListClientGroup(groupKey){
+function toggleGanttListClientGroup(groupKey,event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
   const key=String(groupKey||'');
   if(!key)return;
+  const scrollSnapshot=captureGanttListScrollPosition();
   if(ganttListCollapsedClientIds.has(key))ganttListCollapsedClientIds.delete(key);
   else ganttListCollapsedClientIds.add(key);
   persistGanttListCollapsedClientIds();
   renderGantt();
+  restoreGanttListScrollPosition(scrollSnapshot);
 }
 
 function renderGanttListClientGroupHeader(group,forceExpanded=false){
@@ -6242,10 +6280,10 @@ function renderGanttListClientGroupHeader(group,forceExpanded=false){
   ];
   if(Number(group?.overdueTasks||0)>0)parts.push('지연 태스크 '+Number(group.overdueTasks)+'건');
   if(group?.nextDueLabel)parts.push('다음 마감 '+group.nextDueLabel);
-  return '<tr class="gantt-list-client-group-row'+(collapsed?' is-collapsed':'')+'" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\')">'
+  return '<tr class="gantt-list-client-group-row'+(collapsed?' is-collapsed':'')+'" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\',event)">'
     +'<td colspan="8">'
       +'<div class="gantt-list-client-group-head">'
-        +'<button type="button" class="gantt-list-client-group-toggle" onclick="event.stopPropagation();toggleGanttListClientGroup(\''+groupKeyJs+'\')" aria-expanded="'+(!collapsed)+'">'
+        +'<button type="button" class="gantt-list-client-group-toggle" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\',event)" aria-expanded="'+(!collapsed)+'">'
           +'<span class="gantt-list-client-group-chevron">'+(collapsed?'▶':'▼')+'</span>'
           +'<span class="gantt-list-client-group-name">'+esc(group?.clientName||'거래처 미지정')+'</span>'
         +'</button>'
@@ -7861,4 +7899,53 @@ function renderGanttChecklistTemplateOptions(project){
     const selected=recommended&&String(recommended.id||'')===String(template.id||'')?' selected':'';
     return '<option value="'+esc(template.id)+'"'+selected+'>'+esc(template.name+(meta?' - '+meta:''))+'</option>';
   }).join('');
+}
+
+function renderGanttChecklistItemRow(item){
+  const id=String(item?.id||'');
+  const completed=String(item?.status||'pending')==='completed';
+  return '<div class="gantt-checklist-row'+(completed?' is-completed':'')+'" data-checklist-item="'+esc(id)+'">'
+    +'<div class="gantt-checklist-row-main">'
+      +'<label class="gantt-checklist-check"><input type="checkbox" '+(completed?'checked':'')+' onchange="toggleGanttChecklistItemStatus(\''+esc(id)+'\',this.checked)" /><span></span></label>'
+      +'<div class="gantt-checklist-title"><div><strong>'+esc(item?.title||'체크 항목')+'</strong>'+(item?.is_required?'<span class="gantt-checklist-required">*</span>':'')+'</div><div class="gantt-detail-meta">'+esc(completed&&item?.completed_at?('완료 '+String(item.completed_at).slice(0,10)):'대기')+'</div></div>'
+    +'</div>'
+    +'<div class="gantt-checklist-row-sub">'
+      +'<div class="gantt-checklist-chip '+(completed?'is-done':'')+'">'+(completed?'완료':'대기')+'</div>'
+      +'<div class="gantt-checklist-assignee" data-field="assignee_member_id" data-checklist-assignee-combo="'+esc(id)+'" data-selected-value="'+esc(item?.assignee_member_id||'')+'"></div>'
+      +'<div class="gantt-checklist-memo-wrap"><textarea class="gantt-checklist-memo" data-field="memo" rows="2" placeholder="메모">'+esc(item?.memo||'')+'</textarea><button type="button" class="btn ghost sm" onclick="saveGanttChecklistItemMemo(\''+esc(id)+'\')">저장</button></div>'
+    +'</div>'
+  +'</div>';
+}
+
+function renderGanttChecklistItems(items){
+  const grouped=new Map();
+  (items||[]).forEach(item=>{
+    const section=String(item?.section||'기본').trim()||'기본';
+    if(!grouped.has(section))grouped.set(section,[]);
+    grouped.get(section).push(item);
+  });
+  return [...grouped.entries()].map(([section,rows])=>
+    '<div class="gantt-checklist-section">'
+      +'<div class="gantt-checklist-section-title"><span>'+esc(section)+'</span><strong>'+rows.length+'개 항목</strong></div>'
+      +'<div class="gantt-checklist-rows">'+rows.map(renderGanttChecklistItemRow).join('')+'</div>'
+    +'</div>'
+  ).join('');
+}
+
+function renderGanttProjectChecklistSection(project){
+  const projectId=String(project?.id||'');
+  const state=getGanttProjectChecklistState(projectId);
+  const meta=state.meta||{};
+  const summary=getGanttChecklistCompletionSummary(state.items||[]);
+  return '<div class="gantt-detail-pane gantt-checklist-pane">'
+    +'<div class="gantt-detail-section gantt-detail-section--flush">'
+      +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">프로젝트 체크리스트</div><div class="gantt-detail-meta">템플릿 기반 체크 항목을 완료율과 함께 관리합니다.</div></div><div class="gantt-detail-head-actions">'+(!state.checklist?'<button type="button" class="btn primary sm" onclick="openGanttChecklistTemplateModal(\''+projectId+'\')">체크리스트 생성</button>':'')+'</div></div>'
+      +(meta.loading?'<div class="gantt-detail-empty">체크리스트를 불러오는 중...</div>'
+        :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
+        :!state.checklist?renderGanttChecklistEmptyState(project)
+        :'<div class="gantt-checklist-summary"><div><strong>'+summary.completion+'%</strong><span>완료율</span></div><div><strong>'+summary.completed+' / '+summary.total+'</strong><span>완료 항목</span></div><div><strong>'+summary.requiredOpen+'</strong><span>필수 미완료</span></div></div>'
+          +'<div class="gantt-checklist-progress"><span style="width:'+Math.max(0,Math.min(100,summary.completion))+'%"></span></div>'
+          +renderGanttChecklistItems(state.items||[]))
+    +'</div>'
+  +'</div>';
 }

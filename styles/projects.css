@@ -4665,22 +4665,30 @@ td{
   color:var(--navy)!important;
   box-shadow:0 8px 16px rgba(15,23,42,.08)!important;
 }
+#pageGantt .gantt-checklist-pane{
+  width:100%;
+  min-height:560px;
+}
+#pageGantt .gantt-checklist-pane .gantt-detail-section{
+  min-height:520px;
+}
 #pageGantt .gantt-checklist-summary{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:10px;
-  margin-bottom:12px;
+  gap:14px;
+  margin-bottom:16px;
 }
 #pageGantt .gantt-checklist-summary>div{
-  padding:12px 14px;
+  padding:18px 20px;
   border:1px solid rgba(148,163,184,.16);
-  border-radius:12px;
+  border-radius:14px;
   background:#FBFDFF;
+  box-shadow:0 10px 20px rgba(15,23,42,.04);
 }
 #pageGantt .gantt-checklist-summary strong{
   display:block;
   color:var(--navy);
-  font-size:20px;
+  font-size:26px;
   line-height:1.2;
 }
 #pageGantt .gantt-checklist-summary span{
@@ -4691,9 +4699,9 @@ td{
   font-weight:800;
 }
 #pageGantt .gantt-checklist-progress{
-  height:8px;
+  height:10px;
   overflow:hidden;
-  margin:2px 0 16px;
+  margin:4px 0 20px;
   border-radius:999px;
   background:#E5E7EB;
 }
@@ -4704,31 +4712,58 @@ td{
   background:#1D4ED8;
 }
 #pageGantt .gantt-checklist-section{
-  margin-top:16px;
+  margin-top:18px;
 }
 #pageGantt .gantt-checklist-section-title{
-  margin-bottom:8px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+  padding:10px 14px;
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:12px;
+  background:#F8FAFC;
   color:var(--navy);
-  font-size:12px;
+  font-size:13px;
+  font-weight:900;
+}
+#pageGantt .gantt-checklist-section-title strong{
+  color:#64748B;
+  font-size:11px;
   font-weight:900;
 }
 #pageGantt .gantt-checklist-rows{
   display:flex;
   flex-direction:column;
-  gap:8px;
+  gap:12px;
 }
 #pageGantt .gantt-checklist-row{
-  display:grid;
-  grid-template-columns:28px minmax(220px,1fr) minmax(220px,.9fr);
-  gap:10px;
-  align-items:center;
-  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  min-height:128px;
+  padding:18px 20px;
   border:1px solid rgba(148,163,184,.16);
-  border-radius:12px;
+  border-radius:14px;
   background:#FFFFFF;
+  box-shadow:0 10px 22px rgba(15,23,42,.04);
 }
 #pageGantt .gantt-checklist-row.is-completed{
   background:#F8FAFC;
+}
+#pageGantt .gantt-checklist-row-main{
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr);
+  gap:12px;
+  align-items:flex-start;
+}
+#pageGantt .gantt-checklist-row-sub{
+  display:grid;
+  grid-template-columns:88px minmax(180px,240px) minmax(260px,1fr);
+  gap:12px;
+  align-items:start;
+  padding-left:40px;
 }
 #pageGantt .gantt-checklist-check{
   display:flex;
@@ -4744,7 +4779,8 @@ td{
 }
 #pageGantt .gantt-checklist-title strong{
   color:var(--text);
-  font-size:13px;
+  font-size:15px;
+  line-height:1.45;
 }
 #pageGantt .gantt-checklist-row.is-completed .gantt-checklist-title strong{
   color:#64748B;
@@ -4757,6 +4793,24 @@ td{
   color:#DC2626;
   font-size:13px;
   font-weight:900;
+}
+#pageGantt .gantt-checklist-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:0 12px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:999px;
+  background:#F8FAFC;
+  color:#64748B;
+  font-size:12px;
+  font-weight:900;
+}
+#pageGantt .gantt-checklist-chip.is-done{
+  border-color:rgba(22,163,74,.24);
+  background:#ECFDF3;
+  color:#15803D;
 }
 #pageGantt .gantt-checklist-row select,
 #pageGantt .gantt-checklist-row textarea{
@@ -4780,7 +4834,7 @@ td{
 }
 #pageGantt .gantt-checklist-row textarea{
   resize:vertical;
-  min-height:44px;
+  min-height:52px;
   padding:8px 9px;
 }
 #pageGantt .gantt-checklist-memo-wrap{
@@ -4809,10 +4863,16 @@ td{
     grid-template-columns:1fr;
   }
   #pageGantt .gantt-checklist-row{
-    grid-template-columns:1fr;
+    min-height:0;
+    padding:15px;
   }
   #pageGantt .gantt-checklist-check{
     justify-content:flex-start;
+  }
+  #pageGantt .gantt-checklist-row-main,
+  #pageGantt .gantt-checklist-row-sub{
+    grid-template-columns:1fr;
+    padding-left:0;
   }
   #pageGantt .gantt-checklist-memo-wrap{
     grid-template-columns:1fr;
