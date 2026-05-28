@@ -4791,3 +4791,113 @@ td{
     grid-template-columns:1fr;
   }
 }
+
+/* Project list queue: keep filters fixed while the table itself scrolls. */
+#pageGantt,
+#pageGantt .gantt-shell,
+#pageGantt .gantt-stage,
+#pageGantt .gantt-main,
+#pageGantt .gantt-wrap,
+#pageGantt .gantt-list-view,
+#pageGantt .gantt-list-toolbar,
+#pageGantt .gantt-list-toolbar-main,
+#pageGantt .gantt-list-signalbar,
+#pageGantt .gantt-list-bulkbar{
+  min-width:0!important;
+  max-width:100%!important;
+}
+#pageGantt .gantt-main{
+  overflow:hidden!important;
+}
+#pageGantt .gantt-list-view{
+  overflow:hidden!important;
+}
+#pageGantt .gantt-list-table-shell{
+  display:block!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow-x:auto!important;
+  overflow-y:auto!important;
+  max-height:max(360px,calc(100vh - 360px))!important;
+  border-collapse:separate!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;
+}
+#pageGantt .gantt-list-table,
+#pageGantt .gantt-list-table--queue{
+  width:max-content!important;
+  min-width:1480px!important;
+  max-width:none!important;
+  table-layout:auto!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+#pageGantt .gantt-list-table thead th,
+#pageGantt .gantt-list-table--queue thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:40!important;
+  background:#F8FAFC!important;
+  box-shadow:0 1px 0 rgba(226,232,240,.95)!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(1),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(1){
+  width:48px!important;
+  min-width:48px!important;
+  max-width:48px!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(2),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(2){
+  width:170px!important;
+  min-width:170px!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(3),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(3){
+  width:320px!important;
+  min-width:320px!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(4),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(4){
+  width:180px!important;
+  min-width:180px!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(5),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(5){
+  width:170px!important;
+  min-width:170px!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(6),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(6){
+  width:180px!important;
+  min-width:180px!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(7),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(7){
+  width:130px!important;
+  min-width:130px!important;
+}
+#pageGantt .gantt-list-table--queue thead th:nth-child(8),
+#pageGantt .gantt-list-table--queue tbody tr.gantt-list-row td:nth-child(8){
+  width:280px!important;
+  min-width:280px!important;
+}
+#pageGantt .gantt-list-task-detail-cell{
+  max-width:none!important;
+}
+#pageGantt .gantt-list-task-drill-shell{
+  width:100%!important;
+  min-width:100%!important;
+  overflow-x:auto!important;
+}
+
+@media(max-width:900px){
+  #pageGantt .gantt-list-table-shell{
+    max-height:max(320px,calc(100vh - 430px))!important;
+  }
+  #pageGantt .gantt-list-table,
+  #pageGantt .gantt-list-table--queue{
+    min-width:1480px!important;
+  }
+}
