@@ -322,6 +322,112 @@
   flex-shrink:0;
 }
 
+.admin-checklist-template-card{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  margin-bottom:18px;
+}
+
+.admin-checklist-template-list,
+.admin-checklist-items-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.admin-checklist-template-item,
+.admin-checklist-item-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--bg);
+}
+
+.admin-checklist-template-item.is-inactive{
+  opacity:.55;
+}
+
+.admin-checklist-template-main,
+.admin-checklist-item-main{
+  min-width:0;
+  flex:1 1 auto;
+}
+
+.admin-checklist-template-name,
+.admin-checklist-item-title,
+.admin-checklist-modal-title{
+  font-size:13px;
+  font-weight:800;
+  color:var(--navy);
+}
+
+.admin-checklist-template-meta,
+.admin-checklist-item-meta,
+.admin-checklist-modal-sub{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:5px;
+  font-size:11px;
+  color:var(--text3);
+}
+
+.admin-checklist-template-meta span,
+.admin-checklist-item-meta span{
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  padding:2px 7px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--panel);
+}
+
+.admin-checklist-template-desc{
+  margin-top:6px;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.45;
+}
+
+.admin-checklist-template-actions,
+.admin-checklist-item-actions{
+  display:flex;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.admin-checklist-items-modal{
+  width:min(760px,calc(100vw - 32px));
+}
+
+.admin-checklist-modal-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.admin-checklist-items-list{
+  max-height:min(62vh,620px);
+  overflow-y:auto;
+  padding-right:2px;
+}
+
+.admin-required-mark{
+  color:var(--red);
+  font-weight:900;
+}
+
 .admin-support-grid{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -407,6 +513,16 @@
   }
   .admin-reference-grid{
     grid-template-columns:1fr;
+  }
+  .admin-checklist-template-item,
+  .admin-checklist-item-row,
+  .admin-checklist-modal-head{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .admin-checklist-template-actions,
+  .admin-checklist-item-actions{
+    justify-content:flex-start;
   }
   .admin-table-head{
     display:none;

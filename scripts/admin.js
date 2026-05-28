@@ -1,6 +1,9 @@
 let adminUserRoleRows=[];
 let adminTeams=[];
 let adminProjectTypes=[];
+let adminChecklistTemplates=[];
+let adminChecklistTemplateItemCounts={};
+let adminChecklistTemplateItemsByTemplateId={};
 let adminManagementFilters={
   search:'',
   permission:'all',
@@ -591,6 +594,78 @@ function renderAdminReferenceManagementSections(){
     +'<div class="admin-reference-grid">'
       +renderAdminReferenceSection('team')
       +renderAdminReferenceSection('project_type')
+    +'</div>'
+    +renderAdminChecklistTemplateSection();
+}
+
+function getAdminProjectTypeName(projectTypeId){
+  const id=String(projectTypeId||'').trim();
+  if(!id)return '-';
+  const projectType=(adminProjectTypes||[]).find(row=>String(row?.id||'')===id);
+  return projectType?.name||'-';
+}
+
+function getAdminProjectTypeOptions(selectedProjectTypeId=''){
+  const selectedId=String(selectedProjectTypeId||'').trim();
+  const rows=[...(adminProjectTypes||[])]
+    .filter(row=>row?.is_active!==false||String(row?.id||'')===selectedId)
+    .sort((a,b)=>{
+      const activeDiff=Number(b?.is_active!==false)-Number(a?.is_active!==false);
+      if(activeDiff)return activeDiff;
+      return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+    });
+  return '<option value="">프로젝트 유형 선택</option>'
+    +rows.map(row=>'<option value="'+esc(row?.id||'')+'"'+(String(row?.id||'')===selectedId?' selected':'')+'>'+esc(row?.name||'유형명 없음')+(row?.is_active===false?' (비활성)':'')+'</option>').join('');
+}
+
+function getSortedAdminChecklistTemplates(){
+  return [...(adminChecklistTemplates||[])].sort((a,b)=>{
+    const activeDiff=Number(b?.is_active!==false)-Number(a?.is_active!==false);
+    if(activeDiff)return activeDiff;
+    return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+  });
+}
+
+function renderAdminChecklistTemplateItem(template){
+  const active=template?.is_active!==false;
+  const itemCount=adminChecklistTemplateItemCounts[String(template?.id||'')]||0;
+  return ''
+    +'<div class="admin-checklist-template-item'+(active?'':' is-inactive')+'">'
+      +'<div class="admin-checklist-template-main">'
+        +'<div class="admin-checklist-template-name">'+esc(template?.name||'템플릿명 없음')+'</div>'
+        +'<div class="admin-checklist-template-meta">'
+          +'<span>'+esc(getAdminProjectTypeName(template?.project_type_id))+'</span>'
+          +'<span>'+itemCount+'개 항목</span>'
+          +'<span>'+(active?'활성':'비활성')+'</span>'
+        +'</div>'
+        +(template?.description?'<div class="admin-checklist-template-desc">'+esc(template.description)+'</div>':'')
+      +'</div>'
+      +'<div class="admin-checklist-template-actions">'
+        +'<button class="btn sm" onclick="openAdminChecklistTemplateEditor(\''+template.id+'\')">수정</button>'
+        +'<button class="btn sm" onclick="openAdminChecklistTemplateItemsModal(\''+template.id+'\')">항목 관리</button>'
+        +(active?'<button class="btn ghost sm" onclick="deactivateAdminChecklistTemplate(\''+template.id+'\')">비활성화</button>':'')
+      +'</div>'
+    +'</div>';
+}
+
+function renderAdminChecklistTemplateSection(){
+  const rows=getSortedAdminChecklistTemplates();
+  const activeCount=rows.filter(row=>row?.is_active!==false).length;
+  return ''
+    +'<div class="card admin-checklist-template-card">'
+      +'<div class="admin-reference-head">'
+        +'<div>'
+          +'<div class="admin-toolbar-title">체크리스트 템플릿 관리</div>'
+          +'<div class="admin-toolbar-sub">프로젝트 유형별 체크리스트 템플릿과 기본 항목을 관리합니다.</div>'
+        +'</div>'
+        +'<div class="admin-reference-head-actions">'
+          +'<span class="admin-meta-pill">'+activeCount+'/'+rows.length+' 활성</span>'
+          +'<button class="btn primary sm" onclick="openAdminChecklistTemplateEditor()">템플릿 추가</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="admin-checklist-template-list">'
+        +(rows.length?rows.map(renderAdminChecklistTemplateItem).join(''):'<div class="admin-table-empty">등록된 체크리스트 템플릿이 없습니다.</div>')
+      +'</div>'
     +'</div>';
 }
 
@@ -668,18 +743,26 @@ function renderAdminPageContent(){
 }
 
 async function loadAdminManagementData(){
-  const [requests,assignments,roleRows,teamRows,projectTypeRows]=await Promise.all([
+  const [requests,assignments,roleRows,teamRows,projectTypeRows,checklistTemplateRows,checklistTemplateItemRows]=await Promise.all([
     api('GET','access_requests?select=*&order=status.asc,created_at.desc').catch(()=>accessRequests||[]),
     api('GET','client_assignments?select=*').catch(()=>clientAssignments||[]),
     api('GET','user_roles?select=id,role,is_admin,approved_at,approved_by').catch(()=>adminUserRoleRows||[]),
     api('GET','teams?select=*&order=is_active.desc,name.asc,created_at.asc').catch(()=>adminTeams||[]),
-    api('GET','project_types?select=*&order=is_active.desc,name.asc,created_at.asc').catch(()=>adminProjectTypes||[])
+    api('GET','project_types?select=*&order=is_active.desc,name.asc,created_at.asc').catch(()=>adminProjectTypes||[]),
+    api('GET','checklist_templates?select=*&order=is_active.desc,name.asc').catch(()=>adminChecklistTemplates||[]),
+    api('GET','checklist_template_items?select=template_id').catch(()=>[])
   ]);
   accessRequests=requests||[];
   clientAssignments=assignments||[];
   adminUserRoleRows=roleRows||[];
   adminTeams=teamRows||[];
   adminProjectTypes=projectTypeRows||[];
+  adminChecklistTemplates=checklistTemplateRows||[];
+  adminChecklistTemplateItemCounts=(checklistTemplateItemRows||[]).reduce((acc,row)=>{
+    const templateId=String(row?.template_id||'').trim();
+    if(templateId)acc[templateId]=(acc[templateId]||0)+1;
+    return acc;
+  },{});
 }
 
 async function renderAdminPage(){
@@ -765,6 +848,188 @@ async function deactivateAdminReferenceItem(kind,itemId){
     loadAdminManagementData().then(renderAdminPageContent).catch(()=>{});
   }catch(e){
     alert('비활성화 오류: '+(e?.message||e));
+  }
+}
+
+function openAdminChecklistTemplateEditor(templateId=''){
+  if(!roleIsAdmin())return;
+  const template=templateId?(adminChecklistTemplates||[]).find(row=>String(row?.id||'')===String(templateId||'')):null;
+  document.getElementById('modalArea').innerHTML=''
+    +getInputModalOverlayHtml()
+    +'<div class="modal" style="width:520px">'
+      +'<div class="modal-title">'+(template?'체크리스트 템플릿 수정':'체크리스트 템플릿 추가')+'</div>'
+      +'<div class="form-row"><label class="form-label">템플릿명</label><input id="adminChecklistTemplateName" value="'+esc(template?.name||'')+'" placeholder="예) 밸류에이션 체크리스트"></div>'
+      +'<div class="form-row"><label class="form-label">프로젝트 유형</label><select id="adminChecklistTemplateProjectType">'+getAdminProjectTypeOptions(template?.project_type_id||'')+'</select></div>'
+      +'<div class="form-row"><label class="form-label">설명</label><textarea id="adminChecklistTemplateDescription" rows="3" placeholder="템플릿 설명">'+esc(template?.description||'')+'</textarea></div>'
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveAdminChecklistTemplate(\''+(templateId||'')+'\')">저장</button></div></div>'
+    +'</div>';
+  document.getElementById('adminChecklistTemplateName')?.focus();
+}
+
+async function saveAdminChecklistTemplate(templateId=''){
+  if(!roleIsAdmin())return;
+  const name=(document.getElementById('adminChecklistTemplateName')?.value||'').trim();
+  const projectTypeId=(document.getElementById('adminChecklistTemplateProjectType')?.value||'').trim();
+  const description=(document.getElementById('adminChecklistTemplateDescription')?.value||'').trim();
+  if(!name){
+    alert('템플릿명을 입력해 주세요.');
+    return;
+  }
+  const projectType=(adminProjectTypes||[]).find(row=>String(row?.id||'')===String(projectTypeId||''))||null;
+  const body={
+    name,
+    project_type_id:projectTypeId||null,
+    service_type:projectType?.name||null,
+    description:description||null
+  };
+  try{
+    if(templateId){
+      await api('PATCH','checklist_templates?id=eq.'+templateId,body);
+    }else{
+      await api('POST','checklist_templates',{...body,is_active:true});
+    }
+    closeModal();
+    await loadAdminManagementData();
+    renderAdminPageContent();
+  }catch(e){
+    alert('저장 오류: '+(e?.message||e));
+  }
+}
+
+async function deactivateAdminChecklistTemplate(templateId){
+  if(!roleIsAdmin())return;
+  const template=(adminChecklistTemplates||[]).find(row=>String(row?.id||'')===String(templateId||''));
+  if(!template)return;
+  if(!confirm('"'+(template.name||'이 템플릿')+'"을 비활성화할까요?'))return;
+  try{
+    await api('PATCH','checklist_templates?id=eq.'+templateId,{is_active:false});
+    adminChecklistTemplates=adminChecklistTemplates.map(row=>String(row?.id||'')===String(templateId||'')?{...row,is_active:false}:row);
+    renderAdminPageContent();
+    loadAdminManagementData().then(renderAdminPageContent).catch(()=>{});
+  }catch(e){
+    alert('비활성화 오류: '+(e?.message||e));
+  }
+}
+
+function getSortedAdminChecklistTemplateItems(templateId){
+  return [...(adminChecklistTemplateItemsByTemplateId[String(templateId||'')]||[])].sort((a,b)=>{
+    const orderDiff=Number(a?.sort_order||0)-Number(b?.sort_order||0);
+    if(orderDiff)return orderDiff;
+    const sectionDiff=String(a?.section||'').localeCompare(String(b?.section||''),'ko');
+    if(sectionDiff)return sectionDiff;
+    return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
+  });
+}
+
+async function openAdminChecklistTemplateItemsModal(templateId){
+  if(!roleIsAdmin())return;
+  const template=(adminChecklistTemplates||[]).find(row=>String(row?.id||'')===String(templateId||''));
+  if(!template)return;
+  document.getElementById('modalArea').innerHTML=''
+    +getInputModalOverlayHtml()
+    +'<div class="modal" style="width:760px"><div class="modal-title">체크리스트 항목 관리</div><div class="ui-loading-card">불러오는 중...</div></div>';
+  try{
+    const rows=await api('GET','checklist_template_items?template_id=eq.'+templateId+'&select=*&order=sort_order.asc,section.asc,title.asc');
+    adminChecklistTemplateItemsByTemplateId[String(templateId||'')]=rows||[];
+    renderAdminChecklistTemplateItemsModal(templateId);
+  }catch(e){
+    document.getElementById('modalArea').innerHTML=''
+      +getInputModalOverlayHtml()
+      +'<div class="modal" style="width:520px"><div class="modal-title">체크리스트 항목 관리</div><div class="admin-table-empty">항목을 불러오지 못했습니다.</div><div class="modal-footer"><div></div><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>';
+  }
+}
+
+function renderAdminChecklistTemplateItemsModal(templateId){
+  const template=(adminChecklistTemplates||[]).find(row=>String(row?.id||'')===String(templateId||''));
+  if(!template)return;
+  const rows=getSortedAdminChecklistTemplateItems(templateId);
+  document.getElementById('modalArea').innerHTML=''
+    +getInputModalOverlayHtml()
+    +'<div class="modal admin-checklist-items-modal">'
+      +'<div class="modal-title">체크리스트 항목 관리</div>'
+      +'<div class="admin-checklist-modal-head">'
+        +'<div>'
+          +'<div class="admin-checklist-modal-title">'+esc(template.name||'템플릿')+'</div>'
+          +'<div class="admin-checklist-modal-sub">'+esc(getAdminProjectTypeName(template.project_type_id))+' · '+rows.length+'개 항목</div>'
+        +'</div>'
+        +'<button class="btn primary sm" onclick="openAdminChecklistTemplateItemEditor(\''+templateId+'\')">항목 추가</button>'
+      +'</div>'
+      +'<div class="admin-checklist-items-list">'
+        +(rows.length?rows.map(item=>renderAdminChecklistTemplateItemRow(templateId,item)).join(''):'<div class="admin-table-empty">등록된 항목이 없습니다.</div>')
+      +'</div>'
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
+    +'</div>';
+}
+
+function renderAdminChecklistTemplateItemRow(templateId,item){
+  return ''
+    +'<div class="admin-checklist-item-row">'
+      +'<div class="admin-checklist-item-main">'
+        +'<div class="admin-checklist-item-title">'+esc(item?.title||'항목명 없음')+(item?.is_required?' <span class="admin-required-mark">*</span>':'')+'</div>'
+        +'<div class="admin-checklist-item-meta">'
+          +'<span>'+esc(item?.section||'기본')+'</span>'
+          +'<span>순서 '+esc(item?.sort_order??'-')+'</span>'
+          +'<span>'+(item?.is_required?'필수':'선택')+'</span>'
+        +'</div>'
+      +'</div>'
+      +'<div class="admin-checklist-item-actions">'
+        +'<button class="btn sm" onclick="openAdminChecklistTemplateItemEditor(\''+templateId+'\',\''+item.id+'\')">수정</button>'
+        +'<button class="btn ghost sm" onclick="deleteAdminChecklistTemplateItem(\''+templateId+'\',\''+item.id+'\')">삭제</button>'
+      +'</div>'
+    +'</div>';
+}
+
+function openAdminChecklistTemplateItemEditor(templateId,itemId=''){
+  if(!roleIsAdmin())return;
+  const item=itemId?getSortedAdminChecklistTemplateItems(templateId).find(row=>String(row?.id||'')===String(itemId||'')):null;
+  document.getElementById('modalArea').innerHTML=''
+    +getInputModalOverlayHtml()
+    +'<div class="modal" style="width:520px">'
+      +'<div class="modal-title">'+(item?'체크리스트 항목 수정':'체크리스트 항목 추가')+'</div>'
+      +'<div class="form-row"><label class="form-label">Section</label><input id="adminChecklistItemSection" value="'+esc(item?.section||'')+'" placeholder="예) 계약/자료 확인"></div>'
+      +'<div class="form-row"><label class="form-label">항목명</label><input id="adminChecklistItemTitle" value="'+esc(item?.title||'')+'" placeholder="체크 항목"></div>'
+      +'<div class="checkbox-row"><input type="checkbox" id="adminChecklistItemRequired" '+(item?.is_required?'checked':'')+'><label for="adminChecklistItemRequired">필수 항목</label></div>'
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="renderAdminChecklistTemplateItemsModal(\''+templateId+'\')">취소</button><button class="btn primary" onclick="saveAdminChecklistTemplateItem(\''+templateId+'\',\''+(itemId||'')+'\')">저장</button></div></div>'
+    +'</div>';
+  document.getElementById('adminChecklistItemTitle')?.focus();
+}
+
+async function saveAdminChecklistTemplateItem(templateId,itemId=''){
+  if(!roleIsAdmin())return;
+  const section=(document.getElementById('adminChecklistItemSection')?.value||'').trim()||'기본';
+  const title=(document.getElementById('adminChecklistItemTitle')?.value||'').trim();
+  const isRequired=!!document.getElementById('adminChecklistItemRequired')?.checked;
+  if(!title){
+    alert('항목명을 입력해 주세요.');
+    return;
+  }
+  const body={section,title,is_required:isRequired};
+  try{
+    if(itemId){
+      await api('PATCH','checklist_template_items?id=eq.'+itemId,body);
+    }else{
+      const rows=getSortedAdminChecklistTemplateItems(templateId);
+      const maxSortOrder=rows.reduce((max,item)=>Math.max(max,Number(item?.sort_order||0)),0);
+      await api('POST','checklist_template_items',{...body,template_id:templateId,sort_order:maxSortOrder+10,weight:1});
+    }
+    await loadAdminManagementData();
+    await openAdminChecklistTemplateItemsModal(templateId);
+  }catch(e){
+    alert('저장 오류: '+(e?.message||e));
+  }
+}
+
+async function deleteAdminChecklistTemplateItem(templateId,itemId){
+  if(!roleIsAdmin())return;
+  const item=getSortedAdminChecklistTemplateItems(templateId).find(row=>String(row?.id||'')===String(itemId||''));
+  if(!item)return;
+  if(!confirm('"'+(item.title||'이 항목')+'"을 삭제할까요?'))return;
+  try{
+    await api('DELETE','checklist_template_items?id=eq.'+itemId);
+    await loadAdminManagementData();
+    await openAdminChecklistTemplateItemsModal(templateId);
+  }catch(e){
+    alert('삭제 오류: '+(e?.message||e));
   }
 }
 
