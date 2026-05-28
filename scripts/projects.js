@@ -6246,6 +6246,18 @@ function getGanttListDrilldownTasks(projectId){
   });
 }
 
+function getGanttTaskDrilldownNoteText(task){
+  return String(
+    task?.waiting_reason
+    ||task?.waitingReason
+    ||task?.blocked_reason
+    ||task?.hold_reason
+    ||task?.memo
+    ||task?.description
+    ||''
+  ).trim();
+}
+
 function renderGanttListTaskDrilldownItem(projectId,task){
   const projectKey=getGanttTaskDrilldownJsString(projectId);
   const taskKey=getGanttTaskDrilldownJsString(task?.id||'');
@@ -6253,23 +6265,26 @@ function renderGanttListTaskDrilldownItem(projectId,task){
   const dueMeta=getGanttTaskDueMeta(task);
   const dueText=getGanttTaskDrilldownDueText(task);
   const statusMeta=getGanttTaskDrilldownStatusMeta(task,dueMeta);
-  const priorityText=getGanttTaskDrilldownPriorityText(task);
+  const priorityText=getGanttTaskDrilldownPriorityText(task)||'-';
   const doneText=getGanttTaskDoneText(task);
-  const description=String(task?.description||'').trim();
-  const isDone=String(task?.status||'').trim()==='완료'||!!task?.actual_done_at;
+  const noteText=getGanttTaskDrilldownNoteText(task);
+  const statusText=String(task?.status||'예정').trim()||'예정';
+  const isDone=statusText==='완료'||!!task?.actual_done_at;
+  const isOverdue=!isDone&&dueMeta?.tone==='danger';
   const tone=isDone?'done':(dueMeta?.tone||'neutral');
   const canComplete=!!(projectKey&&taskKey&&!isDone);
   return ''
     +'<div class="gantt-list-task-drill-item is-'+tone+'" role="button" tabindex="0" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<div class="gantt-list-task-drill-main">'
-        +'<div class="gantt-list-task-drill-title-row"><div class="gantt-list-task-drill-name">'+esc(task?.title||'제목 없는 업무')+'</div>'+(priorityText?'<span class="gantt-list-task-drill-priority">'+esc(priorityText)+'</span>':'')+'</div>'
+        +'<div class="gantt-list-task-drill-title-row"><div class="gantt-list-task-drill-name">'+esc(task?.title||'제목 없는 업무')+'</div><span class="gantt-list-task-drill-priority">'+esc(priorityText)+'</span></div>'
         +'<div class="gantt-list-task-drill-meta">'
-          +'<span>'+esc(assignee)+'</span>'
-          +'<span>'+esc(dueText)+'</span>'
-          +'<span>'+esc(String(task?.status||'예정').trim()||'예정')+'</span>'
-          +(doneText?'<span>완료일 '+esc(doneText)+'</span>':'')
+          +'<span>담당 '+esc(assignee)+'</span>'
+          +'<span>상태 '+esc(statusText)+'</span>'
+          +'<span>마감 '+esc(dueText)+'</span>'
+          +(doneText?'<span>완료 '+esc(doneText)+'</span>':'')
+          +(isOverdue?'<span class="gantt-list-task-drill-overdue">지연</span>':'')
         +'</div>'
-        +(description?'<div class="gantt-list-task-drill-desc">'+esc(truncateText(description,90))+'</div>':'')
+        +(noteText?'<div class="gantt-list-task-drill-desc">'+esc(truncateText(noteText,110))+'</div>':'')
       +'</div>'
       +'<div class="gantt-list-task-drill-side">'
         +'<span class="badge '+statusMeta.className+'">'+esc(statusMeta.label)+'</span>'
@@ -6516,7 +6531,7 @@ renderGanttListTaskDrilldownRow=function(row){
     +'<td class="gantt-list-task-detail-cell" colspan="8">'
       +'<div class="gantt-list-task-drill-shell">'
         +'<div class="gantt-list-task-drill-head">'
-          +'<div><div class="gantt-list-task-drill-title">프로젝트 업무</div><div class="gantt-list-task-drill-sub">업무명, 담당자, 마감일, 상태와 메모를 빠르게 확인하고 클릭해서 수정합니다.</div></div>'
+          +'<div><div class="gantt-list-task-drill-title">프로젝트 업무</div><div class="gantt-list-task-drill-sub">업무를 compact 세로 목록으로 확인하고, 항목을 클릭해 수정합니다.</div></div>'
           +'<button type="button" class="btn primary sm" onclick="event.stopPropagation();openProjectTaskModal(\''+projectIdJs+'\',null)">+ 업무 추가</button>'
         +'</div>'
         +bodyHtml
