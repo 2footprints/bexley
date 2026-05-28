@@ -1168,6 +1168,97 @@ body{
 #pageWeeklyReview .wr-open-followup-main strong{color:var(--navy)!important;font-size:12px!important;white-space:nowrap!important}
 #pageWeeklyReview .wr-open-followup-main span:last-child{min-width:0!important;color:var(--text2)!important;font-size:12px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
 #pageWeeklyReview .wr-open-followup-complete{flex:0 0 auto!important;white-space:nowrap!important}
+#pageWeeklyReview .wr-output-list{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:10px!important;
+}
+#pageWeeklyReview .wr-output-item{
+  gap:12px!important;
+}
+#pageWeeklyReview .wr-output-main{
+  min-width:0!important;
+}
+#pageWeeklyReview .wr-output-side{
+  display:flex!important;
+  align-items:flex-end!important;
+  gap:6px!important;
+  flex-wrap:wrap!important;
+}
+#pageWeeklyReview .wr-output-badges{
+  display:flex!important;
+  justify-content:flex-end!important;
+  gap:6px!important;
+  flex-wrap:wrap!important;
+  width:100%!important;
+}
+#pageWeeklyReview .wr-output-badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  min-height:20px!important;
+  padding:2px 7px!important;
+  border-radius:999px!important;
+  border:1px solid var(--border)!important;
+  background:var(--panel)!important;
+  color:var(--text3)!important;
+  font-size:10px!important;
+  font-weight:800!important;
+}
+#pageWeeklyReview .wr-output-badge.is-partner{
+  border-color:#FBBF24!important;
+  background:#FFFBEB!important;
+  color:#92400E!important;
+}
+#pageWeeklyReview .wr-output-toggle{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  min-height:30px!important;
+  padding:5px 8px!important;
+  border:1px solid var(--border)!important;
+  border-radius:999px!important;
+  background:var(--panel)!important;
+  color:var(--text2)!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  cursor:pointer!important;
+  white-space:nowrap!important;
+}
+#pageWeeklyReview .wr-output-toggle input{
+  width:14px!important;
+  height:14px!important;
+  accent-color:var(--blue)!important;
+}
+#pageWeeklyReview .wr-output-toggle:has(input:checked){
+  border-color:rgba(37,99,235,.25)!important;
+  background:#EFF6FF!important;
+  color:#1D4ED8!important;
+}
+#pageWeeklyReview .wr-output-project-groups{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:14px!important;
+}
+#pageWeeklyReview .wr-output-project-group{
+  border:1px solid var(--border)!important;
+  border-radius:12px!important;
+  background:rgba(248,250,252,.72)!important;
+  padding:10px!important;
+}
+#pageWeeklyReview .wr-output-project-head{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  padding:0 2px 8px!important;
+  color:var(--navy)!important;
+  font-size:13px!important;
+}
+#pageWeeklyReview .wr-output-project-head span{
+  color:var(--text3)!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
 .wr-item-comment-list{display:grid!important;gap:10px!important;margin:8px 0 4px!important}
 .wr-item-comment-row{padding:12px!important;border:1px solid var(--border)!important;border-radius:12px!important;background:#F8FAFC!important}
 .wr-item-comment-row-head{display:flex!important;align-items:center!important;gap:6px!important;flex-wrap:wrap!important;margin-bottom:8px!important}
