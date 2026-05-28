@@ -202,6 +202,81 @@ function getProjectTeamSelectOptions(selectedId=''){
     +options.map(team=>'<option value="'+esc(team.id)+'"'+(String(team.id)===selected?' selected':'')+'>'+esc(team.name||team.code||'팀')+'</option>').join('');
 }
 
+async function loadFreshProjectReferenceOptions(){
+  if(typeof api!=='function')return;
+  const [freshTypes,freshTeams]=await Promise.all([
+    api('GET','project_types?select=*&is_active=eq.true&order=name.asc'),
+    api('GET','teams?select=*&is_active=eq.true&order=name.asc')
+  ]);
+  projectTypes=freshTypes||[];
+  referenceTeams=freshTeams||[];
+}
+
+function ensureSelectedOption(select,value,label){
+  if(!select||!value)return;
+  if([...select.options].some(option=>String(option.value)===String(value)))return;
+  const option=document.createElement('option');
+  option.value=value;
+  option.textContent=label||value;
+  option.selected=true;
+  select.insertBefore(option,select.firstChild);
+}
+
+function setProjectReferenceSelectLoading(){
+  const typeSelect=document.getElementById('fType');
+  const teamSelect=document.getElementById('fTeam');
+  if(typeSelect&&!typeSelect.options.length)typeSelect.innerHTML='<option value="">불러오는 중...</option>';
+  if(teamSelect&&!teamSelect.options.length)teamSelect.innerHTML='<option value="">불러오는 중...</option>';
+}
+
+function renderFreshProjectReferenceSelects(project){
+  const typeSelect=document.getElementById('fType');
+  const teamSelect=document.getElementById('fTeam');
+  const selectedTypeId=String(typeSelect?.value||project?.project_type_id||'').trim();
+  const selectedTeamId=String(teamSelect?.value||project?.team_id||'').trim();
+  if(typeSelect){
+    const legacyType=project?.type||(!selectedTypeId?typeSelect.selectedOptions?.[0]?.textContent||'':'');
+    typeSelect.innerHTML=getProjectTypeSelectOptions(selectedTypeId,legacyType);
+    ensureSelectedOption(typeSelect,selectedTypeId,project?.type||selectedTypeId);
+    typeSelect.value=selectedTypeId;
+  }
+  if(teamSelect){
+    teamSelect.innerHTML=getProjectTeamSelectOptions(selectedTeamId);
+    ensureSelectedOption(teamSelect,selectedTeamId,project?.team||project?.assigned_team||selectedTeamId);
+    teamSelect.value=selectedTeamId;
+  }
+}
+
+async function refreshProjectModalReferenceOptions(projectId){
+  const project=projectId?(projects||[]).find(item=>String(item?.id||'')===String(projectId||'')):null;
+  setProjectReferenceSelectLoading();
+  await loadFreshProjectReferenceOptions();
+  renderFreshProjectReferenceSelects(project);
+}
+
+function installProjectModalReferenceLoader(retryCount=0){
+  if(typeof openProjModal!=='function'){
+    if(retryCount<20)setTimeout(()=>installProjectModalReferenceLoader(retryCount+1),50);
+    return;
+  }
+  if(openProjModal.__projectReferenceLoaderInstalled)return;
+  const baseOpenProjModal=openProjModal;
+  openProjModal=function(eid,preClientId,preContractId,initialTab){
+    const result=baseOpenProjModal.apply(this,arguments);
+    refreshProjectModalReferenceOptions(eid).catch(error=>{
+      console.error('project reference options load failed:',error);
+    });
+    return result;
+  };
+  openProjModal.__projectReferenceLoaderInstalled=true;
+  if(typeof window!=='undefined')window.openProjModal=openProjModal;
+}
+
+if(typeof document!=='undefined'){
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>installProjectModalReferenceLoader());
+  else installProjectModalReferenceLoader();
+}
+
 function setGView(v){
   curGView=v;
   ['gvp','gvm'].forEach(id=>{
