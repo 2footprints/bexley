@@ -5184,87 +5184,6 @@ td{
   margin-bottom:10px!important;
 }
 
-#pageGantt .gantt-qc-pane{
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-}
-#pageGantt .gantt-qc-summary{
-  display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:10px;
-  margin-bottom:14px;
-}
-#pageGantt .gantt-qc-summary>div{
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--panel);
-  padding:12px;
-}
-#pageGantt .gantt-qc-summary strong{
-  display:block;
-  color:var(--navy);
-  font-size:22px;
-  line-height:1;
-}
-#pageGantt .gantt-qc-summary span{
-  display:block;
-  margin-top:6px;
-  color:var(--text3);
-  font-size:11px;
-  font-weight:700;
-}
-#pageGantt .gantt-qc-output-list{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-#pageGantt .gantt-qc-output-row{
-  display:grid;
-  grid-template-columns:minmax(180px,1fr) auto minmax(130px,.55fr) auto;
-  align-items:center;
-  gap:10px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--bg);
-  padding:12px;
-}
-#pageGantt .gantt-qc-output-row.is-active{
-  border-color:var(--blue);
-  background:#F8FBFF;
-}
-#pageGantt .gantt-qc-output-row.is-qc-not-required{
-  opacity:.58;
-  background:#F8FAFC;
-}
-#pageGantt .gantt-qc-output-main{
-  min-width:0;
-  cursor:pointer;
-}
-#pageGantt .gantt-qc-output-title{
-  color:var(--navy);
-  font-size:13px;
-  font-weight:800;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-#pageGantt .gantt-qc-output-meta{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-top:5px;
-  color:var(--text3);
-  font-size:11px;
-}
-#pageGantt .gantt-qc-output-status,
-#pageGantt .gantt-qc-output-actions{
-  display:flex;
-  justify-content:flex-end;
-  align-items:center;
-  flex-wrap:wrap;
-  gap:6px;
-}
 #pageGantt .gantt-qc-partner-pill,
 #pageGantt .gantt-qc-coaching-mark,
 #pageGantt .gantt-qc-muted-pill{
@@ -5290,7 +5209,7 @@ td{
   font-size:11px;
 }
 #pageGantt .gantt-qc-review-form,
-#pageGantt .gantt-qc-output-history{
+#pageGantt .gantt-output-review-panel{
   grid-column:1/-1;
 }
 #pageGantt .gantt-qc-review-form textarea{
@@ -5340,6 +5259,31 @@ td{
 #pageGantt .gantt-output-pane{
   margin-bottom:14px;
 }
+#pageGantt .gantt-output-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+}
+#pageGantt .gantt-output-summary>div{
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel);
+  padding:12px;
+}
+#pageGantt .gantt-output-summary strong{
+  display:block;
+  color:var(--navy);
+  font-size:22px;
+  line-height:1;
+}
+#pageGantt .gantt-output-summary span{
+  display:block;
+  margin-top:6px;
+  color:var(--text3);
+  font-size:11px;
+  font-weight:700;
+}
 #pageGantt .gantt-output-list{
   display:flex;
   flex-direction:column;
@@ -5355,8 +5299,16 @@ td{
   background:var(--bg);
   padding:12px;
 }
+#pageGantt .gantt-output-row.is-active{
+  border-color:var(--blue);
+  background:#F8FBFF;
+}
+#pageGantt .gantt-output-row.is-qc-not-required{
+  background:#F8FAFC;
+}
 #pageGantt .gantt-output-main{
   min-width:0;
+  cursor:pointer;
 }
 #pageGantt .gantt-output-title{
   color:var(--navy);
@@ -5436,15 +5388,9 @@ td{
   background:#F0FDF4;
   color:#166534;
 }
-#pageGantt .gantt-output-qc-note{
-  margin:-4px 0 12px;
-  padding:9px 11px;
-  border:1px solid rgba(37,99,235,.16);
-  border-radius:10px;
-  background:#EFF6FF;
-  color:#1D4ED8;
-  font-size:12px;
-  font-weight:800;
+#pageGantt .gantt-output-review-panel{
+  border-top:1px solid var(--border);
+  padding-top:10px;
 }
 #pageGantt .gantt-output-modal textarea{
   width:100%;
@@ -5460,13 +5406,10 @@ td{
     min-height:clamp(520px,58vh,760px)!important;
     max-height:none!important;
   }
-  #pageGantt .gantt-qc-summary,
-  #pageGantt .gantt-qc-output-row,
+  #pageGantt .gantt-output-summary,
   #pageGantt .gantt-output-row{
     grid-template-columns:1fr;
   }
-  #pageGantt .gantt-qc-output-status,
-  #pageGantt .gantt-qc-output-actions,
   #pageGantt .gantt-output-status,
   #pageGantt .gantt-output-actions{
     justify-content:flex-start;
