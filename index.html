@@ -2004,7 +2004,7 @@ window.addEventListener('DOMContentLoaded',function(){
 const SB_URL='https://ueysvpndnpejcnyonecq.supabase.co';
 const SB_KEY='sb_publishable_cLopHWFkUpZ5LN5thjd3eQ_UpLHh8Pe';
 let accessToken=null,refreshToken=null,currentUser=null,isAdmin=false,currentMember=null,currentRole='',currentRoleRow=null,pendingRequest=null;
-let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[];
+let projects=[],members=[],clients=[],notices=[],schedules=[],contracts=[],billingLogs=[],projectTypes=[],referenceTeams=[];
 let projectMemberLinks=[],scheduleMemberLinks=[];
 let clientAssignments=[],openIssuesByProject={},accessRequests=[];
 let curPage='home',curGView='project';
@@ -3002,16 +3002,20 @@ async function loadAll(){
   setStatus('불러오는 중...');
   try{
     // 핵심 데이터 먼저 (메인화면 렌더에 필요)
-    const[projs,mems,pm,cls,nts,schs,sm]=await Promise.all([
+    const[projs,mems,pm,cls,nts,schs,sm,projectTypeRows,teamRows]=await Promise.all([
       api('GET','projects?select=*&order=start_date'),
       api('GET','members?select=*&order=name'),
       api('GET','project_members?select=project_id,member_id,members(name)'),
       api('GET','clients?select=*&order=name'),
       api('GET','notices?select=*&order=is_pinned.desc,created_at.desc'),
       api('GET','schedules?select=*&order=start_date'),
-      api('GET','schedule_members?select=schedule_id,member_id').catch(()=>[])
+      api('GET','schedule_members?select=schedule_id,member_id').catch(()=>[]),
+      api('GET','project_types?select=*&order=is_active.desc,name.asc').catch(()=>projectTypes||[]),
+      api('GET','teams?select=*&order=is_active.desc,name.asc').catch(()=>referenceTeams||[])
     ]);
     members=mems||[];
+    projectTypes=projectTypeRows||[];
+    referenceTeams=teamRows||[];
     if(currentUser){
       const refreshedMember=members.find(member=>String(member?.auth_user_id||'')===String(currentUser.id||''))
         ||members.find(member=>String(member?.email||'').toLowerCase()===String(currentUser.email||'').toLowerCase());
@@ -4668,17 +4672,18 @@ function renderProjModal(p,editable,preClientId,preContractId){
           </div>
           <div id="contractHint" class="project-contract-link" style="${linkedContract?'':'display:none'}">${linkedContract?'<span class="project-contract-link-kicker">연결 계약</span><strong>'+esc(linkedContract.contract_name)+'</strong>'+(linkedContract.contract_amount?'<span>'+Number(linkedContract.contract_amount).toLocaleString()+'원</span>':''):''}</div>
           <div class="form-half project-basic-grid">
-            <div class="form-row"><label class="form-label">유형</label><select id="fType" ${editable?'':'disabled'}>${Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')}</select></div>
+            <div class="form-row"><label class="form-label">유형</label><select id="fType" ${editable?'':'disabled'}>${typeof getProjectTypeSelectOptions==='function'?getProjectTypeSelectOptions(p?.project_type_id,p?.type):Object.keys(TYPES).map(t=>'<option '+(p&&p.type===t?'selected':'')+'>'+t+'</option>').join('')}</select></div>
+            <div class="form-row"><label class="form-label">팀</label><select id="fTeam" ${editable?'':'disabled'}>${typeof getProjectTeamSelectOptions==='function'?getProjectTeamSelectOptions(p?.team_id):'<option value="">팀 선택</option>'}</select></div>
+          </div>
+          <div class="form-half project-basic-grid">
             <div class="form-row"><label class="form-label">상태</label><select id="fStatus" ${editable?'':'disabled'}><option ${(p&&p.status==='진행중')?'selected':''}>진행중</option><option ${(p&&p.status==='예정')?'selected':''}>예정</option><option ${(p&&p.status==='완료')?'selected':''}>완료</option></select></div>
-          </div>
-          <div class="form-half project-basic-grid">
             <div class="form-row"><label class="form-label">우선순위</label><select id="fPriority" ${editable?'':'disabled'}><option value="high" ${(p?.priority==='high')?'selected':''}>상</option><option value="medium" ${(!p||!p.priority||p.priority==='medium')?'selected':''}>중</option><option value="low" ${(p?.priority==='low')?'selected':''}>하</option></select></div>
-            <div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="${p?p.start:curYear+'-'+pad(curMonth)+'-01'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
           </div>
           <div class="form-half project-basic-grid">
+            <div class="form-row"><label class="form-label">시작일</label><input type="date" id="fStart" value="${p?p.start:curYear+'-'+pad(curMonth)+'-01'}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
             <div class="form-row"><label class="form-label">종료일</label><input type="date" id="fEnd" value="${p?p.end:curYear+'-'+pad(curMonth)+'-'+pad(d)}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
-            <div class="form-row"><label class="form-label">메모 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><textarea id="fMemo" rows="2" class="project-modal-memo" placeholder="간단한 메모, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p&&p.memo?p.memo:'')}</textarea></div>
           </div>
+          <div class="form-row"><label class="form-label">메모 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label><textarea id="fMemo" rows="2" class="project-modal-memo" placeholder="간단한 메모, 특이사항" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p&&p.memo?p.memo:'')}</textarea></div>
           ${editable
             ?'<div class="form-row"><label class="form-label">담당 인력</label><div style="display:flex;gap:8px"><select id="fMSel" style="flex:1">'+mOpts+'</select><button class="btn sm" onclick="addMember()">+ 추가</button></div><div class="member-tags" id="fMTags"></div></div>'
             :'<div class="form-row"><label class="form-label">담당 인력</label><div style="padding:8px 0;font-size:13px;font-weight:500">'+(p?p.members.join(', ')||'미배정':'')+'</div></div>'}
@@ -4820,7 +4825,8 @@ function copyProj(){
     openProjModal(null,p.client_id,p.contract_id);
     setTimeout(()=>{
       document.getElementById('fName').value=esc(p.name)+' (복사)';
-      if(document.getElementById('fType'))document.getElementById('fType').value=p.type;
+      if(document.getElementById('fType'))document.getElementById('fType').value=p.project_type_id||'';
+      if(document.getElementById('fTeam'))document.getElementById('fTeam').value=p.team_id||'';
       if(document.getElementById('fStatus'))document.getElementById('fStatus').value='예정';
       formMembers=[...p.members];renderMemberTags();
     },80);
@@ -4830,7 +4836,11 @@ function copyProj(){
 async function saveProj(){
   if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   const name=document.getElementById('fName').value.trim();
-  const type=document.getElementById('fType').value;
+  const project_type_id=document.getElementById('fType')?.value||null;
+  const type=project_type_id&&typeof getProjectTypeRowById==='function'
+    ?getProjectTypeRowById(project_type_id)?.name||''
+    :(document.getElementById('fType')?.selectedOptions?.[0]?.textContent||document.getElementById('fType')?.value||'');
+  const team_id=document.getElementById('fTeam')?.value||null;
   const start=document.getElementById('fStart').value;
   const end=document.getElementById('fEnd').value;
   const status=document.getElementById('fStatus').value;
@@ -4855,7 +4865,7 @@ async function saveProj(){
   if(!name||!start||!end){alert('프로젝트명, 시작일, 종료일을 입력해주세요.');return;}
   if(start>end){alert('종료일이 시작일보다 빠릅니다.');return;}
   try{
-    const body={name,type,start_date:start,end_date:end,status,estimated_hours,priority,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
+    const body={name,type,project_type_id,team_id,start_date:start,end_date:end,status,estimated_hours,priority,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
     if(editingProjId){
       await api('PATCH','projects?id=eq.'+editingProjId,body);
       await api('DELETE','project_members?project_id=eq.'+editingProjId);
@@ -7508,7 +7518,8 @@ copyProj = function(){
     setTimeout(()=>{
       const nameInput=document.getElementById('fName');
       if(nameInput) nameInput.value=(p.name||'')+' (복사)';
-      if(document.getElementById('fType')) document.getElementById('fType').value=p.type;
+      if(document.getElementById('fType')) document.getElementById('fType').value=p.project_type_id||'';
+      if(document.getElementById('fTeam')) document.getElementById('fTeam').value=p.team_id||'';
       if(document.getElementById('fStatus')) document.getElementById('fStatus').value='예정';
       formMembers=[...p.members];
       renderMemberTags();
@@ -8667,7 +8678,11 @@ window.saveProj = async function(){
   }
 
   const name=document.getElementById('fName')?.value?.trim();
-  const type=document.getElementById('fType')?.value||null;
+  const project_type_id=document.getElementById('fType')?.value||null;
+  const type=project_type_id&&typeof getProjectTypeRowById==='function'
+    ?getProjectTypeRowById(project_type_id)?.name||null
+    :(document.getElementById('fType')?.selectedOptions?.[0]?.textContent||document.getElementById('fType')?.value||null);
+  const team_id=document.getElementById('fTeam')?.value||null;
   const start=document.getElementById('fStart')?.value||null;
   const end=document.getElementById('fEnd')?.value||null;
   const status=document.getElementById('fStatus')?.value||null;
@@ -8713,6 +8728,8 @@ window.saveProj = async function(){
   const body={
     name,
     type,
+    project_type_id,
+    team_id,
     start_date:start,
     end_date:end,
     status,
