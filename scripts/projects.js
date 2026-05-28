@@ -7581,16 +7581,17 @@ function renderGanttQcOutputRow(projectId,output,reviews){
   const canReview=canReviewGanttQcOutput(output);
   const active=String(ganttProjectQcActiveOutputId||'')===String(output?.id||'');
   const link=normalizeGanttQcOutputUrl(output?.onedrive_url);
+  const qcRequired=output?.qc_required!==false;
   return ''
-    +'<div class="gantt-qc-output-row'+(active?' is-active':'')+'" data-qc-output="'+esc(output?.id||'')+'">'
+    +'<div class="gantt-qc-output-row'+(active?' is-active':'')+(qcRequired?'':' is-qc-not-required')+'" data-qc-output="'+esc(output?.id||'')+'">'
       +'<div class="gantt-qc-output-main" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+output.id+'\')">'
         +'<div class="gantt-qc-output-title">'+esc(output?.title||'산출물명 없음')+'</div>'
         +'<div class="gantt-qc-output-meta"><span>작성자 '+esc(getGanttQcOutputAuthorName(output))+'</span><span>리뷰어 '+esc(getGanttQcReviewerName(output))+'</span></div>'
       +'</div>'
       +'<div class="gantt-qc-output-link">'+(link?'<button type="button" class="btn ghost sm" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'<span class="gantt-qc-muted">링크 없음</span>')+'</div>'
-      +'<div class="gantt-qc-output-status"><span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>'+(output?.requires_partner_review?'<span class="gantt-qc-partner-pill">파트너 리뷰</span>':'')+'</div>'
+      +'<div class="gantt-qc-output-status"><span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>'+(qcRequired?'':'<span class="gantt-qc-muted-pill">QC 불필요</span>')+(output?.requires_partner_review?'<span class="gantt-qc-partner-pill">파트너 리뷰</span>':'')+'</div>'
       +'<div class="gantt-qc-output-actions">'
-        +(status==='none'?'<button type="button" class="btn primary sm" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+output.id+'\')">QC 요청</button>':'')
+        +(qcRequired&&status==='none'?'<button type="button" class="btn primary sm" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+output.id+'\')">QC 요청</button>':'')
         +(canReview&&status!=='none'&&status!=='approved'?'<button type="button" class="btn sm" onclick="event.stopPropagation();toggleGanttQcOutputReview(\''+projectId+'\',\''+output.id+'\')">검토</button>':'')
       +'</div>'
       +(active&&canReview?'<div class="gantt-qc-review-form"><textarea id="ganttQcReviewComment_'+esc(output.id)+'" rows="3" placeholder="QC 코멘트를 입력하세요."></textarea><div class="gantt-qc-review-form-actions"><label class="checkbox-row"><input type="checkbox" id="ganttQcCoaching_'+esc(output.id)+'"><span>코칭노트</span></label><div><button type="button" class="btn ghost sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+output.id+'\',\'revision_requested\')">수정요청</button><button type="button" class="btn primary sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+output.id+'\',\'approved\')">승인</button></div></div></div>':'')
@@ -7705,10 +7706,27 @@ async function deleteGanttOutput(projectId,outputId){
   }
 }
 
+async function toggleGanttOutputWeeklyReview(projectId,outputId,checked){
+  try{
+    await api('PATCH','project_outputs?id=eq.'+outputId,{share_in_weekly_review:!!checked});
+    const key=String(projectId||'');
+    const state=ganttProjectQcByProjectId[key];
+    if(state?.outputs){
+      state.outputs=state.outputs.map(output=>String(output?.id||'')===String(outputId||'')?{...output,share_in_weekly_review:!!checked}:output);
+    }
+    invalidateGanttProjectQcRender(projectId);
+  }catch(error){
+    alert('주간리뷰 포함 여부 저장에 실패했습니다. '+(error?.message||error));
+    delete ganttProjectQcByProjectId[String(projectId)];
+    await loadGanttProjectQc(projectId,true);
+  }
+}
+
 function renderGanttOutputRow(projectId,output){
   const status=normalizeGanttQcStatus(output?.qc_status);
   const statusMeta=getGanttQcStatusMeta(status);
   const link=normalizeGanttQcOutputUrl(output?.onedrive_url);
+  const outputId=String(output?.id||'');
   return ''
     +'<div class="gantt-output-row">'
       +'<div class="gantt-output-main">'
@@ -7721,11 +7739,10 @@ function renderGanttOutputRow(projectId,output){
       +'</div>'
       +'<div class="gantt-output-status">'
         +'<span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>'
-        +'<span class="gantt-output-review-pill '+(output?.share_in_weekly_review?'is-on':'is-off')+'">'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span>'
+        +'<label class="gantt-output-review-toggle '+(output?.share_in_weekly_review?'is-on':'is-off')+'"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span></label>'
       +'</div>'
       +'<div class="gantt-output-actions">'
         +(link?'<button type="button" class="btn ghost sm" data-url="'+esc(link)+'" onclick="openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
-        +(status==='none'?'<button type="button" class="btn sm" onclick="openGanttQcRequestModal(\''+projectId+'\',\''+output.id+'\')">QC 요청</button>':'')
         +'<button type="button" class="btn ghost sm" onclick="deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button>'
       +'</div>'
     +'</div>';
@@ -7740,6 +7757,7 @@ function renderGanttProjectOutputSection(project){
     +'<div class="gantt-detail-pane gantt-output-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
         +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">산출물</div><div class="gantt-detail-meta">프로젝트 산출물, OneDrive 링크, QC 상태와 주간리뷰 포함 여부를 관리합니다.</div></div><div class="gantt-detail-head-actions"><button type="button" class="btn primary sm" onclick="openGanttOutputModal(\''+projectId+'\')">산출물 추가</button></div></div>'
+        +'<div class="gantt-output-qc-note">QC 요청과 리뷰어 지정은 QC 탭에서 진행하세요.</div>'
         +(meta.loading?'<div class="gantt-detail-empty">산출물을 불러오는 중...</div>'
           :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
           :outputs.length?'<div class="gantt-output-list">'+outputs.map(output=>renderGanttOutputRow(projectId,output)).join('')+'</div>'
