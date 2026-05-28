@@ -5166,8 +5166,8 @@ td{
   border-radius:16px!important;
 }
 #pageGantt .gantt-list-table-shell{
-  height:clamp(320px,40vh,480px)!important;
-  max-height:clamp(320px,40vh,480px)!important;
+  height:clamp(640px,80vh,960px)!important;
+  max-height:clamp(640px,80vh,960px)!important;
 }
 #pageGantt .gantt-detail{
   min-height:clamp(600px,60vh,860px)!important;
@@ -5184,13 +5184,169 @@ td{
   margin-bottom:10px!important;
 }
 
+#pageGantt .gantt-qc-pane{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+#pageGantt .gantt-qc-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+}
+#pageGantt .gantt-qc-summary>div{
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--panel);
+  padding:12px;
+}
+#pageGantt .gantt-qc-summary strong{
+  display:block;
+  color:var(--navy);
+  font-size:22px;
+  line-height:1;
+}
+#pageGantt .gantt-qc-summary span{
+  display:block;
+  margin-top:6px;
+  color:var(--text3);
+  font-size:11px;
+  font-weight:700;
+}
+#pageGantt .gantt-qc-output-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+#pageGantt .gantt-qc-output-row{
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) auto minmax(130px,.55fr) auto;
+  align-items:center;
+  gap:10px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--bg);
+  padding:12px;
+}
+#pageGantt .gantt-qc-output-row.is-active{
+  border-color:var(--blue);
+  background:#F8FBFF;
+}
+#pageGantt .gantt-qc-output-main{
+  min-width:0;
+  cursor:pointer;
+}
+#pageGantt .gantt-qc-output-title{
+  color:var(--navy);
+  font-size:13px;
+  font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#pageGantt .gantt-qc-output-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:5px;
+  color:var(--text3);
+  font-size:11px;
+}
+#pageGantt .gantt-qc-output-status,
+#pageGantt .gantt-qc-output-actions{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+}
+#pageGantt .gantt-qc-partner-pill,
+#pageGantt .gantt-qc-coaching-mark{
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  padding:2px 7px;
+  border-radius:999px;
+  border:1px solid #FBBF24;
+  background:#FFFBEB;
+  color:#92400E;
+  font-size:10px;
+  font-weight:800;
+}
+#pageGantt .gantt-qc-muted,
+#pageGantt .gantt-qc-history-empty{
+  color:var(--text3);
+  font-size:11px;
+}
+#pageGantt .gantt-qc-review-form,
+#pageGantt .gantt-qc-output-history{
+  grid-column:1/-1;
+}
+#pageGantt .gantt-qc-review-form textarea{
+  width:100%;
+  min-height:82px;
+  resize:vertical;
+}
+#pageGantt .gantt-qc-review-form-actions{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-top:8px;
+}
+#pageGantt .gantt-qc-review-form-actions>div{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+#pageGantt .gantt-qc-history{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:8px;
+}
+#pageGantt .gantt-qc-history-item{
+  border-top:1px solid var(--border);
+  padding-top:8px;
+}
+#pageGantt .gantt-qc-history-meta{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+  color:var(--text3);
+  font-size:11px;
+  font-weight:700;
+}
+#pageGantt .gantt-qc-history-comment{
+  margin-top:4px;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.45;
+  white-space:pre-wrap;
+}
+
 @media(max-width:900px){
   #pageGantt .gantt-list-table-shell{
-    height:clamp(300px,42vh,520px)!important;
-    max-height:clamp(300px,42vh,520px)!important;
+    height:clamp(600px,84vh,1040px)!important;
+    max-height:clamp(600px,84vh,1040px)!important;
   }
   #pageGantt .gantt-detail{
     min-height:clamp(520px,58vh,760px)!important;
     max-height:none!important;
+  }
+  #pageGantt .gantt-qc-summary,
+  #pageGantt .gantt-qc-output-row{
+    grid-template-columns:1fr;
+  }
+  #pageGantt .gantt-qc-output-status,
+  #pageGantt .gantt-qc-output-actions{
+    justify-content:flex-start;
+  }
+  #pageGantt .gantt-qc-review-form-actions{
+    align-items:stretch;
+    flex-direction:column;
   }
 }

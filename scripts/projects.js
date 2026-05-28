@@ -3195,6 +3195,7 @@ function renderGanttDetailTabBar(){
     {key:'work',label:'Work'},
     {key:'issues',label:'Issues'},
     {key:'checklist',label:'Checklist'},
+    {key:'qc',label:'QC'},
     {key:'memo',label:'Memo'},
     {key:'documents',label:'Documents'}
   ];
@@ -4196,6 +4197,7 @@ renderGanttDetailPanel=function(projs,schs){
   if(ganttDetailTab==='work')sectionHtml=renderGanttProjectWorkSection(project,memberSchedules);
   else if(ganttDetailTab==='issues')sectionHtml=renderGanttProjectIssuesSection(project);
   else if(ganttDetailTab==='checklist')sectionHtml=renderGanttProjectChecklistSection(project);
+  else if(ganttDetailTab==='qc')sectionHtml=renderGanttProjectQcSection(project);
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
   else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectMemoSection(project);
   el.innerHTML=''
@@ -7300,7 +7302,9 @@ renderGanttDetailPanel=function(projs,schs){
   if(ganttDetailTab==='work')sectionHtml=renderGanttProjectWorkSection(project,memberSchedules);
   else if(ganttDetailTab==='issues')sectionHtml=renderGanttProjectIssuesSection(project);
   else if(ganttDetailTab==='checklist')sectionHtml=renderGanttProjectChecklistSection(project);
+  else if(ganttDetailTab==='qc')sectionHtml=renderGanttProjectQcSection(project);
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
+  else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectMemoSection(project);
   const primaryAction=ganttDetailTab==='work'
     ?'<button class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button>'
     :'<button class="btn primary sm" onclick="setGanttDetailTab(\'work\')">Work 열기</button>';
@@ -7331,8 +7335,291 @@ renderGanttDetailPanel=function(projs,schs){
   loadGanttDetailAsync(project);
   if(ganttDetailTab==='work')loadGanttProjectTasks(project.id);
   if(ganttDetailTab==='checklist')loadGanttProjectChecklist(project.id);
+  if(ganttDetailTab==='qc')loadGanttProjectQc(project.id);
   el.dataset.renderSignature=renderSignature;
 };
+
+let ganttProjectQcByProjectId={};
+let ganttProjectQcLoadMetaByProjectId={};
+let ganttProjectQcActiveOutputId='';
+
+const GANTT_QC_STATUS_META={
+  none:{label:'없음',cls:'badge-gray'},
+  requested:{label:'QC요청',cls:'badge-orange'},
+  reviewing:{label:'검토중',cls:'badge-blue'},
+  revision_requested:{label:'수정요청',cls:'badge-red'},
+  approved:{label:'승인완료',cls:'badge-green'}
+};
+
+function normalizeGanttQcStatus(value){
+  const status=String(value||'none').trim();
+  return GANTT_QC_STATUS_META[status]?status:'none';
+}
+
+function getGanttQcStatusMeta(value){
+  return GANTT_QC_STATUS_META[normalizeGanttQcStatus(value)];
+}
+
+function getGanttQcMemberName(memberId){
+  const key=String(memberId||'').trim();
+  if(!key)return '';
+  const member=(members||[]).find(item=>String(item?.id||'')===key||String(item?.auth_user_id||'')===key);
+  return member?.name||member?.email||'';
+}
+
+function getGanttQcOutputAuthorName(output){
+  const authorId=String(output?.author_id||'').trim();
+  if(authorId&&currentUser?.id&&authorId===String(currentUser.id))return currentMember?.name||currentUser?.email||'나';
+  return getGanttQcMemberName(authorId)||output?.author_name||'작성자 미확인';
+}
+
+function getGanttQcReviewerName(output){
+  return getGanttQcMemberName(output?.qc_reviewer_id)||'리뷰어 미지정';
+}
+
+function getGanttProjectQcState(projectId){
+  const key=String(projectId||'');
+  return {
+    meta:ganttProjectQcLoadMetaByProjectId[key]||{},
+    outputs:ganttProjectQcByProjectId[key]?.outputs||[],
+    reviews:ganttProjectQcByProjectId[key]?.reviews||[]
+  };
+}
+
+function invalidateGanttProjectQcRender(projectId){
+  const el=document.getElementById('ganttDetail');
+  if(el&&String(el.dataset.projectId||'')===String(projectId||''))el.dataset.renderSignature='';
+  const currentData=typeof getGanttFilteredData==='function'?getGanttFilteredData():{projs:projects||[],schs:schedules||[]};
+  renderGanttDetailPanel(currentData.projs||[],currentData.schs||[]);
+}
+
+async function loadGanttProjectQc(projectId,force=false){
+  const key=String(projectId||'');
+  if(!key)return;
+  const meta=ganttProjectQcLoadMetaByProjectId[key]||{};
+  if(!force&&(meta.loading||ganttProjectQcByProjectId[key]))return;
+  ganttProjectQcLoadMetaByProjectId[key]={loading:true,error:''};
+  invalidateGanttProjectQcRender(key);
+  try{
+    const [outputs,reviews]=await Promise.all([
+      api('GET','project_outputs?project_id=eq.'+key+'&select=*&order=created_at.desc').catch(()=>[]),
+      api('GET','qc_reviews?project_id=eq.'+key+'&select=*&order=created_at.desc').catch(()=>[])
+    ]);
+    ganttProjectQcByProjectId[key]={outputs:outputs||[],reviews:reviews||[]};
+    ganttProjectQcLoadMetaByProjectId[key]={loading:false,error:''};
+  }catch(error){
+    ganttProjectQcByProjectId[key]={outputs:[],reviews:[]};
+    ganttProjectQcLoadMetaByProjectId[key]={loading:false,error:'QC 정보를 불러오지 못했습니다.'};
+  }
+  invalidateGanttProjectQcRender(key);
+}
+
+function getGanttQcSummary(outputs){
+  return (outputs||[]).reduce((acc,output)=>{
+    const status=normalizeGanttQcStatus(output?.qc_status);
+    if(status==='requested'||status==='reviewing')acc.pending+=1;
+    if(status==='revision_requested')acc.revision+=1;
+    if(status==='approved')acc.approved+=1;
+    if(output?.requires_partner_review)acc.partner+=1;
+    return acc;
+  },{pending:0,revision:0,approved:0,partner:0});
+}
+
+function canReviewGanttQcOutput(output){
+  if(typeof roleIsAdmin==='function'&&roleIsAdmin())return true;
+  return !!(currentMember?.id&&String(output?.qc_reviewer_id||'')===String(currentMember.id));
+}
+
+function normalizeGanttQcOutputUrl(url){
+  const raw=String(url||'').trim();
+  if(!raw)return '';
+  return /^https?:\/\//i.test(raw)?raw:'https://'+raw;
+}
+
+function openGanttQcOutputUrl(url){
+  const normalized=normalizeGanttQcOutputUrl(url);
+  if(!normalized){
+    alert('열 수 있는 OneDrive 링크가 없습니다.');
+    return;
+  }
+  window.open(normalized,'_blank','noopener');
+}
+
+function renderGanttQcReviewerOptions(selectedId=''){
+  const selected=String(selectedId||'');
+  const rows=[...(members||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+  return '<option value="">리뷰어 선택</option>'+rows.map(member=>'<option value="'+esc(member?.id||'')+'"'+(String(member?.id||'')===selected?' selected':'')+'>'+esc(member?.name||member?.email||'이름 없음')+'</option>').join('');
+}
+
+function openGanttQcRequestModal(projectId,outputId){
+  const state=getGanttProjectQcState(projectId);
+  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''));
+  if(!output)return;
+  const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
+  document.getElementById('modalArea').innerHTML=''
+    +overlayHtml
+    +'<div class="modal" style="width:520px">'
+      +'<div class="modal-title">QC 요청</div>'
+      +'<div class="modal-sub">'+esc(output.title||'산출물')+'</div>'
+      +'<div class="form-row"><label class="form-label">리뷰어</label><select id="ganttQcReviewerSelect">'+renderGanttQcReviewerOptions(output.qc_reviewer_id||'')+'</select></div>'
+      +'<div class="checkbox-row"><input type="checkbox" id="ganttQcPartnerReview" '+(output.requires_partner_review?'checked':'')+'><label for="ganttQcPartnerReview">파트너 리뷰 필요</label></div>'
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="requestGanttQcReview(\''+projectId+'\',\''+outputId+'\')">요청</button></div></div>'
+    +'</div>';
+}
+
+async function requestGanttQcReview(projectId,outputId){
+  const reviewerId=String(document.getElementById('ganttQcReviewerSelect')?.value||'').trim();
+  const partnerReview=!!document.getElementById('ganttQcPartnerReview')?.checked;
+  if(!reviewerId){
+    alert('리뷰어를 선택해 주세요.');
+    return;
+  }
+  const now=new Date().toISOString();
+  try{
+    await api('PATCH','project_outputs?id=eq.'+outputId,{
+      qc_required:true,
+      qc_status:'requested',
+      qc_reviewer_id:reviewerId,
+      qc_requested_at:now,
+      requires_partner_review:partnerReview
+    });
+    await api('POST','qc_reviews',{
+      output_id:outputId,
+      project_id:projectId,
+      reviewer_id:reviewerId,
+      requested_by:currentUser?.id||null,
+      status:'requested',
+      comment:'QC 요청',
+      is_coaching_note:false
+    });
+    closeModal();
+    delete ganttProjectQcByProjectId[String(projectId)];
+    await loadGanttProjectQc(projectId,true);
+  }catch(error){
+    alert('QC 요청 저장에 실패했습니다. '+(error?.message||error));
+  }
+}
+
+async function toggleGanttQcOutputReview(projectId,outputId){
+  const nextActive=String(ganttProjectQcActiveOutputId||'')===String(outputId||'')?'':String(outputId||'');
+  ganttProjectQcActiveOutputId=nextActive;
+  const state=getGanttProjectQcState(projectId);
+  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''));
+  if(nextActive&&output&&canReviewGanttQcOutput(output)&&normalizeGanttQcStatus(output?.qc_status)==='requested'){
+    try{
+      await api('PATCH','project_outputs?id=eq.'+outputId,{qc_status:'reviewing'});
+      await api('POST','qc_reviews',{
+        output_id:outputId,
+        project_id:projectId,
+        reviewer_id:currentMember?.id||output.qc_reviewer_id||null,
+        requested_by:currentUser?.id||null,
+        status:'reviewing',
+        comment:'검토 시작',
+        is_coaching_note:false
+      });
+      delete ganttProjectQcByProjectId[String(projectId)];
+      await loadGanttProjectQc(projectId,true);
+      return;
+    }catch(error){
+      console.warn('QC reviewing status update failed',error);
+    }
+  }
+  invalidateGanttProjectQcRender(projectId);
+}
+
+async function saveGanttQcReview(projectId,outputId,nextStatus){
+  const state=getGanttProjectQcState(projectId);
+  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''));
+  if(!output||!canReviewGanttQcOutput(output)){
+    alert('리뷰 권한이 없습니다.');
+    return;
+  }
+  const comment=String(document.getElementById('ganttQcReviewComment_'+outputId)?.value||'').trim();
+  const isCoaching=!!document.getElementById('ganttQcCoaching_'+outputId)?.checked;
+  if(!comment){
+    alert('코멘트를 입력해 주세요.');
+    return;
+  }
+  const status=nextStatus==='approved'?'approved':'revision_requested';
+  const now=new Date().toISOString();
+  const patchBody={qc_status:status};
+  if(status==='approved')patchBody.qc_completed_at=now;
+  try{
+    await api('PATCH','project_outputs?id=eq.'+outputId,patchBody);
+    await api('POST','qc_reviews',{
+      output_id:outputId,
+      project_id:projectId,
+      reviewer_id:currentMember?.id||output.qc_reviewer_id||null,
+      requested_by:currentUser?.id||null,
+      status,
+      comment,
+      is_coaching_note:isCoaching
+    });
+    ganttProjectQcActiveOutputId='';
+    delete ganttProjectQcByProjectId[String(projectId)];
+    await loadGanttProjectQc(projectId,true);
+  }catch(error){
+    alert('QC 리뷰 저장에 실패했습니다. '+(error?.message||error));
+  }
+}
+
+function renderGanttQcReviewHistory(outputId,reviews){
+  const rows=(reviews||[]).filter(row=>String(row?.output_id||'')===String(outputId||''));
+  if(!rows.length)return '<div class="gantt-qc-history-empty">QC 코멘트 이력이 없습니다.</div>';
+  return '<div class="gantt-qc-history">'+rows.map(review=>''
+    +'<div class="gantt-qc-history-item">'
+      +'<div class="gantt-qc-history-meta"><span>'+esc(getGanttQcMemberName(review?.reviewer_id)||getGanttQcMemberName(review?.requested_by)||'작성자 미확인')+'</span><span>'+esc(typeof formatCommentDate==='function'?formatCommentDate(review?.created_at):String(review?.created_at||''))+'</span>'+(review?.is_coaching_note?'<span class="gantt-qc-coaching-mark">코칭노트</span>':'')+'</div>'
+      +'<div class="gantt-qc-history-comment">'+esc(review?.comment||'코멘트 없음')+'</div>'
+    +'</div>'
+  ).join('')+'</div>';
+}
+
+function renderGanttQcOutputRow(projectId,output,reviews){
+  const status=normalizeGanttQcStatus(output?.qc_status);
+  const statusMeta=getGanttQcStatusMeta(status);
+  const canReview=canReviewGanttQcOutput(output);
+  const active=String(ganttProjectQcActiveOutputId||'')===String(output?.id||'');
+  const link=normalizeGanttQcOutputUrl(output?.onedrive_url);
+  return ''
+    +'<div class="gantt-qc-output-row'+(active?' is-active':'')+'" data-qc-output="'+esc(output?.id||'')+'">'
+      +'<div class="gantt-qc-output-main" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+output.id+'\')">'
+        +'<div class="gantt-qc-output-title">'+esc(output?.title||'산출물명 없음')+'</div>'
+        +'<div class="gantt-qc-output-meta"><span>작성자 '+esc(getGanttQcOutputAuthorName(output))+'</span><span>리뷰어 '+esc(getGanttQcReviewerName(output))+'</span></div>'
+      +'</div>'
+      +'<div class="gantt-qc-output-link">'+(link?'<button type="button" class="btn ghost sm" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'<span class="gantt-qc-muted">링크 없음</span>')+'</div>'
+      +'<div class="gantt-qc-output-status"><span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>'+(output?.requires_partner_review?'<span class="gantt-qc-partner-pill">파트너 리뷰</span>':'')+'</div>'
+      +'<div class="gantt-qc-output-actions">'
+        +(status==='none'?'<button type="button" class="btn primary sm" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+output.id+'\')">QC 요청</button>':'')
+        +(canReview&&status!=='none'&&status!=='approved'?'<button type="button" class="btn sm" onclick="event.stopPropagation();toggleGanttQcOutputReview(\''+projectId+'\',\''+output.id+'\')">검토</button>':'')
+      +'</div>'
+      +(active&&canReview?'<div class="gantt-qc-review-form"><textarea id="ganttQcReviewComment_'+esc(output.id)+'" rows="3" placeholder="QC 코멘트를 입력하세요."></textarea><div class="gantt-qc-review-form-actions"><label class="checkbox-row"><input type="checkbox" id="ganttQcCoaching_'+esc(output.id)+'"><span>코칭노트</span></label><div><button type="button" class="btn ghost sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+output.id+'\',\'revision_requested\')">수정요청</button><button type="button" class="btn primary sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+output.id+'\',\'approved\')">승인</button></div></div></div>':'')
+      +'<div class="gantt-qc-output-history">'+renderGanttQcReviewHistory(output?.id,reviews)+'</div>'
+    +'</div>';
+}
+
+function renderGanttProjectQcSection(project){
+  const projectId=String(project?.id||'');
+  const state=getGanttProjectQcState(projectId);
+  const meta=state.meta||{};
+  const outputs=state.outputs||[];
+  const reviews=state.reviews||[];
+  const summary=getGanttQcSummary(outputs);
+  return '<div class="gantt-detail-pane gantt-qc-pane">'
+    +'<div class="gantt-detail-section gantt-detail-section--flush">'
+      +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">QC 품질관리</div><div class="gantt-detail-meta">산출물별 QC 요청, 리뷰 코멘트, 승인 상태를 관리합니다.</div></div></div>'
+      +'<div class="gantt-qc-summary">'
+        +'<div><strong>'+summary.pending+'</strong><span>QC 대기</span></div>'
+        +'<div><strong>'+summary.revision+'</strong><span>수정요청</span></div>'
+        +'<div><strong>'+summary.approved+'</strong><span>승인 완료</span></div>'
+        +'<div><strong>'+summary.partner+'</strong><span>파트너 리뷰 필요</span></div>'
+      +'</div>'
+      +(meta.loading?'<div class="gantt-detail-empty">QC 정보를 불러오는 중...</div>'
+        :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
+        :outputs.length?'<div class="gantt-qc-output-list">'+outputs.map(output=>renderGanttQcOutputRow(projectId,output,reviews)).join('')+'</div>'
+        :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">등록된 산출물이 없습니다.</div><div class="gantt-detail-meta">주간 리뷰 산출물이 등록되면 이곳에서 QC 요청과 검토를 진행할 수 있습니다.</div></div>')
+    +'</div>'
+  +'</div>';
+}
 
 let ganttChecklistTemplates=[];
 let ganttChecklistTemplatesLoaded=false;
