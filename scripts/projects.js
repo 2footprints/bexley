@@ -10,6 +10,8 @@ let ganttListSearchRenderTimer=0;
 let ganttListSelectedIds=[];
 let ganttListExpandedProjectIds=[];
 let ganttListExpandedMoreProjectIds=[];
+const GANTT_LIST_COLLAPSED_CLIENTS_STORAGE_KEY='bexley.ganttList.collapsedClientIds';
+let ganttListCollapsedClientIds=loadGanttListCollapsedClientIds();
 let ganttDetailTab='overview';
 let ganttScheduledRefreshRafId=0;
 let ganttProjectTasksByProjectId={};
@@ -5975,17 +5977,67 @@ function getGanttListClientGroups(rows){
   });
 }
 
-function renderGanttListClientGroupHeader(group){
+function loadGanttListCollapsedClientIds(){
+  try{
+    const raw=localStorage.getItem(GANTT_LIST_COLLAPSED_CLIENTS_STORAGE_KEY);
+    const ids=JSON.parse(raw||'[]');
+    return new Set(Array.isArray(ids)?ids.map(id=>String(id)):[]);
+  }catch(e){
+    return new Set();
+  }
+}
+
+function persistGanttListCollapsedClientIds(){
+  try{
+    localStorage.setItem(GANTT_LIST_COLLAPSED_CLIENTS_STORAGE_KEY,JSON.stringify([...ganttListCollapsedClientIds]));
+  }catch(e){}
+}
+
+function getGanttClientGroupJsKey(groupKey){
+  return String(groupKey||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
+function isGanttListClientGroupCollapsed(groupKey){
+  return ganttListCollapsedClientIds.has(String(groupKey||''));
+}
+
+function hasActiveGanttListFilters(){
+  const memberValue=document.getElementById('memberFilter')?.value||'';
+  const typeFilterValue=typeof getGanttTypeFilterValue==='function'?getGanttTypeFilterValue():'all';
+  return !!String(ganttListSearchQuery||'').trim()
+    ||String(ganttStatusFilter||'all')!=='all'
+    ||String(typeFilterValue||'all')!=='all'
+    ||!!String(ganttClientFilterQuery||'').trim()
+    ||!!String(memberValue||'').trim()
+    ||(Array.isArray(ganttListExecutionRiskFilters)&&ganttListExecutionRiskFilters.filter(Boolean).length>0);
+}
+
+function toggleGanttListClientGroup(groupKey){
+  const key=String(groupKey||'');
+  if(!key)return;
+  if(ganttListCollapsedClientIds.has(key))ganttListCollapsedClientIds.delete(key);
+  else ganttListCollapsedClientIds.add(key);
+  persistGanttListCollapsedClientIds();
+  renderGantt();
+}
+
+function renderGanttListClientGroupHeader(group,forceExpanded=false){
+  const groupKey=String(group?.key||'');
+  const collapsed=!forceExpanded&&isGanttListClientGroupCollapsed(groupKey);
+  const groupKeyJs=getGanttClientGroupJsKey(groupKey);
   const parts=[
     '프로젝트 '+Number(group?.rows?.length||0)+'건',
     '지연 '+Number(group?.overdueProjects||0)+'건'
   ];
   if(Number(group?.overdueTasks||0)>0)parts.push('지연 태스크 '+Number(group.overdueTasks)+'건');
   if(group?.nextDueLabel)parts.push('다음 마감 '+group.nextDueLabel);
-  return '<tr class="gantt-list-client-group-row">'
+  return '<tr class="gantt-list-client-group-row'+(collapsed?' is-collapsed':'')+'" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\')">'
     +'<td colspan="8">'
       +'<div class="gantt-list-client-group-head">'
-        +'<div class="gantt-list-client-group-name">'+esc(group?.clientName||'거래처 미지정')+'</div>'
+        +'<button type="button" class="gantt-list-client-group-toggle" onclick="event.stopPropagation();toggleGanttListClientGroup(\''+groupKeyJs+'\')" aria-expanded="'+(!collapsed)+'">'
+          +'<span class="gantt-list-client-group-chevron">'+(collapsed?'▶':'▼')+'</span>'
+          +'<span class="gantt-list-client-group-name">'+esc(group?.clientName||'거래처 미지정')+'</span>'
+        +'</button>'
         +'<div class="gantt-list-client-group-meta">'+parts.map(esc).join(' · ')+'</div>'
       +'</div>'
     +'</td>'
@@ -6493,6 +6545,7 @@ renderGanttListView=function(projs,schs){
   const availableMembers=getAvailableGanttMembers();
   const priorityCount=rows.filter(row=>['danger','warn','issue'].includes(getGanttListPriorityState(row).tone)).length;
   const clientGroups=getGanttListClientGroups(rows);
+  const forceExpandGroupsForFilters=hasActiveGanttListFilters();
   const quickFilterNoticeHtml=renderGanttQuickFilterNotice(rows);
   const selectableIdsJs=selectableRows.map(row=>{
     const safeId=String(row?.project?.id||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -6539,7 +6592,10 @@ renderGanttListView=function(projs,schs){
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'risk\')">다음 확인'+getGanttListSortIndicator('risk')+'</button></th>'
         +'</tr></thead>'
         +'<tbody>'
-        +clientGroups.map(group=>renderGanttListClientGroupHeader(group)+group.rows.map(row=>{
+        +clientGroups.map(group=>{
+          const groupCollapsed=!forceExpandGroupsForFilters&&isGanttListClientGroupCollapsed(group?.key);
+          if(groupCollapsed)return renderGanttListClientGroupHeader(group);
+          return renderGanttListClientGroupHeader(group,forceExpandGroupsForFilters)+group.rows.map(row=>{
           const project=row.project;
           const projectId=String(project?.id||'');
           const projectIdJs=projectId.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
@@ -6565,7 +6621,8 @@ renderGanttListView=function(projs,schs){
               +'<td>'+renderGanttListRiskCell(row)+'</td>'
             +'</tr>';
           return mainRow+(isExpanded?renderGanttListTaskDrilldownRow(row):'');
-        }).join('')).join('')
+          }).join('');
+        }).join('')
         +'</tbody>'
       +'</table></div>'
     +'</div>';

@@ -36,6 +36,7 @@ let weeklyReviewSectionCollapseState={...getWeeklyReviewModeDefaults(weeklyRevie
 let weeklyReviewGroupExpansionState=loadStoredWeeklyReviewGroupState();
 let weeklyReviewDebugEventsBound=false;
 let weeklyReviewMeetingEditMode=false;
+let weeklyReviewDraftItemCommentsByWeek={};
 
 function formatWeeklyReviewDebugDate(value){
   const date=value instanceof Date?value:new Date(value);
@@ -76,6 +77,7 @@ saveWeeklyReviewSnapshot=async function(){
     }else{
       await api('POST',WEEKLY_REVIEW_SNAPSHOT_TABLE,body);
     }
+    await saveWeeklyReviewDraftItemComments(meta.weekStart);
     await renderWeeklyReviewPage(offsetWeeks);
     showWeeklyReviewToast(existing?.status==='discarded'?'주간 리뷰 초안을 다시 저장했습니다.':'주간 리뷰 초안이 저장되었습니다.');
   }catch(error){
@@ -119,6 +121,7 @@ async function finalizeWeeklyReviewSnapshot(){
   try{
     const existing=await getWeeklyReviewSnapshot(meta.weekStart);
     if(!existing?.id){alert('확정할 초안이 없습니다. 먼저 초안을 저장해주세요.');return;}
+    await saveWeeklyReviewDraftItemComments(meta.weekStart);
     await api('PATCH',WEEKLY_REVIEW_SNAPSHOT_TABLE+'?id=eq.'+existing.id,{
       status:'finalized',
       finalized_at:new Date().toISOString(),
@@ -592,6 +595,48 @@ function getWeeklyReviewTaskDueMeta(task,baseDate=getHomeBaseDate()){
   if(diff<=7)return {tone:'neutral',label:'D-'+diff,days:diff};
   return {tone:'neutral',label:getWeeklyReviewShortDate(task?.due_date),days:diff};
 }
+function getWeeklyReviewTaskAssigneeLabel(task){
+  return (members||[]).find(member=>String(member?.id||'')===String(task?.assignee_member_id||''))?.name||'담당자 미정';
+}
+function getWeeklyReviewTaskStatusLabel(task){
+  return String(task?.status||'예정').trim()||'예정';
+}
+function getWeeklyReviewTaskStatusBadgeClass(task){
+  const status=normalizeWeeklyReviewTaskStatus(task?.status);
+  if(status==='done')return 'badge-green';
+  if(status==='waiting'||status==='hold')return 'badge-orange';
+  if(getWeeklyReviewTaskDueMeta(task).tone==='danger')return 'badge-red';
+  if(status==='in_progress')return 'badge-blue';
+  return 'badge-gray';
+}
+function isWeeklyReviewTaskOverdue(task){
+  return getWeeklyReviewTaskDueMeta(task).tone==='danger'&&!isWeeklyReviewTaskCompleted(task);
+}
+function getWeeklyReviewTaskCompletedDateLabel(task){
+  const doneAt=getWeeklyReviewTaskCompletedAt(task);
+  return doneAt?getWeeklyReviewShortDate(doneAt):'완료일 없음';
+}
+function getWeeklyReviewTaskWaitingReason(task){
+  return String(task?.waiting_reason||task?.blocked_reason||task?.hold_reason||'').trim();
+}
+function renderWeeklyReviewTaskBreadcrumb(task,project=null){
+  const targetProject=project||getWeeklyReviewProjectById(task?.project_id);
+  const client=getWeeklyReviewProjectClient(targetProject);
+  return '<div class="wr-task-breadcrumb">'+esc(client?.name||'거래처 미지정')+' <span>&gt;</span> '+esc(targetProject?.name||'프로젝트 미지정')+'</div>';
+}
+function renderWeeklyReviewTaskCardMeta(task){
+  const dueMeta=getWeeklyReviewTaskDueMeta(task);
+  const waitingReason=getWeeklyReviewTaskWaitingReason(task);
+  const chips=[
+    {label:'담당 '+getWeeklyReviewTaskAssigneeLabel(task),tone:''},
+    {label:'상태 '+getWeeklyReviewTaskStatusLabel(task),tone:''},
+    {label:'마감 '+(task?.due_date?getWeeklyReviewShortDate(task.due_date):'미정'),tone:dueMeta.tone==='danger'?'danger':dueMeta.tone==='warn'?'warn':''},
+    isWeeklyReviewTaskCompleted(task)?{label:'완료 '+getWeeklyReviewTaskCompletedDateLabel(task),tone:'done'}:null,
+    isWeeklyReviewTaskOverdue(task)?{label:'지연 '+Math.abs(dueMeta.days||0)+'일',tone:'danger'}:null,
+    waitingReason?{label:'대기 '+waitingReason,tone:'warn'}:null
+  ].filter(Boolean);
+  return '<div class="wr-task-card-meta">'+chips.map(chip=>'<span class="'+(chip.tone?'is-'+chip.tone:'')+'">'+esc(chip.label)+'</span>').join('')+'</div>';
+}
 function isWeeklyReviewLeadershipRelevantTask(task){
   return /감사|audit|보고|리포트|report|결산|패키지|자료|문서|증빙|제출|고객|미팅|커뮤니케이션|청구|수금|계약|invoice|billing|collection|검토|신고/i.test(getWeeklyReviewTaskTextBlob(task));
 }
@@ -678,6 +723,9 @@ function createWeeklyReviewProjectItem(project,options={}){
   const meta=[project?.type||'',members.join(', ')].filter(Boolean).join(' · ');
   const keyTasks=(Array.isArray(options?.keyTasks)?options.keyTasks:[]).slice(0,3);
   return {
+    entity_type:'project',
+    entity_id:String(project?.id||''),
+    projectId:String(project?.id||''),
     title:String(project?.name||'이름 없는 프로젝트'),
     contextLabel:options.contextLabel||getWeeklyReviewProjectContextLabel(project),
     meta,
@@ -697,6 +745,10 @@ function createWeeklyReviewIssueItem(issue,options={}){
   const project=getWeeklyReviewIssueProject(issue);
   const meta=[issue?.assignee_name||issue?.owner_name||''].filter(Boolean).join(' · ');
   return {
+    entity_type:'issue',
+    entity_id:String(issue?.id||''),
+    issueId:String(issue?.id||''),
+    projectId:String(issue?.project_id||''),
     title:String(issue?.title||'제목 없는 이슈'),
     contextLabel:options.contextLabel||getWeeklyReviewProjectContextLabel(project,{omitMissing:!issue?.project_id}),
     meta,
@@ -743,6 +795,9 @@ function createWeeklyReviewCompletedProjectTableItem(project){
   const memberLabel=(Array.isArray(project?.members)?project.members.filter(Boolean):[]).join(', ')||'-';
   const billingMeta=getWeeklyReviewBillingStatusMeta(project);
   return {
+    entity_type:'project',
+    entity_id:String(project?.id||''),
+    projectId:String(project?.id||''),
     action:"openProjModal('"+project.id+"',null,null,'completion')",
     columns:[
       client?.name||'-',
@@ -921,7 +976,8 @@ function getWeeklyReviewEmptyMeetingContent(){
     meeting_notes:'',
     decisions:'',
     action_items:'',
-    next_week_checks:''
+    next_week_checks:'',
+    item_comments:[]
   };
 }
 function parseWeeklyReviewMeetingContent(content){
@@ -935,7 +991,8 @@ function parseWeeklyReviewMeetingContent(content){
         meeting_notes:String(parsed.meeting_notes||parsed.notes||''),
         decisions:String(parsed.decisions||''),
         action_items:String(parsed.action_items||''),
-        next_week_checks:String(parsed.next_week_checks||'')
+        next_week_checks:String(parsed.next_week_checks||''),
+        item_comments:Array.isArray(parsed.item_comments)?parsed.item_comments:[]
       };
     }
   }catch(e){}
@@ -946,12 +1003,14 @@ function stringifyWeeklyReviewMeetingContent(content){
     meeting_notes:String(content?.meeting_notes||'').trim(),
     decisions:String(content?.decisions||'').trim(),
     action_items:String(content?.action_items||'').trim(),
-    next_week_checks:String(content?.next_week_checks||'').trim()
+    next_week_checks:String(content?.next_week_checks||'').trim(),
+    item_comments:Array.isArray(content?.item_comments)?content.item_comments:[]
   });
 }
 function hasWeeklyReviewMeetingContent(content){
   const parsed=parseWeeklyReviewMeetingContent(content);
-  return ['meeting_notes','decisions','action_items','next_week_checks'].some(key=>String(parsed[key]||'').trim());
+  return ['meeting_notes','decisions','action_items','next_week_checks'].some(key=>String(parsed[key]||'').trim())
+    ||(Array.isArray(parsed.item_comments)&&parsed.item_comments.length>0);
 }
 function getWeeklyReviewMeetingSections(){
   return [
@@ -960,6 +1019,431 @@ function getWeeklyReviewMeetingSections(){
     {key:'action_items',label:'액션 아이템',emptyText:'담당자 / 기한 / 할 일을 기록해 주세요.'},
     {key:'next_week_checks',label:'다음 주 확인사항',emptyText:'다음 주까지 확인이 필요한 항목을 기록해 주세요.'}
   ];
+}
+
+function getWeeklyReviewCurrentWeekStart(){
+  return getWeekStart(weeklyReviewWeekOffset);
+}
+
+function createWeeklyReviewItemCommentId(){
+  return 'wr-comment-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+}
+
+function getWeeklyReviewStableHash(value){
+  const text=String(value||'');
+  let hash=0;
+  for(let i=0;i<text.length;i+=1){
+    hash=((hash<<5)-hash)+text.charCodeAt(i);
+    hash|=0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function createWeeklyReviewLegacyItemCommentId({weekStart='',reviewId='',entityType='',entityId='',createdAt='',comment=''}={}){
+  const source=[weekStart,reviewId,entityType,entityId,createdAt,comment].map(value=>String(value||'')).join('|');
+  return 'wr-comment-legacy-'+getWeeklyReviewStableHash(source);
+}
+
+function normalizeWeeklyReviewItemComment(comment){
+  const entityType=String(comment?.entity_type||'').trim();
+  const entityId=String(comment?.entity_id||comment?.task_id||comment?.issue_id||comment?.project_id||'').trim();
+  const text=String(comment?.comment||'').trim();
+  if(!entityType||!entityId||!text)return null;
+  const weekStart=String(comment?._week_start||comment?.week_start||'').trim();
+  const reviewId=String(comment?._review_id||comment?.review_id||'').trim();
+  const createdAt=comment?.created_at||new Date().toISOString();
+  const stableId=String(comment?.id||comment?.client_temp_id||'').trim()
+    ||(comment?.created_at||weekStart||reviewId
+      ?createWeeklyReviewLegacyItemCommentId({weekStart,reviewId,entityType,entityId,createdAt,comment:text})
+      :createWeeklyReviewItemCommentId());
+  return {
+    id:stableId,
+    client_temp_id:String(comment?.client_temp_id||stableId),
+    entity_type:entityType,
+    entity_id:entityId,
+    project_id:String(comment?.project_id||'').trim()||null,
+    task_id:String(comment?.task_id||'').trim()||null,
+    issue_id:String(comment?.issue_id||'').trim()||null,
+    entity_label:String(comment?.entity_label||'').trim()||null,
+    comment:text,
+    is_starred:!!comment?.is_starred,
+    followup_required:!!comment?.followup_required,
+    owner_member_id:comment?.owner_member_id||null,
+    due_date:comment?.due_date||null,
+    status:String(comment?.status||'open').trim()||'open',
+    resolved_at:comment?.resolved_at||null,
+    created_at:createdAt,
+    created_by:comment?.created_by||currentUser?.id||null,
+    _week_start:weekStart||null,
+    _review_id:reviewId||null
+  };
+}
+
+function getWeeklyReviewItemCommentMergeKey(comment){
+  const normalized=normalizeWeeklyReviewItemComment(comment);
+  if(!normalized)return '';
+  return String(normalized.id||normalized.client_temp_id||'').trim()
+    ||[
+      normalized.entity_type,
+      normalized.entity_id,
+      normalized.created_at,
+      normalized.comment
+    ].join(':');
+}
+
+function serializeWeeklyReviewItemComment(comment){
+  const normalized=normalizeWeeklyReviewItemComment(comment);
+  if(!normalized)return null;
+  return {
+    id:normalized.id,
+    client_temp_id:normalized.client_temp_id,
+    entity_type:normalized.entity_type,
+    entity_id:normalized.entity_id,
+    project_id:normalized.project_id,
+    task_id:normalized.task_id,
+    issue_id:normalized.issue_id,
+    entity_label:normalized.entity_label,
+    comment:normalized.comment,
+    is_starred:normalized.is_starred,
+    followup_required:normalized.followup_required,
+    owner_member_id:normalized.owner_member_id,
+    due_date:normalized.due_date,
+    status:normalized.status,
+    resolved_at:normalized.resolved_at,
+    created_at:normalized.created_at,
+    created_by:normalized.created_by
+  };
+}
+
+function mergeWeeklyReviewItemComments(...commentLists){
+  const byKey=new Map();
+  commentLists.flat().forEach(comment=>{
+    const normalized=normalizeWeeklyReviewItemComment(comment);
+    if(!normalized)return;
+    byKey.set(getWeeklyReviewItemCommentMergeKey(normalized),normalized);
+  });
+  return [...byKey.values()];
+}
+
+function getWeeklyReviewDraftItemComments(weekStart=getWeeklyReviewCurrentWeekStart()){
+  const key=String(weekStart||'');
+  if(!weeklyReviewDraftItemCommentsByWeek[key])weeklyReviewDraftItemCommentsByWeek[key]=[];
+  return weeklyReviewDraftItemCommentsByWeek[key];
+}
+
+function getWeeklyReviewSavedItemComments(reviews){
+  return (Array.isArray(reviews)?reviews:[])
+    .flatMap(review=>(parseWeeklyReviewMeetingContent(review?.content||'').item_comments||[])
+      .map(comment=>({...comment,_week_start:review?.week_start||null,_review_id:review?.id||null})))
+    .map(normalizeWeeklyReviewItemComment)
+    .filter(Boolean);
+}
+
+function getWeeklyReviewAllItemComments(data=weeklyReviewLastRenderPayload?.data){
+  const weekStart=String(data?._snapshotMeta?.weekStart||getWeeklyReviewCurrentWeekStart());
+  const saved=getWeeklyReviewSavedItemComments(data?.weeklyReviews||[]);
+  const draft=getWeeklyReviewDraftItemComments(weekStart);
+  return mergeWeeklyReviewItemComments(saved,draft);
+}
+
+function getWeeklyReviewEntityKey(entityType,entityId){
+  return String(entityType||'')+':'+String(entityId||'');
+}
+
+function getWeeklyReviewCommentTargetFromItem(item){
+  const taskId=String(item?.taskId||item?.task_id||item?._task?.id||'').trim();
+  const issueId=String(item?.issueId||item?.issue_id||'').trim();
+  const projectId=String(item?.projectId||item?.project_id||item?._task?.project_id||'').trim();
+  if(taskId)return {entity_type:'task',entity_id:taskId,project_id:projectId||null,task_id:taskId};
+  if(issueId)return {entity_type:'issue',entity_id:issueId,project_id:projectId||null,issue_id:issueId};
+  if(projectId)return {entity_type:'project',entity_id:projectId,project_id:projectId};
+  return null;
+}
+
+function getWeeklyReviewCommentsForTarget(target,data=weeklyReviewLastRenderPayload?.data){
+  if(!target)return [];
+  const key=getWeeklyReviewEntityKey(target.entity_type,target.entity_id);
+  return getWeeklyReviewAllItemComments(data).filter(comment=>getWeeklyReviewEntityKey(comment.entity_type,comment.entity_id)===key);
+}
+
+function renderWeeklyReviewItemCommentBadges(target,data){
+  const comments=getWeeklyReviewCommentsForTarget(target,data);
+  if(!comments.length)return '';
+  const hasStar=comments.some(comment=>comment.is_starred);
+  const hasFollowup=comments.some(comment=>comment.followup_required&&String(comment.status||'open')==='open');
+  return '<div class="wr-item-comment-badges">'
+    +'<button type="button" class="wr-item-comment-badge" onclick="event.stopPropagation();openWeeklyReviewItemCommentsModal(\''+getWeeklyReviewJsString(target.entity_type)+'\',\''+getWeeklyReviewJsString(target.entity_id)+'\')">회의메모 '+comments.length+'건</button>'
+    +(hasStar?'<span class="wr-item-comment-badge is-star">중요</span>':'')
+    +(hasFollowup?'<span class="wr-item-comment-badge is-followup">팔로업 필요</span>':'')
+  +'</div>';
+}
+
+function renderWeeklyReviewItemCommentButton(target){
+  if(!target)return '';
+  return '<button type="button" class="wr-item-comment-add" onclick="event.stopPropagation();openWeeklyReviewItemCommentModal(\''+getWeeklyReviewJsString(target.entity_type)+'\',\''+getWeeklyReviewJsString(target.entity_id)+'\',\''+getWeeklyReviewJsString(target.project_id||'')+'\',\''+getWeeklyReviewJsString(target.task_id||'')+'\',\''+getWeeklyReviewJsString(target.issue_id||'')+'\')">회의 코멘트 추가</button>';
+}
+
+function findWeeklyReviewTargetLabel(entityType,entityId){
+  const type=String(entityType||'');
+  const id=String(entityId||'');
+  if(type==='task'){
+    const task=(weeklyReviewLastRenderPayload?.data?.taskRows||[]).find(row=>String(row?.id||'')===id);
+    return task?.title||'업무';
+  }
+  if(type==='issue'){
+    const issue=(weeklyReviewLastRenderPayload?.data?._rawIssues||[]).find(row=>String(row?.id||'')===id);
+    return issue?.title||'이슈';
+  }
+  if(type==='project'){
+    const project=getWeeklyReviewProjectById(id);
+    return project?.name||'프로젝트';
+  }
+  if(type==='output'){
+    const output=(weeklyReviewLastRenderPayload?.data?.projectOutputs||[]).find(row=>String(row?.id||'')===id);
+    return output?.title||'산출물';
+  }
+  return '회의 항목';
+}
+
+function findWeeklyReviewCommentLabel(comment){
+  const label=String(comment?.entity_label||'').trim();
+  return label||findWeeklyReviewTargetLabel(comment?.entity_type,comment?.entity_id);
+}
+
+function openWeeklyReviewItemCommentModal(entityType,entityId,projectId='',taskId='',issueId=''){
+  const label=findWeeklyReviewTargetLabel(entityType,entityId);
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal" style="width:520px"><div class="modal-title">회의 코멘트 추가</div>'
+    +'<div class="form-row"><label class="form-label">대상</label><input value="'+esc(label)+'" readonly style="background:var(--bg)"/></div>'
+    +'<div class="form-row"><label class="form-label">코멘트</label><textarea id="wrItemCommentText" rows="4" placeholder="회의 중 확인한 내용, 결정, 후속 확인 사항을 적어주세요." style="resize:vertical"></textarea></div>'
+    +'<div class="form-half"><label class="checkbox-row"><input type="checkbox" id="wrItemCommentStarred"/><span>중요 표시</span></label><label class="checkbox-row"><input type="checkbox" id="wrItemCommentFollowup"/><span>팔로업 필요</span></label></div>'
+    +'<div class="modal-footer"><div class="muted">원본 프로젝트/업무/이슈는 수정하지 않고 이번 주 회의 기록에만 저장됩니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="addWeeklyReviewItemComment(\''+getWeeklyReviewJsString(entityType)+'\',\''+getWeeklyReviewJsString(entityId)+'\',\''+getWeeklyReviewJsString(projectId||'')+'\',\''+getWeeklyReviewJsString(taskId||'')+'\',\''+getWeeklyReviewJsString(issueId||'')+'\')">추가</button></div></div>'
+    +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
+  document.getElementById('wrItemCommentText')?.focus();
+}
+
+function addWeeklyReviewItemComment(entityType,entityId,projectId='',taskId='',issueId=''){
+  const text=String(document.getElementById('wrItemCommentText')?.value||'').trim();
+  if(!text){alert('코멘트 내용을 입력해주세요.');return;}
+  const commentId=createWeeklyReviewItemCommentId();
+  const comment=normalizeWeeklyReviewItemComment({
+    id:commentId,
+    client_temp_id:commentId,
+    entity_type:entityType,
+    entity_id:entityId,
+    project_id:projectId||null,
+    task_id:taskId||null,
+    issue_id:issueId||null,
+    entity_label:findWeeklyReviewTargetLabel(entityType,entityId),
+    comment:text,
+    is_starred:document.getElementById('wrItemCommentStarred')?.checked||false,
+    followup_required:document.getElementById('wrItemCommentFollowup')?.checked||false,
+    status:'open',
+    created_at:new Date().toISOString()
+  });
+  if(!comment)return;
+  getWeeklyReviewDraftItemComments().push(comment);
+  closeModal();
+  if(weeklyReviewLastRenderPayload){
+    const el=document.getElementById('pageWeeklyReview');
+    if(el){
+      el.innerHTML=renderWeeklyReviewPageMarkup(
+        weeklyReviewLastRenderPayload.rangeLabel,
+        weeklyReviewLastRenderPayload.navLabel,
+        weeklyReviewLastRenderPayload.data.cards,
+        weeklyReviewLastRenderPayload.data.sections,
+        weeklyReviewLastRenderPayload.data._snapshotMeta,
+        weeklyReviewLastRenderPayload.data
+      );
+      applyWeeklyReviewEmptyStateLabels();
+    }
+  }
+  showWeeklyReviewToast('회의 코멘트를 임시 추가했습니다. 회의자료 저장 시 함께 저장됩니다.');
+}
+
+function openWeeklyReviewItemCommentsModal(entityType,entityId){
+  const comments=getWeeklyReviewCommentsForTarget({entity_type:entityType,entity_id:entityId});
+  const label=findWeeklyReviewTargetLabel(entityType,entityId);
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal" style="width:560px"><div class="modal-title">회의 코멘트</div>'
+    +'<div class="form-row"><label class="form-label">대상</label><input value="'+esc(label)+'" readonly style="background:var(--bg)"/></div>'
+    +(comments.length?'<div class="wr-item-comment-list">'+comments.map(comment=>
+      '<div class="wr-item-comment-row">'
+        +'<div class="wr-item-comment-row-head">'
+          +(comment.is_starred?'<span class="wr-item-comment-badge is-star">중요</span>':'')
+          +(comment.followup_required?'<span class="wr-item-comment-badge is-followup">팔로업 필요</span>':'')
+          +(String(comment.status||'open')==='done'?'<span class="wr-item-comment-badge">완료</span>':'')
+          +'<span class="wr-item-comment-date">'+esc(formatCommentDate(comment.created_at))+'</span>'
+        +'</div>'
+        +'<div class="wr-item-comment-text">'+esc(comment.comment)+'</div>'
+        +(comment.followup_required&&String(comment.status||'open')==='open'
+          ?'<div class="wr-item-comment-actions"><button type="button" class="btn sm" onclick="completeWeeklyReviewItemComment(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\',\''+getWeeklyReviewJsString(comment._week_start||getWeeklyReviewCurrentWeekStart())+'\',\''+getWeeklyReviewJsString(comment._review_id||'')+'\')">완료 처리</button></div>'
+          :'')
+      +'</div>'
+    ).join('')+'</div>':'<div class="weekly-review-empty">등록된 회의 코멘트가 없습니다.</div>')
+    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
+    +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
+}
+
+function findWeeklyReviewItemCommentByKey(commentKey){
+  const key=String(commentKey||'').trim();
+  if(!key)return null;
+  const draftComments=Object.values(weeklyReviewDraftItemCommentsByWeek||{}).flat();
+  const all=mergeWeeklyReviewItemComments(
+    getWeeklyReviewAllItemComments(),
+    weeklyReviewLastRenderPayload?.data?._openFollowupComments||[],
+    draftComments
+  );
+  return all.find(comment=>getWeeklyReviewItemCommentMergeKey(comment)===key)||null;
+}
+
+function renderWeeklyReviewItemCommentDetailRow(comment){
+  if(!comment)return '';
+  return '<div class="wr-item-comment-list"><div class="wr-item-comment-row">'
+    +'<div class="wr-item-comment-row-head">'
+      +(comment.is_starred?'<span class="wr-item-comment-badge is-star">중요</span>':'')
+      +(comment.followup_required?'<span class="wr-item-comment-badge is-followup">팔로업 필요</span>':'')
+      +(String(comment.status||'open')==='done'?'<span class="wr-item-comment-badge">완료</span>':'')
+      +(comment._week_start?'<span class="wr-item-comment-badge">'+esc(comment._week_start)+'</span>':'')
+      +'<span class="wr-item-comment-date">'+esc(formatCommentDate(comment.created_at))+'</span>'
+    +'</div>'
+    +'<div class="wr-item-comment-text">'+esc(comment.comment)+'</div>'
+    +(comment.followup_required&&String(comment.status||'open')==='open'
+      ?'<div class="wr-item-comment-actions"><button type="button" class="btn sm" onclick="completeWeeklyReviewItemComment(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\',\''+getWeeklyReviewJsString(comment._week_start||getWeeklyReviewCurrentWeekStart())+'\',\''+getWeeklyReviewJsString(comment._review_id||'')+'\')">완료 처리</button></div>'
+      :'')
+  +'</div></div>';
+}
+
+function openWeeklyReviewItemCommentDetailModal(commentKey){
+  const comment=findWeeklyReviewItemCommentByKey(commentKey);
+  if(!comment){alert('회의 코멘트를 찾지 못했습니다. 새로고침 후 다시 시도해주세요.');return;}
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal" style="width:560px"><div class="modal-title">회의 코멘트</div>'
+    +'<div class="form-row"><label class="form-label">대상</label><input value="'+esc(findWeeklyReviewCommentLabel(comment))+'" readonly style="background:var(--bg)"/></div>'
+    +renderWeeklyReviewItemCommentDetailRow(comment)
+    +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button></div></div>'
+    +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
+}
+
+async function saveWeeklyReviewDraftItemComments(weekStart=getWeeklyReviewCurrentWeekStart()){
+  const draft=getWeeklyReviewDraftItemComments(weekStart).map(normalizeWeeklyReviewItemComment).filter(Boolean);
+  if(!draft.length)return;
+  const memberName=currentMember?.name||currentUser?.email||'익명';
+  const cached=(weeklyReviewLastRenderPayload?.data?.weeklyReviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
+  const rows=cached?.id
+    ?[cached]
+    :await api('GET','weekly_reviews?week_start=eq.'+weekStart+'&member_name=eq.'+encodeURIComponent(memberName)+'&select=*&order=created_at.desc&limit=1').catch(()=>[]);
+  const existing=Array.isArray(rows)?rows[0]||null:rows||null;
+  const parsed=parseWeeklyReviewMeetingContent(existing?.content||'');
+  parsed.item_comments=mergeWeeklyReviewItemComments(parsed.item_comments||[],draft)
+    .map(serializeWeeklyReviewItemComment)
+    .filter(Boolean);
+  const content=stringifyWeeklyReviewMeetingContent(parsed);
+  const nowIso=new Date().toISOString();
+  const body={week_start:weekStart,member_name:existing?.member_name||memberName,content,updated_at:nowIso};
+  if(existing?.id){
+    await api('PATCH','weekly_reviews?id=eq.'+existing.id,body);
+    existing.content=content;
+    existing.updated_at=nowIso;
+  }else{
+    await api('POST','weekly_reviews',{...body,created_by:currentUser?.id||null});
+  }
+  weeklyReviewDraftItemCommentsByWeek[String(weekStart)]=[];
+}
+
+async function loadWeeklyReviewOpenFollowupComments(limit=120){
+  const rows=await api('GET','weekly_reviews?select=*&order=week_start.desc,created_at.desc&limit='+Number(limit||120)).catch(()=>[]);
+  return mergeWeeklyReviewItemComments(
+    (Array.isArray(rows)?rows:[]).flatMap(review=>
+      (parseWeeklyReviewMeetingContent(review?.content||'').item_comments||[])
+        .map(comment=>({...comment,_week_start:review?.week_start||null,_review_id:review?.id||null}))
+    )
+  ).filter(comment=>comment.followup_required&&String(comment.status||'open')==='open');
+}
+
+function refreshWeeklyReviewCurrentMarkup(){
+  if(!weeklyReviewLastRenderPayload)return;
+  const el=document.getElementById('pageWeeklyReview');
+  if(!el)return;
+  el.innerHTML=renderWeeklyReviewPageMarkup(
+    weeklyReviewLastRenderPayload.rangeLabel,
+    weeklyReviewLastRenderPayload.navLabel,
+    weeklyReviewLastRenderPayload.data.cards,
+    weeklyReviewLastRenderPayload.data.sections,
+    weeklyReviewLastRenderPayload.data._snapshotMeta,
+    weeklyReviewLastRenderPayload.data
+  );
+  applyWeeklyReviewEmptyStateLabels();
+}
+
+async function completeWeeklyReviewItemComment(commentKey,weekStart='',reviewId=''){
+  const targetKey=String(commentKey||'').trim();
+  if(!targetKey)return;
+  const nowIso=new Date().toISOString();
+  const draftWeekKeys=weekStart?[String(weekStart)]:Object.keys(weeklyReviewDraftItemCommentsByWeek||{});
+  let updatedDraft=false;
+  draftWeekKeys.forEach(key=>{
+    const comments=getWeeklyReviewDraftItemComments(key);
+    comments.forEach((comment,index)=>{
+      const normalized=normalizeWeeklyReviewItemComment(comment);
+      if(normalized&&getWeeklyReviewItemCommentMergeKey(normalized)===targetKey){
+        comments[index]={...normalized,status:'done',resolved_at:nowIso};
+        updatedDraft=true;
+      }
+    });
+  });
+  if(updatedDraft){
+    closeModal();
+    refreshWeeklyReviewCurrentMarkup();
+    showWeeklyReviewToast('팔로업을 완료 처리했습니다.');
+    return;
+  }
+
+  const rowQuery=reviewId
+    ?'weekly_reviews?id=eq.'+encodeURIComponent(reviewId)+'&select=*&limit=1'
+    :(weekStart
+      ?'weekly_reviews?week_start=eq.'+encodeURIComponent(weekStart)+'&select=*&order=created_at.desc'
+      :'weekly_reviews?select=*&order=week_start.desc,created_at.desc&limit=120');
+  const rows=await api('GET',rowQuery).catch(error=>{
+    console.error('[weekly-review] followup load failed',error);
+    return [];
+  });
+  const reviewRows=Array.isArray(rows)?rows:[rows].filter(Boolean);
+  for(const review of reviewRows){
+    const parsed=parseWeeklyReviewMeetingContent(review?.content||'');
+    let changed=false;
+    const nextComments=(parsed.item_comments||[]).map(comment=>{
+      const normalized=normalizeWeeklyReviewItemComment({...comment,_week_start:review?.week_start||null,_review_id:review?.id||null});
+      if(normalized&&getWeeklyReviewItemCommentMergeKey(normalized)===targetKey){
+        changed=true;
+        return serializeWeeklyReviewItemComment({...normalized,status:'done',resolved_at:nowIso});
+      }
+      return serializeWeeklyReviewItemComment(comment);
+    }).filter(Boolean);
+    if(!changed)continue;
+    parsed.item_comments=nextComments;
+    const content=stringifyWeeklyReviewMeetingContent(parsed);
+    await api('PATCH','weekly_reviews?id=eq.'+review.id,{content,updated_at:nowIso});
+    const cached=(weeklyReviewLastRenderPayload?.data?.weeklyReviews||[]).find(item=>String(item?.id||'')===String(review.id));
+    if(cached){
+      cached.content=content;
+      cached.updated_at=nowIso;
+    }
+    closeModal();
+    await renderWeeklyReviewPage(weeklyReviewWeekOffset);
+    showWeeklyReviewToast('팔로업을 완료 처리했습니다.');
+    return;
+  }
+  alert('완료 처리할 팔로업을 찾지 못했습니다. 새로고침 후 다시 시도해주세요.');
 }
 function renderWeeklyReviewMeetingContentBlock(content){
   const parsed=parseWeeklyReviewMeetingContent(content);
@@ -1062,18 +1546,20 @@ function openWeeklyReviewMeetingMemoModal(reviewId=''){
   if(typeof bindModalEscapeHandler==='function')bindModalEscapeHandler();
 }
 async function saveWeeklyReviewMeetingMemo(reviewId=''){
+  const existing=getWeeklyReviewCurrentUserReview(reviewId);
+  const previousContent=parseWeeklyReviewMeetingContent(existing?.content||'');
   const contentData={
     meeting_notes:document.getElementById('weeklyReviewMeetingNotes')?.value||'',
     decisions:document.getElementById('weeklyReviewDecisions')?.value||'',
     action_items:document.getElementById('weeklyReviewActionItems')?.value||'',
-    next_week_checks:document.getElementById('weeklyReviewNextWeekChecks')?.value||''
+    next_week_checks:document.getElementById('weeklyReviewNextWeekChecks')?.value||'',
+    item_comments:previousContent.item_comments||[]
   };
   const content=stringifyWeeklyReviewMeetingContent(contentData);
   if(!hasWeeklyReviewMeetingContent(content)){
     alert('저장할 회의 메모 내용을 입력해 주세요.');
     return;
   }
-  const existing=getWeeklyReviewCurrentUserReview(reviewId);
   const nowIso=new Date().toISOString();
   const body={
     week_start:getWeekStart(weeklyReviewWeekOffset),
@@ -1153,16 +1639,18 @@ function buildWeeklyReviewCommentsSectionData(){
 function enterWeeklyReviewMeetingEditMode(){}
 function cancelWeeklyReviewMeetingEditMode(){}
 async function saveWeeklyReviewMeetingMemoInline(){
+  const reviews=getWeeklyReviewCachedReviews();
+  const existing=(reviews||[]).find(r=>r?.created_by===currentUser?.id)||null;
+  const previousContent=parseWeeklyReviewMeetingContent(existing?.content||'');
   const contentData={
     meeting_notes:document.getElementById('wrMemo_meeting_notes')?.value||'',
     decisions:document.getElementById('wrMemo_decisions')?.value||'',
     action_items:document.getElementById('wrMemo_action_items')?.value||'',
-    next_week_checks:document.getElementById('wrMemo_next_week_checks')?.value||''
+    next_week_checks:document.getElementById('wrMemo_next_week_checks')?.value||'',
+    item_comments:previousContent.item_comments||[]
   };
   const content=stringifyWeeklyReviewMeetingContent(contentData);
   if(!hasWeeklyReviewMeetingContent(content)){alert('저장할 회의 메모 내용을 입력해 주세요.');return;}
-  const reviews=getWeeklyReviewCachedReviews();
-  const existing=(reviews||[]).find(r=>r?.created_by===currentUser?.id)||null;
   const nowIso=new Date().toISOString();
   const body={
     week_start:getWeekStart(weeklyReviewWeekOffset),
@@ -1231,17 +1719,187 @@ async function openWeeklyReviewProjectTaskModal(projectId,taskId){
   }
   if(typeof openProjectTaskModal==='function'){
     const taskExists=typeof getGanttProjectTasks==='function'
-      ?(getGanttProjectTasks(projectKey)||[]).some(task=>String(task?.id||'')===taskKey)
+      ?((getGanttProjectTasks(projectKey)||[]).some(task=>String(task?.id||'')===taskKey)||!!getWeeklyReviewTaskFromCache(projectKey,taskKey))
       :true;
     if(!taskExists){
       alert('업무 상세 정보를 불러오지 못했습니다.');
       return;
     }
+    openWeeklyReviewTaskDetailPanel(projectKey,taskKey);
+    return;
+  }
+  openWeeklyReviewTaskDetailPanel(projectKey,taskKey);
+}
+
+async function openWeeklyReviewProjectTaskEditModal(projectId,taskId){
+  const projectKey=String(projectId||'');
+  const taskKey=String(taskId||'');
+  if(!projectKey||!taskKey){alert('업무 정보를 찾지 못했습니다.');return;}
+  if(typeof loadGanttProjectTasks==='function')await loadGanttProjectTasks(projectKey,true);
+  if(typeof openProjectTaskModal==='function'){
     weeklyReviewProjectTaskRefreshPending=true;
     openProjectTaskModal(projectKey,taskKey);
     return;
   }
   alert('업무 수정 화면을 열 수 없습니다.');
+}
+
+function getWeeklyReviewTaskFromCache(projectId,taskId){
+  const projectKey=String(projectId||'');
+  const taskKey=String(taskId||'');
+  return (typeof getGanttProjectTasks==='function'?(getGanttProjectTasks(projectKey)||[]):[])
+    .find(task=>String(task?.id||'')===taskKey)
+    ||(weeklyReviewLastRenderPayload?.data?.taskRows||[])
+      .find(task=>String(task?.id||'')===taskKey)
+    ||null;
+}
+
+function getWeeklyReviewTaskRelatedIssues(task){
+  const taskId=String(task?.id||'');
+  const projectId=String(task?.project_id||'');
+  return (weeklyReviewLastRenderPayload?.data?._rawIssues||[])
+    .filter(issue=>
+      String(issue?.task_id||'')===taskId
+      ||(!String(issue?.task_id||'').trim()&&projectId&&String(issue?.project_id||'')===projectId)
+    )
+    .slice(0,5);
+}
+
+function getWeeklyReviewTaskRelatedOutputs(task){
+  const taskId=String(task?.id||'');
+  const projectId=String(task?.project_id||'');
+  return (weeklyReviewLastRenderPayload?.data?.projectOutputs||[])
+    .filter(output=>
+      String(output?.task_id||'')===taskId
+      ||(!String(output?.task_id||'').trim()&&projectId&&String(output?.project_id||'')===projectId)
+    )
+    .slice(0,5);
+}
+
+function renderWeeklyReviewTaskDetailField(label,value,tone=''){
+  return '<div class="wr-task-detail-field">'
+    +'<span>'+esc(label)+'</span>'
+    +'<strong class="'+(tone?'is-'+esc(tone):'')+'">'+esc(value||'-')+'</strong>'
+  +'</div>';
+}
+
+function renderWeeklyReviewTaskDetailIssues(task,projectId){
+  const issues=getWeeklyReviewTaskRelatedIssues(task);
+  if(!issues.length)return '<div class="wr-task-detail-empty">관련 이슈 없음</div>';
+  return '<div class="wr-task-detail-list">'
+    +issues.map(issue=>
+      '<button type="button" class="wr-task-detail-list-item" onclick="openIssueModal(\''+getWeeklyReviewJsString(issue?.project_id||projectId||'')+'\',\''+getWeeklyReviewJsString(issue?.id||'')+'\')">'
+        +'<span class="badge '+(issue?.is_pinned||String(issue?.priority||'')==='high'?'badge-red':'badge-blue')+'">'+esc(issue?.is_pinned?'고정':formatWeeklyReviewPriorityLabel(issue?.priority))+'</span>'
+        +'<strong>'+esc(issue?.title||'제목 없는 이슈')+'</strong>'
+        +'<em>'+esc(issue?.assignee_name||issue?.owner_name||'담당자 미정')+'</em>'
+      +'</button>'
+    ).join('')
+  +'</div>';
+}
+
+function renderWeeklyReviewTaskDetailOutputs(task){
+  const outputs=getWeeklyReviewTaskRelatedOutputs(task);
+  if(!outputs.length)return '<div class="wr-task-detail-empty">관련 산출물 없음</div>';
+  return '<div class="wr-task-detail-list">'
+    +outputs.map(output=>
+      '<button type="button" class="wr-task-detail-list-item" onclick="openWeeklyReviewOutputUrl(\''+getWeeklyReviewJsString(output?.onedrive_url||'')+'\')">'
+        +'<span class="badge badge-blue">산출물</span>'
+        +'<strong>'+esc(output?.title||'산출물 링크')+'</strong>'
+        +'<em>'+esc(formatCommentDate(output?.created_at||''))+'</em>'
+      +'</button>'
+    ).join('')
+  +'</div>';
+}
+
+function renderWeeklyReviewTaskDetailComments(task){
+  const target={entity_type:'task',entity_id:String(task?.id||''),project_id:String(task?.project_id||''),task_id:String(task?.id||'')};
+  const comments=getWeeklyReviewCommentsForTarget(target);
+  return '<div class="wr-task-detail-comments">'
+    +'<div class="wr-task-detail-section-head"><strong>회의 코멘트</strong>'+renderWeeklyReviewItemCommentButton(target)+'</div>'
+    +(comments.length
+      ?'<div class="wr-task-detail-comment-list">'+comments.map(renderWeeklyReviewItemCommentDetailRow).join('')+'</div>'
+      :'<div class="wr-task-detail-empty">이번 주 회의 코멘트 없음</div>')
+  +'</div>';
+}
+
+function renderWeeklyReviewTaskDetailFollowups(task){
+  const taskKey=String(task?.id||'');
+  const comments=mergeWeeklyReviewItemComments(
+    weeklyReviewLastRenderPayload?.data?._openFollowupComments||[],
+    getWeeklyReviewAllItemComments()
+  ).filter(comment=>
+    comment.entity_type==='task'
+    &&String(comment.entity_id||'')===taskKey
+    &&comment.followup_required
+    &&String(comment.status||'open')==='open'
+  );
+  if(!comments.length)return '<div class="wr-task-detail-empty">미해결 팔로업 없음</div>';
+  return '<div class="wr-task-detail-list">'
+    +comments.map(comment=>
+      '<div class="wr-task-detail-list-item">'
+        +'<span class="badge badge-blue">팔로업</span>'
+        +(comment._week_start?'<em>'+esc(comment._week_start)+'</em>':'')
+        +'<strong>'+esc(truncateText(comment.comment,96))+'</strong>'
+        +'<button type="button" class="btn sm" onclick="completeWeeklyReviewItemComment(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\',\''+getWeeklyReviewJsString(comment._week_start||getWeeklyReviewCurrentWeekStart())+'\',\''+getWeeklyReviewJsString(comment._review_id||'')+'\')">완료 처리</button>'
+      +'</div>'
+    ).join('')
+  +'</div>';
+}
+
+function openWeeklyReviewTaskDetailPanel(projectId,taskId){
+  const projectKey=String(projectId||'');
+  const taskKey=String(taskId||'');
+  const task=getWeeklyReviewTaskFromCache(projectKey,taskKey);
+  const project=getWeeklyReviewProjectById(projectKey||task?.project_id);
+  if(!task||!project){alert('업무 상세 정보를 찾지 못했습니다.');return;}
+  const client=getWeeklyReviewProjectClient(project);
+  const dueMeta=getWeeklyReviewTaskDueMeta(task);
+  const isOverdue=isWeeklyReviewTaskOverdue(task);
+  const waitingReason=getWeeklyReviewTaskWaitingReason(task);
+  const projectIdJs=getWeeklyReviewJsString(project?.id||projectKey);
+  const taskIdJs=getWeeklyReviewJsString(task?.id||taskKey);
+  document.getElementById('modalArea').innerHTML=
+    getInputModalOverlayHtml()
+    +'<div class="modal wr-task-detail-modal">'
+      +'<div class="modal-header">'
+        +'<div>'
+          +'<div class="modal-title">회의용 업무 상세</div>'
+          +'<div class="modal-sub">'+esc(client?.name||'거래처 미지정')+' &gt; <button type="button" class="wr-task-project-link" onclick="closeModal();openProjModal(\''+projectIdJs+'\',null,null,\'work\')">'+esc(project?.name||'프로젝트 미지정')+'</button></div>'
+        +'</div>'
+        +'<button class="icon-btn" onclick="closeModal()">×</button>'
+      +'</div>'
+      +'<div class="wr-task-detail-hero">'
+        +renderWeeklyReviewTaskBreadcrumb(task,project)
+        +'<h3>'+esc(task?.title||'제목 없는 업무')+'</h3>'
+        +'<div class="wr-task-card-meta">'
+          +'<span>'+esc(getWeeklyReviewTaskAssigneeLabel(task))+'</span>'
+          +'<span class="'+(isOverdue?'is-danger':'')+'">'+esc(isOverdue?'지연':'정상')+'</span>'
+          +'<span>'+esc(getWeeklyReviewTaskStatusLabel(task))+'</span>'
+        +'</div>'
+      +'</div>'
+      +'<div class="wr-task-detail-grid">'
+        +renderWeeklyReviewTaskDetailField('거래처',client?.name||'거래처 미지정')
+        +renderWeeklyReviewTaskDetailField('프로젝트',project?.name||'프로젝트 미지정')
+        +renderWeeklyReviewTaskDetailField('담당자',getWeeklyReviewTaskAssigneeLabel(task))
+        +renderWeeklyReviewTaskDetailField('상태',getWeeklyReviewTaskStatusLabel(task))
+        +renderWeeklyReviewTaskDetailField('우선순위',formatWeeklyReviewPriorityLabel(task?.priority))
+        +renderWeeklyReviewTaskDetailField('시작일',task?.start_date||'시작일 없음')
+        +renderWeeklyReviewTaskDetailField('마감일',task?.due_date||'마감일 없음',dueMeta.tone==='danger'?'danger':dueMeta.tone==='warn'?'warn':'')
+        +renderWeeklyReviewTaskDetailField('완료일',getWeeklyReviewTaskCompletedDateLabel(task))
+        +renderWeeklyReviewTaskDetailField('지연 여부',isOverdue?('지연 '+Math.abs(dueMeta.days||0)+'일'):'아님',isOverdue?'danger':'')
+        +renderWeeklyReviewTaskDetailField('대기 사유',waitingReason||'없음',waitingReason?'warn':'')
+      +'</div>'
+      +(task?.description?'<div class="wr-task-detail-note">'+esc(task.description)+'</div>':'')
+      +'<div class="wr-task-detail-columns">'
+        +'<section><div class="wr-task-detail-section-head"><strong>관련 이슈</strong></div>'+renderWeeklyReviewTaskDetailIssues(task,project?.id)+'</section>'
+        +'<section><div class="wr-task-detail-section-head"><strong>관련 산출물</strong></div>'+renderWeeklyReviewTaskDetailOutputs(task)+'</section>'
+      +'</div>'
+      +renderWeeklyReviewTaskDetailComments(task)
+      +'<section class="wr-task-detail-followups"><div class="wr-task-detail-section-head"><strong>미해결 팔로업</strong></div>'+renderWeeklyReviewTaskDetailFollowups(task)+'</section>'
+      +'<div class="modal-footer"><div class="muted">회의용 상세는 원본 업무를 직접 수정하지 않습니다.</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn primary" onclick="openWeeklyReviewProjectTaskEditModal(\''+projectIdJs+'\',\''+taskIdJs+'\')">업무 수정</button></div></div>'
+    +'</div></div>';
+  lockBodyScroll();
+  bindModalEscapeHandler();
 }
 async function getWeeklyReviewProjectOutputs(weekStart){
   if(!weekStart)return [];
@@ -1633,21 +2291,28 @@ function renderWeeklyReviewItemMarkup(item){
   const sideTextHtml=item?.sideText?'<div class="weekly-review-item-side-text">'+esc(item.sideText)+'</div>':'';
   const keyTaskHtml=renderWeeklyReviewKeyTaskListMarkup(item?.keyTasks);
   const actionHintHtml=item?.actionHint?'<div class="weekly-review-item-action">'+esc(item.actionHint)+'</div>':'';
-  const onclickAttr=item?.action?' onclick="'+item.action+'"':'';
+  const onclickAttr=item?.action?' onclick="'+item.action+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+item.action+';}"':'';
   const contextHtml=item?.contextLabel?'<div class="weekly-review-item-meta weekly-review-item-context">'+esc(item.contextLabel)+'</div>':'';
-  return '<button type="button" class="weekly-review-item"'+onclickAttr+'>'
+  const commentTarget=getWeeklyReviewCommentTargetFromItem(item);
+  const preTitleHtml=item?.preTitleHtml||'';
+  const taskCardHtml=item?.taskCardHtml||'';
+  return '<div role="button" tabindex="0" class="weekly-review-item"'+onclickAttr+'>'
     +'<div class="weekly-review-item-main">'
       +contextHtml
+      +preTitleHtml
       +'<div class="weekly-review-item-title">'+esc(item?.title||'-')+'</div>'
       +(item?.meta?'<div class="weekly-review-item-meta">'+esc(item.meta)+'</div>':'')
+      +taskCardHtml
       +keyTaskHtml
       +actionHintHtml
+      +renderWeeklyReviewItemCommentBadges(commentTarget)
     +'</div>'
     +'<div class="weekly-review-item-side">'
       +badgeHtml
       +sideTextHtml
+      +renderWeeklyReviewItemCommentButton(commentTarget)
     +'</div>'
-  +'</button>';
+  +'</div>';
 }
 function renderWeeklyReviewTableItemMarkup(item,templateColumns,appendBadge=true){
   const columns=Array.isArray(item?.columns)?item.columns:[];
@@ -1824,6 +2489,15 @@ function renderWeeklyReviewSectionMarkup(section){
     +'</div>'
   +'</section>';
 }
+
+async function loadWeeklyReviewTaskRows(){
+  const baseSelect='id,project_id,title,status,start_date,due_date,priority,assignee_member_id,description,actual_done_at,created_at,updated_at';
+  const extendedSelect=baseSelect+',waiting_reason';
+  const extended=await api('GET','project_tasks?select='+extendedSelect).catch(()=>null);
+  if(Array.isArray(extended))return extended;
+  return await api('GET','project_tasks?select='+baseSelect).catch(()=>[]);
+}
+
 function applyWeeklyReviewSectionCollapse(sectionId,collapsed){
   const sectionEl=document.querySelector('#pageWeeklyReview .weekly-review-section[data-section-id="'+sectionId+'"]');
   if(!sectionEl)return false;
@@ -1964,7 +2638,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date,created_at').catch(()=>[]),
     api('GET','weekly_reviews?week_start=eq.'+ws+'&select=*&order=created_at.desc').catch(()=>[]),
     api('GET','kudos_votes?week_start=eq.'+ws+'&select=*').catch(()=>[]),
-    api('GET','project_tasks?select=id,project_id,title,status,due_date,priority,assignee_member_id,description,actual_done_at,created_at,updated_at').catch(()=>[]),
+    loadWeeklyReviewTaskRows(),
     getWeeklyReviewProjectOutputs(ws),
     api('GET','project_checklist_items?select=id,project_id,status,is_required,weight').catch(()=>[])
   ]);
@@ -2520,6 +3194,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     billingRows,
     projectOutputs,
     taskRows,
+    _rawIssues:issueRows,
     nextWeekStarts,
     nextWeekEnds,
     weeklyRevenue,
@@ -2713,22 +3388,31 @@ function createWeeklyReviewThisWeekActionTableItem(item,actionLabel,options={}){
 function createWeeklyReviewCompletedTaskItem(task,projectOutputs=[]){
   const project=getWeeklyReviewProjectById(task?.project_id);
   const basisDate=getWeeklyReviewTaskCompletionBasisDate(task);
-  const assignee=(members||[]).find(member=>String(member?.id||'')===String(task?.assignee_member_id||''))?.name||'담당 확인';
   const linkedOutputs=(projectOutputs||[]).filter(output=>
     String(output?.task_id||'')===String(task?.id||'')
     ||String(output?.project_id||'')===String(task?.project_id||'')
   ).slice(0,2);
+  const taskId=String(task?.id||'');
+  const projectId=String(task?.project_id||'');
   return {
+    entity_type:'task',
+    entity_id:taskId,
+    taskId,
+    projectId,
     _task:task,
     _linkedOutputs:linkedOutputs,
     title:String(task?.title||'완료 업무'),
     contextLabel:getWeeklyReviewProjectContextLabel(project),
-    meta:[assignee,String(task?.status||'완료')||'완료'].filter(Boolean).join(' · '),
+    preTitleHtml:renderWeeklyReviewTaskBreadcrumb(task,project),
+    meta:[getWeeklyReviewTaskAssigneeLabel(task),String(task?.status||'완료')||'완료'].filter(Boolean).join(' · '),
+    taskCardHtml:renderWeeklyReviewTaskCardMeta(task),
     badgeLabel:String(task?.status||'완료')||'완료',
     badgeClass:'badge-green',
     sideText:basisDate?('완료 '+getWeeklyReviewShortDate(basisDate)):'완료일 없음',
     actionHint:'Work 탭에서 완료 처리된 업무와 남은 후속 영향 여부를 확인하세요.',
-    action:project?.id?("openProjModal('"+project.id+"',null,null,'work')"):''
+    action:projectId&&taskId
+      ?("openWeeklyReviewProjectTaskModal('"+getWeeklyReviewJsString(projectId)+"','"+getWeeklyReviewJsString(taskId)+"')")
+      :''
   };
 }
 function renderWeeklyReviewOutputsMarkup(outputs,taskRows=[]){
@@ -3118,6 +3802,7 @@ function renderWeeklyReviewProjectMeetingCard(item,snapshotMeta){
   const isSnapshot=snapshotMeta?.mode==='snapshot';
   const projectId=String(item?.projectId||'');
   const projectIdJs=projectId?getWeeklyReviewJsString(projectId):'';
+  const commentTarget=projectId?{entity_type:'project',entity_id:projectId,project_id:projectId}:null;
   const countChips=[
     item?.counts?.completed?('완료 '+item.counts.completed):'',
     item?.counts?.overdueTasks?('지연 태스크 '+item.counts.overdueTasks):'',
@@ -3138,11 +3823,13 @@ function renderWeeklyReviewProjectMeetingCard(item,snapshotMeta){
       +'<div><span>청구 상태</span><strong>'+esc(item?.billingStatus||'확인 필요')+'</strong></div>'
     +'</div>'
     +(countChips.length?'<div class="weekly-review-project-meeting-counts">'+countChips.map(chip=>'<span>'+esc(chip)+'</span>').join('')+'</div>':'')
+    +renderWeeklyReviewItemCommentBadges(commentTarget)
     +renderWeeklyReviewProjectMeetingList('이번 주 이슈',item?.risks||[],'이번 주 회의에서 별도 이슈로 잡힌 항목은 없습니다.')
     +renderWeeklyReviewProjectMeetingList('업무 현황',item?.tasks||[],'진행/완료 업무 요약은 현재 표시할 항목이 없습니다.')
     +renderWeeklyReviewProjectMeetingList('다음 액션',item?.nextActions||[],'다음 확인은 프로젝트 상세에서 이어서 봅니다.')
     +'<div class="weekly-review-project-meeting-footer">'
       +(isSnapshot?'<span>스냅샷 기준 표시 · 상세 열기는 현재 데이터 기준</span>':'<span>현재 계산 기준</span>')
+      +renderWeeklyReviewItemCommentButton(commentTarget)
       +(projectId?'<button type="button" class="btn ghost sm" onclick="openProjModal(\''+projectIdJs+'\')">'+(isSnapshot?'현재 상세 열기':'프로젝트 상세 열기')+'</button>':'<span class="weekly-review-project-meeting-muted">상세 연결 없음</span>')
     +'</div>'
   +'</article>';
@@ -3163,6 +3850,36 @@ function renderWeeklyReviewProjectMeetingView(data){
       :'<div class="weekly-review-empty">프로젝트별 회의에 표시할 프로젝트가 없습니다.</div>')
   +'</div>';
 }
+
+function renderWeeklyReviewOpenFollowups(data){
+  const savedOpen=Array.isArray(data?._openFollowupComments)?data._openFollowupComments:[];
+  const currentWeek=String(data?._snapshotMeta?.weekStart||getWeeklyReviewCurrentWeekStart());
+  const draftOpen=getWeeklyReviewDraftItemComments(currentWeek);
+  const comments=mergeWeeklyReviewItemComments(savedOpen,draftOpen)
+    .filter(comment=>comment.followup_required&&String(comment.status||'open')==='open');
+  if(!comments.length)return '';
+  return '<section class="card wr-open-followups">'
+    +'<div class="weekly-review-section-head">'
+      +'<div><div class="weekly-review-section-title">미해결 팔로업</div><div class="weekly-review-section-sub">회의 코멘트 중 팔로업 필요로 표시된 미완료 항목입니다.</div></div>'
+      +'<span class="weekly-review-section-group-count">'+comments.length+'건</span>'
+    +'</div>'
+    +'<div class="wr-open-followup-list">'
+      +comments.slice(0,5).map(comment=>
+        '<div class="wr-open-followup-item">'
+          +'<button type="button" class="wr-open-followup-main" onclick="openWeeklyReviewItemCommentDetailModal(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\')">'
+            +'<span class="wr-item-comment-badge is-followup">팔로업 필요</span>'
+            +(comment.is_starred?'<span class="wr-item-comment-badge is-star">중요</span>':'')
+            +(comment._week_start?'<span class="wr-item-comment-badge">'+esc(comment._week_start)+'</span>':'')
+            +'<strong>'+esc(findWeeklyReviewCommentLabel(comment))+'</strong>'
+            +'<span>'+esc(truncateText(comment.comment,80))+'</span>'
+          +'</button>'
+          +'<button type="button" class="btn sm wr-open-followup-complete" onclick="completeWeeklyReviewItemComment(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\',\''+getWeeklyReviewJsString(comment._week_start||currentWeek)+'\',\''+getWeeklyReviewJsString(comment._review_id||'')+'\')">완료 처리</button>'
+        +'</div>'
+      ).join('')
+    +'</div>'
+  +'</section>';
+}
+
 function renderWeeklyReviewSnapshotNotice(snapshotMeta){
   if(!snapshotMeta?.mode)return '';
   const isSnapshot=snapshotMeta.mode==='snapshot';
@@ -3270,6 +3987,7 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
         +(modeIsManagement?renderWeeklyReviewQuickJumpMarkup(sections):'')
       +'</div>'
       +renderWeeklyReviewSnapshotNotice(snapshotMeta)
+      +renderWeeklyReviewOpenFollowups(pageData)
       +'<div class="weekly-review-grid">'
         +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
       +'</div>'
@@ -3611,15 +4329,18 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
     .sort((a,b)=>getWeeklyReviewTimestamp(a?.due_date)-getWeeklyReviewTimestamp(b?.due_date))
     .map(task=>{
       const project=getWeeklyReviewProjectById(task?.project_id);
-      const assignee=(members||[]).find(m=>String(m?.id||'')===String(task?.assignee_member_id||''))?.name||'담당 확인';
       const taskId=String(task?.id||'');
       const projectId=String(task?.project_id||project?.id||'');
       return {
         taskId,
         projectId,
+        entity_type:'task',
+        entity_id:taskId,
         title:String(task?.title||'미완료 업무'),
-        contextLabel:getWeeklyReviewProjectContextLabel(project),
-        meta:[assignee,String(task?.status||'미완료')||'미완료'].filter(Boolean).join(' · '),
+        contextLabel:'',
+        preTitleHtml:renderWeeklyReviewTaskBreadcrumb(task,project),
+        meta:[getWeeklyReviewTaskAssigneeLabel(task),String(task?.status||'미완료')||'미완료'].filter(Boolean).join(' · '),
+        taskCardHtml:renderWeeklyReviewTaskCardMeta(task),
         badgeLabel:'지연',
         badgeClass:'badge-red',
         sideText:getWeeklyReviewShortDate(task?.due_date)||'-',
@@ -3700,24 +4421,32 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
         variant:'html',
         countLabel:formatWeeklyReviewCount(completedTaskItems.length),
         html:completedTaskItems.length
-          ?completedTaskItems.map(item=>{
+            ?completedTaskItems.map(item=>{
               const outputs=item._linkedOutputs||[];
+              const task=item._task||{};
+              const project=getWeeklyReviewProjectById(item.projectId||task?.project_id);
+              const commentTarget=getWeeklyReviewCommentTargetFromItem(item);
               const outputHtml=outputs.length
                 ?outputs.map(output=>
-                    '<a href="'+esc(output.onedrive_url||'#')+'" target="_blank" rel="noopener" class="wr-output-link">'
+                    '<a href="'+esc(output.onedrive_url||'#')+'" target="_blank" rel="noopener" class="wr-output-link" onclick="event.stopPropagation()">'
                     +'<span class="wr-output-icon">📎</span>'+esc(output.title||'산출물 링크')
                     +'</a>'
                   ).join('')
                 :'<span class="wr-output-none">산출물 미등록</span>';
-              return '<div class="wr-completed-card">'
+              const detailAction="openWeeklyReviewProjectTaskModal('"+getWeeklyReviewJsString(item.projectId||task?.project_id||'')+"','"+getWeeklyReviewJsString(item.taskId||task?.id||'')+"')";
+              return '<div class="wr-completed-card" role="button" tabindex="0" onclick="'+detailAction+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+detailAction+';}">'
                 +'<div class="wr-completed-card-main">'
-                  +'<div class="wr-completed-card-context">'+esc(item.meta||'')+'</div>'
+                  +renderWeeklyReviewTaskBreadcrumb(task,project)
                   +'<div class="wr-completed-card-title">'+esc(item.title||'')+'</div>'
+                  +renderWeeklyReviewTaskCardMeta(task)
                   +'<div class="wr-completed-card-outputs">'+outputHtml+'</div>'
+                  +renderWeeklyReviewItemCommentBadges(commentTarget)
                 +'</div>'
                 +'<div class="wr-completed-card-side">'
                   +'<span class="badge badge-green">완료</span>'
                   +'<div class="wr-completed-card-date">'+esc(item.sideText||'')+'</div>'
+                  +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();'+detailAction+'">상세</button>'
+                  +renderWeeklyReviewItemCommentButton(commentTarget)
                 +'</div>'
               +'</div>';
             }).join('')
@@ -3930,6 +4659,7 @@ async function getWeeklyReviewSnapshotPageData(snapshot,offsetWeeks=weeklyReview
     weeklyReviews,
     projectOutputs:[],
     taskRows:[],
+    _rawIssues:[],
     _snapshotMeta:{
       mode:'snapshot',
       snapshotId:String(snapshot?.id||'')||null,
@@ -3946,6 +4676,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   const meta=getWeeklyReviewSnapshotWeekMeta(offsetWeeks);
   let snapshot=null;
   let snapshotWarning='';
+  let pageData=null;
   try{
     snapshot=await getWeeklyReviewSnapshot(meta.weekStart);
   }catch(error){
@@ -3954,25 +4685,31 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   }
   if(snapshot?.snapshot_json){
     try{
-      return await getWeeklyReviewSnapshotPageData(snapshot,offsetWeeks);
+      pageData=await getWeeklyReviewSnapshotPageData(snapshot,offsetWeeks);
     }catch(error){
       console.warn('[weekly-review] snapshot render failed; falling back to live data',error);
       snapshotWarning='저장된 스냅샷을 표시하지 못해 현재 상태 기준으로 표시합니다.';
     }
   }
-  const liveData=await getWeeklyReviewCalculatedPageData(offsetWeeks);
-  liveData._snapshotMeta={
-    mode:'live',
-    snapshotId:null,
-    status:'live',
-    generatedAt:null,
-    updatedAt:null,
-    weekStart:meta.weekStart,
-    baseDate:meta.baseDate,
-    action_items:[],
-    warning:snapshotWarning
-  };
-  return liveData;
+  if(!pageData){
+    pageData=await getWeeklyReviewCalculatedPageData(offsetWeeks);
+    pageData._snapshotMeta={
+      mode:'live',
+      snapshotId:null,
+      status:'live',
+      generatedAt:null,
+      updatedAt:null,
+      weekStart:meta.weekStart,
+      baseDate:meta.baseDate,
+      action_items:[],
+      warning:snapshotWarning
+    };
+  }
+  pageData._openFollowupComments=await loadWeeklyReviewOpenFollowupComments().catch(error=>{
+    console.warn('[weekly-review] open followup load failed',error);
+    return [];
+  });
+  return pageData;
 };
 async function saveWeeklyReviewSnapshot(){
   const offsetWeeks=weeklyReviewWeekOffset;
@@ -4000,6 +4737,7 @@ async function saveWeeklyReviewSnapshot(){
         await api('POST',WEEKLY_REVIEW_SNAPSHOT_TABLE,body);
       }
     }
+    await saveWeeklyReviewDraftItemComments(meta.weekStart);
     await renderWeeklyReviewPage(offsetWeeks);
     alert('주간회의 스냅샷을 저장했습니다.');
   }catch(error){

@@ -1777,15 +1777,19 @@ td{
   width:100%!important;
   max-width:100%!important;
   overflow-x:auto!important;
-  overflow-y:visible!important;
+  overflow-y:auto!important;
+  max-height:max(340px,calc(100vh - 360px))!important;
   -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;
   overscroll-behavior-x:contain!important;
+  scrollbar-gutter:stable!important;
   border:1px solid var(--border)!important;
   border-radius:18px!important;
   background:#fff!important;
 }
 .gantt-list-table-shell::-webkit-scrollbar{
   height:10px!important;
+  width:10px!important;
 }
 .gantt-list-table-shell::-webkit-scrollbar-track{
   background:#F8FAFC!important;
@@ -1805,9 +1809,11 @@ td{
 .gantt-list-table thead th{
   position:sticky!important;
   top:0!important;
-  z-index:2!important;
+  z-index:30!important;
   background:#F8FAFC!important;
+  background-clip:padding-box!important;
   border-bottom:1px solid var(--border)!important;
+  box-shadow:0 1px 0 var(--border),0 4px 10px rgba(15,23,42,.06)!important;
   padding:0!important;
   text-align:left!important;
   font-size:11px!important;
@@ -1833,7 +1839,7 @@ td{
   gap:4px!important;
   padding:10px 12px!important;
   border:none!important;
-  background:transparent!important;
+  background:inherit!important;
   color:inherit!important;
   font-size:11px!important;
   font-weight:800!important;
@@ -2003,6 +2009,7 @@ td{
   padding:12px 0 2px!important;
   border-top:1px dashed #E2E8F0!important;
   overflow-x:auto!important;
+  overflow-y:hidden!important;
   -webkit-overflow-scrolling:touch!important;
   overscroll-behavior-x:contain!important;
 }
@@ -2034,15 +2041,23 @@ td{
   line-height:1.5!important;
 }
 .gantt-list-task-drill-items{
-  display:grid!important;
-  gap:8px!important;
+  display:flex!important;
+  align-items:stretch!important;
+  gap:10px!important;
+  min-width:max-content!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  padding-bottom:6px!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-x:contain!important;
 }
 .gantt-list-task-drill-item{
   display:grid!important;
   grid-template-columns:minmax(0,1fr) auto!important;
   align-items:center!important;
   gap:12px!important;
-  min-width:0!important;
+  width:clamp(300px,34vw,430px)!important;
+  min-width:300px!important;
   padding:10px 12px!important;
   border:1px solid #E2E8F0!important;
   border-radius:14px!important;
@@ -2376,6 +2391,7 @@ td{
   .gantt-list-search{min-width:0!important;width:100%!important}
   .gantt-list-bulkbar{align-items:flex-start!important}
   .gantt-list-toolbar-main{flex:1 1 100%!important}
+  .gantt-list-table-shell{max-height:max(300px,calc(100vh - 430px))!important}
   .gantt-list-task-drill-item{grid-template-columns:1fr!important}
   .gantt-list-task-drill-side{justify-content:flex-start!important}
 }
@@ -3433,11 +3449,43 @@ td{
   border-top:1px solid rgba(148,163,184,.24)!important;
   border-bottom:1px solid rgba(148,163,184,.14)!important;
 }
+.gantt-list-client-group-row{
+  cursor:pointer!important;
+}
+.gantt-list-client-group-row:hover td{
+  background:#F1F5F9!important;
+}
 .gantt-list-client-group-head{
   display:flex!important;
   align-items:center!important;
   justify-content:space-between!important;
   gap:12px!important;
+}
+.gantt-list-client-group-toggle{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-width:0!important;
+  padding:0!important;
+  border:none!important;
+  background:transparent!important;
+  color:inherit!important;
+  font:inherit!important;
+  text-align:left!important;
+  cursor:pointer!important;
+}
+.gantt-list-client-group-chevron{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:18px!important;
+  min-width:18px!important;
+  height:18px!important;
+  border-radius:999px!important;
+  background:#E2E8F0!important;
+  color:#475569!important;
+  font-size:10px!important;
+  line-height:1!important;
 }
 .gantt-list-client-group-name{
   font-size:13px!important;
