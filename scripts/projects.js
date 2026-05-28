@@ -3197,7 +3197,7 @@ function renderGanttDetailTabBar(){
     {key:'checklist',label:'Checklist'},
     {key:'qc',label:'QC'},
     {key:'memo',label:'Memo'},
-    {key:'documents',label:'Documents'}
+    {key:'documents',label:'산출물'}
   ];
   return '<div class="gantt-detail-tabbar">'
     +tabs.map(tab=>'<button type="button" class="gantt-detail-tab'+(ganttDetailTab===tab.key?' active':'')+'" onclick="setGanttDetailTab(\''+tab.key+'\')">'+tab.label+'</button>').join('')
@@ -4199,7 +4199,7 @@ renderGanttDetailPanel=function(projs,schs){
   else if(ganttDetailTab==='checklist')sectionHtml=renderGanttProjectChecklistSection(project);
   else if(ganttDetailTab==='qc')sectionHtml=renderGanttProjectQcSection(project);
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
-  else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectMemoSection(project);
+  else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectDocumentsSection(project);
   el.innerHTML=''
     +'<div class="gantt-detail-header">'
       +'<div class="gantt-detail-head-copy">'
@@ -5778,12 +5778,12 @@ function renderGanttProjectMemoSummarySection(project){
   return ''
     +'<div class="gantt-detail-section gantt-overview-section">'
       +'<div class="gantt-detail-section-head">'
-        +'<div><div class="gantt-panel-title">프로젝트 메모</div><div class="gantt-detail-meta">최근 메모와 후속 기록을 빠르게 확인하고, 필요하면 Memo / Documents 탭으로 이어집니다.</div></div>'
-        +'<div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">Memo / Documents 탭</button></div>'
+        +'<div><div class="gantt-panel-title">프로젝트 메모</div><div class="gantt-detail-meta">최근 메모와 후속 기록을 빠르게 확인하고, 필요하면 Memo / 산출물 탭으로 이어집니다.</div></div>'
+        +'<div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">Memo / 산출물 탭</button></div>'
       +'</div>'
       +(memoEntries.length
         ?'<div class="gantt-detail-note-grid">'+memoEntries.map(entry=>'<button type="button" class="gantt-detail-note-card" onclick="openProjModal(\''+project.id+'\',null,null,\''+entry.tab+'\')"><div class="gantt-detail-note-label">'+esc(entry.label)+'</div><div class="gantt-detail-note-text">'+esc(entry.value)+'</div></button>').join('')+'</div>'
-        :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">아직 남겨둔 프로젝트 메모가 없습니다.</div><div class="gantt-detail-meta">간단한 운영 메모나 후속 메모를 먼저 남기고, 더 자세한 기록은 Memo / Documents 탭에서 이어가면 됩니다.</div><div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">Memo / Documents 탭</button></div></div>')
+        :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">아직 남겨둔 프로젝트 메모가 없습니다.</div><div class="gantt-detail-meta">간단한 운영 메모나 후속 메모를 먼저 남기고, 더 자세한 기록은 Memo / 산출물 탭에서 이어가면 됩니다.</div><div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">Memo / 산출물 탭</button></div></div>')
     +'</div>';
 }
 
@@ -7304,7 +7304,7 @@ renderGanttDetailPanel=function(projs,schs){
   else if(ganttDetailTab==='checklist')sectionHtml=renderGanttProjectChecklistSection(project);
   else if(ganttDetailTab==='qc')sectionHtml=renderGanttProjectQcSection(project);
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
-  else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectMemoSection(project);
+  else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectDocumentsSection(project);
   const primaryAction=ganttDetailTab==='work'
     ?'<button class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button>'
     :'<button class="btn primary sm" onclick="setGanttDetailTab(\'work\')">Work 열기</button>';
@@ -7336,6 +7336,7 @@ renderGanttDetailPanel=function(projs,schs){
   if(ganttDetailTab==='work')loadGanttProjectTasks(project.id);
   if(ganttDetailTab==='checklist')loadGanttProjectChecklist(project.id);
   if(ganttDetailTab==='qc')loadGanttProjectQc(project.id);
+  if(ganttDetailTab==='documents')loadGanttProjectQc(project.id);
   el.dataset.renderSignature=renderSignature;
 };
 
@@ -7619,6 +7620,136 @@ function renderGanttProjectQcSection(project){
         :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">등록된 산출물이 없습니다.</div><div class="gantt-detail-meta">주간 리뷰 산출물이 등록되면 이곳에서 QC 요청과 검토를 진행할 수 있습니다.</div></div>')
     +'</div>'
   +'</div>';
+}
+
+function getGanttOutputWeekStartDate(date=new Date()){
+  const base=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+  const day=base.getDay();
+  const diff=day===0?-6:1-day;
+  base.setDate(base.getDate()+diff);
+  const year=base.getFullYear();
+  const month=String(base.getMonth()+1).padStart(2,'0');
+  const dayOfMonth=String(base.getDate()).padStart(2,'0');
+  return year+'-'+month+'-'+dayOfMonth;
+}
+
+function formatGanttOutputDate(value){
+  if(!value)return '-';
+  if(typeof formatCommentDate==='function')return formatCommentDate(value);
+  return String(value).slice(0,10);
+}
+
+function openGanttOutputModal(projectId){
+  const project=(projects||[]).find(row=>String(row?.id||'')===String(projectId||''))||null;
+  const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
+  document.getElementById('modalArea').innerHTML=''
+    +overlayHtml
+    +'<div class="modal gantt-output-modal">'
+      +'<div class="modal-title">산출물 추가</div>'
+      +'<div class="modal-sub">'+esc(project?.name||'프로젝트')+'</div>'
+      +'<div class="form-row"><label class="form-label">제목</label><input id="ganttOutputTitle" placeholder="산출물 제목"></div>'
+      +'<div class="form-row"><label class="form-label">OneDrive URL</label><input id="ganttOutputUrl" placeholder="https://..."></div>'
+      +'<div class="form-row"><label class="form-label">메모</label><textarea id="ganttOutputMemo" rows="3" placeholder="선택 입력"></textarea></div>'
+      +'<div class="checkbox-row"><input type="checkbox" id="ganttOutputQcRequired"><label for="ganttOutputQcRequired">QC 필요</label></div>'
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveGanttOutput(\''+projectId+'\')">저장</button></div></div>'
+    +'</div>';
+  document.getElementById('ganttOutputTitle')?.focus();
+}
+
+async function saveGanttOutput(projectId){
+  const title=String(document.getElementById('ganttOutputTitle')?.value||'').trim();
+  const onedriveUrl=String(document.getElementById('ganttOutputUrl')?.value||'').trim();
+  const memo=String(document.getElementById('ganttOutputMemo')?.value||'').trim();
+  const qcRequired=!!document.getElementById('ganttOutputQcRequired')?.checked;
+  if(!title){
+    alert('제목을 입력해 주세요.');
+    return;
+  }
+  if(!onedriveUrl){
+    alert('OneDrive URL을 입력해 주세요.');
+    return;
+  }
+  try{
+    await api('POST','project_outputs',{
+      project_id:projectId,
+      week_start:getGanttOutputWeekStartDate(),
+      title,
+      onedrive_url:onedriveUrl,
+      memo:memo||null,
+      author_id:currentUser?.id||null,
+      share_in_weekly_review:true,
+      qc_required:qcRequired,
+      qc_status:'none',
+      requires_partner_review:false
+    });
+    closeModal();
+    delete ganttProjectQcByProjectId[String(projectId)];
+    await loadGanttProjectQc(projectId,true);
+  }catch(error){
+    alert('산출물 저장에 실패했습니다. '+(error?.message||error));
+  }
+}
+
+async function deleteGanttOutput(projectId,outputId){
+  const state=getGanttProjectQcState(projectId);
+  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''));
+  if(!output)return;
+  if(!confirm('"'+(output.title||'이 산출물')+'"을 삭제할까요?'))return;
+  try{
+    await api('DELETE','project_outputs?id=eq.'+outputId);
+    if(String(ganttProjectQcActiveOutputId||'')===String(outputId||''))ganttProjectQcActiveOutputId='';
+    delete ganttProjectQcByProjectId[String(projectId)];
+    await loadGanttProjectQc(projectId,true);
+  }catch(error){
+    alert('산출물 삭제에 실패했습니다. '+(error?.message||error));
+  }
+}
+
+function renderGanttOutputRow(projectId,output){
+  const status=normalizeGanttQcStatus(output?.qc_status);
+  const statusMeta=getGanttQcStatusMeta(status);
+  const link=normalizeGanttQcOutputUrl(output?.onedrive_url);
+  return ''
+    +'<div class="gantt-output-row">'
+      +'<div class="gantt-output-main">'
+        +'<div class="gantt-output-title">'+esc(output?.title||'산출물명 없음')+'</div>'
+        +(output?.memo?'<div class="gantt-output-memo">'+esc(output.memo)+'</div>':'')
+        +'<div class="gantt-output-meta">'
+          +'<span>작성자 '+esc(getGanttQcOutputAuthorName(output))+'</span>'
+          +'<span>등록일 '+esc(formatGanttOutputDate(output?.created_at))+'</span>'
+        +'</div>'
+      +'</div>'
+      +'<div class="gantt-output-status">'
+        +'<span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>'
+        +'<span class="gantt-output-review-pill '+(output?.share_in_weekly_review?'is-on':'is-off')+'">'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span>'
+      +'</div>'
+      +'<div class="gantt-output-actions">'
+        +(link?'<button type="button" class="btn ghost sm" data-url="'+esc(link)+'" onclick="openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
+        +(status==='none'?'<button type="button" class="btn sm" onclick="openGanttQcRequestModal(\''+projectId+'\',\''+output.id+'\')">QC 요청</button>':'')
+        +'<button type="button" class="btn ghost sm" onclick="deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button>'
+      +'</div>'
+    +'</div>';
+}
+
+function renderGanttProjectOutputSection(project){
+  const projectId=String(project?.id||'');
+  const state=getGanttProjectQcState(projectId);
+  const meta=state.meta||{};
+  const outputs=state.outputs||[];
+  return ''
+    +'<div class="gantt-detail-pane gantt-output-pane">'
+      +'<div class="gantt-detail-section gantt-detail-section--flush">'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">산출물</div><div class="gantt-detail-meta">프로젝트 산출물, OneDrive 링크, QC 상태와 주간리뷰 포함 여부를 관리합니다.</div></div><div class="gantt-detail-head-actions"><button type="button" class="btn primary sm" onclick="openGanttOutputModal(\''+projectId+'\')">산출물 추가</button></div></div>'
+        +(meta.loading?'<div class="gantt-detail-empty">산출물을 불러오는 중...</div>'
+          :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
+          :outputs.length?'<div class="gantt-output-list">'+outputs.map(output=>renderGanttOutputRow(projectId,output)).join('')+'</div>'
+          :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">등록된 산출물이 없습니다.</div><div class="gantt-detail-meta">OneDrive 링크와 함께 산출물을 등록하면 QC와 주간리뷰에서 이어서 확인할 수 있습니다.</div></div>')
+      +'</div>'
+    +'</div>';
+}
+
+function renderGanttProjectDocumentsSection(project){
+  return renderGanttProjectOutputSection(project)+renderGanttProjectMemoSection(project);
 }
 
 let ganttChecklistTemplates=[];

@@ -5327,6 +5327,84 @@ td{
   line-height:1.45;
   white-space:pre-wrap;
 }
+#pageGantt .gantt-output-pane{
+  margin-bottom:14px;
+}
+#pageGantt .gantt-output-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+#pageGantt .gantt-output-row{
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) minmax(160px,.55fr) auto;
+  align-items:center;
+  gap:12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--bg);
+  padding:12px;
+}
+#pageGantt .gantt-output-main{
+  min-width:0;
+}
+#pageGantt .gantt-output-title{
+  color:var(--navy);
+  font-size:13px;
+  font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#pageGantt .gantt-output-memo{
+  margin-top:5px;
+  color:var(--text2);
+  font-size:12px;
+  line-height:1.45;
+  white-space:pre-wrap;
+}
+#pageGantt .gantt-output-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:6px;
+  color:var(--text3);
+  font-size:11px;
+}
+#pageGantt .gantt-output-status,
+#pageGantt .gantt-output-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:6px;
+}
+#pageGantt .gantt-output-review-pill{
+  display:inline-flex;
+  align-items:center;
+  min-height:20px;
+  padding:2px 7px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:var(--panel);
+  color:var(--text3);
+  font-size:10px;
+  font-weight:800;
+}
+#pageGantt .gantt-output-review-pill.is-on{
+  border-color:#86EFAC;
+  background:#F0FDF4;
+  color:#166534;
+}
+#pageGantt .gantt-output-review-pill.is-off{
+  border-color:#CBD5E1;
+  background:#F8FAFC;
+  color:#64748B;
+}
+#pageGantt .gantt-output-modal textarea{
+  width:100%;
+  resize:vertical;
+}
 
 @media(max-width:900px){
   #pageGantt .gantt-list-table-shell{
@@ -5338,11 +5416,14 @@ td{
     max-height:none!important;
   }
   #pageGantt .gantt-qc-summary,
-  #pageGantt .gantt-qc-output-row{
+  #pageGantt .gantt-qc-output-row,
+  #pageGantt .gantt-output-row{
     grid-template-columns:1fr;
   }
   #pageGantt .gantt-qc-output-status,
-  #pageGantt .gantt-qc-output-actions{
+  #pageGantt .gantt-qc-output-actions,
+  #pageGantt .gantt-output-status,
+  #pageGantt .gantt-output-actions{
     justify-content:flex-start;
   }
   #pageGantt .gantt-qc-review-form-actions{
