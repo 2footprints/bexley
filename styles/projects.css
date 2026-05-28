@@ -2269,6 +2269,21 @@ td{
   color:#475569!important;
   border-color:#E2E8F0!important;
 }
+.gantt-list-mini-chip.is-checklist-done{
+  background:#ECFDF5!important;
+  color:#047857!important;
+  border-color:#A7F3D0!important;
+}
+.gantt-list-mini-chip.is-checklist-mid{
+  background:#EFF6FF!important;
+  color:#1D4ED8!important;
+  border-color:#BFDBFE!important;
+}
+.gantt-list-mini-chip.is-checklist-low{
+  background:#FFF7ED!important;
+  color:#B45309!important;
+  border-color:#FED7AA!important;
+}
 .gantt-list-billing-sub{
   font-size:11px!important;
   color:var(--text3)!important;
@@ -5151,11 +5166,12 @@ td{
   border-radius:16px!important;
 }
 #pageGantt .gantt-list-table-shell{
-  height:clamp(520px,68vh,760px)!important;
-  max-height:clamp(520px,68vh,760px)!important;
+  height:clamp(320px,40vh,480px)!important;
+  max-height:clamp(320px,40vh,480px)!important;
 }
 #pageGantt .gantt-detail{
-  max-height:35vh!important;
+  min-height:clamp(600px,60vh,860px)!important;
+  max-height:none!important;
   overflow-y:auto!important;
   padding:14px!important;
 }
@@ -5170,10 +5186,11 @@ td{
 
 @media(max-width:900px){
   #pageGantt .gantt-list-table-shell{
-    height:clamp(420px,62vh,620px)!important;
-    max-height:clamp(420px,62vh,620px)!important;
+    height:clamp(300px,42vh,520px)!important;
+    max-height:clamp(300px,42vh,520px)!important;
   }
   #pageGantt .gantt-detail{
+    min-height:clamp(520px,58vh,760px)!important;
     max-height:none!important;
   }
 }

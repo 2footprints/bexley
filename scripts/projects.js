@@ -22,6 +22,8 @@ let ganttListTaskSummaryByProjectId={};
 let ganttListTaskSummaryLoadingProjectIds=new Set();
 let ganttListTaskIssueSummaryByProjectId={};
 let ganttListTaskIssueSummaryLoadingProjectIds=new Set();
+let ganttListChecklistSummaryByProjectId={};
+let ganttListChecklistSummaryLoadingProjectIds=new Set();
 let ganttListExecutionRiskFilters=[];
 let ganttTaskViewRows=[];
 let ganttTaskViewProjectKey='';
@@ -1784,6 +1786,57 @@ function getGanttListTaskIssueSummary(projectId){
   return ganttListTaskIssueSummaryByProjectId[String(projectId||'')]||null;
 }
 
+function getGanttListChecklistSummary(projectId){
+  return ganttListChecklistSummaryByProjectId[String(projectId||'')]||null;
+}
+
+function buildGanttListChecklistSummaries(rows,projectIds){
+  const grouped={};
+  (projectIds||[]).forEach(id=>{grouped[String(id)]=[];});
+  (Array.isArray(rows)?rows:[]).forEach(item=>{
+    const projectId=String(item?.project_id||'');
+    if(grouped[projectId])grouped[projectId].push(item);
+  });
+  (projectIds||[]).forEach(id=>{
+    const key=String(id);
+    const items=grouped[key]||[];
+    if(!items.length){
+      ganttListChecklistSummaryByProjectId[key]=null;
+      return;
+    }
+    const total=items.length;
+    const completed=items.filter(item=>String(item?.status||'').trim()==='completed').length;
+    const percent=total?Math.round((completed/total)*100):0;
+    ganttListChecklistSummaryByProjectId[key]={
+      total,
+      completed,
+      percent,
+      tone:percent>=100?'checklist-done':percent>=50?'checklist-mid':'checklist-low',
+      label:'✓ '+completed+'/'+total
+    };
+  });
+}
+
+async function loadGanttListChecklistSummaries(projectIds){
+  const ids=[...new Set((projectIds||[]).map(id=>String(id||'')).filter(Boolean))];
+  const missingIds=ids.filter(id=>ganttListChecklistSummaryByProjectId[id]===undefined&&!ganttListChecklistSummaryLoadingProjectIds.has(id));
+  if(!missingIds.length)return;
+  missingIds.forEach(id=>ganttListChecklistSummaryLoadingProjectIds.add(id));
+  try{
+    const rows=await api(
+      'GET',
+      'project_checklist_items?project_id=in.('+missingIds.join(',')+')&select=project_id,status'
+    );
+    buildGanttListChecklistSummaries(rows,missingIds);
+  }catch(error){
+    console.error('loadGanttListChecklistSummaries failed',error);
+    missingIds.forEach(id=>{ganttListChecklistSummaryByProjectId[id]=null;});
+  }finally{
+    missingIds.forEach(id=>ganttListChecklistSummaryLoadingProjectIds.delete(id));
+  }
+  if(curGanttLayout==='list')refreshGanttActiveViewOnly();
+}
+
 function refreshGanttOverviewDetailIfNeeded(projectIds){
   const focusId=String(ganttFocusProjectId||'').trim();
   const ids=[...new Set((projectIds||[]).map(id=>String(id||'').trim()).filter(Boolean))];
@@ -1926,6 +1979,7 @@ function getGanttListProjectRows(projs){
     const progressPercent=getGanttProjectProgress(project);
     const taskSummary=getGanttListTaskSummary(project.id);
     const taskIssueSummary=getGanttListTaskIssueSummary(project.id);
+    const checklistSummary=getGanttListChecklistSummary(project.id);
     const pendingDocSummary=(window.ganttProjectPendingDocSummaryByProjectId||{})[String(project.id||'')]||null;
     const riskMeta=getGanttListRiskMeta(project,issueCount,taskSummary,taskIssueSummary,pendingDocSummary);
     const periodText=(project.start||project.start_date||'')+' ~ '+(project.end||project.end_date||'');
@@ -1945,6 +1999,7 @@ function getGanttListProjectRows(projs){
       progressPercent,
       taskSummary,
       taskIssueSummary,
+      checklistSummary,
       pendingDocSummary,
       taskSummaryText:getGanttListTaskSummaryText(taskSummary),
       taskSummaryTitle:getGanttListTaskSummaryTitle(taskSummary),
@@ -1959,6 +2014,7 @@ function getGanttListProjectRows(projs){
 
 function getGanttListProjectMetaItems(row){
   const items=[];
+  if(row?.checklistSummary)items.push({label:row.checklistSummary.label,tone:row.checklistSummary.tone});
   if(Number(row?.taskSummary?.openCount||0)>0)items.push({label:'열린 '+row.taskSummary.openCount,tone:'neutral'});
   else if(Number(row?.taskSummary?.total||0)>0)items.push({label:'업무 '+row.taskSummary.total,tone:'neutral'});
   if(Number(row?.taskSummary?.overdueCount||0)>0)items.push({label:'지연 업무 '+row.taskSummary.overdueCount+'건',tone:'warn'});
@@ -2378,6 +2434,8 @@ function renderGanttListView(projs,schs){
   loadGanttListTaskSummaries(projectIds);
   loadGanttListTaskIssueSummaries(projectIds);
   loadGanttListPendingDocSummaries(projectIds);
+  loadGanttListChecklistSummaries(projectIds);
+  loadGanttListChecklistSummaries(projectIds);
   const rows=sortGanttListRows(filterGanttListRows(getGanttListProjectRows(projs)));
   const visibleProjectIds=new Set(rows.map(row=>String(row.project?.id||'')));
   ganttListSelectedIds=ganttListSelectedIds.filter(id=>visibleProjectIds.has(String(id)));
@@ -5584,6 +5642,7 @@ function getGanttListProjectRows(projs){
     const progressPercent=getGanttProjectProgress(project);
     const taskSummary=getGanttListTaskSummary(project.id);
     const taskIssueSummary=getGanttListTaskIssueSummary(project.id);
+    const checklistSummary=getGanttListChecklistSummary(project.id);
     const pendingDocSummary=(window.ganttProjectPendingDocSummaryByProjectId||{})[String(project.id||'')]||null;
     const lifecycleMeta=getGanttProjectLifecycleMeta(project,{taskSummary,taskIssueSummary,pendingDocSummary,issueCount});
     const riskMeta=getGanttListRiskMeta(project,issueCount,taskSummary,taskIssueSummary,pendingDocSummary);
@@ -5604,6 +5663,7 @@ function getGanttListProjectRows(projs){
       progressPercent,
       taskSummary,
       taskIssueSummary,
+      checklistSummary,
       pendingDocSummary,
       taskSummaryText:getGanttListTaskSummaryText(taskSummary),
       taskSummaryTitle:getGanttListTaskSummaryTitle(taskSummary),
@@ -5618,6 +5678,7 @@ function getGanttListProjectRows(projs){
 
 function getGanttListProjectMetaItems(row){
   const items=[];
+  if(row?.checklistSummary)items.push({label:row.checklistSummary.label,tone:row.checklistSummary.tone});
   if(Number(row?.taskSummary?.openCount||0)>0)items.push({label:'열린 '+row.taskSummary.openCount,tone:'neutral'});
   if(Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0)items.push({label:'이슈연결 '+row.taskIssueSummary.issueLinkedTaskCount,tone:'issue'});
   else if(Number(row?.taskSummary?.dueTodayCount||0)>0)items.push({label:'오늘 '+row.taskSummary.dueTodayCount,tone:'warn'});
@@ -5815,6 +5876,7 @@ function renderGanttListView(projs,schs){
   loadGanttListTaskSummaries(projectIds);
   loadGanttListTaskIssueSummaries(projectIds);
   loadGanttListPendingDocSummaries(projectIds);
+  loadGanttListChecklistSummaries(projectIds);
   const rows=sortGanttListRows(filterGanttListRows(getGanttListProjectRows(projs)));
   const visibleProjectIds=new Set(rows.map(row=>String(row.project?.id||'')));
   ganttListSelectedIds=ganttListSelectedIds.filter(id=>visibleProjectIds.has(String(id)));
@@ -6889,6 +6951,7 @@ renderGanttListView=function(projs,schs){
           const rowStateClass=getGanttListRowStateClass(row);
           const nextDueMeta=getGanttListNextDueMeta(row);
           const taskButtonText=getGanttListProjectTaskButtonText(row,isExpanded);
+          const metaItems=getGanttListProjectMetaItems(row);
           const mainRow=''
             +'<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+projectIdJs+'\')">'
               +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+projectIdJs+'\')" /></td>'
@@ -6896,6 +6959,7 @@ renderGanttListView=function(projs,schs){
               +'<td>'
                 +'<div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div>'
                 +'<div class="gantt-list-project-sub">'+esc([row.typeText,row.teamText].filter(Boolean).join(' · '))+'</div>'
+                +(metaItems.length?'<div class="gantt-list-project-metachips" title="'+esc(row.checklistSummary?('체크리스트 '+row.checklistSummary.completed+'/'+row.checklistSummary.total):row.taskSummaryTitle||'')+'">'+renderGanttListMetaChips(metaItems)+'</div>':'')
                 +'<div class="gantt-list-project-actions"><button type="button" class="gantt-list-drill-toggle'+(isExpanded?' active':'')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+projectIdJs+'\')">'+esc(taskButtonText)+'</button></div>'
               +'</td>'
               +'<td><div class="gantt-list-member-cell">'+esc(row.memberText)+'</div></td>'
@@ -7397,6 +7461,7 @@ async function loadGanttProjectChecklist(projectId,force=false){
       ?await api('GET','project_checklist_items?project_checklist_id=eq.'+checklist.id+'&select=*&order=section.asc,sort_order.asc')||[]
       :[];
     ganttProjectChecklistByProjectId[key]={checklist,items};
+    buildGanttListChecklistSummaries(items,[key]);
     ganttProjectChecklistLoadMetaByProjectId[key]={loading:false,error:''};
   }catch(error){
     console.error('[projects] project checklist load failed',error);
