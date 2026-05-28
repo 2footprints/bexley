@@ -1,4 +1,6 @@
 let adminUserRoleRows=[];
+let adminTeams=[];
+let adminProjectTypes=[];
 let adminManagementFilters={
   search:'',
   permission:'all',
@@ -11,6 +13,7 @@ let adminManagementFilters={
 const ADMIN_OPERATIONAL_INCLUSION_COLUMN='include_in_operational_dashboards';
 const ADMIN_MEMBER_PROFILE_SCHEMA_SQL='sql/20260426_fix_members_management_columns.sql';
 const ADMIN_MEMBER_PROFILE_COLUMNS=['is_active','role','team','rank',ADMIN_OPERATIONAL_INCLUSION_COLUMN,'note'];
+const ADMIN_USER_ROLE_OPTIONS=['admin','partner','team_lead','manager','staff'];
 const ADMIN_MEMBER_PROFILE_COLUMN_LABELS={
   is_active:'활성 상태',
   role:'권한',
@@ -30,9 +33,7 @@ function adminMemberSupportsOperationalInclusion(member){
 
 function getAdminStoredMemberRoleValue(role){
   const normalized=normalizeMemberPermissionLevel(role);
-  if(normalized==='admin')return 'Admin';
-  if(normalized==='manager')return 'Manager';
-  if(normalized==='member')return 'Member';
+  if(ADMIN_USER_ROLE_OPTIONS.includes(normalized))return normalized;
   return 'Observer';
 }
 
@@ -116,6 +117,14 @@ function accessStatusBadge(status){
 function accessRoleSelectOptions(selected){
   return ['observer','member','manager','admin']
     .map(role=>'<option value="'+role+'" '+(selected===role?'selected':'')+'>'+getRoleLabel(role)+'</option>')
+    .join('');
+}
+
+function getAdminUserRoleSelectOptions(selected){
+  const normalized=normalizeMemberPermissionLevel(selected);
+  const selectedRole=ADMIN_USER_ROLE_OPTIONS.includes(normalized)?normalized:'staff';
+  return ADMIN_USER_ROLE_OPTIONS
+    .map(role=>'<option value="'+role+'" '+(selectedRole===role?'selected':'')+'>'+getMemberPermissionLabel(role)+'</option>')
     .join('');
 }
 
@@ -303,6 +312,54 @@ function getAdminTeamsInUse(users){
   return [...new Set((users||[]).map(user=>user.team).filter(label=>label&&label!=='미지정'))].sort((a,b)=>a.localeCompare(b,'ko'));
 }
 
+function getAdminReferenceRows(kind){
+  return kind==='project_type'?adminProjectTypes:adminTeams;
+}
+
+function getAdminReferenceConfig(kind){
+  if(kind==='project_type'){
+    return {
+      table:'project_types',
+      title:'프로젝트 유형 관리',
+      sub:'프로젝트 유형 기준값을 Supabase project_types 테이블에서 관리합니다.',
+      itemLabel:'유형',
+      addLabel:'유형 추가',
+      empty:'등록된 프로젝트 유형이 없습니다.'
+    };
+  }
+  return {
+    table:'teams',
+    title:'팀 관리',
+    sub:'사용자 팀 선택에 쓰이는 조직 기준값을 Supabase teams 테이블에서 관리합니다.',
+    itemLabel:'팀',
+    addLabel:'팀 추가',
+    empty:'등록된 팀이 없습니다.'
+  };
+}
+
+function getAdminActiveReferenceRows(rows){
+  return [...(rows||[])]
+    .filter(row=>row?.is_active!==false)
+    .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+}
+
+function getAdminTeamFilterOptions(users){
+  const activeTeams=getAdminActiveReferenceRows(adminTeams).map(team=>String(team?.name||'').trim()).filter(Boolean);
+  const fallback=activeTeams.length?[]:MEMBER_TEAM_OPTIONS;
+  return [...new Set(activeTeams.concat(fallback,getAdminTeamsInUse(users)))]
+    .filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b,'ko'));
+}
+
+function getAdminTeamOptionsForMember(member){
+  const current=normalizeMemberTeam(member?.team);
+  const activeTeams=getAdminActiveReferenceRows(adminTeams).map(team=>String(team?.name||'').trim()).filter(Boolean);
+  const fallback=activeTeams.length?[]:MEMBER_TEAM_OPTIONS;
+  return [...new Set(activeTeams.concat(fallback,current&&current!=='미지정'?[current]:[]))]
+    .filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b,'ko'));
+}
+
 function getAdminRanksInUse(users){
   return [...new Set((users||[]).map(user=>user.rank).filter(label=>label&&label!=='미지정'))].sort((a,b)=>a.localeCompare(b,'ko'));
 }
@@ -372,7 +429,7 @@ function renderAdminSummaryCards(users){
 }
 
 function renderAdminFilterToolbar(users){
-  const teamOptions=[...new Set(MEMBER_TEAM_OPTIONS.concat(getAdminTeamsInUse(users)))];
+  const teamOptions=getAdminTeamFilterOptions(users);
   const rankOptions=[...new Set(MEMBER_RANK_OPTIONS.concat(getAdminRanksInUse(users)))];
   return ''
     +'<div class="card admin-toolbar-card">'
@@ -388,8 +445,10 @@ function renderAdminFilterToolbar(users){
         +'<select onchange="setAdminManagementFilter(\'permission\',this.value)">'
           +'<option value="all"'+(adminManagementFilters.permission==='all'?' selected':'')+'>권한 전체</option>'
           +'<option value="admin"'+(adminManagementFilters.permission==='admin'?' selected':'')+'>관리자</option>'
+          +'<option value="partner"'+(adminManagementFilters.permission==='partner'?' selected':'')+'>Partner</option>'
+          +'<option value="team_lead"'+(adminManagementFilters.permission==='team_lead'?' selected':'')+'>Team Lead</option>'
           +'<option value="manager"'+(adminManagementFilters.permission==='manager'?' selected':'')+'>매니저</option>'
-          +'<option value="member"'+(adminManagementFilters.permission==='member'?' selected':'')+'>멤버</option>'
+          +'<option value="staff"'+(adminManagementFilters.permission==='staff'?' selected':'')+'>Staff</option>'
           +'<option value="observer"'+(adminManagementFilters.permission==='observer'?' selected':'')+'>Observer</option>'
           +'<option value="unlinked"'+(adminManagementFilters.permission==='unlinked'?' selected':'')+'>권한 미연결</option>'
         +'</select>'
@@ -484,6 +543,57 @@ function renderAdminUserTable(users){
     +'</div>';
 }
 
+function renderAdminReferenceItem(kind,row){
+  const active=row?.is_active!==false;
+  const config=getAdminReferenceConfig(kind);
+  return ''
+    +'<div class="admin-reference-item'+(active?'':' is-inactive')+'">'
+      +'<div class="admin-reference-main">'
+        +'<div class="admin-reference-name">'+esc(row?.name||config.itemLabel+'명 없음')+'</div>'
+        +'<div class="admin-reference-meta"><span class="admin-reference-code">'+esc(row?.code||'code 없음')+'</span> · '+(active?'활성':'비활성')+'</div>'
+      +'</div>'
+      +'<div class="admin-reference-actions">'
+        +'<button class="btn sm" onclick="openAdminReferenceEditor(\''+kind+'\',\''+row.id+'\')">수정</button>'
+        +(active?'<button class="btn ghost sm" onclick="deactivateAdminReferenceItem(\''+kind+'\',\''+row.id+'\')">비활성화</button>':'')
+      +'</div>'
+    +'</div>';
+}
+
+function renderAdminReferenceSection(kind){
+  const config=getAdminReferenceConfig(kind);
+  const rows=[...(getAdminReferenceRows(kind)||[])]
+    .sort((a,b)=>{
+      const activeDiff=Number(b?.is_active!==false)-Number(a?.is_active!==false);
+      if(activeDiff)return activeDiff;
+      return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+    });
+  const activeCount=rows.filter(row=>row?.is_active!==false).length;
+  return ''
+    +'<div class="card admin-reference-card">'
+      +'<div class="admin-reference-head">'
+        +'<div>'
+          +'<div class="admin-toolbar-title">'+config.title+'</div>'
+          +'<div class="admin-toolbar-sub">'+config.sub+'</div>'
+        +'</div>'
+        +'<div class="admin-reference-head-actions">'
+          +'<span class="admin-meta-pill">'+activeCount+'/'+rows.length+' 활성</span>'
+          +'<button class="btn primary sm" onclick="openAdminReferenceEditor(\''+kind+'\')">'+config.addLabel+'</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="admin-reference-list">'
+        +(rows.length?rows.map(row=>renderAdminReferenceItem(kind,row)).join(''):'<div class="admin-table-empty">'+config.empty+'</div>')
+      +'</div>'
+    +'</div>';
+}
+
+function renderAdminReferenceManagementSections(){
+  return ''
+    +'<div class="admin-reference-grid">'
+      +renderAdminReferenceSection('team')
+      +renderAdminReferenceSection('project_type')
+    +'</div>';
+}
+
 function renderAdminSupportCards(users){
   const pending=(accessRequests||[]).filter(request=>request.status==='pending');
   const pendingPreview=pending.slice(0,4).map(request=>''
@@ -551,20 +661,25 @@ function renderAdminPageContent(){
       +'</div>'
     +'</div>'
     +renderAdminSummaryCards(users)
+    +renderAdminReferenceManagementSections()
     +renderAdminFilterToolbar(users)
     +renderAdminUserTable(users)
     +renderAdminSupportCards(users);
 }
 
 async function loadAdminManagementData(){
-  const [requests,assignments,roleRows]=await Promise.all([
+  const [requests,assignments,roleRows,teamRows,projectTypeRows]=await Promise.all([
     api('GET','access_requests?select=*&order=status.asc,created_at.desc').catch(()=>accessRequests||[]),
     api('GET','client_assignments?select=*').catch(()=>clientAssignments||[]),
-    api('GET','user_roles?select=id,role,is_admin,approved_at,approved_by').catch(()=>adminUserRoleRows||[])
+    api('GET','user_roles?select=id,role,is_admin,approved_at,approved_by').catch(()=>adminUserRoleRows||[]),
+    api('GET','teams?select=*&order=is_active.desc,name.asc,created_at.asc').catch(()=>adminTeams||[]),
+    api('GET','project_types?select=*&order=is_active.desc,name.asc,created_at.asc').catch(()=>adminProjectTypes||[])
   ]);
   accessRequests=requests||[];
   clientAssignments=assignments||[];
   adminUserRoleRows=roleRows||[];
+  adminTeams=teamRows||[];
+  adminProjectTypes=projectTypeRows||[];
 }
 
 async function renderAdminPage(){
@@ -586,12 +701,76 @@ function getAdminModalSelectOptions(options,selected,emptyLabel){
   return base+(options||[]).map(option=>'<option value="'+esc(option)+'"'+(selected===option?' selected':'')+'>'+esc(option)+'</option>').join('');
 }
 
+function openAdminReferenceEditor(kind,itemId=''){
+  if(!roleIsAdmin())return;
+  const config=getAdminReferenceConfig(kind);
+  const item=itemId?(getAdminReferenceRows(kind)||[]).find(row=>String(row?.id||'')===String(itemId||'')):null;
+  document.getElementById('modalArea').innerHTML=''
+    +getInputModalOverlayHtml()
+    +'<div class="modal" style="width:460px">'
+      +'<div class="modal-title">'+(item?config.itemLabel+' 수정':config.addLabel)+'</div>'
+      +'<div class="form-row"><label class="form-label">이름</label><input id="adminReferenceName" value="'+esc(item?.name||'')+'" placeholder="'+config.itemLabel+' 이름"></div>'
+      +'<div class="form-row"><label class="form-label">코드</label><input id="adminReferenceCode" value="'+esc(item?.code||'')+'" placeholder="code" '+(item?'readonly style="background:var(--bg)"':'')+'></div>'
+      +'<div class="admin-user-modal-note">코드는 신규 생성 시 입력하며, 기존 항목은 이름만 수정합니다.</div>'
+      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveAdminReferenceItem(\''+kind+'\',\''+(itemId||'')+'\')">저장</button></div></div>'
+    +'</div>';
+  document.getElementById('adminReferenceName')?.focus();
+}
+
+async function saveAdminReferenceItem(kind,itemId=''){
+  if(!roleIsAdmin())return;
+  const config=getAdminReferenceConfig(kind);
+  const name=(document.getElementById('adminReferenceName')?.value||'').trim();
+  const code=(document.getElementById('adminReferenceCode')?.value||'').trim();
+  if(!name){
+    alert(config.itemLabel+' 이름을 입력해 주세요.');
+    return;
+  }
+  if(!itemId&&!code){
+    alert('코드를 입력해 주세요.');
+    return;
+  }
+  try{
+    if(itemId){
+      await api('PATCH',config.table+'?id=eq.'+itemId,{name});
+    }else{
+      await api('POST',config.table,{name,code,is_active:true});
+    }
+    closeModal();
+    await loadAdminManagementData();
+    renderAdminPageContent();
+  }catch(e){
+    alert('저장 오류: '+(e?.message||e));
+  }
+}
+
+async function deactivateAdminReferenceItem(kind,itemId){
+  if(!roleIsAdmin())return;
+  const config=getAdminReferenceConfig(kind);
+  const item=(getAdminReferenceRows(kind)||[]).find(row=>String(row?.id||'')===String(itemId||''));
+  if(!item)return;
+  if(!confirm('"'+(item.name||config.itemLabel)+'"을 비활성화할까요?'))return;
+  try{
+    await api('PATCH',config.table+'?id=eq.'+itemId,{is_active:false});
+    if(kind==='project_type'){
+      adminProjectTypes=adminProjectTypes.map(row=>String(row?.id||'')===String(itemId||'')?{...row,is_active:false}:row);
+    }else{
+      adminTeams=adminTeams.map(row=>String(row?.id||'')===String(itemId||'')?{...row,is_active:false}:row);
+    }
+    renderAdminPageContent();
+    loadAdminManagementData().then(renderAdminPageContent).catch(()=>{});
+  }catch(e){
+    alert('비활성화 오류: '+(e?.message||e));
+  }
+}
+
 function openAdminUserEditor(memberId){
   if(!roleIsAdmin())return;
   const member=(members||[]).find(row=>String(row?.id||'')===String(memberId||''));
   if(!member)return;
   const roleRow=(adminUserRoleRows||[]).find(row=>String(row?.id||'')===String(member?.auth_user_id||''))||null;
-  const permission=getAdminMemberPermissionValue(member,roleRow)||'observer';
+  const permission=getAdminMemberPermissionValue(member,roleRow)||'staff';
+  const teamOptions=getAdminTeamOptionsForMember(member);
   const authLinked=!!String(member?.auth_user_id||'').trim();
   const profileSupport={
     is_active:adminMemberSupportsColumn(member,'is_active'),
@@ -618,10 +797,10 @@ function openAdminUserEditor(memberId){
       +'</div>'
       +'<div class="form-half">'
         +'<div class="form-row"><label class="form-label">상태</label><select id="adminUserActive"'+(profileSupport.is_active?'':' disabled')+'><option value="true"'+(isMemberActive(member)?' selected':'')+'>활성</option><option value="false"'+(!isMemberActive(member)?' selected':'')+'>비활성</option></select></div>'
-        +'<div class="form-row"><label class="form-label">권한</label><select id="adminUserPermission" '+(authLinked?'':'disabled')+'>'+accessRoleSelectOptions(permission)+'</select></div>'
+        +'<div class="form-row"><label class="form-label">권한</label><select id="adminUserPermission" '+(authLinked?'':'disabled')+'>'+getAdminUserRoleSelectOptions(permission)+'</select></div>'
       +'</div>'
       +'<div class="form-half">'
-        +'<div class="form-row"><label class="form-label">팀</label><select id="adminUserTeam">'+getAdminModalSelectOptions(MEMBER_TEAM_OPTIONS,normalizeMemberTeam(member?.team),'미지정')+'</select></div>'
+        +'<div class="form-row"><label class="form-label">팀</label><select id="adminUserTeam">'+getAdminModalSelectOptions(teamOptions,normalizeMemberTeam(member?.team),'미지정')+'</select></div>'
         +'<div class="form-row"><label class="form-label">직급</label><select id="adminUserRank">'+getAdminModalSelectOptions(MEMBER_RANK_OPTIONS,normalizeMemberRank(member?.rank),'미지정')+'</select></div>'
       +'</div>'
       +'<div class="form-half">'

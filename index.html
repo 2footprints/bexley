@@ -2028,18 +2028,26 @@ let projectComments=[],activeReplyParentId=null,activeProjectCommentEditId=null,
 let projectChecklistDraft=[],projectModalEditable=false;
 
 
+function normalizeAppRole(role){
+  const normalized=String(role||'').trim().toLowerCase();
+  if(normalized==='team lead'||normalized==='team-lead')return 'team_lead';
+  if(normalized==='member')return 'staff';
+  return normalized;
+}
 function getRoleLabel(role){
-  return role==='admin'?'관리자':role==='manager'?'매니저':role==='member'?'멤버':role==='observer'?'Observer':'미승인';
+  const normalized=normalizeAppRole(role);
+  return normalized==='admin'?'관리자':normalized==='partner'?'Partner':normalized==='team_lead'?'Team Lead':normalized==='manager'?'매니저':normalized==='staff'?'Staff':normalized==='observer'?'Observer':'미승인';
 }
 function getRequestedRoleLabel(role){
-  return role==='admin'?'관리자':role==='manager'?'매니저':role==='member'?'멤버':role==='observer'?'Observer':'미지정';
+  if(!role)return '미지정';
+  return getRoleLabel(role);
 }
-function isApprovedRole(){return ['observer','member','manager','admin'].includes(currentRole);}
-function isObserverRole(){return currentRole==='observer';}
-function canManageCore(){return currentRole==='member'||currentRole==='manager'||currentRole==='admin';}
+function isApprovedRole(){return ['observer','staff','manager','team_lead','partner','admin'].includes(normalizeAppRole(currentRole));}
+function isObserverRole(){return normalizeAppRole(currentRole)==='observer';}
+function canManageCore(){return ['staff','manager','team_lead','partner','admin'].includes(normalizeAppRole(currentRole));}
 function canCreateIssueRole(){return isApprovedRole();}
 function canPostCommentsRole(){return isApprovedRole();}
-function roleIsAdmin(){return currentRole==='admin'||isAdmin===true;}
+function roleIsAdmin(){return normalizeAppRole(currentRole)==='admin'||isAdmin===true;}
 function canManagePortalSettings(){return roleIsAdmin();}
 function getAssignedMemberNames(clientId){
   return (clientAssignments||[])

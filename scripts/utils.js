@@ -7,7 +7,7 @@ function inferNameFromEmail(email){
     .trim();
 }
 
-const MEMBER_PERMISSION_OPTIONS=['admin','manager','member','observer'];
+const MEMBER_PERMISSION_OPTIONS=['admin','partner','team_lead','manager','staff','member','observer'];
 const MEMBER_TEAM_OPTIONS=['CPA Team','BPO Team','Management','System'];
 const MEMBER_RANK_OPTIONS=['Staff','Senior','Manager','Director','Partner','N/A'];
 
@@ -17,14 +17,19 @@ window.MEMBER_RANK_OPTIONS=MEMBER_RANK_OPTIONS;
 
 function normalizeMemberPermissionLevel(role){
   const normalized=String(role||'').trim().toLowerCase();
+  if(normalized==='team lead'||normalized==='team-lead')return 'team_lead';
+  if(normalized==='member')return 'staff';
   return MEMBER_PERMISSION_OPTIONS.includes(normalized)?normalized:'observer';
 }
 
 function getMemberPermissionLabel(role){
   const normalized=normalizeMemberPermissionLevel(role);
   if(normalized==='admin')return '관리자';
+  if(normalized==='partner')return 'Partner';
+  if(normalized==='team_lead')return 'Team Lead';
   if(normalized==='manager')return '매니저';
-  if(normalized==='member')return '멤버';
+  if(normalized==='staff')return 'Staff';
+  if(normalized==='member')return 'Staff';
   return 'Observer';
 }
 
