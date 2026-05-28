@@ -1082,7 +1082,7 @@ function getGanttViewRoleMeta(){
       sidebarSub:'목록에서 본 프로젝트를 다시 선택해 하단 상세로 이어갑니다.',
       mainTitle:'프로젝트 비교 목록',
       mainCopy:'프로젝트 단위로만 비교하고, 개인 일정은 여기 섞지 않습니다. 세부 관리와 조정은 하단 상세의 Work 탭에서 이어집니다.',
-      detailPlaceholder:'위 목록에서 프로젝트를 선택하면 Overview / Work / Issues / Memo가 여기에서 열립니다. 실제 업무 관리는 Work 탭에서 이어집니다.',
+      detailPlaceholder:'위 목록에서 프로젝트를 선택하면 Overview / Work / Issues / 메모가 여기에서 열립니다. 실제 업무 관리는 Work 탭에서 이어집니다.',
       supportCue:''
     };
   }
@@ -3196,7 +3196,7 @@ function renderGanttDetailTabBar(){
     {key:'issues',label:'Issues'},
     {key:'checklist',label:'Checklist'},
     {key:'qc',label:'QC'},
-    {key:'memo',label:'Memo'},
+    {key:'memo',label:'메모'},
     {key:'documents',label:'산출물'}
   ];
   return '<div class="gantt-detail-tabbar">'
@@ -5778,12 +5778,12 @@ function renderGanttProjectMemoSummarySection(project){
   return ''
     +'<div class="gantt-detail-section gantt-overview-section">'
       +'<div class="gantt-detail-section-head">'
-        +'<div><div class="gantt-panel-title">프로젝트 메모</div><div class="gantt-detail-meta">최근 메모와 후속 기록을 빠르게 확인하고, 필요하면 Memo / 산출물 탭으로 이어집니다.</div></div>'
-        +'<div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">Memo / 산출물 탭</button></div>'
+        +'<div><div class="gantt-panel-title">프로젝트 메모</div><div class="gantt-detail-meta">최근 메모와 후속 기록을 빠르게 확인하고, 필요하면 메모 / 산출물 탭으로 이어집니다.</div></div>'
+        +'<div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">메모 / 산출물 탭</button></div>'
       +'</div>'
       +(memoEntries.length
         ?'<div class="gantt-detail-note-grid">'+memoEntries.map(entry=>'<button type="button" class="gantt-detail-note-card" onclick="openProjModal(\''+project.id+'\',null,null,\''+entry.tab+'\')"><div class="gantt-detail-note-label">'+esc(entry.label)+'</div><div class="gantt-detail-note-text">'+esc(entry.value)+'</div></button>').join('')+'</div>'
-        :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">아직 남겨둔 프로젝트 메모가 없습니다.</div><div class="gantt-detail-meta">간단한 운영 메모나 후속 메모를 먼저 남기고, 더 자세한 기록은 Memo / 산출물 탭에서 이어가면 됩니다.</div><div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">Memo / 산출물 탭</button></div></div>')
+        :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">아직 남겨둔 프로젝트 메모가 없습니다.</div><div class="gantt-detail-meta">간단한 운영 메모나 후속 메모를 먼저 남기고, 더 자세한 기록은 메모 / 산출물 탭에서 이어가면 됩니다.</div><div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">메모 / 산출물 탭</button></div></div>')
     +'</div>';
 }
 
@@ -7749,7 +7749,7 @@ function renderGanttProjectOutputSection(project){
 }
 
 function renderGanttProjectDocumentsSection(project){
-  return renderGanttProjectOutputSection(project)+renderGanttProjectMemoSection(project);
+  return renderGanttProjectOutputSection(project);
 }
 
 let ganttChecklistTemplates=[];
