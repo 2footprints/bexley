@@ -3422,13 +3422,9 @@ function createWeeklyReviewThisWeekActionTableItem(item,actionLabel,options={}){
     actionHint:options.actionHint||item?.actionHint||'연결 화면에서 이번 주 후속 조치를 확인하세요.'
   };
 }
-function createWeeklyReviewCompletedTaskItem(task,projectOutputs=[]){
+function createWeeklyReviewCompletedTaskItem(task){
   const project=getWeeklyReviewProjectById(task?.project_id);
   const basisDate=getWeeklyReviewTaskCompletionBasisDate(task);
-  const linkedOutputs=(projectOutputs||[]).filter(output=>
-    String(output?.task_id||'')===String(task?.id||'')
-    ||String(output?.project_id||'')===String(task?.project_id||'')
-  ).slice(0,2);
   const taskId=String(task?.id||'');
   const projectId=String(task?.project_id||'');
   return {
@@ -3437,7 +3433,6 @@ function createWeeklyReviewCompletedTaskItem(task,projectOutputs=[]){
     taskId,
     projectId,
     _task:task,
-    _linkedOutputs:linkedOutputs,
     title:String(task?.title||'완료 업무'),
     contextLabel:getWeeklyReviewProjectContextLabel(project),
     preTitleHtml:renderWeeklyReviewTaskBreadcrumb(task,project),
@@ -3493,6 +3488,11 @@ function renderWeeklyReviewOutputsMarkup(outputs,taskRows=[]){
     +'<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button type="button" class="btn sm ghost" onclick="openWeeklyReviewOutputModal()" style="font-size:12px">+ 산출물 링크 추가</button></div>'
     +listHtml
   +'</div>';
+}
+function renderWeeklyReviewIncludedOutputsMarkup(outputs,taskRows=[]){
+  const rows=Array.isArray(outputs)?outputs:[];
+  if(!rows.length)return '<div class="weekly-review-empty">회의 포함으로 체크된 산출물이 없습니다.</div>';
+  return '<div class="wr-output-featured">'+renderWeeklyReviewOutputRows(rows,taskRows)+'</div>';
 }
 function groupWeeklyReviewOutputsByProject(outputs=[]){
   const map=new Map();
@@ -4308,9 +4308,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
         title:'이번 주 회의 포함 산출물',
         variant:'html',
         countLabel:formatWeeklyReviewCount(includedOutputs.length),
-        html:includedOutputs.length
-          ?renderWeeklyReviewOutputRows(includedOutputs,data.taskRows||[])
-          :'<div class="weekly-review-empty">회의 포함으로 체크된 산출물이 없습니다.</div>'
+        html:renderWeeklyReviewIncludedOutputsMarkup(includedOutputs,data.taskRows||[])
       },
       {
         title:'프로젝트별 산출물',
@@ -4470,7 +4468,7 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
   const completedTaskItems=(data.taskRows||[])
     .filter(task=>isWeeklyReviewCompletedTaskInRange(task,reviewBounds.start,reviewBounds.end))
     .sort((a,b)=>getWeeklyReviewTimestamp(getWeeklyReviewTaskCompletionBasisDate(b))-getWeeklyReviewTimestamp(getWeeklyReviewTaskCompletionBasisDate(a)))
-    .map(task=>createWeeklyReviewCompletedTaskItem(task,includedOutputs));
+    .map(task=>createWeeklyReviewCompletedTaskItem(task));
   const riskTotal=overdueItems.length+urgentIssueItems.length+overdueTaskItems.length;
   const completedTotal=completedTaskItems.length;
   const nextTotal=nextEndItems.length+nextStartItems.length;
@@ -4493,7 +4491,7 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
       badge:'실적',
       value:formatWeeklyReviewCount(completedTotal),
       helper:completedTotal
-        ?'이번 주 완료 처리된 업무와 산출물을 함께 공유하세요.'
+        ?'이번 주 완료 처리된 업무를 공유하세요.'
         :'이번 주 완료된 업무가 없습니다.',
       meta:`완료 태스크 ${completedTaskItems.length}건 · 미청구 ${unbilledItems.length}건`,
       tone:completedTotal?'success':''
@@ -4537,9 +4535,9 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
     ];
   }
   if(completedSection){
-    completedSection.title='2. 완료 업무 및 산출물';
-    completedSection.sub='이번 주 완료된 프로젝트와 업무를 공유하고, 관련 산출물을 함께 정리합니다.';
-    completedSection.collapsedSummary=`완료 업무 ${completedTaskItems.length}건 · 회의 포함 산출물 ${includedOutputs.length}건`;
+    completedSection.title='2. 완료 업무';
+    completedSection.sub='이번 주 완료된 업무만 모아 진행 결과와 후속 영향을 확인합니다.';
+    completedSection.collapsedSummary=`완료 업무 ${completedTaskItems.length}건`;
     completedSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
       {label:'프로젝트 관리',action:"setPage('gantt')"}
     ]);
@@ -4550,24 +4548,15 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
         countLabel:formatWeeklyReviewCount(completedTaskItems.length),
         html:completedTaskItems.length
             ?completedTaskItems.map(item=>{
-              const outputs=item._linkedOutputs||[];
               const task=item._task||{};
               const project=getWeeklyReviewProjectById(item.projectId||task?.project_id);
               const commentTarget=getWeeklyReviewCommentTargetFromItem(item);
-              const outputHtml=outputs.length
-                ?outputs.map(output=>
-                    '<a href="'+esc(output.onedrive_url||'#')+'" target="_blank" rel="noopener" class="wr-output-link" onclick="event.stopPropagation()">'
-                    +'<span class="wr-output-icon">📎</span>'+esc(output.title||'산출물 링크')
-                    +'</a>'
-                  ).join('')
-                :'<span class="wr-output-none">산출물 미등록</span>';
               const detailAction="openWeeklyReviewProjectTaskModal('"+getWeeklyReviewJsString(item.projectId||task?.project_id||'')+"','"+getWeeklyReviewJsString(item.taskId||task?.id||'')+"')";
               return '<div class="wr-completed-card" role="button" tabindex="0" onclick="'+detailAction+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+detailAction+';}">'
                 +'<div class="wr-completed-card-main">'
                   +renderWeeklyReviewTaskBreadcrumb(task,project)
                   +'<div class="wr-completed-card-title">'+esc(item.title||'')+'</div>'
                   +renderWeeklyReviewTaskCardMeta(task)
-                  +'<div class="wr-completed-card-outputs">'+outputHtml+'</div>'
                   +renderWeeklyReviewItemCommentBadges(commentTarget)
                 +'</div>'
                 +'<div class="wr-completed-card-side">'
@@ -4579,15 +4568,6 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
               +'</div>';
             }).join('')
           :'<div class="weekly-review-empty">이번 주에 완료된 업무가 없습니다.</div>'
-      },
-      {
-        title:'미연결 산출물',
-        variant:'html',
-        countLabel:formatWeeklyReviewCount(includedOutputs.filter(output=>!output.task_id).length),
-        html:renderWeeklyReviewOutputsMarkup(
-          includedOutputs.filter(output=>!output.task_id),
-          data.taskRows||[]
-        )
       }
     ];
   }
@@ -4604,9 +4584,7 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
         title:'이번 주 회의 포함 산출물',
         variant:'html',
         countLabel:formatWeeklyReviewCount(includedOutputs.length),
-        html:includedOutputs.length
-          ?renderWeeklyReviewOutputRows(includedOutputs,data.taskRows||[])
-          :'<div class="weekly-review-empty">회의 포함으로 체크된 산출물이 없습니다.</div>'
+        html:renderWeeklyReviewIncludedOutputsMarkup(includedOutputs,data.taskRows||[])
       },
       {
         title:'프로젝트별 산출물',

@@ -1173,6 +1173,12 @@ body{
   flex-direction:column!important;
   gap:10px!important;
 }
+#pageWeeklyReview .wr-output-featured{
+  border:1px solid rgba(37,99,235,.18)!important;
+  border-radius:14px!important;
+  background:#F8FBFF!important;
+  padding:10px!important;
+}
 #pageWeeklyReview .wr-output-item{
   gap:12px!important;
 }
@@ -2135,11 +2141,6 @@ textarea::placeholder,
 .wr-completed-card-main{flex:1;min-width:0}
 .wr-completed-card-context{font-size:11px;color:var(--color-text-muted);margin-bottom:3px}
 .wr-completed-card-title{font-size:13px;font-weight:600;color:var(--color-primary);margin-bottom:6px}
-.wr-completed-card-outputs{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.wr-output-link{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--color-info);text-decoration:none;padding:3px 8px;border-radius:var(--radius-sm);background:var(--color-bg);border:0.5px solid var(--color-border)}
-.wr-output-link:hover{border-color:var(--color-info);background:var(--color-bg-info,#EDF3FF)}
-.wr-output-icon{font-size:12px}
-.wr-output-none{font-size:11px;color:var(--color-text-muted)}
 .wr-completed-card-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
 .wr-completed-card-date{font-size:11px;color:var(--color-text-muted)}
 

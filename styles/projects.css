@@ -5298,6 +5298,7 @@ td{
   border-radius:12px;
   background:var(--bg);
   padding:12px;
+  cursor:pointer;
 }
 #pageGantt .gantt-output-row.is-active{
   border-color:var(--blue);
@@ -5308,7 +5309,6 @@ td{
 }
 #pageGantt .gantt-output-main{
   min-width:0;
-  cursor:pointer;
 }
 #pageGantt .gantt-output-title{
   color:var(--navy);
@@ -5340,6 +5340,9 @@ td{
   justify-content:flex-end;
   flex-wrap:wrap;
   gap:6px;
+}
+#pageGantt .gantt-output-actions .gantt-output-qc-request-btn{
+  box-shadow:0 6px 14px rgba(37,99,235,.16);
 }
 #pageGantt .gantt-output-review-pill{
   display:inline-flex;
@@ -5391,6 +5394,7 @@ td{
 #pageGantt .gantt-output-review-panel{
   border-top:1px solid var(--border);
   padding-top:10px;
+  cursor:default;
 }
 #pageGantt .gantt-output-modal textarea{
   width:100%;

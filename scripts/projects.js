@@ -7487,6 +7487,8 @@ function openGanttQcRequestModal(projectId,outputId){
 async function requestGanttQcReview(projectId,outputId){
   const reviewerId=String(document.getElementById('ganttQcReviewerSelect')?.value||'').trim();
   const partnerReview=!!document.getElementById('ganttQcPartnerReview')?.checked;
+  const state=getGanttProjectQcState(projectId);
+  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''))||null;
   if(!reviewerId){
     alert('리뷰어를 선택해 주세요.');
     return;
@@ -7509,11 +7511,44 @@ async function requestGanttQcReview(projectId,outputId){
       comment:'QC 요청',
       is_coaching_note:false
     });
+    await createGanttQcRequestNotification(projectId,output,reviewerId);
     closeModal();
     delete ganttProjectQcByProjectId[String(projectId)];
     await loadGanttProjectQc(projectId,true);
   }catch(error){
     alert('QC 요청 저장에 실패했습니다. '+(error?.message||error));
+  }
+}
+
+async function createGanttQcRequestNotification(projectId,output,reviewerId){
+  const reviewer=(members||[]).find(member=>String(member?.id||'')===String(reviewerId||''))||null;
+  const title=String(output?.title||'산출물');
+  const message='['+title+'] QC 요청이 들어왔습니다.';
+  try{
+    await api('POST','notifications',{
+      recipient_id:reviewerId,
+      message,
+      type:'qc_request',
+      link:projectId,
+      is_read:false
+    });
+  }catch(error){
+    if(!reviewer?.auth_user_id){
+      console.warn('QC request notification failed',error);
+      return;
+    }
+    try{
+      await api('POST','notifications',{
+        user_id:reviewer.auth_user_id,
+        message,
+        type:'qc_request',
+        link_type:'project',
+        link_id:projectId,
+        is_read:false
+      });
+    }catch(fallbackError){
+      console.warn('QC request notification fallback failed',fallbackError);
+    }
   }
 }
 
@@ -7700,8 +7735,8 @@ function renderGanttOutputRow(projectId,output){
   const qcRequired=output?.qc_required!==false;
   const reviews=getGanttProjectQcState(projectId).reviews||[];
   return ''
-    +'<div class="gantt-output-row'+(active?' is-active':'')+(qcRequired?'':' is-qc-not-required')+'" data-qc-output="'+esc(outputId)+'">'
-      +'<div class="gantt-output-main" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+outputId+'\')">'
+    +'<div class="gantt-output-row'+(active?' is-active':'')+(qcRequired?'':' is-qc-not-required')+'" data-qc-output="'+esc(outputId)+'" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+outputId+'\')">'
+      +'<div class="gantt-output-main">'
         +'<div class="gantt-output-title">'+esc(output?.title||'산출물명 없음')+'</div>'
         +(output?.memo?'<div class="gantt-output-memo">'+esc(output.memo)+'</div>':'')
         +'<div class="gantt-output-meta">'
@@ -7711,17 +7746,17 @@ function renderGanttOutputRow(projectId,output){
         +'</div>'
       +'</div>'
       +'<div class="gantt-output-status">'
-        +'<span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>'
+        +(qcRequired?'<span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>':'')
         +(output?.requires_partner_review?'<span class="gantt-qc-partner-pill">파트너 리뷰 필요</span>':'')
         +(qcRequired?'':'<span class="gantt-qc-muted-pill">QC 불필요</span>')
-        +'<label class="gantt-output-review-toggle '+(output?.share_in_weekly_review?'is-on':'is-off')+'"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span></label>'
+        +'<label class="gantt-output-review-toggle '+(output?.share_in_weekly_review?'is-on':'is-off')+'" onclick="event.stopPropagation()"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span></label>'
       +'</div>'
       +'<div class="gantt-output-actions">'
-        +(link?'<button type="button" class="btn ghost sm" data-url="'+esc(link)+'" onclick="openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
-        +(qcRequired&&status==='none'?'<button type="button" class="btn sm" onclick="openGanttQcRequestModal(\''+projectId+'\',\''+outputId+'\')">QC 요청</button>':'')
-        +'<button type="button" class="btn ghost sm" onclick="deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button>'
+        +(link?'<button type="button" class="btn ghost sm" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
+        +(qcRequired&&status==='none'?'<button type="button" class="btn primary sm gantt-output-qc-request-btn" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+outputId+'\')">QC 요청</button>':'')
+        +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button>'
       +'</div>'
-      +(active?'<div class="gantt-output-review-panel">'
+      +(active?'<div class="gantt-output-review-panel" onclick="event.stopPropagation()">'
         +(canReview?'<div class="gantt-qc-review-form"><textarea id="ganttQcReviewComment_'+esc(outputId)+'" rows="3" placeholder="QC 코멘트를 입력하세요."></textarea><div class="gantt-qc-review-form-actions"><label class="checkbox-row"><input type="checkbox" id="ganttQcCoaching_'+esc(outputId)+'"><span>코칭노트</span></label><div><button type="button" class="btn ghost sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+outputId+'\',\'revision_requested\')">수정요청</button><button type="button" class="btn primary sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+outputId+'\',\'approved\')">승인</button></div></div></div>':'<div class="gantt-qc-history-empty">리뷰어 또는 관리자만 코멘트를 입력할 수 있습니다.</div>')
         +renderGanttQcReviewHistory(outputId,reviews)
       +'</div>':'')
