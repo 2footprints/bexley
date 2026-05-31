@@ -1454,7 +1454,31 @@ input,textarea{border-radius:12px!important}
 #pageMySchedule .my-schedule-title{font-size:22px;font-weight:900;color:var(--navy);letter-spacing:-.4px}
 #pageMySchedule .my-schedule-sub{margin-top:4px;color:var(--text3);font-size:13px}
 #pageMySchedule .my-schedule-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#pageMySchedule .my-schedule-toolbar-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#pageMySchedule .my-schedule-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#pageMySchedule .my-schedule-summary-card{border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:12px;background:var(--card);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+#pageMySchedule .my-schedule-summary-card span{font-size:12px;color:var(--text3);font-weight:750}
+#pageMySchedule .my-schedule-summary-card strong{font-size:20px;color:var(--navy);font-weight:900}
+#pageMySchedule .my-schedule-view-toggle{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg)}
+#pageMySchedule .my-schedule-view-toggle button{border:0;background:transparent;color:var(--text2);font-weight:850;font-size:12px;padding:8px 12px;cursor:pointer}
+#pageMySchedule .my-schedule-view-toggle button.active{background:var(--navy);color:#fff}
+#pageMySchedule .my-schedule-calendar-nav{display:flex;align-items:center;gap:8px;color:var(--navy)}
+#pageMySchedule .my-schedule-calendar-nav strong{min-width:92px;text-align:center;font-size:14px}
 #pageMySchedule .my-schedule-filters{display:flex;gap:8px;flex-wrap:wrap}
+#pageMySchedule .my-schedule-calendar{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card)}
+#pageMySchedule .my-schedule-calendar-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border)}
+#pageMySchedule .my-schedule-calendar-head span{padding:10px 8px;text-align:center;font-size:12px;font-weight:850;color:var(--text2)}
+#pageMySchedule .my-schedule-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+#pageMySchedule .my-schedule-day{min-height:118px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:8px;background:var(--card);overflow:hidden}
+#pageMySchedule .my-schedule-day:nth-child(7n){border-right:0}
+#pageMySchedule .my-schedule-day:nth-last-child(-n+7){border-bottom:0}
+#pageMySchedule .my-schedule-day.is-outside{background:rgba(148,163,184,.08);color:var(--text3)}
+#pageMySchedule .my-schedule-day.is-today{box-shadow:inset 0 0 0 2px rgba(37,99,235,.25)}
+#pageMySchedule .my-schedule-day-number{font-size:12px;font-weight:900;color:var(--navy);margin-bottom:6px}
+#pageMySchedule .my-schedule-calendar-items{display:flex;flex-direction:column;gap:5px}
+#pageMySchedule .my-schedule-calendar-item{width:100%;border:1px solid var(--border);border-left:4px solid var(--schedule-color);border-radius:8px;background:#fff;padding:5px 7px;text-align:left;cursor:pointer;min-width:0}
+#pageMySchedule .my-schedule-calendar-item span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:850;color:var(--navy)}
+#pageMySchedule .my-schedule-calendar-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;font-size:10px;color:var(--text3)}
 #pageMySchedule .my-schedule-list{display:flex;flex-direction:column;gap:10px}
 #pageMySchedule .my-schedule-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:14px;background:var(--card);padding:14px}
 #pageMySchedule .my-schedule-main{min-width:0}
@@ -1467,6 +1491,7 @@ input,textarea{border-radius:12px!important}
 #pageMySchedule .my-schedule-participants{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
 #pageMySchedule .my-schedule-participants span{font-size:11px;font-weight:750;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px 8px}
 .my-schedule-modal .my-schedule-member-select{min-height:120px}
+@media(max-width:900px){#pageMySchedule .my-schedule-summary-grid{grid-template-columns:1fr}#pageMySchedule .my-schedule-calendar{overflow-x:auto}#pageMySchedule .my-schedule-calendar-head,#pageMySchedule .my-schedule-calendar-grid{min-width:720px}}
 @media(max-width:760px){#pageMySchedule .my-schedule-card{grid-template-columns:1fr}#pageMySchedule .my-schedule-actions{justify-content:flex-start}}
 </style>
 
@@ -1571,10 +1596,10 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navHome" onclick="setPage('home')">홈<span id="teamNoticeDot" class="notif-dot" style="display:none"></span></button>
       <button class="nav-btn" id="navGantt" onclick="setPage('gantt')">프로젝트</button>
       <button class="nav-btn" id="navIssues" onclick="setPage('issues')">이슈</button>
+      <button class="nav-btn" id="navMySchedule" onclick="setPage('mySchedule')">일정</button>
       <button class="nav-btn" id="navWeeklyReview" onclick="setPage('weeklyReview')">주간리뷰</button>
       <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
-      <button class="nav-btn" id="navMySchedule" onclick="setPage('mySchedule')">내 일정</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
     </nav>
 
@@ -1610,10 +1635,10 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavHome" onclick="setPage('home');closeMobileMenu()">홈</button>
     <button class="nav-btn" id="mNavGantt" onclick="setPage('gantt');closeMobileMenu()">프로젝트</button>
     <button class="nav-btn" id="mNavIssues" onclick="setPage('issues');closeMobileMenu()">이슈</button>
+    <button class="nav-btn" id="mNavMySchedule" onclick="setPage('mySchedule');closeMobileMenu()">일정</button>
     <button class="nav-btn" id="mNavWeeklyReview" onclick="setPage('weeklyReview');closeMobileMenu()">주간리뷰</button>
     <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">거래처</button>
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">계약</button>
-    <button class="nav-btn" id="mNavMySchedule" onclick="setPage('mySchedule');closeMobileMenu()">내 일정</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">고객사 페이지</button>
@@ -1840,7 +1865,7 @@ input,textarea{border-radius:12px!important}
             </div>
             <div class="gantt-toolbar-zone gantt-toolbar-zone--actions" id="ganttToolbarActions" data-group-label="작업">
               <input type="hidden" id="memberFilter" value="">
-              <button class="btn sm" id="scheduleAddBtn" onclick="setPage('mySchedule')">내 일정 관리</button>
+              <button class="btn sm" id="scheduleAddBtn" onclick="setPage('mySchedule')">일정 관리</button>
               <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
             </div>
           </div>
