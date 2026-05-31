@@ -2795,7 +2795,7 @@ function renderGanttViewSettingsBar(){
     groups.push(
       '<div class="gantt-view-settings-group">'
         +'<div class="gantt-view-settings-label">일정</div>'
-        +'<button type="button" class="btn sm" onclick="openScheduleModal()">+ 개인 일정</button>'
+        +'<button type="button" class="btn sm" onclick="setPage(\'mySchedule\')">내 일정 관리</button>'
       +'</div>'
     );
   }else{
@@ -2830,7 +2830,7 @@ function renderGanttViewSettingsBar(){
     groups.push(
       '<div class="gantt-view-settings-group">'
         +'<div class="gantt-view-settings-label">일정</div>'
-        +'<button type="button" class="btn sm" onclick="openScheduleModal()">+ 개인 일정</button>'
+        +'<button type="button" class="btn sm" onclick="setPage(\'mySchedule\')">내 일정 관리</button>'
       +'</div>'
     );
   }

@@ -1448,6 +1448,28 @@ input,textarea{border-radius:12px!important}
 }
 </style>
 
+<style>
+#pageMySchedule .my-schedule-shell{display:flex;flex-direction:column;gap:14px}
+#pageMySchedule .my-schedule-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#pageMySchedule .my-schedule-title{font-size:22px;font-weight:900;color:var(--navy);letter-spacing:-.4px}
+#pageMySchedule .my-schedule-sub{margin-top:4px;color:var(--text3);font-size:13px}
+#pageMySchedule .my-schedule-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#pageMySchedule .my-schedule-filters{display:flex;gap:8px;flex-wrap:wrap}
+#pageMySchedule .my-schedule-list{display:flex;flex-direction:column;gap:10px}
+#pageMySchedule .my-schedule-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:14px;background:var(--card);padding:14px}
+#pageMySchedule .my-schedule-main{min-width:0}
+#pageMySchedule .my-schedule-card-title{font-size:15px;font-weight:850;color:var(--navy);line-height:1.4}
+#pageMySchedule .my-schedule-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px;color:var(--text3);font-size:12px}
+#pageMySchedule .my-schedule-note{margin-top:8px;color:var(--text2);font-size:13px;line-height:1.55;white-space:pre-wrap}
+#pageMySchedule .my-schedule-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+#pageMySchedule .my-schedule-empty{padding:34px 16px;text-align:center;color:var(--text3);border:1px dashed var(--border);border-radius:14px;background:var(--bg)}
+#pageMySchedule .my-schedule-badge{display:inline-flex;align-items:center;min-height:22px;padding:3px 8px;border-radius:999px;background:var(--bg);border:1px solid var(--border);font-size:11px;font-weight:800;color:var(--text2)}
+#pageMySchedule .my-schedule-participants{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+#pageMySchedule .my-schedule-participants span{font-size:11px;font-weight:750;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px 8px}
+.my-schedule-modal .my-schedule-member-select{min-height:120px}
+@media(max-width:760px){#pageMySchedule .my-schedule-card{grid-template-columns:1fr}#pageMySchedule .my-schedule-actions{justify-content:flex-start}}
+</style>
+
 
   
 <link rel="stylesheet" href="styles/home.css">
@@ -1552,6 +1574,7 @@ input,textarea{border-radius:12px!important}
       <button class="nav-btn" id="navWeeklyReview" onclick="setPage('weeklyReview')">주간리뷰</button>
       <button class="nav-btn" id="navClients" onclick="setPage('clients')">거래처</button>
       <button class="nav-btn" id="navContracts" onclick="setPage('contracts')">계약</button>
+      <button class="nav-btn" id="navMySchedule" onclick="setPage('mySchedule')">내 일정</button>
       <button class="nav-btn" id="navAdmin" style="display:none" onclick="setPage('admin')">관리</button>
     </nav>
 
@@ -1590,6 +1613,7 @@ input,textarea{border-radius:12px!important}
     <button class="nav-btn" id="mNavWeeklyReview" onclick="setPage('weeklyReview');closeMobileMenu()">주간리뷰</button>
     <button class="nav-btn" id="mNavClients" onclick="setPage('clients');closeMobileMenu()">거래처</button>
     <button class="nav-btn" id="mNavContracts" onclick="setPage('contracts');closeMobileMenu()">계약</button>
+    <button class="nav-btn" id="mNavMySchedule" onclick="setPage('mySchedule');closeMobileMenu()">내 일정</button>
     <button class="nav-btn" id="mNavAdmin" style="display:none" onclick="setPage('admin');closeMobileMenu()">관리</button>
     <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mPortalBtn" class="btn sm" style="display:none;font-size:11px" onclick="openPortalManager();closeMobileMenu()">고객사 페이지</button>
@@ -1816,7 +1840,7 @@ input,textarea{border-radius:12px!important}
             </div>
             <div class="gantt-toolbar-zone gantt-toolbar-zone--actions" id="ganttToolbarActions" data-group-label="작업">
               <input type="hidden" id="memberFilter" value="">
-              <button class="btn sm" id="scheduleAddBtn" onclick="openScheduleModal()">+ 개인 일정</button>
+              <button class="btn sm" id="scheduleAddBtn" onclick="setPage('mySchedule')">내 일정 관리</button>
               <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
             </div>
           </div>
@@ -1849,6 +1873,8 @@ input,textarea{border-radius:12px!important}
         <section class="gantt-detail" id="ganttDetail"></section>
       </div>
     </div>
+
+    <div id="pageMySchedule" style="display:none"></div>
 
     <div id="pageWeeklyReview" style="display:none"></div>
 
@@ -1998,6 +2024,7 @@ window.addEventListener('DOMContentLoaded',function(){
 <script src="scripts/admin.js"></script>
 <script src="scripts/document-requests.js"></script>
 <script src="scripts/projects.js"></script>
+<script src="scripts/my-schedule.js"></script>
 <script src="scripts/weekly-review.js"></script>
 
 <script>
@@ -2417,6 +2444,8 @@ const SCHEDULE_META={
   review:{label:'검토',color:'#B6C0CE'},
   leave:{label:'휴가',color:'#C8B28A'},
   fieldwork:{label:'필드웍',color:'#9AA7B6'},
+  personal:{label:'개인',color:'#8B9BB4'},
+  personal_schedule:{label:'개인',color:'#8B9BB4'},
   internal:{label:'기타',color:'#A8B0BA'},
   project:{label:'프로젝트 일정',color:'#6366F1'}
 };
@@ -3214,20 +3243,21 @@ function setPage(page, extra) {
   if (page === 'projects') page = 'gantt';
   if (page === 'team') page = 'home';
   if (page === 'weekly') page = 'weeklyReview';
+  if (page === 'schedule') page = 'mySchedule';
   if (page === 'fun') page = 'home';
   curPage = page;
 
   [
     'pageClients','pageDetail','pageContract','pageContracts',
-    'pageIssues','pageTeam','pageGantt','pageWeeklyReview','pageAdmin','pageFun'
+    'pageIssues','pageTeam','pageGantt','pageMySchedule','pageWeeklyReview','pageAdmin','pageFun'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
   [
-    'navHome','navGantt','navIssues','navClients','navContracts','navWeeklyReview','navAdmin',
-    'mNavHome','mNavGantt','mNavIssues','mNavClients','mNavContracts','mNavWeeklyReview','mNavAdmin'
+    'navHome','navGantt','navIssues','navClients','navContracts','navMySchedule','navWeeklyReview','navAdmin',
+    'mNavHome','mNavGantt','mNavIssues','mNavClients','mNavContracts','mNavMySchedule','mNavWeeklyReview','mNavAdmin'
   ].forEach(id => document.getElementById(id)?.classList.remove('active'));
 
   const headerLogo=document.querySelector('.header-logo');
@@ -3239,6 +3269,7 @@ function setPage(page, extra) {
     detail:'pageDetail',
     contract:'pageContract',
     contracts:'pageContracts',
+    mySchedule:'pageMySchedule',
     gantt:'pageGantt',
     weeklyReview:'pageWeeklyReview',
     admin:'pageAdmin',
@@ -3250,6 +3281,7 @@ function setPage(page, extra) {
     issues:['navIssues','mNavIssues'],
     clients:['navClients','mNavClients'],
     contracts:['navContracts','mNavContracts'],
+    mySchedule:['navMySchedule','mNavMySchedule'],
     gantt:['navGantt','mNavGantt'],
     weeklyReview:['navWeeklyReview','mNavWeeklyReview'],
     admin:['navAdmin','mNavAdmin']
@@ -3278,6 +3310,8 @@ function setPage(page, extra) {
       renderIssuesPage();
     } else if (page === 'gantt') {
       renderGantt();
+    } else if (page === 'mySchedule') {
+      renderMySchedulePage();
     } else if (page === 'weeklyReview') {
       renderWeeklyReviewPage();
     } else if (page === 'admin') {
@@ -5101,7 +5135,8 @@ async function deleteProjectComment(commentId,projectId){
 function openScheduleModal(eid){
   if(!eid&&!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   const s=eid?schedules.find(x=>x.id===eid):null;
-  const editable=!s||isAdmin||s.created_by===currentUser?.id;
+  let editable=!s||isAdmin||s.created_by===currentUser?.id;
+  if(curPage==='gantt'&&s)editable=false;
   const supportsProjectLink=scheduleSupportsProjectLink(s);
   const selectedProjectId=supportsProjectLink?String(s?.project_id||''):'';
   scheduleFormMembers=s?getScheduleMemberNames(s):(currentMember?.name?[currentMember.name]:[]);
