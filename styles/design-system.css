@@ -1179,6 +1179,9 @@ body{
   background:#F8FBFF!important;
   padding:10px!important;
 }
+#pageWeeklyReview .weekly-review-top-comments{
+  margin-top:14px!important;
+}
 #pageWeeklyReview .wr-output-item{
   gap:12px!important;
 }
@@ -2123,14 +2126,6 @@ textarea::placeholder,
 .wr-nw-field-date{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
 .wr-nw-new-item{margin-bottom:8px;padding-bottom:8px;border-bottom:0.5px solid var(--color-border)}
 .wr-nw-new-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
-.wr-nw-member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
-.wr-nw-member-card{background:var(--color-bg);border:0.5px solid var(--color-border);border-radius:var(--radius-md);padding:10px;text-align:center}
-.wr-nw-member-name{font-size:11px;color:var(--color-text-muted);margin-bottom:4px}
-.wr-nw-member-status{font-size:16px;font-weight:700;margin-bottom:2px}
-.wr-nw-member-load{font-size:10px;color:var(--color-text-muted)}
-.wr-nw-member--ok{color:var(--color-success)}
-.wr-nw-member--warn{color:var(--color-danger)}
-.wr-nw-member--field{color:var(--color-warning)}
 @media(max-width:768px){.wr-nw-three-col{grid-template-columns:1fr}.wr-nw-deadline-header,.wr-nw-deadline-row{grid-template-columns:2fr 60px 80px}}
 
 /* ── 완료 업무 카드 ── */

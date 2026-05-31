@@ -1015,11 +1015,19 @@ function hasWeeklyReviewMeetingContent(content){
 }
 function getWeeklyReviewMeetingSections(){
   return [
-    {key:'meeting_notes',label:'회의 메모',emptyText:'회의 중 논의한 주요 내용을 기록해 주세요.'},
-    {key:'decisions',label:'주요 결정사항',emptyText:'회의에서 확정된 주요 결정사항을 기록해 주세요.'},
-    {key:'action_items',label:'액션 아이템',emptyText:'담당자 / 기한 / 할 일을 기록해 주세요.'},
-    {key:'next_week_checks',label:'다음 주 확인사항',emptyText:'다음 주까지 확인이 필요한 항목을 기록해 주세요.'}
+    {key:'meeting_notes',label:'회의 메모',emptyText:'회의 중 논의한 내용을 자유롭게 기록해 주세요.'}
   ];
+}
+function getWeeklyReviewUnifiedMeetingText(content){
+  const parsed=typeof content==='string'?parseWeeklyReviewMeetingContent(content):(content||{});
+  const fields=[
+    {label:'회의 메모',value:parsed.meeting_notes,primary:true},
+    {label:'주요 결정사항',value:parsed.decisions},
+    {label:'액션 메모',value:parsed.action_items},
+    {label:'다음 주 확인사항',value:parsed.next_week_checks}
+  ].map(field=>({...field,value:String(field.value||'').trim()})).filter(field=>field.value);
+  if(!fields.length)return '';
+  return fields.map(field=>field.primary?field.value:(field.label+'\n'+field.value)).join('\n\n');
 }
 
 function getWeeklyReviewCurrentWeekStart(){
@@ -1447,28 +1455,20 @@ async function completeWeeklyReviewItemComment(commentKey,weekStart='',reviewId=
   alert('완료 처리할 팔로업을 찾지 못했습니다. 새로고침 후 다시 시도해주세요.');
 }
 function renderWeeklyReviewMeetingContentBlock(content){
-  const parsed=parseWeeklyReviewMeetingContent(content);
-  const html=getWeeklyReviewMeetingSections()
-    .map(section=>{
-      const value=String(parsed[section.key]||'').trim();
-      return ''
-      +'<div style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fff">'
-        +'<div style="font-size:11px;font-weight:800;color:var(--text3);margin-bottom:6px">'+esc(section.label)+'</div>'
-        +'<div style="font-size:12px;color:'+(value?'var(--text2)':'var(--text3)')+';line-height:1.7;white-space:pre-wrap;word-break:break-word">'+esc(value||section.emptyText)+'</div>'
-      +'</div>';
-    }).join('');
-  return html||'<div style="font-size:12px;color:var(--text3)">입력된 회의 메모가 없습니다.</div>';
+  const value=getWeeklyReviewUnifiedMeetingText(content);
+  return '<div style="font-size:12px;color:'+(value?'var(--text2)':'var(--text3)')+';line-height:1.7;white-space:pre-wrap;word-break:break-word">'
+    +esc(value||'입력된 회의 메모가 없습니다.')
+  +'</div>';
 }
 function renderWeeklyReviewMeetingFieldGroupMarkup(reviews,key,emptyText,isCurrentWeek=false){
   const isFinalized=weeklyReviewLastRenderPayload?.data?._snapshotMeta?.status==='finalized';
   const isEditable=isCurrentWeek&&!isFinalized;
   const currentReview=(reviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
   const currentParsed=parseWeeklyReviewMeetingContent(currentReview?.content||'');
-  const currentValue=String(currentParsed[key]||'');
+  const currentValue=getWeeklyReviewUnifiedMeetingText(currentParsed);
   const rows=(reviews||[])
     .map(review=>{
-      const parsed=parseWeeklyReviewMeetingContent(review?.content||'');
-      const value=String(parsed[key]||'').trim();
+      const value=getWeeklyReviewUnifiedMeetingText(review?.content||'').trim();
       return {review,value};
     })
     .filter(row=>row.value&&(!isEditable||row.review?.created_by!==currentUser?.id));
@@ -1480,7 +1480,7 @@ function renderWeeklyReviewMeetingFieldGroupMarkup(reviews,key,emptyText,isCurre
       +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
         +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(currentReview?.member_name||currentMember?.name||currentUser?.email||'익명')+'</div><div style="font-size:11px;color:var(--text3)">자동저장</div></div>'
       +'</div>'
-      +'<textarea id="wr-memo-'+esc(key)+'" class="wr-memo-textarea" rows="3" placeholder="'+esc(emptyText||'')+'" onblur="autoSaveWeeklyReviewMeetingField(this,\''+esc(key)+'\')">'+esc(currentValue)+'</textarea>'
+      +'<textarea id="wr-memo-meeting_notes" class="wr-memo-textarea" rows="7" placeholder="'+esc(emptyText||'')+'" onblur="autoSaveWeeklyReviewMeetingField(this,\'meeting_notes\')">'+esc(currentValue)+'</textarea>'
     +'</div>'
     :'';
   return '<div style="display:flex;flex-direction:column;gap:10px">'
@@ -1537,10 +1537,7 @@ function openWeeklyReviewMeetingMemoModal(reviewId=''){
     +overlayHtml
     +'<div class="modal ui-modal-600" style="width:600px">'
       +'<div class="modal-header"><div><div class="modal-title">'+(review?'회의 메모 수정':'회의 메모 작성')+'</div><div class="modal-sub">회의 중 기록할 내용, 결정사항, 후속 확인사항을 정리해 주세요.</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
-      +renderWeeklyReviewMeetingTextarea('weeklyReviewMeetingNotes','회의 메모',parsed.meeting_notes,'회의 중 논의한 주요 내용을 적어주세요.',4)
-      +renderWeeklyReviewMeetingTextarea('weeklyReviewDecisions','주요 결정사항',parsed.decisions,'이번 회의에서 확정된 사항을 적어주세요.',3)
-      +renderWeeklyReviewMeetingTextarea('weeklyReviewActionItems','액션 아이템',parsed.action_items,'담당자 / 기한 / 할 일을 적어주세요. 예: 김장한 / 5.10 / A사 자료 재요청',4)
-      +renderWeeklyReviewMeetingTextarea('weeklyReviewNextWeekChecks','다음 주 확인사항',parsed.next_week_checks,'다음 주 회의에서 다시 확인할 내용을 적어주세요.',3)
+      +renderWeeklyReviewMeetingTextarea('weeklyReviewMeetingNotes','회의 메모',getWeeklyReviewUnifiedMeetingText(parsed),'회의 중 논의한 내용을 자유롭게 적어주세요.',8)
       +'<div class="modal-footer"><div>'+deleteButtonHtml+'</div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveWeeklyReviewMeetingMemo(\''+reviewIdJs+'\')">저장</button></div></div>'
     +'</div></div>';
   if(typeof lockBodyScroll==='function')lockBodyScroll();
@@ -1551,9 +1548,9 @@ async function saveWeeklyReviewMeetingMemo(reviewId=''){
   const previousContent=parseWeeklyReviewMeetingContent(existing?.content||'');
   const contentData={
     meeting_notes:document.getElementById('weeklyReviewMeetingNotes')?.value||'',
-    decisions:document.getElementById('weeklyReviewDecisions')?.value||'',
-    action_items:document.getElementById('weeklyReviewActionItems')?.value||'',
-    next_week_checks:document.getElementById('weeklyReviewNextWeekChecks')?.value||'',
+    decisions:'',
+    action_items:'',
+    next_week_checks:'',
     item_comments:previousContent.item_comments||[]
   };
   const content=stringifyWeeklyReviewMeetingContent(contentData);
@@ -1607,13 +1604,10 @@ function getWeeklyReviewCachedKudosVotes(){
 function renderWeeklyReviewMeetingInlineForm(review){
   const parsed=parseWeeklyReviewMeetingContent(review?.content||'');
   const fields=[
-    {key:'meeting_notes',label:'회의 메모',rows:4,placeholder:'회의 중 논의한 주요 내용을 적어주세요.'},
-    {key:'decisions',label:'주요 결정사항',rows:3,placeholder:'이번 회의에서 확정된 사항을 적어주세요.'},
-    {key:'action_items',label:'액션 아이템',rows:4,placeholder:'담당자 / 기한 / 할 일을 적어주세요. 예: 김장한 / 5.10 / A사 자료 재요청'},
-    {key:'next_week_checks',label:'다음 주 확인사항',rows:3,placeholder:'다음 주 회의에서 다시 확인할 내용을 적어주세요.'}
+    {key:'meeting_notes',label:'회의 메모',rows:8,placeholder:'회의 중 논의한 내용을 자유롭게 적어주세요.',value:getWeeklyReviewUnifiedMeetingText(parsed)}
   ];
   return '<div class="wr-meeting-inline-form">'
-    +fields.map(f=>'<div class="wr-meeting-inline-field"><div class="wr-meeting-inline-label">'+esc(f.label)+'</div><textarea id="wrMemo_'+f.key+'" class="wr-meeting-inline-textarea" rows="'+f.rows+'" placeholder="'+esc(f.placeholder)+'">'+esc(parsed[f.key]||'')+'</textarea></div>').join('')
+    +fields.map(f=>'<div class="wr-meeting-inline-field"><div class="wr-meeting-inline-label">'+esc(f.label)+'</div><textarea id="wrMemo_'+f.key+'" class="wr-meeting-inline-textarea" rows="'+f.rows+'" placeholder="'+esc(f.placeholder)+'">'+esc(f.value||'')+'</textarea></div>').join('')
   +'</div>';
 }
 function buildWeeklyReviewCommentsSectionData(){
@@ -1645,9 +1639,9 @@ async function saveWeeklyReviewMeetingMemoInline(){
   const previousContent=parseWeeklyReviewMeetingContent(existing?.content||'');
   const contentData={
     meeting_notes:document.getElementById('wrMemo_meeting_notes')?.value||'',
-    decisions:document.getElementById('wrMemo_decisions')?.value||'',
-    action_items:document.getElementById('wrMemo_action_items')?.value||'',
-    next_week_checks:document.getElementById('wrMemo_next_week_checks')?.value||'',
+    decisions:'',
+    action_items:'',
+    next_week_checks:'',
     item_comments:previousContent.item_comments||[]
   };
   const content=stringifyWeeklyReviewMeetingContent(contentData);
@@ -4031,11 +4025,11 @@ renderWeeklyReviewModeToggleMarkup=function(){
 renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapshotMeta=null,data=null){
   const modeIsManagement=weeklyReviewMode==='management';
   const pageData=data||weeklyReviewLastRenderPayload?.data||{cards,sections,_snapshotMeta:snapshotMeta};
+  const commentsSection=(sections||[]).find(s=>s?.id==='comments');
   const bodyHtml=modeIsManagement
     ? '<div class="weekly-review-body-grid">'
         +(sections||[]).filter(s=>s?.id!=='comments').map(renderWeeklyReviewSectionMarkup).join('')
         +renderWeeklyReviewNextWeekSection(pageData)
-        +((sections||[]).find(s=>s?.id==='comments')?renderWeeklyReviewSectionMarkup((sections||[]).find(s=>s?.id==='comments')):'')
       +'</div>'
     : renderWeeklyReviewProjectMeetingView(pageData);
   const shellClass=modeIsManagement?' is-management-mode':' is-team-mode';
@@ -4064,6 +4058,7 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
       +'</div>'
       +renderWeeklyReviewSnapshotNotice(snapshotMeta)
       +renderWeeklyReviewOpenFollowups(pageData)
+      +(modeIsManagement&&commentsSection?'<div class="weekly-review-top-comments">'+renderWeeklyReviewSectionMarkup(commentsSection)+'</div>':'')
       +'<div class="weekly-review-grid">'
         +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
       +'</div>'
@@ -4596,19 +4591,13 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
   };
   if(commentsSection){
     const actionSnapshot=await getWeeklyReviewSnapshotAnyStatus(getWeekStart(offsetWeeks)).catch(()=>null);
-    const actionItems=Array.isArray(actionSnapshot?.snapshot_json?.action_items)?actionSnapshot.snapshot_json.action_items:[];
     const isFinalized=String(actionSnapshot?.status||'')==='finalized';
-    const weekStart=getWeekStart(offsetWeeks);
     const meetingSections=getWeeklyReviewMeetingSections();
-    commentsSection.title='4. 회의 메모';
-    commentsSection.sub='결정 사항, 코멘트, 액션 아이템을 회의 중 바로 기록합니다.';
-    commentsSection.collapsedSummary=`메모 ${commentCount}건 · 액션 ${actionItems.length}건`;
+    commentsSection.title='회의 메모';
+    commentsSection.sub='회의 중 논의한 내용을 한 곳에 자유롭게 기록합니다.';
+    commentsSection.collapsedSummary=`메모 ${commentCount}건`;
     commentsSection.groups=[
-      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
-      {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
-      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
-      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)},
-      {title:'액션 아이템',variant:'html',countLabel:formatWeeklyReviewCount(actionItems.length),html:renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized)}
+      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(data.weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,weeklyReviewWeekOffset===0&&!isFinalized)}
     ];
   }
   data._raw_nextWeekEnds=data.nextWeekEnds||[];
@@ -4758,19 +4747,15 @@ async function getWeeklyReviewSnapshotCommentsSection(weekStart,offsetWeeks=week
     console.warn('[weekly-review] snapshot comments load failed',error);
     return [];
   });
-  const meetingSections=getWeeklyReviewMeetingSections();
   const commentCount=(weeklyReviews||[]).length;
+  const meetingSections=getWeeklyReviewMeetingSections();
   const commentsSection={
     id:'comments',
-    title:'4. 회의 메모',
-    sub:'결정 사항, 코멘트, 액션 아이템을 회의 중 바로 기록합니다.',
-    collapsedSummary:`메모 ${commentCount}건 · 액션 ${Array.isArray(actionItems)?actionItems.length:0}건`,
+    title:'회의 메모',
+    sub:'회의 중 논의한 내용을 한 곳에 자유롭게 기록합니다.',
+    collapsedSummary:`메모 ${commentCount}건`,
     groups:[
-      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,offsetWeeks===0&&!isFinalized)},
-      {title:'주요 결정사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[1].key,meetingSections[1].emptyText,offsetWeeks===0&&!isFinalized)},
-      {title:'액션 메모',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[2].key,meetingSections[2].emptyText,offsetWeeks===0&&!isFinalized)},
-      {title:'다음 주 확인사항',variant:'html',countLabel:'',html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[3].key,meetingSections[3].emptyText,offsetWeeks===0&&!isFinalized)},
-      {title:'액션 아이템',variant:'html',countLabel:formatWeeklyReviewCount(Array.isArray(actionItems)?actionItems.length:0),html:renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized)}
+      {title:'회의 메모',variant:'html',countLabel:`메모 ${commentCount}건`,html:renderWeeklyReviewMeetingFieldGroupMarkup(weeklyReviews||[],meetingSections[0].key,meetingSections[0].emptyText,offsetWeeks===0&&!isFinalized)}
     ]
   };
   return {commentsSection,weeklyReviews};
@@ -4915,26 +4900,6 @@ function renderWeeklyReviewNextWeekSection(data) {
     return !!startDate && !!endDate && startDate <= nextBounds.end && endDate >= nextBounds.start && scheduleHasOperationalMember(schedule);
   });
   const nextStarts = (data._raw_nextWeekStarts || []);
-  const operationalMembers = typeof getOperationalMembers === 'function' ? getOperationalMembers() : [];
-  const leaveNameSet = new Set(nextLeaves.flatMap(s => getOperationalScheduleMemberNames(s)));
-  const fieldworkNameSet = new Set(nextFieldwork.flatMap(s => getOperationalScheduleMemberNames(s)));
-  const memberLoadMap = new Map();
-  (projectMemberLinks || []).forEach(link => {
-    const member = members.find(m => String(m.id) === String(link.member_id));
-    if (!member) return;
-    const proj = (projects || []).find(p => String(p.id) === String(link.project_id));
-    if (!proj || isWeeklyReviewCompletedProject(proj)) return;
-    memberLoadMap.set(member.name, (memberLoadMap.get(member.name) || 0) + 1);
-  });
-  const memberStatusRows = operationalMembers.map(member => {
-    const name = member.name || '';
-    const isLeave = leaveNameSet.has(name);
-    const isField = fieldworkNameSet.has(name);
-    const load = memberLoadMap.get(name) || 0;
-    const statusLabel = isLeave ? '휴가' : isField ? '필드' : load >= 4 ? '주의' : '여유';
-    const toneClass = isLeave || load >= 4 ? 'wr-nw-member--warn' : isField ? 'wr-nw-member--field' : 'wr-nw-member--ok';
-    return { name, statusLabel, toneClass, load };
-  }).filter(r => r.name);
   const deadlineRows = deadlineProjects.length
     ? deadlineProjects.map(({ project, dLabel, toneClass, statusLabel, memberNames }) => {
         const badgeCls = statusLabel === '지연' ? 'badge-red' : 'badge-gray';
@@ -4967,14 +4932,11 @@ function renderWeeklyReviewNextWeekSection(data) {
         return `<div class="wr-nw-new-item"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><div class="wr-nw-proj-name">${esc(project.name || '')}</div><span class="badge badge-blue" style="font-size:10px">신규</span></div><div class="wr-nw-proj-owner">담당: ${esc(memberNames.slice(0, 2).join(', ') || '-')} · ${esc(startDate ? startDate.slice(5).replace('-', '/') : '')} 착수</div></div>`;
       }).join('')
     : `<div class="wr-nw-absence-empty">차주 신규 착수 프로젝트 없음</div>`;
-  const memberCards = memberStatusRows.slice(0, 6).map(({ name, statusLabel, toneClass, load }) =>
-    `<div class="wr-nw-member-card"><div class="wr-nw-member-name">${esc(name)}</div><div class="wr-nw-member-status ${toneClass}">${esc(statusLabel)}</div><div class="wr-nw-member-load">프로젝트 ${load}건</div></div>`
-  ).join('');
   return `<section class="card weekly-review-section" data-section-id="next-week" style="margin-top:0">
     <div class="weekly-review-section-head">
       <div>
         <div class="weekly-review-section-title">차주 준비</div>
-        <div class="weekly-review-section-sub">다음 주 마감·착수·일정·인력을 한눈에 점검합니다.</div>
+        <div class="weekly-review-section-sub">다음 주 마감·착수·일정을 한눈에 점검합니다.</div>
       </div>
       <div class="weekly-review-section-controls">
         <button type="button" class="btn ghost sm" onclick="setPage('gantt')">프로젝트 관리</button>
@@ -4994,7 +4956,6 @@ function renderWeeklyReviewNextWeekSection(data) {
           <div class="wr-nw-col-card"><div class="wr-nw-col-label">📍 필드 · 외부일정</div>${fieldRows}</div>
           <div class="wr-nw-col-card"><div class="wr-nw-col-label">🚀 신규 착수</div>${startRows}</div>
         </div>
-        ${memberCards ? `<div class="weekly-review-group"><div class="weekly-review-group-title">차주 인력 여유</div><div class="wr-nw-member-grid">${memberCards}</div></div>` : ''}
       </div>
     </div>
   </section>`;
@@ -5146,6 +5107,11 @@ async function autoSaveWeeklyReviewMeetingField(el,key){
     }
     const parsed=parseWeeklyReviewMeetingContent(existing?.content||'');
     parsed[key]=value;
+    if(key==='meeting_notes'){
+      parsed.decisions='';
+      parsed.action_items='';
+      parsed.next_week_checks='';
+    }
     const content=stringifyWeeklyReviewMeetingContent(parsed);
     const nowIso=new Date().toISOString();
     const body={
