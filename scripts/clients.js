@@ -763,7 +763,6 @@ const clientToolbarState={industry:'',manager:'',team:'',health:'all',search:'',
 const clientTableSelectedIds=new Set();
 let clientTableLastRows=[];
 let clientPortalAccessLogCache={};
-const CLIENT_DEFAULT_TEAMS=['BPO 1팀','BPO 2팀','PA팀','FP&A팀','관리팀'];
 
 function normalizeClientTags(value){
   if(Array.isArray(value))return value.map(tag=>String(tag||'').trim()).filter(Boolean);
@@ -780,12 +779,13 @@ function formatClientTags(tags){
 }
 
 function getClientAssignedTeamValue(client){
-  return String(client?.assigned_team||'').trim();
+  return String(client?.team_id||'').trim();
 }
 
 function getClientAssignedTeamLabel(clientOrTeam){
   const value=typeof clientOrTeam==='string'?String(clientOrTeam||'').trim():getClientAssignedTeamValue(clientOrTeam);
-  return value||'미지정';
+  if(!value&&typeof clientOrTeam!=='string'&&clientOrTeam?.assigned_team)return String(clientOrTeam.assigned_team||'').trim();
+  return getClientTeamNameById(value)||value||'미지정';
 }
 
 function getClientAssignedTeamTone(clientOrTeam){
@@ -793,21 +793,31 @@ function getClientAssignedTeamTone(clientOrTeam){
   return value?'assigned':'empty';
 }
 
-function getClientTeamOptions(){
-  const memberTeams=(members||[])
-    .map(member=>typeof normalizeMemberTeam==='function'?normalizeMemberTeam(member?.team):String(member?.team||'').trim())
-    .filter(Boolean);
-  const clientTeams=(clients||[]).map(client=>getClientAssignedTeamValue(client)).filter(Boolean);
-  return [...new Set([...CLIENT_DEFAULT_TEAMS,...memberTeams,...clientTeams])].sort((a,b)=>a.localeCompare(b,'ko'));
+function isClientTeamActive(team){
+  return team?.is_active===true||String(team?.is_active||'').toLowerCase()==='true'||team?.is_active===1;
 }
 
-function buildClientAssignedTeamOptions(selectedTeam=''){
-  const selected=String(selectedTeam||'').trim();
+function getActiveClientTeams(){
+  return [...(referenceTeams||[])]
+    .filter(team=>team?.id&&isClientTeamActive(team))
+    .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+}
+
+function getClientTeamNameById(teamId){
+  const value=String(teamId||'').trim();
+  if(!value)return '';
+  return (referenceTeams||[]).find(team=>String(team?.id||'')===value)?.name||'';
+}
+
+function getClientTeamOptions(){
+  return getActiveClientTeams();
+}
+
+function buildClientAssignedTeamOptions(selectedTeamId=''){
+  const selected=String(selectedTeamId||'').trim();
   const options=getClientTeamOptions();
-  if(selected&&!options.includes(selected))options.push(selected);
-  options.sort((a,b)=>a.localeCompare(b,'ko'));
   return '<option value=""'+(!selected?' selected':'')+'>미지정</option>'
-    +options.map(team=>'<option value="'+esc(team)+'"'+(team===selected?' selected':'')+'>'+esc(team)+'</option>').join('');
+    +options.map(team=>'<option value="'+esc(String(team.id||''))+'"'+(String(team.id||'')===selected?' selected':'')+'>'+esc(team.name||'팀')+'</option>').join('');
 }
 
 function getClientAccessLogMeta(logs){
@@ -1342,8 +1352,8 @@ function renderClientFilterOptions(baseRows){
     if(managerSelect.value!==clientToolbarState.manager)clientToolbarState.manager=managerSelect.value;
   }
   if(teamSelect){
-    const teams=[...new Set([...getClientTeamOptions(),...baseRows.map(row=>getClientAssignedTeamValue(row.client)).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'ko'));
-    teamSelect.innerHTML='<option value="">담당 팀 전체</option>'+teams.map(team=>'<option value="'+esc(team)+'">'+esc(team)+'</option>').join('');
+    const teams=getClientTeamOptions();
+    teamSelect.innerHTML='<option value="">담당 팀 전체</option>'+teams.map(team=>'<option value="'+esc(String(team.id||''))+'">'+esc(team.name||'팀')+'</option>').join('');
     teamSelect.value=clientToolbarState.team;
     if(teamSelect.value!==clientToolbarState.team)clientToolbarState.team=teamSelect.value;
   }
@@ -1418,7 +1428,7 @@ renderClientFilterTags=function(){
   if(statusFilter==='active')tags.push({key:'status',label:'진행중 프로젝트만'});
   if(clientToolbarState.industry)tags.push({key:'industry',label:'업종 · '+clientToolbarState.industry});
   if(clientToolbarState.manager)tags.push({key:'manager',label:'담당자 · '+clientToolbarState.manager});
-  if(clientToolbarState.team)tags.push({key:'team',label:'담당 팀 · '+clientToolbarState.team});
+  if(clientToolbarState.team)tags.push({key:'team',label:'담당 팀 · '+(getClientTeamNameById(clientToolbarState.team)||clientToolbarState.team)});
   if(clientToolbarState.health!=='all')tags.push({key:'health',label:'건강상태 · '+getClientHealthLabel(clientToolbarState.health)});
   if(clientToolbarState.search)tags.push({key:'search',label:'검색 · '+clientToolbarState.search});
   el.innerHTML=tags.map(tag=>'<span class="client-filter-tag">'+esc(tag.label)+'<button type="button" onclick="clearClientFilterTag(\''+tag.key+'\')">×</button></span>').join('');
@@ -2009,14 +2019,14 @@ function renderClientBulkSelectionBar(){
     +'</div>';
 }
 
-async function applyClientBulkTeam(teamName,clientIds){
+async function applyClientBulkTeam(teamId,clientIds){
   if(!canManageClientBulkActions()||!clientIds?.length)return;
-  const assignedTeam=String(teamName||'').trim()||null;
+  const assignedTeamId=String(teamId||'').trim()||null;
   try{
     for(const clientId of clientIds){
-      await api('PATCH','clients?id=eq.'+clientId,{assigned_team:assignedTeam});
+      await api('PATCH','clients?id=eq.'+clientId,{team_id:assignedTeamId});
       const client=(clients||[]).find(row=>String(row?.id||'')===String(clientId));
-      if(client)client.assigned_team=assignedTeam;
+      if(client)client.team_id=assignedTeamId;
     }
     closeModal();
     clientTableSelectedIds.clear();

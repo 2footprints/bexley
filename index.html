@@ -3375,9 +3375,11 @@ let contractClientCombobox=null;
 
 function getContractClientComboSubLabel(client){
   const parts=[];
-  const team=String(client?.assigned_team||'').trim();
+  const team=typeof getClientAssignedTeamLabel==='function'
+    ?getClientAssignedTeamLabel(client)
+    :String(client?.team_id||'').trim();
   const tags=Array.isArray(client?.tags)?client.tags.filter(Boolean):String(client?.tags||'').split(',').map(tag=>tag.trim()).filter(Boolean);
-  if(team)parts.push(team);
+  if(team&&team!=='미지정')parts.push(team);
   if(tags.length)parts.push('태그: '+tags.join(', '));
   if(client?.portal_email)parts.push('포털 활성');
   return parts.join(' · ');
@@ -3387,7 +3389,7 @@ function getContractClientComboSearchText(client){
   const tags=Array.isArray(client?.tags)?client.tags.join(' '):String(client?.tags||'');
   return [
     client?.name,
-    client?.assigned_team,
+    typeof getClientAssignedTeamLabel==='function'?getClientAssignedTeamLabel(client):client?.team_id,
     tags,
     client?.representative_name,
     client?.memo
@@ -4125,10 +4127,10 @@ function openClientModal(eid){
   editingClientId=eid||null;const c=eid?clients.find(x=>x.id===eid):null;
   const canPortal=canManagePortalSettings();
   const portalMeta=typeof getClientPortalStatusMeta==='function'?getClientPortalStatusMeta(c||{}):{label:(c&&c.portal_email?'활성':'미설정'),tone:(c&&c.portal_email?'active':'empty')};
-  const assignedTeamValue=typeof getClientAssignedTeamValue==='function'?getClientAssignedTeamValue(c):String(c?.assigned_team||'').trim();
+  const assignedTeamValue=typeof getClientAssignedTeamValue==='function'?getClientAssignedTeamValue(c):String(c?.team_id||'').trim();
   const assignedTeamOptions=typeof buildClientAssignedTeamOptions==='function'
     ?buildClientAssignedTeamOptions(assignedTeamValue)
-    :'<option value="">미지정</option><option value="BPO 1팀">BPO 1팀</option><option value="BPO 2팀">BPO 2팀</option><option value="PA팀">PA팀</option><option value="FP&A팀">FP&A팀</option><option value="관리팀">관리팀</option>';
+    :'<option value="">미지정</option>';
   const portalSection=canPortal
     ?'<div class="divider">고객사 포털 설정</div>'
       +'<div class="form-half"><div class="form-row"><label class="form-label">포털 로그인 이메일</label><input id="cPortalEmail" type="email" value="'+(c?c.portal_email||'':'')+'" placeholder="고객사 담당자 이메일"/></div>'
@@ -4171,7 +4173,7 @@ async function saveClient(){
     contact_name:document.getElementById('cCN').value.trim(),
     contact_phone:document.getElementById('cCP').value.trim(),
     contact_email:document.getElementById('cCE').value.trim(),
-    assigned_team:document.getElementById('cAssignedTeam')?.value||null,
+    team_id:document.getElementById('cAssignedTeam')?.value||null,
     tags:typeof normalizeClientTags==='function'?normalizeClientTags(document.getElementById('cTags').value):document.getElementById('cTags').value.trim(),
     business_number:document.getElementById('cBizNo').value.trim()||null,
     representative_name:document.getElementById('cRepName').value.trim()||null,
