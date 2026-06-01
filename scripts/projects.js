@@ -357,8 +357,9 @@ function isGanttProjectInProgress(project){
 }
 
 function isGanttProjectOverdue(project,baseDate=getHomeBaseDate()){
-  const endDate=toDate(project?.end||project?.end_date||'');
-  return !Number.isNaN(endDate.getTime())&&endDate<baseDate&&!isGanttProjectCompleted(project);
+  const endDate=getGanttLocalDateValue(project?.end||project?.end_date||'');
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  return !!endDate&&!!base&&endDate<base&&!isGanttProjectCompleted(project);
 }
 
 function isGanttProjectDueToday(project,baseDate=getHomeBaseDate()){
@@ -574,6 +575,7 @@ function getGanttMonthData(year=curYear,month=curMonth){
   const projs=(projects||[]).filter(project=>{
     if(memberFilter==='me'&&currentMember&&!project.members.includes(currentMember.name))return false;
     if(memberFilter&&memberFilter!=='me'&&!project.members.includes(memberFilter))return false;
+    if(isGanttProjectOverdue(project))return true;
     const projectStart=getGanttLocalDateValue(project?.start||project?.start_date||project?.end||project?.end_date);
     const projectEnd=getGanttLocalDateValue(project?.end||project?.end_date||project?.start||project?.start_date);
     if(!projectStart||!projectEnd)return false;
