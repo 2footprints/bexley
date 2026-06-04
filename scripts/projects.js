@@ -569,18 +569,38 @@ function getGanttProjectClientName(project){
   return String(getGanttProjectClient(project)?.name||'').trim();
 }
 
+function projectMatchesGanttMemberFilter(project,memberFilter){
+  const projectMembers=Array.isArray(project?.members)?project.members:[];
+  if(memberFilter==='me'&&currentMember&&!projectMembers.includes(currentMember.name))return false;
+  if(memberFilter&&memberFilter!=='me'&&!projectMembers.includes(memberFilter))return false;
+  return true;
+}
+
+function isGanttProjectInMonth(project,first,last){
+  const projectStart=getGanttLocalDateValue(project?.start||project?.start_date||project?.end||project?.end_date);
+  const projectEnd=getGanttLocalDateValue(project?.end||project?.end_date||project?.start||project?.start_date);
+  if(!projectStart||!projectEnd)return false;
+  return projectStart<=last&&projectEnd>=first;
+}
+
+function getUniqueGanttProjects(projectRows){
+  const seen=new Set();
+  return (projectRows||[]).filter(project=>{
+    const key=String(project?.id||'');
+    if(!key)return true;
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function getGanttMonthData(year=curYear,month=curMonth){
   const memberFilter=document.getElementById('memberFilter')?.value||'';
   const {first,last}=getGanttMonthBounds(year,month);
-  const projs=(projects||[]).filter(project=>{
-    if(memberFilter==='me'&&currentMember&&!project.members.includes(currentMember.name))return false;
-    if(memberFilter&&memberFilter!=='me'&&!project.members.includes(memberFilter))return false;
-    if(isGanttProjectOverdue(project))return true;
-    const projectStart=getGanttLocalDateValue(project?.start||project?.start_date||project?.end||project?.end_date);
-    const projectEnd=getGanttLocalDateValue(project?.end||project?.end_date||project?.start||project?.start_date);
-    if(!projectStart||!projectEnd)return false;
-    return projectStart<=last&&projectEnd>=first;
-  });
+  const memberProjects=(projects||[]).filter(project=>projectMatchesGanttMemberFilter(project,memberFilter));
+  const monthProjects=memberProjects.filter(project=>isGanttProjectInMonth(project,first,last));
+  const overdueCarryOverProjects=memberProjects.filter(project=>isGanttProjectOverdue(project));
+  const projs=getUniqueGanttProjects([...monthProjects,...overdueCarryOverProjects]);
   const schs=(schedules||[]).filter(schedule=>{
     if(memberFilter==='me'&&currentMember&&!scheduleHasMember(schedule,currentMember.name))return false;
     if(memberFilter&&memberFilter!=='me'&&!scheduleHasMember(schedule,memberFilter))return false;
@@ -593,7 +613,7 @@ function getGanttMonthData(year=curYear,month=curMonth){
 }
 
 function projectMatchesTopFilters(project){
-  if(ganttStatusFilter==='in_progress'&&!isGanttProjectInProgress(project))return false;
+  if(ganttStatusFilter==='in_progress'&&!isGanttProjectInProgress(project)&&!isGanttProjectOverdue(project))return false;
   if(ganttStatusFilter==='overdue'&&!isGanttProjectOverdue(project))return false;
   if(ganttStatusFilter==='completed'&&!isGanttProjectCompleted(project))return false;
   if(ganttTypeFilters.length){
@@ -5547,7 +5567,7 @@ function projectMatchesTopFilters(project){
     pendingDocSummary:(window.ganttProjectPendingDocSummaryByProjectId||{})[String(project?.id||'')],
     issueCount:openIssuesByProject[String(project?.id||'')]||0
   });
-  if(ganttStatusFilter==='in_progress'&&lifecycleMeta.key!=='in_progress')return false;
+  if(ganttStatusFilter==='in_progress'&&lifecycleMeta.key!=='in_progress'&&lifecycleMeta.key!=='overdue')return false;
   if(ganttStatusFilter==='overdue'&&lifecycleMeta.key!=='overdue')return false;
   if(ganttStatusFilter==='due_today'&&!isGanttProjectDueToday(project))return false;
   if(ganttStatusFilter==='execution_done'&&lifecycleMeta.key!=='execution_done')return false;
