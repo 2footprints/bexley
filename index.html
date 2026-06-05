@@ -3556,6 +3556,11 @@ function validateProjectClientAndContractSelection(){
     projectClientCombobox.input?.focus();
     return false;
   }
+  if(!getProjectClientIdFromForm()){
+    alert('고객사를 선택해 주세요.');
+    projectClientCombobox?.input?.focus();
+    return false;
+  }
   if(projectContractCombobox&&typeof projectContractCombobox.hasUncommittedText==='function'&&projectContractCombobox.hasUncommittedText()){
     alert('목록에서 계약을 선택해 주세요.');
     projectContractCombobox.input?.focus();
@@ -4892,62 +4897,6 @@ function copyProj(){
       formMembers=[...p.members];renderMemberTags();
     },80);
   },60);
-}
-
-async function saveProj(){
-  if(!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
-  const name=document.getElementById('fName').value.trim();
-  const project_type_id=document.getElementById('fType')?.value||null;
-  const type=project_type_id&&typeof getProjectTypeRowById==='function'
-    ?getProjectTypeRowById(project_type_id)?.name||''
-    :(document.getElementById('fType')?.selectedOptions?.[0]?.textContent||document.getElementById('fType')?.value||'');
-  const team_id=document.getElementById('fTeam')?.value||null;
-  const start=document.getElementById('fStart').value;
-  const end=document.getElementById('fEnd').value;
-  const status=document.getElementById('fStatus').value;
-  const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseInt(document.getElementById('fEstimatedHours').value,10):null;
-  const priority=document.getElementById('fPriority')?.value||'medium';
-  if(!validateProjectClientAndContractSelection())return;
-  const client_id=getProjectClientIdFromForm()||null;
-  const contract_id=getProjectContractIdFromForm()||null;
-  const is_billable=document.getElementById('fBillable').checked;
-  const billing_status=is_billable?document.getElementById('fBilling').value:'미청구';
-  const billing_amount=is_billable&&document.getElementById('fAmt').value?parseInt(document.getElementById('fAmt').value):null;
-  const billing_note=is_billable?document.getElementById('fBNote').value.trim()||null:null;
-  const memo=document.getElementById('fMemo')?.value.trim()||null;
-  const project_code=document.getElementById('fProjCode')?.value.trim()||null;
-  let actual_end_date=document.getElementById('fActualEnd')?.value||null;
-  if(status==='완료'&&!actual_end_date)actual_end_date=new Date().toISOString().slice(0,10);
-  const result_summary=document.getElementById('fResultSummary')?.value.trim()||null;
-  const work_summary=document.getElementById('fWorkSummary')?.value.trim()||null;
-  const issue_note=document.getElementById('fIssueNote')?.value.trim()||null;
-  const follow_up_needed=document.getElementById('fFollowUp')?.checked||false;
-  const follow_up_note=document.getElementById('fFollowUpNote')?.value.trim()||null;
-  if(!name||!start||!end){alert('프로젝트명, 시작일, 종료일을 입력해주세요.');return;}
-  if(start>end){alert('종료일이 시작일보다 빠릅니다.');return;}
-  try{
-    const body={name,type,project_type_id,team_id,start_date:start,end_date:end,status,estimated_hours,priority,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
-    if(editingProjId){
-      await api('PATCH','projects?id=eq.'+editingProjId,body);
-      await api('DELETE','project_members?project_id=eq.'+editingProjId);
-    }else{
-      const res=await api('POST','projects',{...body,created_by:currentUser.id});
-      editingProjId=res[0].id;
-    }
-    for(const mn of formMembers){
-      const mem=members.find(m=>m.name===mn);
-      if(mem)await apiEx('POST','project_members?on_conflict=project_id,member_id',{project_id:editingProjId,member_id:mem.id},'resolution=merge-duplicates,return=representation');
-    }
-    await logActivity(editingProjId&&projects.find(x=>x.id===editingProjId)?'프로젝트 수정':'프로젝트 추가','project',editingProjId,name);
-    closeModal();await loadAll();
-    if(curPage==='gantt')renderGantt();
-    else if(curPage==='detail'){
-      const savedProj=projects.find(p=>p.id===editingProjId);
-      const cid=savedProj?.client_id;
-      if(cid)openClientDetail(cid,'projects');else setPage('clients');
-    }
-    else renderClients();
-  }catch(e){alert('저장 오류: '+e.message);}
 }
 
 async function deleteProj(){
@@ -7453,98 +7402,6 @@ renderProjModal = function(p,editable,preClientId,preContractId){
   if(p && !canDeleteProject(p)){
     const footer=document.querySelector('#modalArea .modal-footer');
     if(footer && footer.firstElementChild) footer.firstElementChild.innerHTML='';
-  }
-};
-
-saveProj = async function(){
-  const existing=editingProjId?projects.find(x=>x.id===editingProjId):null;
-  if(!editingProjId && !canManageCore()){
-    alert('멤버 이상 권한이 필요합니다.');
-    return;
-  }
-  if(editingProjId && !canEdit(existing)){
-    alert('담당 프로젝트만 수정할 수 있습니다.');
-    return;
-  }
-  const name=document.getElementById('fName')?.value.trim();
-  const type=document.getElementById('fType')?.value;
-  const start=document.getElementById('fStart')?.value;
-  const end=document.getElementById('fEnd')?.value;
-  const status=document.getElementById('fStatus')?.value;
-  const estimated_hours=document.getElementById('fEstimatedHours')?.value?parseFloat(document.getElementById('fEstimatedHours').value):null;
-  const priority=document.getElementById('fPriority')?.value||'medium';
-  if(!validateProjectClientAndContractSelection())return;
-  const client_id=getProjectClientIdFromForm()||null;
-  const contract_id=getProjectContractIdFromForm()||null;
-  const is_billable=!!document.getElementById('fBillable')?.checked;
-  const billingPendingStatus='\uBBF8\uCCAD\uAD6C';
-  const doneStatus='\uC644\uB8CC';
-  const billing_status=is_billable?(document.getElementById('fBilling')?.value||billingPendingStatus):billingPendingStatus;
-  const billing_amount=is_billable&&document.getElementById('fAmt')?.value?parseInt(document.getElementById('fAmt').value,10):null;
-  const billing_note=is_billable?(document.getElementById('fBNote')?.value.trim()||null):null;
-  const memo=document.getElementById('fMemo')?.value.trim()||null;
-  const project_code=document.getElementById('fProjCode')?.value.trim()||null;
-  let actual_end_date=document.getElementById('fActualEnd')?.value||null;
-  if(status===doneStatus&&!actual_end_date) actual_end_date=new Date().toISOString().slice(0,10);
-  if(status==='완료'&&!actual_end_date) actual_end_date=new Date().toISOString().slice(0,10);
-  const result_summary=document.getElementById('fResultSummary')?.value.trim()||null;
-  const work_summary=document.getElementById('fWorkSummary')?.value.trim()||null;
-  const issue_note=document.getElementById('fIssueNote')?.value.trim()||null;
-  const follow_up_needed=!!document.getElementById('fFollowUp')?.checked;
-  const follow_up_note=document.getElementById('fFollowUpNote')?.value.trim()||null;
-  if(!name||!start||!end){
-    alert('프로젝트명, 시작일, 종료일을 입력해주세요.');
-    return;
-  }
-  if(start>end){
-    alert('종료일이 시작일보다 빠릅니다.');
-    return;
-  }
-  try{
-    const body={name,type,start_date:start,end_date:end,status,estimated_hours,priority,client_id,contract_id,is_billable,billing_status,billing_amount,billing_note,memo,project_code,actual_end_date,result_summary,work_summary,issue_note,follow_up_needed,follow_up_note};
-    const wasEditing=!!editingProjId;
-    const canSyncMembers=!wasEditing || (!!existing && canManageProjectMembers(existing));
-    if(wasEditing){
-      await api('PATCH','projects?id=eq.'+editingProjId,body);
-    }else{
-      const res=await api('POST','projects',{...body,created_by:currentUser.id});
-      editingProjId=res[0].id;
-    }
-    if(canSyncMembers){
-      const uniqueMemberIds=[...new Set((formMembers||[])
-        .map(mn=>members.find(m=>m.name===mn)?.id)
-        .filter(Boolean))];
-      const currentRows=wasEditing
-        ?(await api('GET','project_members?project_id=eq.'+editingProjId+'&select=member_id').catch(()=>[]))
-        :[];
-      const currentMemberIds=[...new Set((currentRows||[]).map(row=>row?.member_id).filter(Boolean))];
-      const targetSet=new Set(uniqueMemberIds);
-      const currentSet=new Set(currentMemberIds);
-      for(const memberId of currentMemberIds){
-        if(!targetSet.has(memberId)){
-          await api('DELETE','project_members?project_id=eq.'+editingProjId+'&member_id=eq.'+memberId);
-        }
-      }
-      for(const memberId of uniqueMemberIds){
-        if(!currentSet.has(memberId)){
-          await apiEx('POST','project_members?on_conflict=project_id,member_id',{project_id:editingProjId,member_id:memberId},'resolution=merge-duplicates,return=representation');
-        }
-      }
-    }
-    await logActivity(wasEditing?'프로젝트 수정':'프로젝트 추가','project',editingProjId,name);
-    closeModal();
-    await loadAll();
-    if(curPage==='gantt') renderGantt();
-    else if(curPage==='detail'){
-      const savedProj=projects.find(p=>p.id===editingProjId);
-      const cid=savedProj?.client_id;
-      if(cid) openClientDetail(cid,'projects');
-      else setPage('clients');
-    }else{
-      renderClients();
-    }
-  }catch(e){
-    alert('저장 오류: '+e.message);
   }
 };
 
