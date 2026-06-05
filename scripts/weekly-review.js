@@ -814,6 +814,41 @@ function createWeeklyReviewCompletedProjectTableItem(project){
     badgeClass:billingMeta.badgeClass
   };
 }
+function isWeeklyReviewClosedProjectCompletedInRange(project,start,end){
+  const rawStatus=String(project?.status||'').trim();
+  const statusKey=typeof getGanttProjectRawStatusKey==='function'
+    ? getGanttProjectRawStatusKey(project)
+    : normalizeWeeklyReviewProjectStatus(rawStatus);
+  const isClosed=rawStatus==='완료'
+    ||rawStatus==='완전종료'
+    ||rawStatus==='완전 종료'
+    ||statusKey==='completed'
+    ||statusKey==='fully_closed';
+  return isClosed
+    &&!!project?.actual_end_date
+    &&isWeeklyReviewDateInRange(project.actual_end_date,start,end);
+}
+function createWeeklyReviewCompletedProjectSummaryTableItem(project){
+  const client=getWeeklyReviewProjectClient(project);
+  const memberLabel=(Array.isArray(project?.members)?project.members.filter(Boolean):[]).join(', ')||'-';
+  const billingMeta=getWeeklyReviewBillingStatusMeta(project);
+  return {
+    entity_type:'project',
+    entity_id:String(project?.id||''),
+    projectId:String(project?.id||''),
+    action:"openProjModal('"+project.id+"',null,null,'completion')",
+    columns:[
+      client?.name||'고객사 미지정',
+      project?.name||'이름 없는 프로젝트',
+      getWeeklyReviewShortDate(project?.actual_end_date),
+      memberLabel,
+      formatWeeklyReviewCurrency(getWeeklyReviewProjectBillingAmount(project))
+    ],
+    actionHint:'완료일과 고객 공유, 빌링 후속 처리를 확인하세요.',
+    badgeLabel:billingMeta.label,
+    badgeClass:billingMeta.badgeClass
+  };
+}
 function createWeeklyReviewBillingRecordItem(row){
   const contract=getWeeklyReviewContract(row?.contract_id);
   const project=getWeeklyReviewProjectByContractId(row?.contract_id);
@@ -4101,7 +4136,6 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   const allOutputs=data.projectOutputs||[];
   const includedOutputs=allOutputs.filter(output=>output?.share_in_weekly_review);
 
-  const completedItems=getWeeklyReviewSectionGroupItems(completedSection,0);
   const overdueItems=getWeeklyReviewSectionGroupItems(risksSection,0);
   const urgentIssueItems=getWeeklyReviewSectionGroupItems(risksSection,1);
   const followUpItems=getWeeklyReviewSectionGroupItems(risksSection,2);
@@ -4464,8 +4498,16 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
     .filter(task=>isWeeklyReviewCompletedTaskInRange(task,reviewBounds.start,reviewBounds.end))
     .sort((a,b)=>getWeeklyReviewTimestamp(getWeeklyReviewTaskCompletionBasisDate(b))-getWeeklyReviewTimestamp(getWeeklyReviewTaskCompletionBasisDate(a)))
     .map(task=>createWeeklyReviewCompletedTaskItem(task));
+  const completedProjectItems=(data.completedProjects||[])
+    .filter(project=>isWeeklyReviewClosedProjectCompletedInRange(project,reviewBounds.start,reviewBounds.end))
+    .sort((a,b)=>{
+      const amountDiff=getWeeklyReviewProjectBillingAmount(b)-getWeeklyReviewProjectBillingAmount(a);
+      if(amountDiff)return amountDiff;
+      return sortWeeklyReviewProjectsByCompletion(a,b);
+    })
+    .map(project=>createWeeklyReviewCompletedProjectSummaryTableItem(project));
   const riskTotal=overdueItems.length+urgentIssueItems.length+overdueTaskItems.length;
-  const completedTotal=completedTaskItems.length;
+  const completedTotal=completedTaskItems.length+completedProjectItems.length;
   const nextTotal=nextEndItems.length+nextStartItems.length;
   const commentCount=(data.weeklyReviews||[]).length;
   data.cards=[
@@ -4486,9 +4528,9 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
       badge:'실적',
       value:formatWeeklyReviewCount(completedTotal),
       helper:completedTotal
-        ?'이번 주 완료 처리된 업무를 공유하세요.'
-        :'이번 주 완료된 업무가 없습니다.',
-      meta:`완료 태스크 ${completedTaskItems.length}건 · 미청구 ${unbilledItems.length}건`,
+        ?'이번 주 완료 처리된 업무와 프로젝트를 공유하세요.'
+        :'이번 주 완료된 업무와 프로젝트가 없습니다.',
+      meta:`완료 태스크 ${completedTaskItems.length}건 · 완료 프로젝트 ${completedProjectItems.length}건 · 미청구 ${unbilledItems.length}건`,
       tone:completedTotal?'success':''
     },
     {
@@ -4530,9 +4572,9 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
     ];
   }
   if(completedSection){
-    completedSection.title='2. 완료 업무';
-    completedSection.sub='이번 주 완료된 업무만 모아 진행 결과와 후속 영향을 확인합니다.';
-    completedSection.collapsedSummary=`완료 업무 ${completedTaskItems.length}건`;
+    completedSection.title='2. 이번 주 완료';
+    completedSection.sub='이번 주 완료된 업무와 프로젝트를 모아 진행 결과와 후속 영향을 확인합니다.';
+    completedSection.collapsedSummary=`완료 업무 ${completedTaskItems.length}건 · 완료 프로젝트 ${completedProjectItems.length}건`;
     completedSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
       {label:'프로젝트 관리',action:"setPage('gantt')"}
     ]);
@@ -4563,6 +4605,14 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
               +'</div>';
             }).join('')
           :'<div class="weekly-review-empty">이번 주에 완료된 업무가 없습니다.</div>'
+      },
+      {
+        title:'이번 주 완료 프로젝트',
+        variant:'table',
+        tableTemplate:'1.1fr 1.6fr .75fr 1.1fr 1fr .9fr',
+        tableHeaders:['고객사명','프로젝트명','완료일','담당자','빌링 금액','빌링 상태'],
+        items:completedProjectItems,
+        summary:`완료 프로젝트 ${completedProjectItems.length}건`
       }
     ];
   }
@@ -4685,7 +4735,7 @@ function getWeeklyReviewSnapshotSummary(cards=[],sections=[]){
     overdueProjectCount:groupCount('risks','지연 프로젝트'),
     overdueTaskCount:groupCount('risks','지연 태스크'),
     unbilledProjectCount:groupCount('risks','미청구'),
-    completedProjectCount:0,
+    completedProjectCount:groupCount('completed','완료 프로젝트'),
     completedTaskCount:groupCount('completed','완료 업무'),
     nextDeadlineCount:groupCount('next','마감'),
     nextStartCount:groupCount('next','착수')
