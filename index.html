@@ -9455,16 +9455,48 @@ isCompletedGanttStatus=function(status){
   const normalized=String(status||'').trim().toLowerCase();
   return status==='\uC644\uB8CC'||status==='\uC2E4\uD589 \uC644\uB8CC'||status==='\uD6C4\uC18D\uAD00\uB9AC'||status==='\uC644\uC804 \uC885\uB8CC'||normalized==='completed'||normalized==='done'||normalized==='execution_done'||normalized==='follow_up'||normalized==='fully_closed';
 };
+function isBaseGanttProjectOverdueCarryOver(project){
+  const endDate=toDate(project?.end||project?.end_date);
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return !Number.isNaN(endDate.getTime())&&endDate<today&&!isCompletedGanttStatus(project?.status);
+}
+function projectMatchesBaseGanttMemberFilter(project,memberFilter){
+  const projectMembers=Array.isArray(project?.members)?project.members:[];
+  if(memberFilter==='me'&&currentMember&&!projectMembers.includes(currentMember.name))return false;
+  if(memberFilter&&memberFilter!=='me'&&!projectMembers.includes(memberFilter))return false;
+  return true;
+}
+function projectMatchesBaseGanttCarryOverMemberFilter(project,memberFilter){
+  const projectMembers=Array.isArray(project?.members)?project.members:[];
+  if(!projectMembers.length)return true;
+  return projectMatchesBaseGanttMemberFilter(project,memberFilter);
+}
+function getUniqueBaseGanttProjects(projectRows){
+  const seen=new Set();
+  return (projectRows||[]).filter(project=>{
+    const key=String(project?.id||'');
+    if(!key)return true;
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+// This index.html override is the active render path; scripts/projects.js has older shared helpers.
 function getBaseGanttMonthData(){
   const days=daysInMonth(curYear,curMonth);
   const memberFilter=document.getElementById('memberFilter')?.value||'';
   const monthFirst=new Date(curYear,curMonth-1,1);
   const monthLast=new Date(curYear,curMonth-1,days);
-  const projs=projects.filter(project=>{
-    if(memberFilter==='me'&&currentMember&&!project.members.includes(currentMember.name))return false;
-    if(memberFilter&&memberFilter!=='me'&&!project.members.includes(memberFilter))return false;
+  const monthProjects=projects.filter(project=>{
+    if(!projectMatchesBaseGanttMemberFilter(project,memberFilter))return false;
     return toDate(project.start)<=monthLast&&toDate(project.end)>=monthFirst;
   });
+  const overdueCarryOverProjects=projects.filter(project=>
+    isBaseGanttProjectOverdueCarryOver(project)
+    &&projectMatchesBaseGanttCarryOverMemberFilter(project,memberFilter)
+  );
+  const projs=getUniqueBaseGanttProjects([...monthProjects,...overdueCarryOverProjects]);
   const schs=schedules.filter(schedule=>{
     if(memberFilter==='me'&&currentMember&&!scheduleHasMember(schedule,currentMember.name))return false;
     if(memberFilter&&memberFilter!=='me'&&!scheduleHasMember(schedule,memberFilter))return false;
