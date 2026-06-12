@@ -3776,23 +3776,24 @@ async function completeProjectTask(projectId,taskId){
   }
 }
 
+async function handleDeleteTask(projectId,taskId){
+  return deleteProjectTask(projectId,taskId);
+}
+
 async function deleteProjectTask(projectId,taskId){
   const projectKey=String(projectId||'');
   const taskKey=String(taskId||'');
-  const task=getGanttProjectTasks(projectKey).find(row=>String(row?.id||'')===taskKey);
-  if(!projectKey||!taskKey||!task)return;
-  if(!confirm('"'+(task.title||'이 업무')+'"를 삭제할까요?'))return;
+  if(!projectKey||!taskKey)return;
+  if(!window.confirm('이 업무를 삭제하시겠습니까?'))return;
   try{
     await api('DELETE',getGanttProjectTaskApiPath('id=eq.'+taskKey));
-    if(String(editingProjectTaskId||'')===taskKey){
-      closeModal();
-    }
+    closeModal();
     await loadGanttProjectTasks(projectKey,true);
     refreshGanttProjectTaskListState(projectKey);
+    if(curPage==='home'&&typeof renderHomeDashboardIssues==='function')renderHomeDashboardIssues();
   }catch(error){
-    alert(isMissingGanttProjectTaskTableError(error)
-      ?getMissingGanttProjectTaskTableMessage()
-      :'업무 삭제 중 오류가 발생했습니다: '+error.message);
+    console.error('deleteProjectTask failed',error);
+    alert('업무 삭제 중 오류가 발생했습니다.');
   }
 }
 
@@ -4056,7 +4057,7 @@ function openProjectTaskModal(projectId,taskId){
     +'<div class="modal project-task-modal">'
       +'<div class="modal-header"><div><div class="modal-title">'+(task?'업무 수정':'업무 추가')+'</div><div class="modal-sub">프로젝트: '+esc(project.name||'프로젝트 없음')+'</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
       +'<div class="project-task-modal-intro">업무 제목, 담당자, 기한만 정하면 바로 저장할 수 있습니다. 설명은 필요할 때만 짧게 남겨 주세요.</div>'
-      +'<div class="project-task-form">'
+      +'<form id="projectTaskForm" class="project-task-form" onsubmit="event.preventDefault();saveProjectTask()">'
         +'<div class="project-task-form-section">'
           +'<div class="project-task-form-section-title">업무 기본 정보</div>'
           +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
@@ -4067,8 +4068,8 @@ function openProjectTaskModal(projectId,taskId){
           +'</div>'
           +'<div class="form-row"><label class="form-label">설명</label><textarea id="taskDescription" class="project-modal-memo" placeholder="업무 메모나 다음 액션을 간단히 적어 주세요">'+esc(task?.description||'')+'</textarea></div>'
         +'</div>'
-      +'</div>'
-      +'<div class="modal-footer"><div class="muted">필수 입력은 업무 제목만이며, 나머지는 운영 상황에 맞춰 나중에 보강해도 됩니다.</div><div class="modal-footer-right">'+(task?'<button class="btn ghost gantt-task-delete-btn" onclick="deleteProjectTask(\''+projectId+'\',\''+task.id+'\')">삭제</button>':'')+'<button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveProjectTask()">저장</button></div></div>'
+      +'</form>'
+      +'<div class="modal-footer"><div class="muted">필수 입력은 업무 제목만이며, 나머지는 운영 상황에 맞춰 나중에 보강해도 됩니다.</div><div class="modal-footer-right">'+(task?'<button type="button" class="btn ghost gantt-task-delete-btn" onclick="handleDeleteTask(\''+projectId+'\',\''+task.id+'\')">삭제</button>':'')+'<button type="button" class="btn ghost" onclick="closeModal()">취소</button><button type="submit" form="projectTaskForm" class="btn primary">저장</button></div></div>'
     +'</div>'
     +'</div>';
   mountProjectTaskAssigneeCombobox(task?.assignee_member_id||'');
