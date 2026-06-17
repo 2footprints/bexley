@@ -32,7 +32,7 @@ function getIssuesPageStatusMeta(issue){
 
 function getIssuesPagePriorityMeta(issue,project){
   const priority=String(issue?.priority||project?.priority||'medium').trim().toLowerCase();
-  if(priority==='high')return {label:'우선 확인',cls:'high'};
+  if(priority==='high')return {label:'긴급',cls:'high'};
   if(priority==='low')return {label:'일반',cls:'low'};
   return {label:'보통',cls:'medium'};
 }

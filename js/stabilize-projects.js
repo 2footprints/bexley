@@ -110,8 +110,12 @@
     const start = document.getElementById('fStart')?.value || null;
     const end = document.getElementById('fEnd')?.value || null;
     const status = document.getElementById('fStatus')?.value || null;
-    const client_id = document.getElementById('fClient')?.value || null;
-    const contract_id = document.getElementById('fContract')?.value || null;
+    const client_id = typeof getProjectClientIdFromForm === 'function'
+      ? (getProjectClientIdFromForm() || null)
+      : (document.getElementById('fClient')?.value || null);
+    const contract_id = typeof getProjectContractIdFromForm === 'function'
+      ? (getProjectContractIdFromForm() || null)
+      : (document.getElementById('fContract')?.value || null);
     const is_billable = !!document.getElementById('fBillable')?.checked;
     const billingPendingStatus = '\uBBF8\uCCAD\uAD6C';
     const doneStatus = '\uC644\uB8CC';
@@ -275,6 +279,10 @@
     }
     if(editingProjId && !window.canEdit(existing)){
       alert('\uD574\uB2F9 \uD504\uB85C\uC81D\uD2B8\uB97C \uC218\uC815\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.');
+      return;
+    }
+
+    if(typeof validateProjectClientAndContractSelection === 'function' && !validateProjectClientAndContractSelection()){
       return;
     }
 

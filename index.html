@@ -4408,11 +4408,6 @@ function validateProjectClientAndContractSelection(){
     projectClientCombobox.input?.focus();
     return false;
   }
-  if(!getProjectClientIdFromForm()){
-    alert('고객사를 선택해 주세요.');
-    projectClientCombobox?.input?.focus();
-    return false;
-  }
   if(projectContractCombobox&&typeof projectContractCombobox.hasUncommittedText==='function'&&projectContractCombobox.hasUncommittedText()){
     alert('목록에서 계약을 선택해 주세요.');
     projectContractCombobox.input?.focus();
