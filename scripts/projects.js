@@ -5793,15 +5793,16 @@ function buildGanttProjectMemoSummaryEntries(project){
 
 function renderGanttProjectMemoSummarySection(project){
   const memoEntries=buildGanttProjectMemoSummaryEntries(project);
+  const memoText=memoEntries.map(entry=>entry.label+': '+entry.value).join('\n\n');
   return ''
-    +'<div class="gantt-detail-section gantt-overview-section">'
-      +'<div class="gantt-detail-section-head">'
-        +'<div><div class="gantt-panel-title">프로젝트 메모</div><div class="gantt-detail-meta">최근 메모와 후속 기록을 빠르게 확인하고, 필요하면 메모 / 산출물 탭으로 이어집니다.</div></div>'
-        +'<div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">메모 / 산출물 탭</button></div>'
+    +'<div class="pd-ov-section">'
+      +'<div class="pd-ov-section-head pd-ov-section-head-row">'
+        +'<div><h3>프로젝트 메모</h3><p>최근 메모와 후속 기록을 빠르게 확인하고, 필요하면 메모 / 산출물 탭으로 이어집니다.</p></div>'
+        +'<div class="pd-link-actions"><button type="button" class="pd-link-action" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="pd-link-action" onclick="setGanttDetailTab(\'memo\')">메모 / 산출물 탭</button></div>'
       +'</div>'
       +(memoEntries.length
-        ?'<div class="gantt-detail-note-grid">'+memoEntries.map(entry=>'<button type="button" class="gantt-detail-note-card" onclick="openProjModal(\''+project.id+'\',null,null,\''+entry.tab+'\')"><div class="gantt-detail-note-label">'+esc(entry.label)+'</div><div class="gantt-detail-note-text">'+esc(entry.value)+'</div></button>').join('')+'</div>'
-        :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">아직 남겨둔 프로젝트 메모가 없습니다.</div><div class="gantt-detail-meta">간단한 운영 메모나 후속 메모를 먼저 남기고, 더 자세한 기록은 메모 / 산출물 탭에서 이어가면 됩니다.</div><div class="gantt-detail-inline-actions"><button type="button" class="btn ghost sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">메모 입력</button><button type="button" class="btn sm" onclick="setGanttDetailTab(\'memo\')">메모 / 산출물 탭</button></div></div>')
+        ?'<button type="button" class="pd-memo-box" onclick="openProjModal(\''+project.id+'\',null,null,\''+memoEntries[0].tab+'\')"><div class="pd-memo-text">'+esc(memoText)+'</div><div class="pd-memo-footer"><span>프로젝트 상세 메모</span></div></button>'
+        :'<div class="pd-memo-box pd-memo-box--empty"><div class="pd-memo-text">아직 남겨둔 프로젝트 메모가 없습니다.</div><div class="pd-memo-footer"><span>메모 / 산출물 탭에서 이어서 기록할 수 있습니다.</span></div></div>')
     +'</div>';
 }
 
@@ -7061,7 +7062,7 @@ function getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,
 
 renderGanttProjectOverviewSection=function(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount){
   const actionCards=getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,memberSchedules);
-  const scheduleMeta=getGanttProjectPersonalScheduleMeta(memberSchedules);
+  const overviewCards=actionCards.filter(item=>item.label!=='내부 검토 대기');
   const plannedBillingAmount=Number(project?.billing_amount||0)>0
     ?Number(project.billing_amount||0)
     :Number(linkedContract?.contract_amount||0);
@@ -7075,38 +7076,59 @@ renderGanttProjectOverviewSection=function(project,client,linkedContract,project
     settingsMetaParts.push(String(project.billing_note||'').trim());
   }
   const settingsValue=project?.is_billable===false?'비청구 프로젝트':'빌링 대상 프로젝트';
+  const billingStatusText=project?.is_billable===false?'비청구':billingStatus;
+  const billingStatusMeta=billingStatusText==='미청구'
+    ?'청구 처리 필요'
+    :billingStatusText==='청구완료'
+      ?'수금 확인 필요'
+      :billingStatusText==='수금완료'
+        ?'청구 정리 완료'
+        :'청구 대상에서 제외';
   return ''
-    +'<div class="gantt-detail-pane gantt-overview-pane">'
-      +'<div class="gantt-detail-section gantt-detail-section--flush gantt-overview-section gantt-overview-section--actions">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">실행 요약</div><div class="gantt-detail-meta">설명보다 다음 일정과 병목, 고객 대기, 청구 상태를 먼저 봅니다.</div></div></div>'
-        +'<div class="gantt-overview-signal-grid gantt-overview-signal-grid--actions">'
-          +actionCards.map(item=>'<div class="gantt-overview-signal-card is-'+item.tone+'"><div class="gantt-signal-card-head"><div class="gantt-detail-label">'+esc(item.label)+'</div>'+(item.action||'')+'</div><div class="gantt-detail-value">'+esc(item.value)+'</div><div class="gantt-detail-meta">'+esc(item.meta)+'</div></div>').join('')
+    +'<div class="gantt-detail-pane gantt-overview-pane pd-overview-pane">'
+      +'<div class="pd-tab-panel">'
+        +'<div class="pd-ov-section">'
+          +'<div class="pd-ov-section-head"><h3>실행 요약</h3><p>설명보다 다음 일정과 병목, 고객 대기, 청구 상태를 먼저 봅니다.</p></div>'
+          +'<div class="pd-stat-grid">'
+            +overviewCards.map(item=>{
+              const valueText=String(item.value||'');
+              const cardTone=item.label==='청구 상태'&&valueText==='미청구'
+                ?'wait'
+                :item.label==='고객 대기'&&valueText!=='없음'
+                  ?'wait'
+                  :item.tone==='warn'
+                    ?'danger'
+                    :item.tone==='quiet'
+                      ?'done'
+                      :'progress';
+              return '<div class="pd-stat-card is-'+cardTone+'"><div class="pd-stat-label"><span>'+esc(item.label)+'</span>'+(item.action?'<button type="button" class="pd-edit-tag" onclick="openBillingQuickEditModal(\''+project.id+'\')">수정</button>':'')+'</div><div class="pd-stat-value">'+esc(item.value)+'</div><div class="pd-stat-sub">'+esc(item.meta)+'</div></div>';
+            }).join('')
+          +'</div>'
         +'</div>'
-      +'</div>'
-      +'<div class="gantt-overview-context-grid gantt-overview-context-grid--static">'
-        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">고객사 / 담당</div><div class="gantt-detail-value">'+esc(client?.name||'미지정')+'</div><div class="gantt-detail-meta">'+esc(projectMembers.join(', ')||'담당 미지정')+'</div></div>'
-        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">프로젝트 설정</div><div class="gantt-detail-value">'+esc(settingsValue)+'</div><div class="gantt-detail-meta">'+esc(settingsMetaParts.join(' · '))+'</div></div>'
-        +'<div class="gantt-overview-context-card"><div class="gantt-detail-label">기본 기간</div><div class="gantt-detail-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div><div class="gantt-detail-meta">'+esc(getGanttProjectCurrentLifecycleMeta(project)?.detail||'프로젝트 일정 확인')+'</div></div>'
-        +'<div class="gantt-overview-context-card '+((memberSchedules||[]).length?'is-warn':'')+'"><div class="gantt-detail-label">개인 일정 / 제약</div><div class="gantt-detail-value">'+esc((memberSchedules||[]).length?('개인 일정 '+memberSchedules.length+'건'):'연결 일정 없음')+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.total?('다음 일정 · '+scheduleMeta.nextMeta):'프로젝트 업무와 분리된 보조 레이어로만 관리합니다.')+'</div></div>'
-      +'</div>'
-      +'<div class="gantt-detail-section gantt-billing-section">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">청구 정보</div><div class="gantt-detail-meta">청구 여부, 상태, 금액을 확인하고 바로 수정합니다.</div></div>'
-        +'<button type="button" class="btn ghost sm" onclick="openBillingQuickEditModal(\''+project.id+'\')">수정</button>'
+        +'<div class="pd-ov-section">'
+          +'<div class="pd-info-grid">'
+            +'<div class="pd-info-card"><div class="pd-info-label">고객사 / 담당</div><div class="pd-info-value">'+esc(client?.name||'미지정')+'</div><div class="pd-info-sub">'+esc(projectMembers.join(', ')||'담당 미지정')+'</div></div>'
+            +'<div class="pd-info-card"><div class="pd-info-label">프로젝트 설정</div><div class="pd-info-value">'+esc(settingsValue)+'</div><div class="pd-info-sub">'+esc(settingsMetaParts.join(' · '))+'</div></div>'
+            +'<div class="pd-info-card is-full"><div class="pd-info-label">기본 기간</div><div class="pd-info-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div><div class="pd-info-sub">'+esc(getGanttProjectCurrentLifecycleMeta(project)?.detail||'프로젝트 일정 확인')+'</div></div>'
+          +'</div>'
         +'</div>'
-        +'<div class="gantt-overview-context-grid gantt-overview-context-grid--billing">'
-          +'<div class="gantt-overview-context-card'+(project.is_billable===false?'':billingStatus==='미청구'?' is-warn':'')+'"><div class="gantt-detail-label">청구 여부</div><div class="gantt-detail-value">'+(project.is_billable===false?'비청구 대상':'청구 대상')+'</div><div class="gantt-detail-meta">'+(project.is_billable===false?'청구 대상에서 제외':'청구 관리 대상 프로젝트')+'</div></div>'
-          +(project.is_billable!==false
-            ?'<div class="gantt-overview-context-card'+(billingStatus==='미청구'?' is-warn':'')+'"><div class="gantt-detail-label">청구 상태</div><div class="gantt-detail-value"><span class="badge '+getGanttListBillingBadgeClass(billingStatus)+'">'+esc(billingStatus)+'</span></div><div class="gantt-detail-meta">'+(billingStatus==='미청구'?'청구 처리 필요':billingStatus==='청구완료'?'수금 확인 필요':'청구 정리 완료')+'</div></div>'
-            :'')
-          +(billingAmount>0
-            ?'<div class="gantt-overview-context-card"><div class="gantt-detail-label">금액</div><div class="gantt-detail-value">'+formatGanttCurrency(billingAmount)+'</div><div class="gantt-detail-meta">'+(Number(project?.billing_amount||0)>0?'기준 금액':'계약 금액 참조')+'</div></div>'
-            :'')
-          +(String(project?.billing_note||'').trim()
-            ?'<div class="gantt-overview-context-card"><div class="gantt-detail-label">비고</div><div class="gantt-detail-value">'+esc(String(project.billing_note||'').trim())+'</div><div class="gantt-detail-meta">청구 관련 메모</div></div>'
-            :'')
+        +'<div class="pd-ov-section">'
+          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>청구 정보</h3><p>청구 여부, 상태, 금액을 확인하고 바로 수정합니다.</p></div><button type="button" class="pd-link-action" onclick="openBillingQuickEditModal(\''+project.id+'\')">수정</button></div>'
+          +'<div class="pd-billing-grid">'
+            +'<div class="pd-billing-card '+(project.is_billable===false?'':'is-pending')+'"><div class="pd-billing-label">청구 여부</div><div class="pd-billing-value">'+(project.is_billable===false?'비청구 대상':'청구 대상')+'</div><div class="pd-billing-sub">'+(project.is_billable===false?'청구 대상에서 제외':'청구 관리 대상 프로젝트')+'</div></div>'
+            +(project.is_billable!==false
+              ?'<div class="pd-billing-card '+(billingStatus==='미청구'?'is-pending':'is-done')+'"><div class="pd-billing-label">청구 상태</div><div class="pd-billing-value"><span class="pd-billing-pill '+(billingStatus==='미청구'?'is-pending':'is-done')+'">'+esc(billingStatus)+'</span></div><div class="pd-billing-sub">'+esc(billingStatusMeta)+'</div></div>'
+              :'')
+            +(billingAmount>0
+              ?'<div class="pd-billing-card"><div class="pd-billing-label">금액</div><div class="pd-billing-value">'+formatGanttCurrency(billingAmount)+'</div><div class="pd-billing-sub">'+(Number(project?.billing_amount||0)>0?'기준 금액':'계약 금액 참조')+'</div></div>'
+              :'')
+            +(String(project?.billing_note||'').trim()
+              ?'<div class="pd-billing-card is-full"><div class="pd-billing-label">비고</div><div class="pd-billing-value">'+esc(String(project.billing_note||'').trim())+'</div><div class="pd-billing-sub">청구 관련 메모</div></div>'
+              :'')
+          +'</div>'
         +'</div>'
+        +renderGanttProjectMemoSummarySection(project)
       +'</div>'
-      +renderGanttProjectMemoSummarySection(project)
     +'</div>';
 };
 
