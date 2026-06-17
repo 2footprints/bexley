@@ -7238,10 +7238,10 @@ renderGanttTaskRowActions=function(projectId,task,options={}){
   const showDetail=options.showDetail!==false;
   return ''
     +(task?.status!=='완료'
-      ?'<button type="button" class="btn sm gantt-task-action-complete" onclick="event.stopPropagation();completeProjectTask(\''+projectId+'\',\''+task.id+'\')">완료</button>'
+      ?'<button type="button" class="pd-work-action" onclick="event.stopPropagation();completeProjectTask(\''+projectId+'\',\''+task.id+'\')">완료</button>'
       :'')
-    +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">수정</button>'
-    +(showDetail?'<button type="button" class="gantt-task-inline-link" onclick="event.stopPropagation();openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">상세</button>':'');
+    +'<button type="button" class="pd-work-action" onclick="event.stopPropagation();openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">수정</button>'
+    +(showDetail?'<button type="button" class="pd-work-action is-muted" onclick="event.stopPropagation();openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">상세</button>':'');
 };
 
 renderGanttTaskCard=function(projectId,task,variant='list'){
@@ -7252,31 +7252,36 @@ renderGanttTaskCard=function(projectId,task,variant='list'){
   const cueMeta=getGanttTaskExecutionCueMeta(projectId,task,getGanttProjectPendingDocSummary(projectId));
   if(variant==='focus'){
     return ''
-      +'<div class="gantt-task-focus-item is-'+rowTone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
-        +'<div class="gantt-task-focus-top"><span class="gantt-task-focus-cue is-'+cueMeta.tone+'">'+esc(cueMeta.label)+'</span><span class="badge '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span></div>'
-        +'<div class="gantt-task-focus-title">'+esc(task?.title||'제목 없는 업무')+'</div>'
-        +'<div class="gantt-task-focus-meta"><span class="gantt-task-focus-meta-item">'+esc(assignee)+'</span><span class="gantt-task-focus-meta-item is-'+dueMeta.tone+'">'+esc(getGanttTaskDueDisplayText(task,dueMeta,dateMeta))+'</span></div>'
-        +'<div class="gantt-task-focus-footer"><div class="gantt-task-focus-hint">'+esc(cueMeta.hint)+'</div><div class="gantt-task-row-actions">'+renderGanttTaskRowActions(projectId,task,{showDetail:false})+'</div></div>'
+      +'<div class="pd-work-next-box is-'+rowTone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
+        +'<div class="pd-work-next-main">'
+          +'<div><span class="pd-work-next-tag is-'+cueMeta.tone+'">'+esc(cueMeta.label)+'</span><span class="pd-work-name">'+esc(task?.title||'제목 없는 업무')+'</span></div>'
+          +'<div class="pd-work-next-meta"><span>'+esc(assignee)+'</span><span class="is-'+dueMeta.tone+'">'+esc(getGanttTaskDueDisplayText(task,dueMeta,dateMeta))+'</span></div>'
+          +'<div class="pd-work-next-hint">'+esc(cueMeta.hint)+'</div>'
+        +'</div>'
+        +'<div class="pd-work-next-side">'
+          +'<span class="pd-work-status-pill '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span>'
+          +'<div class="pd-work-quick-actions" onclick="event.stopPropagation()">'+renderGanttTaskRowActions(projectId,task,{showDetail:false})+'</div>'
+        +'</div>'
       +'</div>';
   }
   return ''
-    +'<div class="gantt-task-row is-'+rowTone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
-      +'<div class="gantt-task-row-cell gantt-task-row-cell--title"><span class="gantt-task-row-cell-label">업무명</span><div><div class="gantt-task-row-title-line"><span class="gantt-task-priority-cue is-'+cueMeta.tone+'">'+esc(cueMeta.label)+'</span><div class="gantt-task-row-title">'+esc(task?.title||'제목 없는 업무')+'</div></div>'+getGanttTaskContextBadges(projectId,task)+'</div></div>'
-      +'<div class="gantt-task-row-cell gantt-task-row-cell--assignee"><span class="gantt-task-row-cell-label">담당자</span><span class="gantt-task-row-value">'+esc(assignee)+'</span></div>'
-      +'<div class="gantt-task-row-cell gantt-task-row-cell--due"><span class="gantt-task-row-cell-label">마감일</span><div class="gantt-task-row-due-wrap"><span class="gantt-task-row-value is-'+dueMeta.tone+'">'+esc(dateMeta.dueText)+'</span>'+(getGanttTaskDateValue(task?.due_date)&&dueMeta.tone!=='neutral'?'<span class="gantt-task-row-subhint is-'+dueMeta.tone+'">'+esc(dueMeta.label)+'</span>':'')+'</div></div>'
-      +'<div class="gantt-task-row-cell gantt-task-row-cell--status"><span class="gantt-task-row-cell-label">상태</span><div class="gantt-task-row-status-stack" onclick="event.stopPropagation()"><span class="badge '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span><select class="gantt-task-status-quick" onclick="event.stopPropagation()" onchange="event.stopPropagation();updateProjectTaskQuickStatus(\''+projectId+'\',\''+task.id+'\',this.value)">'+getGanttTaskQuickStatusOptions(task)+'</select></div></div>'
-      +'<div class="gantt-task-row-cell gantt-task-row-cell--actions"><span class="gantt-task-row-cell-label">빠른 액션</span><div class="gantt-task-row-actions" onclick="event.stopPropagation()">'+renderGanttTaskRowActions(projectId,task,{showDetail:true})+'</div></div>'
-    +'</div>';
+    +'<tr class="pd-work-row is-'+rowTone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
+      +'<td><span class="pd-work-next-tag is-'+cueMeta.tone+'">'+esc(cueMeta.label)+'</span><span class="pd-work-name">'+esc(task?.title||'제목 없는 업무')+'</span><div class="pd-work-context">'+getGanttTaskContextBadges(projectId,task)+'</div></td>'
+      +'<td class="pd-work-assignee">'+esc(assignee)+'</td>'
+      +'<td><div class="pd-work-due is-'+dueMeta.tone+'">'+esc(dateMeta.dueText)+'</div>'+(getGanttTaskDateValue(task?.due_date)&&dueMeta.tone!=='neutral'?'<div class="pd-work-due-sub is-'+dueMeta.tone+'">'+esc(dueMeta.label)+'</div>':'')+'</td>'
+      +'<td><select class="pd-work-status-select '+(task?.status==='완료'?'is-done':'')+'" onclick="event.stopPropagation()" onchange="event.stopPropagation();updateProjectTaskQuickStatus(\''+projectId+'\',\''+task.id+'\',this.value)">'+getGanttTaskQuickStatusOptions(task)+'</select></td>'
+      +'<td><div class="pd-work-quick-actions" onclick="event.stopPropagation()">'+renderGanttTaskRowActions(projectId,task,{showDetail:true})+'</div></td>'
+    +'</tr>';
 };
 
 renderGanttProjectNextActionsSection=function(projectId){
   const focusTasks=getGanttProjectWorkPriorityTasks(projectId,3);
   return ''
-    +'<div class="gantt-work-focus">'
-      +'<div class="gantt-work-focus-head"><div><div class="gantt-panel-title">다음 액션</div><div class="gantt-detail-meta">오늘 마감, 지연, 담당자 미지정 업무만 먼저 보여줍니다.</div></div><div class="gantt-work-focus-count">우선 '+focusTasks.length+'건</div></div>'
+    +'<div class="pd-ov-section">'
+      +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>다음 액션</h3><p>오늘 마감, 지연, 담당자 미지정 업무만 먼저 보여줍니다.</p></div><span class="pd-count-chip">우선 '+focusTasks.length+'건</span></div>'
       +(focusTasks.length
-        ?'<div class="gantt-work-focus-list">'+focusTasks.map(task=>renderGanttTaskCard(projectId,task,'focus')).join('')+'</div>'
-        :'<div class="gantt-detail-empty-state gantt-work-focus-empty"><div class="gantt-detail-value">지금 바로 처리할 우선 업무가 없습니다.</div><div class="gantt-detail-meta">오늘 마감·지연·담당자 미지정 조건에 걸린 업무가 없으면 아래 전체 업무에서 다음 항목을 이어서 확인합니다.</div></div>')
+        ?'<div class="pd-work-next-list">'+focusTasks.map(task=>renderGanttTaskCard(projectId,task,'focus')).join('')+'</div>'
+        :'<div class="pd-work-next-box is-empty">지금 바로 처리할 우선 업무가 없습니다.<div class="pd-work-next-hint">오늘 마감·지연·담당자 미지정 조건에 걸린 업무가 없으면 아래 전체 업무에서 다음 항목을 이어서 확인합니다.</div></div>')
     +'</div>';
 };
 
@@ -7284,25 +7289,18 @@ renderGanttProjectWorkSection=function(project,memberSchedules){
   const taskSummary=getGanttProjectTaskSummary(project?.id);
   const loadMeta=getGanttProjectTaskLoadMeta(project?.id);
   const scheduleMeta=getGanttProjectPersonalScheduleMeta(memberSchedules);
+  void scheduleMeta;
   loadGanttProjectPendingDocSummary(project?.id,false);
   return ''
-    +'<div class="gantt-detail-pane gantt-work-pane">'
-      +renderGanttProjectNextActionsSection(project.id)
-      +'<div class="gantt-detail-section gantt-detail-section--flush gantt-work-table-section">'
-        +'<div class="gantt-detail-section-head gantt-work-table-head"><div><div class="gantt-panel-title">전체 업무</div><div class="gantt-detail-meta">업무명, 담당자, 마감일, 상태, 빠른 액션만 먼저 보고 바로 처리합니다.</div></div><div class="gantt-detail-inline-actions"><span class="gantt-work-table-summary">열린 '+taskSummary.active+'건 · 지연 '+taskSummary.overdue+'건</span><button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button></div></div>'
+    +'<div class="gantt-detail-pane gantt-work-pane pd-work-pane">'
+      +'<div class="pd-tab-panel">'
+        +renderGanttProjectNextActionsSection(project.id)
+        +'<div class="pd-ov-section">'
+          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>전체 업무</h3><p>업무명, 담당자, 마감일, 상태, 빠른 액션을 먼저 보고 바로 처리합니다.</p></div><div class="pd-work-table-actions"><span class="pd-count-chip">열린 '+taskSummary.active+'건 · 지연 '+taskSummary.overdue+'건</span><button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button></div></div>'
         +((getGanttProjectTasks(project?.id)||[]).length
-          ?'<div class="gantt-task-list-head gantt-task-list-head--ops"><span>업무명</span><span>담당자</span><span>마감일</span><span>상태</span><span>빠른 액션</span></div><div class="gantt-task-list">'+renderGanttTaskRows(project.id)+'</div>'
+          ?'<div class="pd-data-table-wrap"><table class="pd-data-table pd-work-table"><thead><tr><th>업무명</th><th>담당자</th><th>마감일</th><th>상태</th><th class="is-right">빠른 액션</th></tr></thead><tbody>'+renderGanttTaskRows(project.id)+'</tbody></table></div>'
           :renderGanttTaskEmptyState(project.id,loadMeta))
-      +'</div>'
-      +'<div class="gantt-detail-section gantt-work-schedule-section">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">개인 일정 참고</div><div class="gantt-detail-meta">회의·외근·검토·휴가 일정은 프로젝트 업무와 섞지 않고 보조 레이어로만 봅니다.</div></div></div>'
-        +'<div class="gantt-work-schedule-summary">'
-          +'<div class="gantt-work-schedule-card"><div class="gantt-detail-label">관련 개인일정</div><div class="gantt-detail-value">'+esc(scheduleMeta.total?scheduleMeta.total+'건':'없음')+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.total?'프로젝트 업무와 별도로 관리되는 지원 일정입니다.':'현재 연결된 개인 일정이 없습니다.')+'</div></div>'
-          +'<div class="gantt-work-schedule-card"><div class="gantt-detail-label">다음 개인 일정</div><div class="gantt-detail-value">'+esc(scheduleMeta.nextTitle)+'</div><div class="gantt-detail-meta">'+esc(scheduleMeta.nextMeta)+'</div></div>'
         +'</div>'
-        +(scheduleMeta.previewRows.length
-          ?'<div class="gantt-detail-list">'+scheduleMeta.previewRows.map(schedule=>'<div class="gantt-detail-item is-clickable" onclick="openScheduleModal(\''+schedule.id+'\')"><div><div class="gantt-detail-item-title">'+esc(getScheduleMemberLabel(schedule))+' · '+esc((schedule.title&&String(schedule.title).trim())||scheduleLabel(schedule.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc(getGanttScheduleRangeText(schedule)+(schedule.location?' · '+schedule.location:''))+'</div></div><span class="badge '+(schedule.schedule_type==='leave'?'badge-orange':'badge-blue')+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span></div>').join('')+(scheduleMeta.hiddenCount?'<div class="gantt-detail-empty">그 외 연결 개인 일정 '+scheduleMeta.hiddenCount+'건은 간트/달력 레이어에서 이어서 확인할 수 있습니다.</div>':'')+'</div>'
-          :'<div class="gantt-detail-empty">현재 확인된 개인 일정이 없습니다.</div>')
       +'</div>'
     +'</div>';
 };
