@@ -2748,23 +2748,20 @@ function renderGanttProjectLifecycleActionPanel(project){
         :'warn';
   const closeDisabled=!editable||lifecycleMeta?.key==='fully_closed';
   return ''
-    +'<div class="gantt-detail-lifecycle-panel">'
-      +'<div class="gantt-detail-lifecycle-top">'
-        +'<div class="gantt-detail-lifecycle-copy">'
-          +'<div class="gantt-detail-label">프로젝트 상태</div>'
-          +'<div class="gantt-detail-lifecycle-state-line"><span class="badge '+currentBadgeClass+'">'+esc(currentLabel)+'</span><span class="gantt-detail-meta">상태는 수명주기를, 보조 칩은 남은 확인 이유를 보여줍니다.</span></div>'
-        +'</div>'
+    +'<div class="pd-proj-card pd-proj-card--status">'
+      +'<div class="pd-status-control-row">'
+        +'<div class="pd-status-warn is-'+noteTone+'"><span class="pd-status-dot"></span><span>'+esc(noteText)+'</span></div>'
+        +'<div class="pd-status-select-group">'
+          +'<span class="pd-status-pill '+currentBadgeClass+'">'+esc(currentLabel)+'</span>'
         +(editable&&lifecycleMeta?.key!=='fully_closed'
-          ?'<div class="gantt-detail-lifecycle-controls">'
-              +'<select id="ganttProjectQuickStatusSelect" data-project-id="'+project.id+'" class="gantt-detail-lifecycle-select">'+getGanttProjectQuickLifecycleOptionsHtml(project)+'</select>'
+          ?'<select id="ganttProjectQuickStatusSelect" data-project-id="'+project.id+'" class="pd-status-select">'+getGanttProjectQuickLifecycleOptionsHtml(project)+'</select>'
               +'<button type="button" class="btn sm" onclick="applyGanttProjectQuickLifecycleSelection(\''+project.id+'\')">상태 변경</button>'
-              +'<button type="button" class="btn ghost sm gantt-detail-close-btn"'+(closeDisabled?' disabled':'')+' onclick="requestGanttProjectFullyClose(\''+project.id+'\')">완전 종료</button>'
-            +'</div>'
+              +'<button type="button" class="btn ghost sm pd-close-btn"'+(closeDisabled?' disabled':'')+' onclick="requestGanttProjectFullyClose(\''+project.id+'\')">완전 종료</button>'
           :editable
-            ?'<div class="gantt-detail-lifecycle-controls"><button type="button" class="btn ghost sm gantt-detail-close-btn" disabled>완전 종료됨</button></div>'
-            :'<div class="gantt-detail-meta">상태 변경 권한이 없습니다.</div>')
+            ?'<button type="button" class="btn ghost sm pd-close-btn" disabled>완전 종료됨</button>'
+            :'<span class="pd-meta-text">상태 변경 권한이 없습니다.</span>')
       +'</div>'
-      +'<div class="gantt-detail-lifecycle-note is-'+noteTone+'">'+esc(noteText)+'</div>'
+    +'</div>'
     +'</div>';
 }
 
@@ -3220,8 +3217,8 @@ function renderGanttDetailTabBar(){
     {key:'memo',label:'메모'},
     {key:'documents',label:'산출물'}
   ];
-  return '<div class="gantt-detail-tabbar">'
-    +tabs.map(tab=>'<button type="button" class="gantt-detail-tab'+(ganttDetailTab===tab.key?' active':'')+'" onclick="setGanttDetailTab(\''+tab.key+'\')">'+tab.label+'</button>').join('')
+  return '<div class="pd-tabs" role="tablist" aria-label="프로젝트 상세 탭">'
+    +tabs.map(tab=>'<button type="button" class="'+(ganttDetailTab===tab.key?'active':'')+'" role="tab" aria-selected="'+(ganttDetailTab===tab.key?'true':'false')+'" onclick="setGanttDetailTab(\''+tab.key+'\')">'+tab.label+'</button>').join('')
   +'</div>';
 }
 
@@ -5251,7 +5248,7 @@ function renderGanttDetailIssueItem(projectId,issue){
   const assigneeLabel=issue?.assignee_name||issue?.owner_name||'담당자 미정';
   const issueHint=getGanttIssueOperationalHint(issue);
   const contextParts=[getGanttIssueContextLabel(issue),assigneeLabel];
-  if(issue.priority==='high')contextParts.push('우선 확인');
+  if(issue.priority==='high')contextParts.push('긴급');
   const modalProjectId=issue.project_id||projectId||'';
   const openAction='openIssueModal(\''+modalProjectId+'\',\''+issue.id+'\')';
   return '<div class="gantt-detail-item gantt-detail-issue-row is-clickable'+(isResolved?' is-resolved':'')+'" role="button" tabindex="0" onclick="'+openAction+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+openAction+';}">'
@@ -7328,26 +7325,27 @@ renderGanttDetailPanel=function(projs,schs){
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
   else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectDocumentsSection(project);
   const primaryAction=ganttDetailTab==='work'
-    ?'<button class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button>'
-    :'<button class="btn primary sm" onclick="setGanttDetailTab(\'work\')">Work 열기</button>';
+    ?'<button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button>'
+    :'<button type="button" class="btn primary sm" onclick="setGanttDetailTab(\'work\')">Work 열기</button>';
   el.innerHTML=''
-    +'<div class="gantt-detail-header gantt-detail-header--ops">'
-      +'<div class="gantt-detail-head-copy">'
-        +'<div class="gantt-detail-context">현재 선택된 프로젝트 상세</div>'
-        +'<div class="gantt-panel-title">'+esc(project.name||'프로젝트')+'</div>'
-        +'<div class="gantt-panel-sub">'+esc(client?.name||'고객사 미지정')+'</div>'
-        +'<div class="gantt-detail-selection-chip">하단 작업공간에서 이어서 확인</div>'
-        +'<div class="gantt-detail-header-statusline"><span class="badge '+getGanttListStatusBadgeClass(lifecycleMeta?.label||'진행중')+'">'+esc(lifecycleMeta?.label||'진행중')+'</span></div>'
-        +'<div class="gantt-detail-header-meta">'
-          +'<span class="gantt-detail-header-chip">담당 · '+esc(projectMembers.join(', ')||'미배정')+'</span>'
-          +'<span class="gantt-detail-header-chip">기간 · '+esc((project.start||'')+' ~ '+(project.end||''))+'</span>'
+    +'<div class="pd-proj-card">'
+      +'<div class="pd-proj-top">'
+        +'<div class="pd-proj-main">'
+          +'<div class="pd-proj-label">현재 선택된 프로젝트 상세</div>'
+          +'<div class="pd-proj-title">'+esc(project.name||'프로젝트')+'</div>'
+          +'<div class="pd-proj-client">'+esc(client?.name||'고객사 미지정')+'</div>'
+        +'</div>'
+        +'<div class="pd-proj-actions">'
+        +primaryAction
+        +'<button type="button" class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')" title="프로젝트명, 고객사, 계약 연결, 빌링 대상 여부 같은 기본 설정을 수정합니다.">프로젝트 설정</button>'
+        +'<button type="button" class="btn ghost sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
+        +'<button type="button" class="btn ghost sm" onclick="closeGanttProjectDetail()">목록으로 돌아가기</button>'
         +'</div>'
       +'</div>'
-      +'<div class="gantt-detail-actions gantt-detail-actions--ops">'
-        +primaryAction
-        +'<button class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')" title="프로젝트명, 고객사, 계약 연결, 빌링 대상 여부 같은 기본 설정을 수정합니다.">프로젝트 설정</button>'
-        +'<button type="button" class="gantt-detail-link-btn" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
-        +'<button type="button" class="gantt-detail-link-btn gantt-detail-close-link" onclick="closeGanttProjectDetail()">목록으로 돌아가기</button>'
+      +'<div class="pd-proj-meta-row">'
+        +'<span class="pd-status-pill '+getGanttListStatusBadgeClass(lifecycleMeta?.label||'진행중')+'">'+esc(lifecycleMeta?.label||'진행중')+'</span>'
+        +'<span class="pd-meta-text">담당 · <b>'+esc(projectMembers.join(', ')||'미배정')+'</b></span>'
+        +'<span class="pd-meta-text">기간 · <b>'+esc((project.start||'')+' ~ '+(project.end||''))+'</b></span>'
       +'</div>'
     +'</div>'
     +renderGanttProjectLifecycleActionPanel(project)
