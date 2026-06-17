@@ -8490,15 +8490,18 @@ function renderGanttChecklistTemplateOptions(project){
 function renderGanttChecklistItemRow(item){
   const id=String(item?.id||'');
   const completed=String(item?.status||'pending')==='completed';
-  return '<div class="gantt-checklist-row'+(completed?' is-completed':'')+'" data-checklist-item="'+esc(id)+'">'
-    +'<div class="gantt-checklist-row-main">'
-      +'<label class="gantt-checklist-check"><input type="checkbox" '+(completed?'checked':'')+' onchange="toggleGanttChecklistItemStatus(\''+esc(id)+'\',this.checked)" /><span></span></label>'
-      +'<div class="gantt-checklist-title"><div><strong>'+esc(item?.title||'체크 항목')+'</strong>'+(item?.is_required?'<span class="gantt-checklist-required">*</span>':'')+'</div><div class="gantt-detail-meta">'+esc(completed&&item?.completed_at?('완료 '+String(item.completed_at).slice(0,10)):'대기')+'</div></div>'
+  const statusLabel=completed?'완료':'대기';
+  const statusValue=completed?'completed':'not_started';
+  const completedMeta=completed&&item?.completed_at?('완료 '+String(item.completed_at).slice(0,10)):(item?.description||'담당자와 메모를 함께 관리합니다.');
+  return '<div class="pd-check-item'+(completed?' is-completed':'')+'" data-checklist-item="'+esc(id)+'">'
+    +'<div class="pd-check-main">'
+      +'<label class="pd-check-box"><input type="checkbox" '+(completed?'checked':'')+' onchange="this.closest(\'[data-checklist-item]\').querySelector(\'[data-field=status]\').value=this.checked?\'completed\':\'not_started\';toggleGanttChecklistItemStatus(\''+esc(id)+'\',this.checked)" /><span></span></label>'
+      +'<div class="pd-check-body"><div class="pd-check-title-row"><span class="pd-check-title">'+esc(item?.title||'체크 항목')+'</span>'+(item?.is_required?'<span class="pd-check-required">●</span>':'')+'<span class="pd-check-status '+(completed?'done':'waiting')+'">'+statusLabel+'</span></div><div class="pd-check-meta">'+esc(completedMeta)+'</div></div>'
+      +'<input type="hidden" data-field="status" value="'+esc(statusValue)+'">'
     +'</div>'
-    +'<div class="gantt-checklist-row-sub">'
-      +'<div class="gantt-checklist-chip '+(completed?'is-done':'')+'">'+(completed?'완료':'대기')+'</div>'
-      +'<div class="gantt-checklist-assignee" data-field="assignee_member_id" data-checklist-assignee-combo="'+esc(id)+'" data-selected-value="'+esc(item?.assignee_member_id||'')+'"></div>'
-      +'<div class="gantt-checklist-memo-wrap"><textarea class="gantt-checklist-memo" data-field="memo" rows="2" placeholder="메모">'+esc(item?.memo||'')+'</textarea><button type="button" class="btn ghost sm" onclick="saveGanttChecklistItemMemo(\''+esc(id)+'\')">저장</button></div>'
+    +'<div class="pd-check-detail">'
+      +'<div class="pd-check-assignee" data-field="assignee_member_id" data-checklist-assignee-combo="'+esc(id)+'" data-selected-value="'+esc(item?.assignee_member_id||'')+'"></div>'
+      +'<div class="pd-check-memo-wrap"><textarea class="pd-check-memo" data-field="memo" rows="2" placeholder="메모">'+esc(item?.memo||'')+'</textarea><button type="button" class="pd-check-save" onclick="saveGanttChecklistItemMemo(\''+esc(id)+'\')">저장</button></div>'
     +'</div>'
   +'</div>';
 }
@@ -8511,9 +8514,9 @@ function renderGanttChecklistItems(items){
     grouped.get(section).push(item);
   });
   return [...grouped.entries()].map(([section,rows])=>
-    '<div class="gantt-checklist-section">'
-      +'<div class="gantt-checklist-section-title"><span>'+esc(section)+'</span><strong>'+rows.length+'개 항목</strong></div>'
-      +'<div class="gantt-checklist-rows">'+rows.map(renderGanttChecklistItemRow).join('')+'</div>'
+    '<div class="pd-check-group">'
+      +'<div class="pd-check-group-head"><span class="pd-check-group-name">'+esc(section)+'</span><span class="pd-check-group-count">'+rows.length+'개 항목</span></div>'
+      +'<div class="pd-check-list">'+rows.map(renderGanttChecklistItemRow).join('')+'</div>'
     +'</div>'
   ).join('');
 }
@@ -8524,14 +8527,20 @@ function renderGanttProjectChecklistSection(project){
   const meta=state.meta||{};
   const summary=getGanttChecklistCompletionSummary(state.items||[]);
   return '<div class="gantt-detail-pane gantt-checklist-pane">'
-    +'<div class="gantt-detail-section gantt-detail-section--flush">'
-      +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">프로젝트 체크리스트</div><div class="gantt-detail-meta">템플릿 기반 체크 항목을 완료율과 함께 관리합니다.</div></div><div class="gantt-detail-head-actions">'+(!state.checklist?'<button type="button" class="btn primary sm" onclick="openGanttChecklistTemplateModal(\''+projectId+'\')">체크리스트 생성</button>':'')+'</div></div>'
+    +'<div class="pd-tab-panel">'
+      +'<div class="pd-ov-section">'
+        +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>프로젝트 체크리스트</h3><p>템플릿 기반 체크 항목을 완료율과 함께 관리합니다.</p></div><div class="pd-link-actions"><button type="button" class="btn sm" onclick="openGanttChecklistTemplateModal(\''+projectId+'\')">'+(state.checklist?'체크리스트 적용':'체크리스트 생성')+'</button>'+(state.checklist?'<button type="button" class="btn primary sm" onclick="saveGanttProjectChecklistItems(\''+projectId+'\')">저장</button>':'')+'</div></div>'
       +(meta.loading?'<div class="gantt-detail-empty">체크리스트를 불러오는 중...</div>'
         :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
         :!state.checklist?renderGanttChecklistEmptyState(project)
-        :'<div class="gantt-checklist-summary"><div><strong>'+summary.completion+'%</strong><span>완료율</span></div><div><strong>'+summary.completed+' / '+summary.total+'</strong><span>완료 항목</span></div><div><strong>'+summary.requiredOpen+'</strong><span>필수 미완료</span></div></div>'
-          +'<div class="gantt-checklist-progress"><span style="width:'+Math.max(0,Math.min(100,summary.completion))+'%"></span></div>'
-          +renderGanttChecklistItems(state.items||[]))
+        :'<div class="pd-check-stat-grid">'
+            +'<div class="pd-stat-card '+(summary.completion>=100?'is-done':'is-progress')+'"><div class="pd-stat-label">완료율</div><div class="pd-stat-value">'+summary.completion+'%</div><div class="pd-check-progress"><span style="width:'+Math.max(0,Math.min(100,summary.completion))+'%"></span></div></div>'
+            +'<div class="pd-stat-card is-done"><div class="pd-stat-label">완료 항목</div><div class="pd-stat-value">'+summary.completed+' / '+summary.total+'</div><div class="pd-stat-sub">전체 체크 항목</div></div>'
+            +'<div class="pd-stat-card '+(summary.requiredOpen?'is-wait':'is-done')+'"><div class="pd-stat-label">필수 미완료</div><div class="pd-stat-value">'+summary.requiredOpen+'</div><div class="pd-stat-sub">필수 항목 기준</div></div>'
+          +'</div>'
+          +renderGanttChecklistItems(state.items||[])
+          +'<div class="pd-check-footer"><button type="button" class="btn primary sm" onclick="saveGanttProjectChecklistItems(\''+projectId+'\')">체크리스트 저장</button></div>')
+      +'</div>'
     +'</div>'
   +'</div>';
 }
