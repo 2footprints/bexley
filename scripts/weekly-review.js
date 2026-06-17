@@ -1501,6 +1501,8 @@ function renderWeeklyReviewMeetingFieldGroupMarkup(reviews,key,emptyText,isCurre
   const currentReview=(reviews||[]).find(review=>review?.created_by===currentUser?.id)||null;
   const currentParsed=parseWeeklyReviewMeetingContent(currentReview?.content||'');
   const currentValue=getWeeklyReviewUnifiedMeetingText(currentParsed);
+  const currentName=currentReview?.member_name||currentMember?.name||currentUser?.email||'익명';
+  const currentInitial=String(currentName||'익').trim().charAt(0)||'익';
   const rows=(reviews||[])
     .map(review=>{
       const value=getWeeklyReviewUnifiedMeetingText(review?.content||'').trim();
@@ -1508,24 +1510,26 @@ function renderWeeklyReviewMeetingFieldGroupMarkup(reviews,key,emptyText,isCurre
     })
     .filter(row=>row.value&&(!isEditable||row.review?.created_by!==currentUser?.id));
   if(!isEditable&&!rows.length){
-    return '<div class="weekly-review-empty">'+esc(emptyText||'입력된 회의 메모가 없습니다.')+'</div>';
+    return '<div class="wr-empty-row">'+esc(emptyText||'입력된 회의 메모가 없습니다.')+'</div>';
   }
   const editableHtml=isEditable
-    ?'<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
-      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
-        +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(currentReview?.member_name||currentMember?.name||currentUser?.email||'익명')+'</div><div style="font-size:11px;color:var(--text3)">자동저장</div></div>'
+    ?'<div class="wr-memo-box">'
+      +'<div class="wr-memo-author">'
+        +'<span class="wr-memo-avatar">'+esc(currentInitial)+'</span>'
+        +'<div><div class="wr-memo-name">'+esc(currentName)+'</div><div class="wr-memo-role">자동저장</div></div>'
       +'</div>'
-      +'<textarea id="wr-memo-meeting_notes" class="wr-memo-textarea" rows="7" placeholder="'+esc(emptyText||'')+'" onblur="autoSaveWeeklyReviewMeetingField(this,\'meeting_notes\')">'+esc(currentValue)+'</textarea>'
+      +'<textarea id="wr-memo-meeting_notes" class="wr-memo-textarea wr-memo-input" rows="7" placeholder="'+esc(emptyText||'')+'" onblur="autoSaveWeeklyReviewMeetingField(this,\'meeting_notes\')">'+esc(currentValue)+'</textarea>'
     +'</div>'
     :'';
   return '<div style="display:flex;flex-direction:column;gap:10px">'
     +editableHtml
     +rows.map(({review,value})=>
-      '<div class="card-sm" style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg)">'
-        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px">'
-          +'<div><div style="font-size:13px;font-weight:800;color:var(--navy)">'+esc(review?.member_name||'익명')+'</div><div style="font-size:11px;color:var(--text3)">'+esc(formatCommentDate(review?.updated_at||review?.created_at||''))+'</div></div>'
+      '<div class="wr-memo-box">'
+        +'<div class="wr-memo-author">'
+          +'<span class="wr-memo-avatar">'+esc(String(review?.member_name||'익명').trim().charAt(0)||'익')+'</span>'
+          +'<div><div class="wr-memo-name">'+esc(review?.member_name||'익명')+'</div><div class="wr-memo-role">'+esc(formatCommentDate(review?.updated_at||review?.created_at||''))+'</div></div>'
         +'</div>'
-        +'<div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-word">'+esc(value)+'</div>'
+        +'<div class="wr-memo-readonly">'+esc(value)+'</div>'
       +'</div>'
     ).join('')
   +'</div>';
@@ -3566,7 +3570,7 @@ function createWeeklyReviewCompletedTaskItem(task){
 }
 function renderWeeklyReviewOutputRows(outputs,taskRows=[]){
   const rows=Array.isArray(outputs)?outputs:[];
-  if(!rows.length)return '<div class="weekly-review-empty">표시할 산출물이 없습니다.</div>';
+  if(!rows.length)return '<div class="wr-empty-row">표시할 산출물이 없습니다.</div>';
   return '<div class="wr-output-list">'
       +rows.map(output=>{
         const project=getWeeklyReviewOutputProject(output);
@@ -3576,20 +3580,23 @@ function renderWeeklyReviewOutputRows(outputs,taskRows=[]){
         const meta=[getWeeklyReviewOutputAuthorLabel(output),formatCommentDate(output?.created_at||'')].filter(Boolean).join(' · ');
         const outputIdJs=getWeeklyReviewJsString(output?.id||'');
         const editButtonHtml=canManageWeeklyReviewOutput(output)
-          ?'<button type="button" class="btn ghost sm" onclick="openWeeklyReviewOutputModal(\''+outputIdJs+'\')" style="font-size:12px">수정</button>'
+          ?'<button type="button" class="wr-output-link-btn" onclick="event.stopPropagation();openWeeklyReviewOutputModal(\''+outputIdJs+'\')">수정</button>'
           :'';
-        return '<div class="weekly-review-item wr-output-item" style="align-items:flex-start;cursor:default">'
-          +'<div class="weekly-review-item-main wr-output-main">'
-            +'<div class="weekly-review-item-meta weekly-review-item-context">'+esc(contextLabel)+'</div>'
-            +(taskLabel?'<div class="weekly-review-item-meta">'+esc(taskLabel)+'</div>':'')
-            +'<div class="weekly-review-item-title">'+esc(output?.title||'제목 없는 산출물')+'</div>'
-            +'<div class="weekly-review-item-meta">'+esc(meta)+'</div>'
-            +(output?.memo?'<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-top:6px;white-space:pre-wrap;word-break:break-word">'+esc(output.memo)+'</div>':'')
+        const metaChips=[taskLabel,meta].filter(Boolean).map(label=>'<span class="wr-meta-chip">'+esc(label)+'</span>').join('');
+        return '<div class="wr-item-card wr-output-item-card is-blue">'
+          +'<div class="wr-item-path">'+esc(contextLabel)+'</div>'
+          +'<div class="wr-item-top">'
+            +'<div class="wr-item-name">'+esc(output?.title||'제목 없는 산출물')+'</div>'
+            +'<span class="wr-item-badge blue">산출물</span>'
           +'</div>'
-          +'<div class="weekly-review-item-side wr-output-side">'
+          +(metaChips?'<div class="wr-item-meta-row">'+metaChips+'</div>':'')
+          +(output?.memo?'<div class="wr-item-note">'+esc(output.memo)+'</div>':'')
+          +'<div class="wr-output-badges-row">'
             +'<div class="wr-output-badges">'+getWeeklyReviewOutputQcBadges(output)+'</div>'
             +renderWeeklyReviewOutputToggle(output)
-            +'<button type="button" class="btn ghost sm" onclick="openWeeklyReviewOutputUrl(\''+getWeeklyReviewJsString(output?.onedrive_url||'')+'\')" style="font-size:12px">OneDrive</button>'
+          +'</div>'
+          +'<div class="wr-item-foot">'
+            +'<button type="button" class="wr-output-link-btn" onclick="event.stopPropagation();openWeeklyReviewOutputUrl(\''+getWeeklyReviewJsString(output?.onedrive_url||'')+'\')">OneDrive</button>'
             +editButtonHtml
           +'</div>'
         +'</div>';
@@ -3600,7 +3607,7 @@ function renderWeeklyReviewOutputsMarkup(outputs,taskRows=[]){
   const rows=Array.isArray(outputs)?outputs:[];
   const listHtml=rows.length
     ?renderWeeklyReviewOutputRows(rows,taskRows)
-    :'<div class="weekly-review-empty">이번 주에 등록된 산출물 링크가 없습니다.</div>';
+    :'<div class="wr-empty-row">이번 주에 등록된 산출물 링크가 없습니다.</div>';
   return '<div style="padding:14px 2px 8px">'
     +'<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button type="button" class="btn sm ghost" onclick="openWeeklyReviewOutputModal()" style="font-size:12px">+ 산출물 링크 추가</button></div>'
     +listHtml
@@ -3608,7 +3615,7 @@ function renderWeeklyReviewOutputsMarkup(outputs,taskRows=[]){
 }
 function renderWeeklyReviewIncludedOutputsMarkup(outputs,taskRows=[]){
   const rows=Array.isArray(outputs)?outputs:[];
-  if(!rows.length)return '<div class="weekly-review-empty">회의 포함으로 체크된 산출물이 없습니다.</div>';
+  if(!rows.length)return '<div class="wr-empty-row wr-output-empty">회의 포함으로 체크된 산출물이 없습니다.</div>';
   return '<div class="wr-output-featured">'+renderWeeklyReviewOutputRows(rows,taskRows)+'</div>';
 }
 function groupWeeklyReviewOutputsByProject(outputs=[]){
@@ -3630,7 +3637,7 @@ function groupWeeklyReviewOutputsByProject(outputs=[]){
 }
 function renderWeeklyReviewOutputsByProjectMarkup(outputs,taskRows=[]){
   const rows=Array.isArray(outputs)?outputs:[];
-  if(!rows.length)return '<div class="weekly-review-empty">이번 주 등록된 산출물이 없습니다.</div>';
+  if(!rows.length)return '<div class="wr-empty-row">이번 주 등록된 산출물이 없습니다.</div>';
   return '<div class="wr-output-project-groups">'
     +groupWeeklyReviewOutputsByProject(rows).map(group=>
       '<div class="wr-output-project-group">'
@@ -5041,10 +5048,22 @@ function renderWeeklyReviewNextWeekSection(data) {
   const nextStarts = (data._raw_nextWeekStarts || []);
   const deadlineRows = deadlineProjects.length
     ? deadlineProjects.map(({ project, dLabel, toneClass, statusLabel, memberNames }) => {
-        const badgeCls = statusLabel === '지연' ? 'badge-red' : 'badge-gray';
-        return `<div class="wr-nw-deadline-row"><div><div class="wr-nw-proj-name">${esc(project.name || '')}</div><div class="wr-nw-proj-owner">${esc(memberNames.slice(0, 2).join(', ') || '-')}</div></div><div><span class="badge ${badgeCls}">${esc(statusLabel)}</span></div><div class="wr-nw-date ${toneClass}">${esc(getWeeklyReviewProjectEndDate(project) || '-')}${dLabel ? ` <span class="wr-nw-d-chip">(${dLabel})</span>` : ''}</div></div>`;
+        const statusClass = statusLabel === '지연' ? 'danger' : 'blue';
+        return `<div class="wr-deadline-row">
+          <div class="wr-deadline-left">
+            <span class="wr-deadline-dot"></span>
+            <div>
+              <div class="wr-deadline-proj">${esc(project.name || '')}</div>
+              <div class="wr-deadline-owner">${esc(memberNames.slice(0, 2).join(', ') || '-')}</div>
+            </div>
+          </div>
+          <div class="wr-deadline-right">
+            <span class="wr-status-tag ${statusClass}">${esc(statusLabel)}</span>
+            <span class="wr-deadline-date ${toneClass}">${esc(getWeeklyReviewProjectEndDate(project) || '-')}${dLabel ? ` <span class="wr-nw-d-chip">(${dLabel})</span>` : ''}</span>
+          </div>
+        </div>`;
       }).join('')
-    : `<div class="weekly-review-empty">다음 주 마감 예정 프로젝트가 없습니다.</div>`;
+    : `<div class="wr-empty-row">다음 주 마감 예정 프로젝트가 없습니다.</div>`;
   const leaveRows = nextLeaves.length
     ? [...new Set(nextLeaves.flatMap(s => getOperationalScheduleMemberNames(s)))].map(name => {
         const sched = nextLeaves.find(s => getOperationalScheduleMemberNames(s).includes(name));
@@ -5053,14 +5072,14 @@ function renderWeeklyReviewNextWeekSection(data) {
         const days = start && end ? Math.round((getWeeklyReviewDate(end) - getWeeklyReviewDate(start)) / (1000 * 60 * 60 * 24)) + 1 : null;
         return `<div class="wr-nw-absence-item"><span class="wr-nw-absence-who">${esc(name)}</span><div style="display:flex;align-items:center;gap:6px"><span class="wr-nw-absence-period">${esc(start.slice(5).replace('-', '/') || '')}</span>${days ? `<span class="wr-nw-absence-days">${days}일</span>` : ''}</div></div>`;
       }).join('')
-    : `<div class="wr-nw-absence-empty">차주 휴가·부재 없음</div>`;
+    : `<div class="wr-mini-empty">차주 휴가·부재 신청이 없습니다.</div>`;
   const fieldRows = nextFieldwork.length
     ? nextFieldwork.slice(0, 3).map(sched => {
         const names = getOperationalScheduleMemberNames(sched).join(', ');
         const start = sched?.start || sched?.start_date || '';
         return `<div class="wr-nw-field-item"><div class="wr-nw-field-who">${esc(names)}</div><div class="wr-nw-field-desc">${esc(sched.title || '필드 일정')}</div><div class="wr-nw-field-date">${esc(start.slice(5).replace('-', '/') || '')}</div></div>`;
       }).join('')
-    : `<div class="wr-nw-absence-empty">차주 필드 일정 없음</div>`;
+    : `<div class="wr-mini-empty">차주 산정 일정이 없습니다.</div>`;
   const startRows = nextStarts.length
     ? nextStarts.slice(0, 3).map(project => {
         const startDate = getWeeklyReviewProjectStartDate(project);
@@ -5070,7 +5089,7 @@ function renderWeeklyReviewNextWeekSection(data) {
           .filter(Boolean);
         return `<div class="wr-nw-new-item"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><div class="wr-nw-proj-name">${esc(project.name || '')}</div><span class="badge badge-blue" style="font-size:10px">신규</span></div><div class="wr-nw-proj-owner">담당: ${esc(memberNames.slice(0, 2).join(', ') || '-')} · ${esc(startDate ? startDate.slice(5).replace('-', '/') : '')} 착수</div></div>`;
       }).join('')
-    : `<div class="wr-nw-absence-empty">차주 신규 착수 프로젝트 없음</div>`;
+    : `<div class="wr-mini-empty">차주 신규 착수 일정이 없습니다.</div>`;
   return `<section class="card weekly-review-section" data-section-id="next-week" style="margin-top:0">
     <div class="weekly-review-section-head">
       <div>
@@ -5085,15 +5104,14 @@ function renderWeeklyReviewNextWeekSection(data) {
       <div class="weekly-review-section-expanded-body">
         <div class="weekly-review-group">
           <div class="weekly-review-group-title">차주 마감 예정</div>
-          <div class="wr-nw-deadline-list">
-            <div class="wr-nw-deadline-header"><span>프로젝트</span><span>상태</span><span>마감일</span></div>
+          <div class="wr-deadline-list">
             ${deadlineRows}
           </div>
         </div>
-        <div class="wr-nw-three-col">
-          <div class="wr-nw-col-card"><div class="wr-nw-col-label">🏖 휴가 · 부재</div>${leaveRows}</div>
-          <div class="wr-nw-col-card"><div class="wr-nw-col-label">📍 필드 · 외부일정</div>${fieldRows}</div>
-          <div class="wr-nw-col-card"><div class="wr-nw-col-label">🚀 신규 착수</div>${startRows}</div>
+        <div class="wr-mini-grid">
+          <div class="wr-mini-card"><div class="wr-mini-label">추가 · 부재</div><div class="wr-mini-value">${leaveRows}</div></div>
+          <div class="wr-mini-card"><div class="wr-mini-label">착수 예정</div><div class="wr-mini-value">${startRows}</div></div>
+          <div class="wr-mini-card"><div class="wr-mini-label">산정 일정</div><div class="wr-mini-value">${fieldRows}</div></div>
         </div>
       </div>
     </div>

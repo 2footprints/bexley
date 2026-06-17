@@ -1234,6 +1234,10 @@ input,textarea{border-radius:12px!important}
   border-left-color:var(--orange);
   background:linear-gradient(to right, rgba(245,158,11,.11) 0%, var(--card) 7%);
 }
+#pageWeeklyReview .wr-item-card.is-blue{
+  border-left-color:var(--blue);
+  background:linear-gradient(to right, rgba(37,99,235,.08) 0%, var(--card) 7%);
+}
 #pageWeeklyReview .wr-item-card:hover{
   border-color:rgba(15,23,42,.16);
   border-left-color:inherit;
@@ -1244,6 +1248,9 @@ input,textarea{border-radius:12px!important}
 }
 #pageWeeklyReview .wr-item-card.is-amber:hover{
   border-left-color:var(--orange);
+}
+#pageWeeklyReview .wr-item-card.is-blue:hover{
+  border-left-color:var(--blue);
 }
 #pageWeeklyReview .wr-item-path,
 #pageWeeklyReview .wr-item-card .wr-task-breadcrumb{
@@ -1282,6 +1289,9 @@ input,textarea{border-radius:12px!important}
 }
 #pageWeeklyReview .wr-item-badge.amber{
   background:var(--orange);
+}
+#pageWeeklyReview .wr-item-badge.blue{
+  background:var(--blue);
 }
 #pageWeeklyReview .wr-item-meta-row,
 #pageWeeklyReview .wr-item-card .wr-task-card-meta{
@@ -1414,6 +1424,224 @@ input,textarea{border-radius:12px!important}
 #pageWeeklyReview .wr-table-pill.pending{
   background:rgba(239,68,68,.1);
   color:var(--red);
+}
+#pageWeeklyReview .wr-output-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+#pageWeeklyReview .wr-output-badges-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:8px;
+}
+#pageWeeklyReview .wr-output-badges{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+}
+#pageWeeklyReview .wr-output-badge.is-partner{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 8px;
+  border-radius:999px;
+  background:rgba(245,158,11,.13);
+  color:var(--orange);
+  font-size:10.5px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-output-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:var(--text3);
+  font-size:11.5px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-output-toggle input{
+  width:14px;
+  height:14px;
+}
+#pageWeeklyReview .wr-output-link-btn{
+  border:0;
+  border-radius:6px;
+  background:rgba(37,99,235,.1);
+  color:var(--blue);
+  padding:5px 10px;
+  font-size:11.5px;
+  font-weight:800;
+  cursor:pointer;
+}
+#pageWeeklyReview .wr-output-link-btn:hover{
+  background:rgba(37,99,235,.16);
+}
+#pageWeeklyReview .wr-output-empty{
+  margin-bottom:24px;
+}
+#pageWeeklyReview .wr-deadline-list{
+  display:flex;
+  flex-direction:column;
+}
+#pageWeeklyReview .wr-deadline-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:13px 0;
+  border-bottom:1px solid rgba(148,163,184,.18);
+}
+#pageWeeklyReview .wr-deadline-row:last-child{
+  border-bottom:0;
+}
+#pageWeeklyReview .wr-deadline-left{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+#pageWeeklyReview .wr-deadline-dot{
+  width:8px;
+  height:8px;
+  flex-shrink:0;
+  border-radius:999px;
+  background:var(--blue);
+}
+#pageWeeklyReview .wr-deadline-proj{
+  color:var(--navy);
+  font-size:13.5px;
+  font-weight:800;
+  line-height:1.4;
+}
+#pageWeeklyReview .wr-deadline-owner{
+  margin-top:3px;
+  color:var(--text3);
+  font-size:11.5px;
+  line-height:1.4;
+}
+#pageWeeklyReview .wr-deadline-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+}
+#pageWeeklyReview .wr-deadline-date{
+  color:var(--text3);
+  font-size:12px;
+  font-weight:800;
+  white-space:nowrap;
+}
+#pageWeeklyReview .wr-deadline-date.wr-nw-date--danger{
+  color:var(--red);
+}
+#pageWeeklyReview .wr-deadline-date.wr-nw-date--warn{
+  color:var(--orange);
+}
+#pageWeeklyReview .wr-status-tag{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 10px;
+  border-radius:999px;
+  background:rgba(37,99,235,.1);
+  color:var(--blue);
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+#pageWeeklyReview .wr-status-tag.danger{
+  background:rgba(239,68,68,.1);
+  color:var(--red);
+}
+#pageWeeklyReview .wr-mini-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+  margin-top:16px;
+}
+#pageWeeklyReview .wr-mini-card{
+  border:1px dashed var(--border);
+  border-radius:10px;
+  padding:14px;
+  text-align:left;
+}
+#pageWeeklyReview .wr-mini-label{
+  margin-bottom:6px;
+  color:var(--text3);
+  font-size:11.5px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-mini-value{
+  color:var(--text3);
+  font-size:12.5px;
+  line-height:1.5;
+}
+#pageWeeklyReview .wr-mini-empty{
+  color:var(--text3);
+}
+#pageWeeklyReview .wr-nw-absence-item,
+#pageWeeklyReview .wr-nw-field-item,
+#pageWeeklyReview .wr-nw-new-item{
+  padding:0;
+  color:var(--text2);
+  font-size:12.5px;
+  line-height:1.5;
+}
+#pageWeeklyReview .wr-memo-box{
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:16px;
+  background:var(--card);
+}
+#pageWeeklyReview .wr-memo-author{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+#pageWeeklyReview .wr-memo-avatar{
+  width:26px;
+  height:26px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  background:var(--blue);
+  color:#fff;
+  font-size:11px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-memo-name{
+  color:var(--navy);
+  font-size:12.5px;
+  font-weight:800;
+  line-height:1.35;
+}
+#pageWeeklyReview .wr-memo-role{
+  color:var(--text3);
+  font-size:11px;
+  line-height:1.35;
+}
+#pageWeeklyReview .wr-memo-input{
+  width:100%;
+  min-height:70px;
+  resize:vertical;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 12px;
+  color:var(--text2);
+  font-size:13px;
+  font-family:inherit;
+  line-height:1.6;
+}
+#pageWeeklyReview .wr-memo-readonly{
+  color:var(--text2);
+  font-size:12.5px;
+  line-height:1.7;
+  white-space:pre-wrap;
+  word-break:break-word;
 }
 #pageWeeklyReview .weekly-review-empty{
   padding:14px 2px 4px;
@@ -1729,6 +1957,16 @@ input,textarea{border-radius:12px!important}
   #pageWeeklyReview .weekly-review-item-table-grid{
     grid-template-columns:1fr!important;
     gap:6px;
+  }
+  #pageWeeklyReview .wr-deadline-row,
+  #pageWeeklyReview .wr-deadline-right{
+    align-items:flex-start;
+  }
+  #pageWeeklyReview .wr-deadline-row{
+    flex-direction:column;
+  }
+  #pageWeeklyReview .wr-mini-grid{
+    grid-template-columns:1fr;
   }
 }
 @media(max-width:1024px){
