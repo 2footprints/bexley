@@ -2352,7 +2352,34 @@ function renderWeeklyReviewKeyTaskListMarkup(tasks){
     ).join('')
   +'</div>';
 }
-function renderWeeklyReviewItemMarkup(item){
+function renderWeeklyReviewItemMarkup(item,riskCardTone=''){
+  if(riskCardTone){
+    const tone=String(riskCardTone||'red').trim()==='amber'?'amber':'red';
+    const badgeTone=tone==='amber'?'amber':'red';
+    const onclickAttr=item?.action?' onclick="'+item.action+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+item.action+';}"':'';
+    const commentTarget=getWeeklyReviewCommentTargetFromItem(item);
+    const pathHtml=item?.preTitleHtml||(
+      item?.contextLabel?'<div class="wr-item-path">'+esc(item.contextLabel)+'</div>':''
+    );
+    const metaChips=String(item?.meta||'').split('·').map(part=>part.trim()).filter(Boolean)
+      .map(part=>'<span class="wr-meta-chip">'+esc(part)+'</span>').join('');
+    const sideTextHtml=item?.sideText?'<span class="wr-meta-chip danger-num">'+esc(item.sideText)+'</span>':'';
+    const badgeHtml=item?.badgeLabel?'<span class="wr-item-badge '+badgeTone+'">'+esc(item.badgeLabel)+'</span>':'';
+    const keyTaskHtml=renderWeeklyReviewKeyTaskListMarkup(item?.keyTasks);
+    return '<div role="button" tabindex="0" class="wr-item-card is-'+tone+'"'+onclickAttr+'>'
+      +pathHtml
+      +'<div class="wr-item-top">'
+        +'<div class="wr-item-name">'+esc(item?.title||'-')+'</div>'
+        +badgeHtml
+      +'</div>'
+      +(metaChips||sideTextHtml?'<div class="wr-item-meta-row">'+metaChips+sideTextHtml+'</div>':'')
+      +(item?.taskCardHtml||'')
+      +keyTaskHtml
+      +(item?.actionHint?'<div class="wr-item-note">'+esc(item.actionHint)+'</div>':'')
+      +renderWeeklyReviewItemCommentBadges(commentTarget)
+      +'<div class="wr-item-foot">'+renderWeeklyReviewItemCommentButton(commentTarget)+'</div>'
+    +'</div>';
+  }
   const badgeHtml=item?.badgeLabel?'<span class="badge '+esc(item?.badgeClass||'badge-gray')+'">'+esc(item.badgeLabel)+'</span>':'';
   const sideTextHtml=item?.sideText?'<div class="weekly-review-item-side-text">'+esc(item.sideText)+'</div>':'';
   const keyTaskHtml=renderWeeklyReviewKeyTaskListMarkup(item?.keyTasks);
@@ -2444,7 +2471,7 @@ function renderWeeklyReviewGroupMarkup(group){
       +'<span class="weekly-review-section-group-count">'+esc(groupCountLabel)+'</span>'
     +'</div>'
     +(items.length
-      ? '<div class="weekly-review-list">'+visibleItems.map(renderWeeklyReviewItemMarkup).join('')+'</div>'+expandButtonHtml
+      ? '<div class="weekly-review-list">'+visibleItems.map(item=>renderWeeklyReviewItemMarkup(item,group?.riskCardTone||'')).join('')+'</div>'+expandButtonHtml
       : '<div class="weekly-review-empty">해당 항목이 없습니다.</div>')
     +summaryHtml
   +'</div>';
@@ -4595,9 +4622,9 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
     ]);
     risksSection.groups=[
       {title:'지연 프로젝트',items:overdueItems,emptyText:'이번 주 바로 논의할 지연 프로젝트는 없습니다.'},
-      {title:'긴급 이슈',items:urgentIssueItems,emptyText:'즉시 점검할 긴급 이슈가 없습니다.'},
-      {title:'지연 태스크',items:overdueTaskItems,emptyText:'마감이 경과된 미완료 태스크가 없습니다.',expandKey:'overdueTasks',defaultVisibleCount:WEEKLY_REVIEW_OVERDUE_TASK_DEFAULT_LIMIT},
-      {title:'미청구',items:unbilledItems,emptyText:'이번 주 우선 확인할 미청구 항목은 없습니다.'}
+      {title:'긴급 이슈',items:urgentIssueItems,emptyText:'즉시 점검할 긴급 이슈가 없습니다.',riskCardTone:'red'},
+      {title:'지연 태스크',items:overdueTaskItems,emptyText:'마감이 경과된 미완료 태스크가 없습니다.',expandKey:'overdueTasks',defaultVisibleCount:WEEKLY_REVIEW_OVERDUE_TASK_DEFAULT_LIMIT,riskCardTone:'red'},
+      {title:'미청구',items:unbilledItems,emptyText:'이번 주 우선 확인할 미청구 항목은 없습니다.',riskCardTone:'amber'}
     ];
   }
   if(completedSection){
