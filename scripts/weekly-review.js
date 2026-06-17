@@ -618,7 +618,36 @@ function getWeeklyReviewTaskCompletedDateLabel(task){
   return doneAt?getWeeklyReviewShortDate(doneAt):'완료일 없음';
 }
 function getWeeklyReviewTaskWaitingReason(task){
-  return String(task?.waiting_reason||task?.blocked_reason||task?.hold_reason||'').trim();
+  return String(task?._waiting_issue_reason||task?.waiting_reason||task?.blocked_reason||task?.hold_reason||'').trim();
+}
+function getWeeklyReviewIssueWaitingReason(issue){
+  return String(issue?.waiting_reason||'').trim();
+}
+function getWeeklyReviewIssueActivityTime(issue){
+  return getWeeklyReviewTimestamp(issue?.updated_at||issue?.status_changed_at||issue?.created_at);
+}
+function applyWeeklyReviewTaskWaitingReasons(taskRows,issueRows){
+  if(!Array.isArray(taskRows)||!taskRows.length)return taskRows||[];
+  const waitingIssueByTask=new Map();
+  (issueRows||[]).forEach(issue=>{
+    const taskId=String(issue?.task_id||'').trim();
+    const waitingReason=getWeeklyReviewIssueWaitingReason(issue);
+    if(!taskId||!waitingReason)return;
+    if(normalizeIssueStatus(issue?.status)!=='waiting')return;
+    const current=waitingIssueByTask.get(taskId);
+    if(!current||getWeeklyReviewIssueActivityTime(issue)>getWeeklyReviewIssueActivityTime(current)){
+      waitingIssueByTask.set(taskId,issue);
+    }
+  });
+  return taskRows.map(task=>{
+    const issue=waitingIssueByTask.get(String(task?.id||''));
+    if(!issue)return task;
+    return {
+      ...task,
+      _waiting_issue_id:issue.id||null,
+      _waiting_issue_reason:getWeeklyReviewIssueWaitingReason(issue)
+    };
+  });
 }
 function renderWeeklyReviewTaskBreadcrumb(task,project=null){
   const targetProject=project||getWeeklyReviewProjectById(task?.project_id);
@@ -2621,9 +2650,6 @@ function renderWeeklyReviewSectionMarkup(section){
 
 async function loadWeeklyReviewTaskRows(){
   const baseSelect='id,project_id,title,status,start_date,due_date,priority,assignee_member_id,description,actual_done_at,created_at,updated_at';
-  const extendedSelect=baseSelect+',waiting_reason';
-  const extended=await api('GET','project_tasks?select='+extendedSelect).catch(()=>null);
-  if(Array.isArray(extended))return extended;
   return await api('GET','project_tasks?select='+baseSelect).catch(()=>[]);
 }
 
@@ -2790,8 +2816,8 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
   weeklyReviewDebugLog('staff capacity query start',{selectedWeek:offsetWeeks});
   await loadContracts();
   const ws=getWeekStart(offsetWeeks);
-  const [issueRows,billingRows,pendingDocumentRequests,weeklyReviews,kudosVotes,taskRows,projectOutputs,checklistRows]=await Promise.all([
-    api('GET','project_issues?select=id,project_id,task_id,title,priority,status,resolved_at,updated_at,created_at,assignee_name,owner_name,is_pinned,status_changed_at').catch(()=>[]),
+  const [issueRows,billingRows,pendingDocumentRequests,weeklyReviews,kudosVotes,loadedTaskRows,projectOutputs,checklistRows]=await Promise.all([
+    api('GET','project_issues?select=id,project_id,task_id,title,priority,status,resolved_at,updated_at,created_at,assignee_name,owner_name,is_pinned,status_changed_at,waiting_reason').catch(()=>[]),
     api('GET','billing_records?select=id,contract_id,amount,status,billing_date,memo').catch(()=>[]),
     api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date,created_at').catch(()=>[]),
     api('GET','weekly_reviews?week_start=eq.'+ws+'&select=*&order=created_at.desc').catch(()=>[]),
@@ -2800,6 +2826,7 @@ async function getWeeklyReviewPageData(offsetWeeks=weeklyReviewWeekOffset){
     getWeeklyReviewProjectOutputs(ws),
     api('GET','project_checklist_items?select=id,project_id,status,is_required,weight').catch(()=>[])
   ]);
+  const taskRows=applyWeeklyReviewTaskWaitingReasons(loadedTaskRows,issueRows);
   const completedProjects=(projects||[]).filter(project=>
     isWeeklyReviewCompletedProject(project)
     &&isWeeklyReviewDateInRange(getWeeklyReviewProjectCompletionDate(project),reviewBounds.start,reviewBounds.end)
