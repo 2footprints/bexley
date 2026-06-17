@@ -2987,7 +2987,7 @@ getGanttProjectActionButtons=function(project,isCompleted){
   }
   buttons.push('<button class="gantt-action-btn edit-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();openProjModal(this.dataset.pid)" title="전체 수정">✏️</button>');
   if(canRemove){
-    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid)" title="삭제">🗑️</button>');
+    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid,event)" title="삭제">🗑️</button>');
   }
   return buttons.length?'<div class="gantt-row-actions">'+buttons.join('')+'</div>':'';
 };
@@ -6959,6 +6959,7 @@ renderGanttListView=function(projs,schs){
           +'<th><button type="button" class="gantt-list-sort-btn" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다." onclick="sortGanttListBy(\'progress\')">기간 경과율'+getGanttListSortIndicator('progress')+'</button></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'status\')">상태'+getGanttListSortIndicator('status')+'</button></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'risk\')">다음 확인'+getGanttListSortIndicator('risk')+'</button></th>'
+          +'<th>관리</th>'
         +'</tr></thead>'
         +'<tbody>'
         +clientGroups.map(group=>{
@@ -6990,6 +6991,7 @@ renderGanttListView=function(projs,schs){
               +'<td><div class="gantt-list-progress" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><div class="gantt-list-progress-text">기간 경과율 '+row.progressPercent+'%</div><div class="gantt-list-progress-track"><div class="gantt-list-progress-fill" style="width:'+row.progressPercent+'%"></div></div></div></td>'
               +'<td><span class="badge '+getGanttListStatusBadgeClass(row.lifecycleMeta?.label)+'">'+esc(row.lifecycleMeta?.label||'예정')+'</span></td>'
               +'<td>'+renderGanttListRiskCell(row)+'</td>'
+              +'<td onclick="event.stopPropagation()">'+getGanttProjectActionButtons(project,typeof isGanttProjectCompleted==='function'?isGanttProjectCompleted(project):String(project?.status||'')==='완료')+'</td>'
             +'</tr>';
           return mainRow+(isExpanded?renderGanttListTaskDrilldownRow(row):'');
           }).join('');

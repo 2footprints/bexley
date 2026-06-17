@@ -3538,7 +3538,14 @@ function mountProjectContractCombobox(selectedContractId,editable){
 
 function getProjectClientIdFromForm(){
   if(projectClientCombobox&&typeof projectClientCombobox.getValue==='function'){
-    return projectClientCombobox.getValue()||'';
+    const value=projectClientCombobox.getValue()||'';
+    if(value)return value;
+    const inputText=String(projectClientCombobox.getInputText?.()||'').trim();
+    if(inputText){
+      const matched=(clients||[]).find(client=>String(client?.name||'').trim()===inputText);
+      if(matched?.id)return matched.id;
+    }
+    return '';
   }
   return document.getElementById('fClient')?.value||'';
 }
@@ -8682,11 +8689,13 @@ window.saveProj = async function(){
 
   try{
     const wasEditing=!!editingProjId;
+    let savedProjectRows=null;
     if(wasEditing){
-      await api('PATCH','projects?id=eq.'+editingProjId,body);
+      savedProjectRows=await api('PATCH','projects?id=eq.'+editingProjId,body);
     }else{
       const created=await api('POST','projects',{...body,created_by:currentUser.id});
       editingProjId=created?.[0]?.id;
+      savedProjectRows=created;
     }
     if(editingProjId && Object.keys(extensionBody).length){
       try{
@@ -8733,6 +8742,19 @@ window.saveProj = async function(){
       name
     );
     closeModal();
+    if(typeof upsertProjectInAppState==='function'){
+      const savedRow=(Array.isArray(savedProjectRows)?savedProjectRows[0]:savedProjectRows)||{};
+      upsertProjectInAppState({
+        ...(existing||{}),
+        ...savedRow,
+        ...body,
+        ...extensionBody,
+        id:editingProjId,
+        client_id,
+        created_by:savedRow.created_by||existing?.created_by||currentUser?.id||null
+      },formMembers);
+      if(typeof renderCurrentProjectDataViews==='function')renderCurrentProjectDataViews(editingProjId);
+    }
     await loadAll();
     if(curPage==='gantt') renderGantt();
     else if(curPage==='detail'){
@@ -9264,7 +9286,7 @@ function getGanttProjectActionButtons(project,isCompleted){
   }
   buttons.push('<button class="gantt-action-btn edit-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();openProjModal(this.dataset.pid)" title="\uC218\uC815">\u270F\uFE0F</button>');
   if(canRemove){
-    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid)" title="\uC0AD\uC81C">\uD83D\uDDD1\uFE0F</button>');
+    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid,event)" title="\uC0AD\uC81C">\uD83D\uDDD1\uFE0F</button>');
   }
   return buttons.length?'<div class="gantt-row-actions">'+buttons.join('')+'</div>':'';
 }
@@ -9289,24 +9311,130 @@ window.markGanttProjectComplete=async function(projectId){
     alert('\uC644\uB8CC \uCC98\uB9AC \uC624\uB958: '+e.message);
   }
 };
-window.deleteGanttProject=async function(projectId){
-  const project=(projects||[]).find(item=>String(item.id)===String(projectId));
-  if(!project)return;
-  if(typeof canDeleteProject==='function'&&!canDeleteProject(project)){
-    alert('\uC0AD\uC81C \uAD8C\uD55C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.');
+function removeDeletedProjectFromGanttState(projectId){
+  const projectKey=String(projectId||'');
+  if(!projectKey)return;
+  projects=(projects||[]).filter(item=>String(item?.id||'')!==projectKey);
+  schedules=(schedules||[]).filter(item=>String(item?.project_id||'')!==projectKey);
+  projectMemberLinks=(projectMemberLinks||[]).filter(item=>String(item?.project_id||'')!==projectKey);
+  if(typeof openIssuesByProject==='object'&&openIssuesByProject)delete openIssuesByProject[projectKey];
+  if(typeof issueModalTaskCacheByProjectId==='object'&&issueModalTaskCacheByProjectId)delete issueModalTaskCacheByProjectId[projectKey];
+  if(typeof ganttProjectTasksByProjectId==='object'&&ganttProjectTasksByProjectId)delete ganttProjectTasksByProjectId[projectKey];
+  if(typeof ganttProjectTaskLoadMetaByProjectId==='object'&&ganttProjectTaskLoadMetaByProjectId)delete ganttProjectTaskLoadMetaByProjectId[projectKey];
+  if(typeof ganttProjectTaskIssueCountsByProjectId==='object'&&ganttProjectTaskIssueCountsByProjectId)delete ganttProjectTaskIssueCountsByProjectId[projectKey];
+  if(typeof ganttListTaskSummaryByProjectId==='object'&&ganttListTaskSummaryByProjectId)delete ganttListTaskSummaryByProjectId[projectKey];
+  if(typeof ganttListTaskIssueSummaryByProjectId==='object'&&ganttListTaskIssueSummaryByProjectId)delete ganttListTaskIssueSummaryByProjectId[projectKey];
+  if(typeof ganttListChecklistSummaryByProjectId==='object'&&ganttListChecklistSummaryByProjectId)delete ganttListChecklistSummaryByProjectId[projectKey];
+  if(typeof ganttProjectQcByProjectId==='object'&&ganttProjectQcByProjectId)delete ganttProjectQcByProjectId[projectKey];
+  if(typeof ganttProjectQcLoadMetaByProjectId==='object'&&ganttProjectQcLoadMetaByProjectId)delete ganttProjectQcLoadMetaByProjectId[projectKey];
+  if(typeof ganttProjectChecklistByProjectId==='object'&&ganttProjectChecklistByProjectId)delete ganttProjectChecklistByProjectId[projectKey];
+  if(typeof ganttProjectChecklistLoadMetaByProjectId==='object'&&ganttProjectChecklistLoadMetaByProjectId)delete ganttProjectChecklistLoadMetaByProjectId[projectKey];
+  if(typeof ganttListSelectedIds!=='undefined')ganttListSelectedIds=(ganttListSelectedIds||[]).filter(id=>String(id)!==projectKey);
+  if(typeof ganttListExpandedProjectIds!=='undefined')ganttListExpandedProjectIds=(ganttListExpandedProjectIds||[]).filter(id=>String(id)!==projectKey);
+  if(String(ganttFocusProjectId||'')===projectKey)ganttFocusProjectId='';
+  const detailEl=document.getElementById('ganttDetail');
+  if(detailEl){
+    detailEl.dataset.renderSignature='';
+    if(String(detailEl.dataset.projectId||'')===projectKey)detailEl.dataset.projectId='';
+  }
+}
+
+function normalizeProjectForAppState(rawProject,memberNames){
+  const raw=rawProject||{};
+  const names=Array.isArray(memberNames)?memberNames.filter(Boolean):[];
+  const relationClient=raw.client||raw.customer||raw.clients||raw.customers||null;
+  const clientId=raw.client_id||raw.clientId||raw.customer_id||raw.customerId||relationClient?.id||'';
+  const clientName=relationClient?.name||raw.clientName||raw.customerName||((clients||[]).find(client=>String(client?.id||'')===String(clientId))?.name)||'';
+  return {
+    ...raw,
+    client_id:clientId||null,
+    clientId:clientId||null,
+    clientName,
+    start:raw.start||raw.start_date||'',
+    end:raw.end||raw.end_date||'',
+    members:names.length?names:(Array.isArray(raw.members)?raw.members:[])
+  };
+}
+
+function upsertProjectInAppState(rawProject,memberNames){
+  const normalized=normalizeProjectForAppState(rawProject,memberNames);
+  const projectKey=String(normalized?.id||'');
+  if(!projectKey)return null;
+  const existingIndex=(projects||[]).findIndex(item=>String(item?.id||'')===projectKey);
+  if(existingIndex>=0)projects[existingIndex]={...projects[existingIndex],...normalized};
+  else projects=[...(projects||[]),normalized];
+  const memberNameSet=new Set((normalized.members||[]).filter(Boolean));
+  const memberIds=[...memberNameSet]
+    .map(name=>(members||[]).find(member=>String(member?.name||'')===String(name))?.id)
+    .filter(Boolean);
+  projectMemberLinks=(projectMemberLinks||[]).filter(item=>String(item?.project_id||'')!==projectKey);
+  projectMemberLinks.push(...memberIds.map(memberId=>({
+    project_id:projectKey,
+    member_id:memberId,
+    members:(members||[]).find(member=>String(member?.id||'')===String(memberId))||null
+  })));
+  const detailEl=document.getElementById('ganttDetail');
+  if(detailEl&&String(detailEl.dataset.projectId||'')===projectKey)detailEl.dataset.renderSignature='';
+  return normalized;
+}
+
+function renderCurrentProjectDataViews(projectId){
+  if(curPage==='gantt'){
+    if(projectId&&(projects||[]).some(item=>String(item?.id||'')===String(projectId)))ganttFocusProjectId=String(projectId);
+    renderGantt();
     return;
   }
-  if(!confirm('\uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?'))return;
+  if(curPage==='detail'){
+    const project=(projects||[]).find(item=>String(item?.id||'')===String(projectId||''));
+    if(project?.client_id&&typeof openClientDetail==='function')openClientDetail(project.client_id,'projects');
+    else if(typeof renderClients==='function')renderClients();
+    return;
+  }
+  if(curPage==='home'){
+    if(typeof renderHomeRiskSummary==='function')renderHomeRiskSummary();
+    if(typeof renderMyWeek==='function')renderMyWeek();
+    if(typeof renderHomeDashboardIssues==='function')renderHomeDashboardIssues();
+    if(typeof renderTeamWorkload==='function')renderTeamWorkload();
+    if(typeof renderWeeklyScheduleSummary==='function')renderWeeklyScheduleSummary();
+    if(typeof renderTeamNotices==='function')renderTeamNotices();
+    return;
+  }
+  if(typeof renderClients==='function')renderClients();
+}
+
+window.deleteGanttProject=async function(projectId,event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const project=(projects||[]).find(item=>String(item.id)===String(projectId));
+  if(!project)return false;
+  if(typeof canDeleteProject==='function'&&!canDeleteProject(project)){
+    alert('\uC0AD\uC81C \uAD8C\uD55C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.');
+    return false;
+  }
+  if(!confirm('\uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?'))return false;
   try{
+    await api('DELETE','schedules?project_id=eq.'+projectId).catch(()=>null);
+    await api('DELETE','project_tasks?project_id=eq.'+projectId).catch(()=>null);
     await api('DELETE','projects?id=eq.'+projectId);
     if(typeof logActivity==='function'){
       await logActivity('\uD504\uB85C\uC81D\uD2B8 \uC0AD\uC81C','project',projectId,project.name||'');
     }
+    removeDeletedProjectFromGanttState(projectId);
+    renderCurrentProjectDataViews(projectId);
     await loadAll();
-    renderGantt();
+    renderCurrentProjectDataViews(projectId);
+    return true;
   }catch(e){
     alert('\uC0AD\uC81C \uC624\uB958: '+e.message);
+    return false;
   }
+};
+
+window.deleteProj=async function(event){
+  const deleted=await deleteGanttProject(editingProjId,event);
+  if(deleted)closeModal();
 };
 isCompletedGanttStatus=function(status){
   const normalized=String(status||'').trim().toLowerCase();
