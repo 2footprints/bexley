@@ -4058,22 +4058,18 @@ function renderWeeklyReviewOpenFollowups(data){
   const comments=mergeWeeklyReviewItemComments(savedOpen,draftOpen)
     .filter(comment=>comment.followup_required&&String(comment.status||'open')==='open');
   if(!comments.length)return '';
-  return '<section class="card wr-open-followups">'
-    +'<div class="weekly-review-section-head">'
-      +'<div><div class="weekly-review-section-title">미해결 팔로업</div><div class="weekly-review-section-sub">회의 코멘트 중 팔로업 필요로 표시된 미완료 항목입니다.</div></div>'
-      +'<span class="weekly-review-section-group-count">'+comments.length+'건</span>'
-    +'</div>'
-    +'<div class="wr-open-followup-list">'
+  return '<section class="wr-followup">'
+    +'<div class="wr-followup-icon">!</div>'
+    +'<div class="wr-followup-body">'
+      +'<div class="wr-followup-title">미해결 팔로업 <span class="wr-count-pill">'+comments.length+'건</span></div>'
       +comments.slice(0,5).map(comment=>
-        '<div class="wr-open-followup-item">'
-          +'<button type="button" class="wr-open-followup-main" onclick="openWeeklyReviewItemCommentDetailModal(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\')">'
-            +'<span class="wr-item-comment-badge is-followup">팔로업 필요</span>'
-            +(comment.is_starred?'<span class="wr-item-comment-badge is-star">중요</span>':'')
-            +(comment._week_start?'<span class="wr-item-comment-badge">'+esc(comment._week_start)+'</span>':'')
-            +'<strong>'+esc(findWeeklyReviewCommentLabel(comment))+'</strong>'
-            +'<span>'+esc(truncateText(comment.comment,80))+'</span>'
+        '<div class="wr-followup-item">'
+          +'<button type="button" class="wr-followup-main" onclick="openWeeklyReviewItemCommentDetailModal(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\')">'
+            +'<span class="wr-followup-date">'+esc(comment._week_start||currentWeek)+'</span>'
+            +'<span class="wr-followup-proj">'+esc(findWeeklyReviewCommentLabel(comment))+'</span>'
+            +'<span class="wr-followup-desc">'+esc(truncateText(comment.comment,80))+'</span>'
           +'</button>'
-          +'<button type="button" class="btn sm wr-open-followup-complete" onclick="completeWeeklyReviewItemComment(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\',\''+getWeeklyReviewJsString(comment._week_start||currentWeek)+'\',\''+getWeeklyReviewJsString(comment._review_id||'')+'\')">완료 처리</button>'
+          +'<button type="button" class="wr-followup-complete" onclick="completeWeeklyReviewItemComment(\''+getWeeklyReviewJsString(getWeeklyReviewItemCommentMergeKey(comment))+'\',\''+getWeeklyReviewJsString(comment._week_start||currentWeek)+'\',\''+getWeeklyReviewJsString(comment._review_id||'')+'\')">완료 처리</button>'
         +'</div>'
       ).join('')
     +'</div>'
@@ -4134,22 +4130,47 @@ renderWeeklyReviewSnapshotNotice=function(snapshotMeta){
     ?'<button type="button" class="btn sm" onclick="finalizeWeeklyReviewSnapshot()">회의록 확정</button>'
     :'';
   const unfinalizeButton=isFinalized&&typeof roleIsAdmin==='function'&&roleIsAdmin()
-    ?'<button type="button" class="btn sm" onclick="unfinalizeWeeklyReviewSnapshot()">확정 해제</button>'
+    ?'<button type="button" class="wr-notice-btn ghost" onclick="unfinalizeWeeklyReviewSnapshot()">확정 해제</button>'
     :'';
-  return '<div class="weekly-review-snapshot-notice" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border:1px solid rgba(37,99,235,.16);border-radius:14px;background:#F8FBFF">'
-    +'<div style="min-width:0;flex:1 1 360px">'
-      +'<div style="font-size:12px;font-weight:800;color:var(--navy);line-height:1.5">'+esc(message)+'</div>'
-      +(metaText?'<div style="font-size:11px;color:var(--text3);margin-top:3px">'+metaText+'</div>':'')
+  const primaryNoticeButton=isSnapshot
+    ?(isFinalized?'':'<button type="button" class="wr-notice-btn amber" onclick="saveWeeklyReviewSnapshot()">최신 현황 반영</button>')
+    :'<button type="button" class="wr-notice-btn amber" onclick="saveWeeklyReviewSnapshot()">초안 저장</button>';
+  const noticeDiscardButton=isSnapshot&&!isFinalized
+    ?'<button type="button" class="wr-notice-btn ghost" onclick="discardWeeklyReviewDraft()">초안 삭제</button>'
+    :'';
+  const noticeFinalizeButton=isSnapshot&&!isFinalized
+    ?'<button type="button" class="wr-notice-btn ghost" onclick="finalizeWeeklyReviewSnapshot()">회의록 확정</button>'
+    :'';
+  return '<div class="wr-notice">'
+    +'<div class="wr-notice-text">'
+      +esc(message)
+      +(metaText?'<span class="wr-notice-meta">'+metaText+'</span>':'')
       +warning
     +'</div>'
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+primaryButton+discardButton+finalizeButton+unfinalizeButton+'</div>'
+    +'<div class="wr-notice-actions">'+primaryNoticeButton+noticeDiscardButton+noticeFinalizeButton+unfinalizeButton+'</div>'
   +'</div>';
 };
 
 renderWeeklyReviewModeToggleMarkup=function(){
-  return '<div class="weekly-review-mode-toggle" role="tablist" aria-label="주간 리뷰 보기 모드">'
-    +'<button type="button" class="weekly-review-mode-btn'+(weeklyReviewMode==='management'?' is-active':'')+'" onclick="setWeeklyReviewMode(\'management\')">경영 요약</button>'
-    +'<button type="button" class="weekly-review-mode-btn'+(weeklyReviewMode==='team'?' is-active':'')+'" onclick="setWeeklyReviewMode(\'team\')">프로젝트별 회의</button>'
+  return '<div class="wr-tabs" role="tablist" aria-label="주간 리뷰 보기 모드">'
+    +'<button type="button" class="'+(weeklyReviewMode==='management'?'active':'')+'" onclick="setWeeklyReviewMode(\'management\')">경영 요약</button>'
+    +'<button type="button" class="'+(weeklyReviewMode==='team'?'active':'')+'" onclick="setWeeklyReviewMode(\'team\')">프로젝트별 회의</button>'
+  +'</div>';
+};
+renderWeeklyReviewQuickJumpMarkup=function(sections){
+  const availableIds=new Set((Array.isArray(sections)?sections:[]).map(section=>String(section?.id||'')).filter(Boolean));
+  availableIds.add('next-week');
+  const items=[
+    {id:'risks',label:'리스크 / 지연'},
+    {id:'completed',label:'완료 및 산출물'},
+    {id:'next-week',label:'차주 준비'},
+    {id:'comments',label:'회의 메모'}
+  ].filter(item=>availableIds.has(item.id));
+  if(!items.length)return '';
+  return '<div class="wr-tab-jumps" aria-label="주간 리뷰 빠른 이동">'
+    +items.map(item=>
+      '<button type="button" onclick="jumpToWeeklyReviewSection(\''+item.id+'\')">'+esc(item.label)+'</button>'
+    ).join('')
   +'</div>';
 };
 renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapshotMeta=null,data=null){
@@ -4160,6 +4181,7 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
     ? '<div class="weekly-review-body-grid">'
         +(sections||[]).filter(s=>s?.id!=='comments').map(renderWeeklyReviewSectionMarkup).join('')
         +renderWeeklyReviewNextWeekSection(pageData)
+        +(commentsSection?renderWeeklyReviewSectionMarkup(commentsSection):'')
       +'</div>'
     : renderWeeklyReviewProjectMeetingView(pageData);
   const shellClass=modeIsManagement?' is-management-mode':' is-team-mode';
@@ -4169,26 +4191,27 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
     : '경고, 의사결정, 실행 계획을 한 화면에서 정리해 바로 후속 조치로 이어갑니다.';
   return '<div class="weekly-review-shell'+shellClass+'">'
     +'<div class="weekly-review-summary-shell">'
-      +'<div class="weekly-review-head">'
-        +'<div class="weekly-review-title-wrap">'
-          +'<div class="weekly-review-kicker">'+esc(kickerLabel)+'</div>'
-          +'<h2 class="section-title">주간 리뷰</h2>'
-          +'<div class="weekly-review-summary-copy">'+esc(summaryCopy)+'</div>'
-          +'<div class="weekly-review-range">'+esc(rangeLabel)+'</div>'
+      +'<div class="wr-review-header">'
+        +'<div>'
+          +'<div class="wr-review-eyebrow">'+esc(kickerLabel)+'</div>'
+          +'<h1>주간 리뷰</h1>'
+          +'<p>'+esc(summaryCopy)+'</p>'
         +'</div>'
-        +'<div class="month-nav weekly-review-nav">'
-          +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset-1)+')">&#8249;</button>'
-          +'<div class="weekly-review-nav-label">'+esc(navLabel)+'</div>'
-          +'<button type="button" class="month-nav-btn" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset+1)+')">&#8250;</button>'
+        +'<div class="wr-week-nav">'
+          +'<div class="wr-week-switch">'
+            +'<button type="button" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset-1)+')">&#8249;</button>'
+            +'<span class="wr-week-label">'+esc(navLabel)+'</span>'
+            +'<button type="button" onclick="renderWeeklyReviewPage('+(weeklyReviewWeekOffset+1)+')">&#8250;</button>'
+          +'</div>'
+          +'<div class="wr-date-range">'+esc(rangeLabel)+'</div>'
         +'</div>'
       +'</div>'
-      +'<div class="weekly-review-toolbar">'
+      +'<div class="wr-tabbar">'
         +renderWeeklyReviewModeToggleMarkup()
         +(modeIsManagement?renderWeeklyReviewQuickJumpMarkup(sections):'')
       +'</div>'
       +renderWeeklyReviewSnapshotNotice(snapshotMeta)
       +renderWeeklyReviewOpenFollowups(pageData)
-      +(modeIsManagement&&commentsSection?'<div class="weekly-review-top-comments">'+renderWeeklyReviewSectionMarkup(commentsSection)+'</div>':'')
       +'<div class="wr-kpi-grid">'
         +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
       +'</div>'

@@ -1022,6 +1022,287 @@ input,textarea{border-radius:12px!important}
   color:var(--text3);
   line-height:1.6;
 }
+#pageWeeklyReview .wr-review-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:24px;
+  margin-bottom:24px;
+}
+#pageWeeklyReview .wr-review-header > *{
+  min-width:0;
+}
+#pageWeeklyReview .wr-review-eyebrow{
+  margin-bottom:6px;
+  color:var(--text3);
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:0;
+}
+#pageWeeklyReview .wr-review-header h1{
+  margin:0 0 6px;
+  color:var(--navy);
+  font-size:26px;
+  font-weight:800;
+  line-height:1.2;
+  letter-spacing:0;
+}
+#pageWeeklyReview .wr-review-header p{
+  max-width:560px;
+  margin:0;
+  color:var(--text3);
+  font-size:13px;
+  line-height:1.6;
+}
+#pageWeeklyReview .wr-week-nav{
+  flex-shrink:0;
+}
+#pageWeeklyReview .wr-week-switch{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--card);
+  box-shadow:0 8px 20px rgba(15,23,42,.06);
+}
+#pageWeeklyReview .wr-week-switch button{
+  width:30px;
+  height:30px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--text3);
+  cursor:pointer;
+  font-size:14px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-week-switch button:hover{
+  background:var(--bg);
+  color:var(--navy);
+}
+#pageWeeklyReview .wr-week-label{
+  padding:0 14px;
+  color:var(--navy);
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+}
+#pageWeeklyReview .wr-date-range{
+  margin-top:8px;
+  color:var(--text3);
+  font-size:12px;
+  font-weight:700;
+  text-align:right;
+}
+#pageWeeklyReview .wr-tabbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:28px;
+  border-bottom:1px solid var(--border);
+}
+#pageWeeklyReview .wr-tabs{
+  display:flex;
+  gap:4px;
+}
+#pageWeeklyReview .wr-tabs button{
+  position:relative;
+  top:1px;
+  margin-right:20px;
+  padding:10px 4px;
+  border:0;
+  border-bottom:2px solid transparent;
+  background:transparent;
+  color:var(--text3);
+  cursor:pointer;
+  font-size:14px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-tabs button.active{
+  border-bottom-color:var(--blue);
+  color:var(--navy);
+}
+#pageWeeklyReview .wr-tabs button:hover{
+  color:var(--navy);
+}
+#pageWeeklyReview .wr-tab-jumps{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:16px;
+  padding-bottom:10px;
+}
+#pageWeeklyReview .wr-tab-jumps button{
+  border:0;
+  background:transparent;
+  color:var(--text3);
+  cursor:pointer;
+  font-size:12px;
+  font-weight:700;
+}
+#pageWeeklyReview .wr-tab-jumps button:hover{
+  color:var(--blue);
+}
+#pageWeeklyReview .wr-notice{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:24px;
+  padding:14px 18px;
+  border:1px solid rgba(245,158,11,.28);
+  border-radius:12px;
+  background:rgba(245,158,11,.12);
+}
+#pageWeeklyReview .wr-notice-text{
+  min-width:0;
+  color:#92660a;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.5;
+}
+#pageWeeklyReview .wr-notice-meta{
+  display:block;
+  margin-top:2px;
+  color:#b08a2e;
+  font-size:11.5px;
+  font-weight:700;
+}
+#pageWeeklyReview .wr-notice-actions{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+  flex-shrink:0;
+}
+#pageWeeklyReview .wr-notice-btn{
+  border:0;
+  border-radius:8px;
+  padding:8px 16px;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-notice-btn.amber{
+  background:#d97706;
+  color:#fff;
+}
+#pageWeeklyReview .wr-notice-btn.amber:hover{
+  background:#b86207;
+}
+#pageWeeklyReview .wr-notice-btn.ghost{
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--text2);
+}
+#pageWeeklyReview .wr-followup{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:24px;
+  padding:16px 18px;
+  border:1px solid rgba(239,68,68,.22);
+  border-radius:12px;
+  background:rgba(239,68,68,.08);
+}
+#pageWeeklyReview .wr-followup-icon{
+  width:32px;
+  height:32px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  border:1px solid rgba(239,68,68,.22);
+  border-radius:8px;
+  background:#fff;
+  color:var(--red);
+  font-size:15px;
+  font-weight:900;
+}
+#pageWeeklyReview .wr-followup-body{
+  flex:1;
+  min-width:0;
+}
+#pageWeeklyReview .wr-followup-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:6px;
+  color:#7f1d1d;
+  font-size:13.5px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-count-pill{
+  padding:1px 7px;
+  border-radius:999px;
+  background:var(--red);
+  color:#fff;
+  font-size:10.5px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-followup-item{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid rgba(239,68,68,.2);
+  border-radius:8px;
+  background:#fff;
+}
+#pageWeeklyReview .wr-followup-main{
+  display:flex;
+  align-items:center;
+  flex:1;
+  flex-wrap:wrap;
+  gap:10px;
+  min-width:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  padding:0;
+  text-align:left;
+}
+#pageWeeklyReview .wr-followup-date{
+  color:var(--text3);
+  font-size:11.5px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-followup-proj{
+  color:var(--navy);
+  font-size:13px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-followup-desc{
+  flex:1;
+  min-width:180px;
+  color:var(--text2);
+  font-size:12.5px;
+  line-height:1.5;
+}
+#pageWeeklyReview .wr-followup-complete{
+  margin-left:auto;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--card);
+  color:var(--text2);
+  cursor:pointer;
+  padding:7px 12px;
+  font-size:12px;
+  font-weight:800;
+}
+#pageWeeklyReview .wr-followup-complete:hover{
+  background:var(--bg);
+}
 #pageWeeklyReview .wr-kpi-grid{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -1918,6 +2199,39 @@ input,textarea{border-radius:12px!important}
   #pageWeeklyReview .weekly-review-head{
     flex-direction:column;
     align-items:stretch;
+  }
+  #pageWeeklyReview .wr-review-header,
+  #pageWeeklyReview .wr-tabbar,
+  #pageWeeklyReview .wr-notice,
+  #pageWeeklyReview .wr-followup-item{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  #pageWeeklyReview .wr-week-nav,
+  #pageWeeklyReview .wr-week-switch,
+  #pageWeeklyReview .wr-notice-actions{
+    width:100%;
+  }
+  #pageWeeklyReview .wr-week-switch{
+    justify-content:space-between;
+  }
+  #pageWeeklyReview .wr-date-range{
+    text-align:left;
+  }
+  #pageWeeklyReview .wr-tabs{
+    width:100%;
+  }
+  #pageWeeklyReview .wr-tabs button{
+    margin-right:14px;
+  }
+  #pageWeeklyReview .wr-tab-jumps{
+    width:100%;
+    justify-content:flex-start;
+    gap:10px;
+  }
+  #pageWeeklyReview .wr-followup-complete{
+    margin-left:0;
+    width:fit-content;
   }
   #pageWeeklyReview .weekly-review-range{
     width:100%;
