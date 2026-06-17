@@ -5247,13 +5247,28 @@ function renderGanttDetailIssueItem(projectId,issue){
   const canReopen=editable&&isResolved;
   const assigneeLabel=issue?.assignee_name||issue?.owner_name||'담당자 미정';
   const issueHint=getGanttIssueOperationalHint(issue);
-  const contextParts=[getGanttIssueContextLabel(issue),assigneeLabel];
-  if(issue.priority==='high')contextParts.push('긴급');
+  const scopeLabel=getGanttIssueContextLabel(issue);
+  const issueTone=isResolved?'resolved':(issue.priority==='high'||issue.is_pinned?'open':'normal');
+  const tagRows=[
+    {label:scopeLabel,cls:'scope'},
+    {label:statusMeta.label||'상태',cls:isResolved?'status-resolved':'status-open'},
+  ];
+  if(issue.priority==='high')tagRows.push({label:'긴급',cls:'priority'});
+  if(issue.is_pinned)tagRows.push({label:'고정',cls:'stale'});
+  tagRows.push({label:assigneeLabel,cls:'owner'});
+  const seenTags=new Set();
+  const tagsHtml=tagRows.filter(tag=>{
+    const key=String(tag.label||'').trim();
+    if(!key||seenTags.has(key))return false;
+    seenTags.add(key);
+    return true;
+  }).map(tag=>'<span class="pd-issue-tag '+tag.cls+'">'+esc(tag.label)+'</span>').join('');
   const modalProjectId=issue.project_id||projectId||'';
   const openAction='openIssueModal(\''+modalProjectId+'\',\''+issue.id+'\')';
-  return '<div class="gantt-detail-item gantt-detail-issue-row is-clickable'+(isResolved?' is-resolved':'')+'" role="button" tabindex="0" onclick="'+openAction+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+openAction+';}">'
-    +'<div class="gantt-detail-item-main"><div class="gantt-detail-item-title gantt-detail-issue-title">'+(issue.is_pinned?'PIN ':'')+esc(issue.title||'제목 없음')+'</div><div class="gantt-detail-item-sub">'+esc(contextParts.join(' · '))+'</div><div class="gantt-issue-item-note">'+esc(issueHint)+'</div></div>'
-    +'<div class="gantt-detail-item-side"><span class="badge '+statusMeta.badgeCls+'">'+statusMeta.label+'</span><div class="gantt-detail-item-actions"><button type="button" class="btn sm" onclick="event.stopPropagation();'+openAction+'">수정</button>'+(canResolve?'<button type="button" class="btn sm" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')">완료 처리</button>':'')+(canReopen?'<button type="button" class="btn sm" onclick="event.stopPropagation();reopenIssue(\''+issue.id+'\')">다시 열기</button>':'')+'</div></div>'
+  return '<div class="pd-issue-card is-'+issueTone+'" role="button" tabindex="0" onclick="'+openAction+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+openAction+';}">'
+    +'<div class="pd-issue-top"><div class="pd-issue-title">'+(issue.is_pinned?'PIN ':'')+esc(issue.title||'제목 없음')+'</div><div class="pd-issue-actions"><button type="button" onclick="event.stopPropagation();'+openAction+'">수정</button>'+(canResolve?'<button type="button" class="primary" onclick="event.stopPropagation();resolveIssue(\''+issue.id+'\')">완료 처리</button>':'')+(canReopen?'<button type="button" class="primary" onclick="event.stopPropagation();reopenIssue(\''+issue.id+'\')">다시 열기</button>':'')+'</div></div>'
+    +'<div class="pd-issue-tags">'+tagsHtml+'</div>'
+    +'<div class="pd-issue-meta">'+esc(issueHint)+'</div>'
   +'</div>';
 }
 
@@ -5274,24 +5289,30 @@ function renderGanttDetailIssuePreview(projectId,issues){
   const resolvedIssues=rows.filter(issue=>typeof isIssueResolvedStatus==='function'?isIssueResolvedStatus(issue.status):String(issue?.status||'')==='resolved');
   const projectLevelIssues=activeIssues.filter(issue=>!String(issue?.task_id||'').trim());
   const taskLinkedIssues=activeIssues.filter(issue=>!!String(issue?.task_id||'').trim());
+  const renderIssueSection=(title,meta,items,emptyText,actionsHtml='')=>''
+    +'<div class="pd-ov-section">'
+      +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>'+esc(title)+'</h3><p>'+esc(meta)+'</p></div><div class="pd-issue-section-actions"><span class="pd-count-chip'+(items.length?' has-items':'')+'">'+(items.length?'열림 '+items.length+'건':'0건')+'</span>'+actionsHtml+'</div></div>'
+      +(items.length?'<div class="pd-issue-list">'+items.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join('')+'</div>':'<div class="pd-empty-row">'+esc(emptyText)+'</div>')
+    +'</div>';
   container.innerHTML=''
     +(ganttDetailIssueSaveMessage?'<div class="gantt-detail-save-message">'+esc(ganttDetailIssueSaveMessage)+'</div>':'')
-    +renderGanttIssueGroup(
+    +renderIssueSection(
       '프로젝트 단위 이슈',
       '범위, 일정, 의사결정처럼 프로젝트 전체에 영향을 주는 이슈입니다.',
-      projectLevelIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
-      '현재 프로젝트 전체에서 확인할 이슈가 없습니다.'
+      projectLevelIssues,
+      '현재 프로젝트 전체에서 확인할 이슈가 없습니다.',
+      renderGanttIssueAddButton(projectId,'btn primary sm')
     )
-    +renderGanttIssueGroup(
+    +renderIssueSection(
       '업무 연결 이슈',
       '특정 업무 진행을 막거나 추가 확인이 필요한 이슈입니다.',
-      taskLinkedIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
+      taskLinkedIssues,
       '현재 업무에 연결된 이슈가 없습니다.'
     )
-    +(resolvedIssues.length?renderGanttIssueGroup(
+    +(resolvedIssues.length?renderIssueSection(
       '완료된 이슈',
       '해결 처리된 이슈는 목록 하단에서 따로 확인합니다.',
-      resolvedIssues.map(issue=>renderGanttDetailIssueItem(projectId,issue)).join(''),
+      resolvedIssues,
       ''
     ):'');
 }
