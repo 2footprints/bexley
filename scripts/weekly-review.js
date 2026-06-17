@@ -2422,6 +2422,20 @@ function renderWeeklyReviewTableItemMarkup(item,templateColumns,appendBadge=true
     +(item?.actionHint?'<div class="weekly-review-item-action weekly-review-item-action--table">'+esc(item.actionHint)+'</div>':'')
   +'</button>';
 }
+function renderWeeklyReviewDataTableRowMarkup(item){
+  const columns=Array.isArray(item?.columns)?item.columns:[];
+  const onclickAttr=item?.action?' onclick="'+item.action+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+item.action+';}"':'';
+  const billingLabel=String(item?.badgeLabel||'-').trim()||'-';
+  const pillClass=/미청구|대기|pending|미수/i.test(billingLabel)?'pending':'done';
+  return '<tr role="button" tabindex="0"'+onclickAttr+'>'
+    +'<td class="wr-table-client">'+esc(columns[0]||'-')+'</td>'
+    +'<td><div class="wr-table-project">'+esc(columns[1]||'-')+'</div></td>'
+    +'<td>'+esc(columns[2]||'-')+'</td>'
+    +'<td>'+esc(columns[3]||'-')+'</td>'
+    +'<td class="wr-table-num">'+esc(columns[4]||'-')+'</td>'
+    +'<td><span class="wr-table-pill '+pillClass+'">'+esc(billingLabel)+'</span></td>'
+  +'</tr>';
+}
 function renderWeeklyReviewGroupMarkup(group){
   const items=Array.isArray(group?.items)?group.items:[];
   const emptyText=group?.emptyText||'?대떦 ??ぉ???놁뒿?덈떎.';
@@ -2447,6 +2461,24 @@ function renderWeeklyReviewGroupMarkup(group){
     +'</div>';
   }
   if(group?.variant==='table'){
+    if(group?.tableClass==='wr-completed-project-table'){
+      const headers=Array.isArray(group?.tableHeaders)&&group.tableHeaders.length
+        ? group.tableHeaders
+        : ['고객사','프로젝트명','완료일','담당자','청구 금액','청구 상태'];
+      return '<div class="weekly-review-section-group">'
+        +'<div class="weekly-review-section-group-title">'
+          +'<span>'+esc(group?.title||'')+'</span>'
+          +'<span class="weekly-review-section-group-count">'+esc(groupCountLabel)+'</span>'
+        +'</div>'
+        +(items.length
+          ? '<div class="wr-data-table-scroll"><table class="wr-data-table '+esc(group.tableClass)+'">'
+              +'<thead><tr>'+headers.map((header,index)=>'<th class="'+(index===4?'wr-table-num':'')+'">'+esc(header)+'</th>').join('')+'</tr></thead>'
+              +'<tbody>'+items.map(renderWeeklyReviewDataTableRowMarkup).join('')+'</tbody>'
+            +'</table></div>'
+          : '<div class="wr-empty-row">해당 항목이 없습니다.</div>')
+        +summaryHtml
+      +'</div>';
+    }
     const template=group?.tableTemplate||'1.1fr 1.6fr .9fr 1.1fr 1fr .9fr';
     const appendBadge=group?.tableAppendBadge!==false;
     const headerHtml=Array.isArray(group?.tableHeaders)&&group.tableHeaders.length
@@ -4660,13 +4692,14 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
                 +'</div>'
               +'</div>';
             }).join('')
-          :'<div class="weekly-review-empty">이번 주에 완료된 업무가 없습니다.</div>'
+          :'<div class="wr-empty-row wr-completed-empty">이번 주에 완료된 업무가 없습니다.</div>'
       },
       {
         title:'이번 주 완료 프로젝트',
         variant:'table',
+        tableClass:'wr-completed-project-table',
         tableTemplate:'1.1fr 1.6fr .75fr 1.1fr 1fr .9fr',
-        tableHeaders:['고객사명','프로젝트명','완료일','담당자','빌링 금액','빌링 상태'],
+        tableHeaders:['고객사','프로젝트명','완료일','담당자','청구 금액','청구 상태'],
         items:completedProjectItems,
         summary:`완료 프로젝트 ${completedProjectItems.length}건`
       }
