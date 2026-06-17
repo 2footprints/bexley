@@ -2656,18 +2656,47 @@ function renderWeeklyReviewPageMarkup(rangeLabel,navLabel,cards,sections){
   +'</div>';
 }
 function renderWeeklyReviewCardMarkup(card){
-  const toneClass=card?.tone?` is-${card.tone}`:'';
+  const tone=String(card?.tone||'').trim();
+  const key=String(card?.key||'').trim();
+  const variant=key==='risks'
+    ? 'danger'
+    : key==='completed'
+      ? 'success'
+      : key==='outputs'
+        ? 'neutral'
+        : key==='next'
+          ? 'upcoming'
+          : tone==='danger'
+            ? 'danger'
+            : tone==='success'
+              ? 'success'
+              : tone==='warning'
+                ? 'upcoming'
+                : 'neutral';
+  const tagClass=variant==='danger'
+    ? 'warn'
+    : variant==='success'
+      ? 'ok'
+      : variant==='upcoming'
+        ? 'amber'
+        : 'blue';
   const badgeText=card?.badge||'';
   const helperText=card?.helper||'';
   const cardKey=card?.key?` data-card-key="${esc(card.key)}"`:'';
-  return '<section class="card weekly-review-card"'+cardKey+'>'
-    +'<div class="weekly-review-card-head">'
-      +'<div class="weekly-review-card-title">'+esc(card?.title||'')+'</div>'
-      +(badgeText?'<span class="weekly-review-card-badge">'+esc(badgeText)+'</span>':'')
+  const breakdownItems=String(card?.meta||'').split('·').map(item=>item.trim()).filter(Boolean);
+  const breakdownHtml=breakdownItems.map(item=>{
+    const match=item.match(/^(.*?)([-+]?\d[\d,]*(?:\.\d+)?\s*(?:건|명|%|원|만원|억원)?)$/);
+    if(!match)return '<span>'+esc(item)+'</span>';
+    return '<span>'+esc(match[1].trim())+' <b>'+esc(match[2].trim())+'</b></span>';
+  }).join('');
+  return '<section class="wr-kpi-card '+variant+'"'+cardKey+'>'
+    +'<div class="wr-kpi-top">'
+      +'<span class="wr-kpi-label">'+esc(card?.title||'')+'</span>'
+      +(badgeText?'<span class="wr-kpi-tag '+tagClass+'">'+esc(badgeText)+'</span>':'')
     +'</div>'
-    +'<div class="weekly-review-card-value'+toneClass+'">'+esc(card?.value||'-')+'</div>'
-    +(helperText?'<div class="weekly-review-card-helper">'+esc(helperText)+'</div>':'')
-    +'<div class="weekly-review-card-meta">'+esc(card?.meta||'')+'</div>'
+    +'<div class="wr-kpi-value">'+esc(card?.value||'-')+'</div>'
+    +(helperText?'<div class="wr-kpi-desc">'+esc(helperText)+'</div>':'')
+    +(breakdownItems.length?'<div class="wr-kpi-breakdown">'+breakdownHtml+'</div>':'')
   +'</section>';
 }
 function toggleWeeklyReviewSection(sectionId,trigger){
@@ -4094,7 +4123,7 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
       +renderWeeklyReviewSnapshotNotice(snapshotMeta)
       +renderWeeklyReviewOpenFollowups(pageData)
       +(modeIsManagement&&commentsSection?'<div class="weekly-review-top-comments">'+renderWeeklyReviewSectionMarkup(commentsSection)+'</div>':'')
-      +'<div class="weekly-review-grid">'
+      +'<div class="wr-kpi-grid">'
         +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
       +'</div>'
     +'</div>'

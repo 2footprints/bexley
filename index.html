@@ -1022,6 +1022,92 @@ input,textarea{border-radius:12px!important}
   color:var(--text3);
   line-height:1.6;
 }
+#pageWeeklyReview .wr-kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  margin-bottom:28px;
+}
+#pageWeeklyReview .wr-kpi-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-top:3px solid var(--border);
+  border-radius:12px;
+  box-shadow:0 8px 20px rgba(15,23,42,.06);
+  padding:18px 18px 16px;
+  min-width:0;
+}
+#pageWeeklyReview .wr-kpi-card.danger{border-top-color:var(--red);}
+#pageWeeklyReview .wr-kpi-card.success{border-top-color:var(--green);}
+#pageWeeklyReview .wr-kpi-card.neutral{border-top-color:var(--blue);}
+#pageWeeklyReview .wr-kpi-card.upcoming{border-top-color:var(--orange);}
+#pageWeeklyReview .wr-kpi-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+#pageWeeklyReview .wr-kpi-label{
+  min-width:0;
+  font-size:12.5px;
+  font-weight:700;
+  color:var(--text3);
+}
+#pageWeeklyReview .wr-kpi-tag{
+  flex-shrink:0;
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:10.5px;
+  font-weight:800;
+  line-height:1.5;
+}
+#pageWeeklyReview .wr-kpi-tag.warn{
+  background:rgba(239,68,68,.1);
+  color:var(--red);
+}
+#pageWeeklyReview .wr-kpi-tag.ok{
+  background:rgba(16,185,129,.1);
+  color:var(--green);
+}
+#pageWeeklyReview .wr-kpi-tag.blue{
+  background:rgba(37,99,235,.1);
+  color:var(--blue);
+}
+#pageWeeklyReview .wr-kpi-tag.amber{
+  background:rgba(245,158,11,.14);
+  color:var(--orange);
+}
+#pageWeeklyReview .wr-kpi-value{
+  margin-bottom:10px;
+  font-size:32px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:0;
+  color:var(--navy);
+}
+#pageWeeklyReview .wr-kpi-card.danger .wr-kpi-value{color:var(--red);}
+#pageWeeklyReview .wr-kpi-card.neutral .wr-kpi-value{color:var(--text3);}
+#pageWeeklyReview .wr-kpi-desc{
+  margin-bottom:10px;
+  font-size:12px;
+  line-height:1.5;
+  color:var(--text3);
+}
+#pageWeeklyReview .wr-kpi-breakdown{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(148,163,184,.24);
+  font-size:11.5px;
+  line-height:1.5;
+  color:var(--text3);
+}
+#pageWeeklyReview .wr-kpi-breakdown b{
+  color:var(--navy);
+  font-weight:800;
+}
 #pageWeeklyReview .weekly-review-body{
   margin-top:var(--spacing-md);
 }
@@ -1419,6 +1505,9 @@ input,textarea{border-radius:12px!important}
   #pageWeeklyReview .weekly-review-grid{
     grid-template-columns:1fr;
   }
+  #pageWeeklyReview .wr-kpi-grid{
+    grid-template-columns:1fr;
+  }
   #pageWeeklyReview .weekly-review-body-grid{
     grid-template-columns:1fr;
   }
@@ -1443,6 +1532,9 @@ input,textarea{border-radius:12px!important}
 }
 @media(max-width:1024px){
   #pageWeeklyReview .weekly-review-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  #pageWeeklyReview .wr-kpi-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
