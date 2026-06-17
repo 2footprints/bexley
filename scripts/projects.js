@@ -1233,7 +1233,16 @@ function renderGanttOverviewCards(projs,schs){
     }
   ];
   const activeQuickFilter=getGanttKpiQuickFilterKey();
-  el.innerHTML=cards.map(card=>'<button type="button" class="gantt-kpi '+card.className+(activeQuickFilter===card.key?' active':'')+'" onclick="setGanttKpiQuickFilter(\''+card.key+'\')"><div class="gantt-kpi-label">'+card.label+'</div><div class="gantt-kpi-value">'+card.value+'</div><div class="gantt-kpi-sub">'+card.sub+'</div></button>').join('');
+  el.classList.add('pg-kpi-strip');
+  el.innerHTML=cards.map(card=>{
+    const tone=card.className==='is-danger'?'warn':(card.className==='is-warn'?'amber':(card.className==='is-good'?'ok':'neutral'));
+    const activeClass=activeQuickFilter===card.key?' active':'';
+    return '<button type="button" class="pg-kpi-card '+tone+activeClass+'" onclick="setGanttKpiQuickFilter(\''+card.key+'\')">'
+      +'<div class="pg-kpi-label">'+card.label+'</div>'
+      +'<div class="pg-kpi-value">'+card.value+'</div>'
+      +'<div class="pg-kpi-sub">'+card.sub+'</div>'
+      +'</button>';
+  }).join('');
 }
 
 renderGanttSidebarList=function(projs){
