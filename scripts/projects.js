@@ -900,27 +900,22 @@ function clearGanttFilterTag(kind,value=''){
 }
 
 renderGanttProjectMemoSection=function(project){
-  const noteCards=buildGanttMemoSupportCards(project)
-    .filter(card=>String(card.value||'')!==String(project?.memo||'')&&String(card.value||'')!==String(project?.work_summary||''));
+  const noteCards=buildGanttMemoSupportCards(project);
   return ''
     +'<div class="gantt-detail-pane">'
-      +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">자료 요청 / 실행 자료</div><div class="gantt-detail-meta">프로젝트 실행에 필요한 자료 요청, 실행 자료 위치, 회수 상태를 확인합니다.</div></div><div class="gantt-detail-section-actions"><button type="button" class="gantt-detail-link" onclick="startGanttDetailInlineMemoEdit(\''+project.id+'\',\'work_summary\')">수정</button><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div></div>'
-        +renderGanttDetailInlineMemoEditor(project,{field:'work_summary',title:'실행 자료 메모',emptyText:'등록된 메모가 없습니다.',placeholder:'자료 요청 배경, 실행 자료 위치, 회수 상태 메모를 남겨 주세요.'})
-        +'<div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
-      +'</div>'
-      +'<div class="gantt-detail-section">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">메모 / 운영 노트</div><div class="gantt-detail-meta">운영 메모, 리스크 메모, 후속 액션, 참고 기록을 모아 두는 실행 지원 영역입니다.</div></div><div class="gantt-detail-section-actions"><button type="button" class="gantt-detail-link" onclick="startGanttDetailInlineMemoEdit(\''+project.id+'\',\'memo\')">수정</button></div></div>'
-        +renderGanttDetailInlineMemoEditor(project,{field:'memo',title:'운영 노트',emptyText:'등록된 메모가 없습니다.',placeholder:'운영 메모, 회의 메모, 공유할 참고사항을 남겨 주세요.'})
+      +'<div class="pd-tab-panel">'
+        +'<div class="pd-ov-section">'
+        +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>메모 / 운영 노트</h3><p>운영 메모, 리스크 메모, 후속 액션, 참고 기록을 모아 두는 실행 지원 영역입니다.</p></div><button type="button" class="pd-link-action" onclick="startGanttDetailInlineMemoEdit(\''+project.id+'\',\'memo\')">+ 메모 작성</button></div>'
         +(noteCards.length
-          ?'<div class="gantt-detail-note-grid">'+noteCards.map(card=>''
-            +'<button type="button" class="gantt-detail-note-card" onclick="openProjModal(\''+project.id+'\',null,null,\''+card.tab+'\')">'
-              +'<div class="gantt-detail-note-label">'+esc(card.label)+'</div>'
-              +'<div class="gantt-detail-meta">'+esc(card.context)+'</div>'
-              +'<div class="gantt-detail-note-text">'+esc(card.value)+'</div>'
+          ?'<div class="pd-memo-list">'+noteCards.map(card=>''
+            +'<button type="button" class="pd-memo-box" onclick="'+(card.tab==='basic'?'startGanttDetailInlineMemoEdit(\''+project.id+'\',\'memo\')':'openProjModal(\''+project.id+'\',null,null,\''+card.tab+'\')')+'">'
+              +'<div class="pd-memo-label">'+esc(card.label)+'</div>'
+              +'<div class="pd-memo-text">'+esc(card.value)+'</div>'
+              +'<div class="pd-memo-footer"><span>'+esc(card.context)+'</span><span class="pd-memo-edit">수정</span></div>'
             +'</button>'
           ).join('')+'</div>'
-          :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">등록된 추가 운영 노트가 없습니다.</div><div class="gantt-detail-meta">필요하면 위 운영 노트에서 바로 작성하거나 전체 프로젝트 수정 화면에서 리스크, 결과 요약, 후속 액션을 정리할 수 있습니다.</div></div>')
+          :'<div class="pd-memo-box pd-memo-box--empty"><div class="pd-memo-text">아직 남겨둔 실행 메모가 없습니다.</div><div class="pd-memo-footer"><span>필요하면 운영 노트에서 바로 작성하거나 전체 프로젝트 수정 화면에서 리스크, 결과 요약, 후속 액션을 정리할 수 있습니다.</span></div></div>')
+        +'</div>'
       +'</div>'
     +'</div>';
 };
@@ -5473,25 +5468,22 @@ function renderGanttDetailDocumentPreview(projectId,documents){
 }
 
 function renderGanttProjectMemoSection(project){
-  const noteCards=buildGanttMemoSupportCards(project)
-    .filter(card=>String(card.value||'')!==String(project?.memo||'')&&String(card.value||'')!==String(project?.work_summary||''));
+  const noteCards=buildGanttMemoSupportCards(project);
   return ''
     +'<div class="gantt-detail-pane">'
-      +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">자료 요청 / 실행 자료</div><div class="gantt-detail-meta">프로젝트 실행에 필요한 자료 요청과 회수 상태를 확인합니다. 현재 자료 요청은 프로젝트 단위로 관리됩니다.</div></div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div>'
-        +'<div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
-      +'</div>'
-      +'<div class="gantt-detail-section">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">메모 / 운영 노트</div><div class="gantt-detail-meta">운영 메모, 리스크 메모, 후속 액션, 참고 기록을 모아 두는 실행 지원 영역입니다.</div></div></div>'
+      +'<div class="pd-tab-panel">'
+        +'<div class="pd-ov-section">'
+        +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>메모 / 운영 노트</h3><p>운영 메모, 리스크 메모, 후속 액션, 참고 기록을 모아 두는 실행 지원 영역입니다.</p></div><button type="button" class="pd-link-action" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')">+ 메모 작성</button></div>'
         +(noteCards.length
-          ?'<div class="gantt-detail-note-grid">'+noteCards.map(card=>''
-            +'<button type="button" class="gantt-detail-note-card" onclick="openProjModal(\''+project.id+'\',null,null,\''+card.tab+'\')">'
-              +'<div class="gantt-detail-note-label">'+esc(card.label)+'</div>'
-              +'<div class="gantt-detail-meta">'+esc(card.context)+'</div>'
-              +'<div class="gantt-detail-note-text">'+esc(card.value)+'</div>'
+          ?'<div class="pd-memo-list">'+noteCards.map(card=>''
+            +'<button type="button" class="pd-memo-box" onclick="openProjModal(\''+project.id+'\',null,null,\''+card.tab+'\')">'
+              +'<div class="pd-memo-label">'+esc(card.label)+'</div>'
+              +'<div class="pd-memo-text">'+esc(card.value)+'</div>'
+              +'<div class="pd-memo-footer"><span>'+esc(card.context)+'</span><span class="pd-memo-edit">수정</span></div>'
             +'</button>'
           ).join('')+'</div>'
-          :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">아직 남겨둔 실행 메모가 없습니다.</div><div class="gantt-detail-meta">이곳은 프로젝트 단위 운영 메모, 리스크 메모, 후속 액션, 참고 기록을 정리하는 탭입니다.</div><div class="gantt-detail-meta">필요할 때 프로젝트 메모나 완료·후속 탭에서 기록을 남겨 두면 회의와 후속 작업에 도움이 됩니다.</div></div>')
+          :'<div class="pd-memo-box pd-memo-box--empty"><div class="pd-memo-text">아직 남겨둔 실행 메모가 없습니다.</div><div class="pd-memo-footer"><span>프로젝트 메모나 완료·후속 탭에서 기록을 남겨 두면 회의와 후속 작업에 도움이 됩니다.</span></div></div>')
+        +'</div>'
       +'</div>'
     +'</div>';
 }
@@ -7798,27 +7790,23 @@ function renderGanttOutputRow(projectId,output){
   const canReview=canReviewGanttQcOutput(output);
   const qcRequired=output?.qc_required!==false;
   const reviews=getGanttProjectQcState(projectId).reviews||[];
+  const delivTone=status==='approved'?'approved':status==='revision_requested'?'revision':(status==='requested'||status==='reviewing')?'review':qcRequired?'needqc':'none';
+  const delivStatusClass=status==='approved'?'approved':status==='revision_requested'?'revision':(status==='requested'||status==='reviewing')?'review':qcRequired?'needqc':'muted';
+  const statusLabel=qcRequired?(status==='none'?'QC 필요':statusMeta.label):'QC 불필요';
   return ''
-    +'<div class="gantt-output-row'+(active?' is-active':'')+(qcRequired?'':' is-qc-not-required')+'" data-qc-output="'+esc(outputId)+'" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+outputId+'\')">'
-      +'<div class="gantt-output-main">'
-        +'<div class="gantt-output-title">'+esc(output?.title||'산출물명 없음')+'</div>'
-        +(output?.memo?'<div class="gantt-output-memo">'+esc(output.memo)+'</div>':'')
-        +'<div class="gantt-output-meta">'
-          +'<span>작성자 '+esc(getGanttQcOutputAuthorName(output))+'</span>'
-          +'<span>등록일 '+esc(formatGanttOutputDate(output?.created_at))+'</span>'
-          +'<span>리뷰어 '+esc(getGanttQcReviewerName(output))+'</span>'
+    +'<div class="pd-deliv-item is-'+delivTone+(active?' is-active':'')+'" data-qc-output="'+esc(outputId)+'" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+outputId+'\')">'
+      +'<div class="pd-deliv-top">'
+        +'<div><div class="pd-deliv-name">'+esc(output?.title||'산출물명 없음')+'</div>'+(output?.memo?'<div class="pd-deliv-memo">'+esc(output.memo)+'</div>':'')+'</div>'
+        +'<span class="pd-deliv-status '+delivStatusClass+'">'+esc(statusLabel)+'</span>'
+      +'</div>'
+      +'<div class="pd-deliv-meta">작성자 <b>'+esc(getGanttQcOutputAuthorName(output))+'</b> · 등록일 <b>'+esc(formatGanttOutputDate(output?.created_at))+'</b> · 리뷰어 <b>'+esc(getGanttQcReviewerName(output))+'</b>'+(output?.requires_partner_review?' · <b>파트너 리뷰 필요</b>':'')+'</div>'
+      +'<div class="pd-deliv-foot">'
+        +'<label class="pd-deliv-options" onclick="event.stopPropagation()"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span></label>'
+        +'<div class="pd-deliv-links">'
+          +(link?'<button type="button" class="pd-deliv-link" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
+          +(qcRequired&&status==='none'?'<button type="button" class="pd-deliv-link" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+outputId+'\')">QC 요청</button>':'')
+          +'<button type="button" class="pd-deliv-link danger" onclick="event.stopPropagation();deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button>'
         +'</div>'
-      +'</div>'
-      +'<div class="gantt-output-status">'
-        +(qcRequired?'<span class="badge '+statusMeta.cls+'">'+statusMeta.label+'</span>':'')
-        +(output?.requires_partner_review?'<span class="gantt-qc-partner-pill">파트너 리뷰 필요</span>':'')
-        +(qcRequired?'':'<span class="gantt-qc-muted-pill">QC 불필요</span>')
-        +'<label class="gantt-output-review-toggle '+(output?.share_in_weekly_review?'is-on':'is-off')+'" onclick="event.stopPropagation()"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span></label>'
-      +'</div>'
-      +'<div class="gantt-output-actions">'
-        +(link?'<button type="button" class="btn ghost sm" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
-        +(qcRequired&&status==='none'?'<button type="button" class="btn primary sm gantt-output-qc-request-btn" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+outputId+'\')">QC 요청</button>':'')
-        +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button>'
       +'</div>'
       +(active?'<div class="gantt-output-review-panel" onclick="event.stopPropagation()">'
         +(canReview?'<div class="gantt-qc-review-form"><textarea id="ganttQcReviewComment_'+esc(outputId)+'" rows="3" placeholder="QC 코멘트를 입력하세요."></textarea><div class="gantt-qc-review-form-actions"><label class="checkbox-row"><input type="checkbox" id="ganttQcCoaching_'+esc(outputId)+'"><span>코칭노트</span></label><div><button type="button" class="btn ghost sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+outputId+'\',\'revision_requested\')">수정요청</button><button type="button" class="btn primary sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+outputId+'\',\'approved\')">승인</button></div></div></div>':'<div class="gantt-qc-history-empty">리뷰어 또는 관리자만 코멘트를 입력할 수 있습니다.</div>')
@@ -7835,18 +7823,20 @@ function renderGanttProjectOutputSection(project){
   const summary=getGanttOutputSummary(outputs);
   return ''
     +'<div class="gantt-detail-pane gantt-output-pane">'
-      +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">산출물</div><div class="gantt-detail-meta">산출물 등록, OneDrive 링크, QC 요청과 리뷰 이력을 한 곳에서 관리합니다.</div></div><div class="gantt-detail-head-actions"><button type="button" class="btn primary sm" onclick="openGanttOutputModal(\''+projectId+'\')">산출물 추가</button></div></div>'
-        +'<div class="gantt-output-summary">'
-          +'<div><strong>'+summary.total+'</strong><span>전체 산출물</span></div>'
-          +'<div><strong>'+summary.requested+'</strong><span>QC 요청중</span></div>'
-          +'<div><strong>'+summary.revision+'</strong><span>수정요청</span></div>'
-          +'<div><strong>'+summary.approved+'</strong><span>승인완료</span></div>'
+      +'<div class="pd-tab-panel">'
+        +'<div class="pd-ov-section">'
+          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>산출물</h3><p>산출물 등록, OneDrive 링크, QC 요청과 리뷰 이력을 한 곳에서 관리합니다.</p></div><button type="button" class="btn primary sm" onclick="openGanttOutputModal(\''+projectId+'\')">산출물 추가</button></div>'
+        +'<div class="pd-deliv-stat-grid">'
+          +'<div class="pd-stat-card"><div class="pd-stat-label">전체 산출물</div><div class="pd-stat-value">'+summary.total+'</div></div>'
+          +'<div class="pd-stat-card is-wait"><div class="pd-stat-label">QC 요청중</div><div class="pd-stat-value">'+summary.requested+'</div></div>'
+          +'<div class="pd-stat-card is-danger"><div class="pd-stat-label">수정요청</div><div class="pd-stat-value">'+summary.revision+'</div></div>'
+          +'<div class="pd-stat-card is-done"><div class="pd-stat-label">승인완료</div><div class="pd-stat-value">'+summary.approved+'</div></div>'
         +'</div>'
         +(meta.loading?'<div class="gantt-detail-empty">산출물을 불러오는 중...</div>'
           :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
-          :outputs.length?'<div class="gantt-output-list">'+outputs.map(output=>renderGanttOutputRow(projectId,output)).join('')+'</div>'
+          :outputs.length?'<div class="pd-deliv-list">'+outputs.map(output=>renderGanttOutputRow(projectId,output)).join('')+'</div>'
           :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">등록된 산출물이 없습니다.</div><div class="gantt-detail-meta">OneDrive 링크와 함께 산출물을 등록하면 QC와 주간리뷰에서 이어서 확인할 수 있습니다.</div></div>')
+        +'</div>'
       +'</div>'
     +'</div>';
 }
