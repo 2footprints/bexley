@@ -4502,6 +4502,41 @@ td{
   border:1px dashed rgba(148,163,184,.2)!important;
   background:#F8FAFC!important;
 }
+#pageGantt .gantt-calendar-item.project{
+  display:flex!important;
+  align-items:flex-start!important;
+  gap:6px!important;
+  -webkit-line-clamp:unset!important;
+  -webkit-box-orient:initial!important;
+}
+#pageGantt .gantt-calendar-item-badges{
+  display:inline-flex;
+  flex-wrap:wrap;
+  gap:3px;
+  flex-shrink:0;
+}
+#pageGantt .gantt-calendar-item-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:16px;
+  padding:1px 5px;
+  border-radius:999px;
+  background:rgba(255,255,255,.9);
+  color:#1F2937;
+  font-size:9px;
+  font-weight:900;
+  line-height:1;
+}
+#pageGantt .gantt-calendar-item-badge.is-end{
+  color:#92400E;
+}
+#pageGantt .gantt-calendar-item-label{
+  min-width:0;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+}
 #pageGantt .gantt-view-settings{
   gap:12px!important;
   margin:12px 0 0!important;

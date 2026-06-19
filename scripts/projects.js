@@ -1509,24 +1509,22 @@ function buildGanttCalendarItemMap(projs,schs){
     if(startDate>monthLast||endDate<monthFirst)return;
     const projectStart=new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate());
     const projectEnd=new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate());
-    const visibleStart=projectStart<monthFirst?new Date(monthFirst):new Date(projectStart);
-    const visibleEnd=projectEnd>monthLast?new Date(monthLast):new Date(projectEnd);
-    const anchorValues=new Set();
-    [projectStart,projectEnd].forEach(anchor=>{
-      if(anchor>=monthFirst&&anchor<=monthLast)anchorValues.add(getGanttCalendarDateValue(anchor));
-    });
-    const firstMonday=new Date(visibleStart);
-    const daysUntilMonday=(8-firstMonday.getDay())%7;
-    firstMonday.setDate(firstMonday.getDate()+daysUntilMonday);
-    for(let cursor=new Date(firstMonday);cursor<=visibleEnd;cursor.setDate(cursor.getDate()+7)){
-      anchorValues.add(getGanttCalendarDateValue(cursor));
+    const startValue=getGanttCalendarDateValue(projectStart);
+    const endValue=getGanttCalendarDateValue(projectEnd);
+    const anchorMap=new Map();
+    if(projectStart>=monthFirst&&projectStart<=monthLast)anchorMap.set(startValue,['시작']);
+    if(projectEnd>=monthFirst&&projectEnd<=monthLast){
+      const badges=anchorMap.get(endValue)||[];
+      badges.push('마감');
+      anchorMap.set(endValue,badges);
     }
-    anchorValues.forEach(dateValue=>{
+    anchorMap.forEach((badges,dateValue)=>{
       if(!dateValue)return;
       pushItem(dateValue,{
         kind:'project',
         id:project.id,
         label:project.name,
+        calendarBadges:badges,
         title:[project.name,getProjectTypeLabel(project),(project.members||[]).join(', ')].filter(Boolean).join(' | '),
         color:TYPES[getProjectTypeLabel(project)]||TYPES[project.type]||'#4e5968',
         dueToday:isDueToday(project)&&getGanttCalendarDateValue(projectEnd)===dateValue
@@ -4629,7 +4627,11 @@ function buildGanttCalendarItemHtml(item){
     border=item.tone==='danger'?'#FECACA':item.tone==='warn'?'#FED7AA':'#E2E8F0';
     action=`openGanttProjectWorkTab('${item.projectId}')`;
   }
-  return '<button class="gantt-calendar-item '+itemClass+activeClass+'" type="button" onclick="'+action+'" style="background:'+bg+';color:'+text+';border:1px solid '+border+(item.dueToday?';box-shadow:inset 0 0 0 1px rgba(146,64,14,.24)':'')+'" title="'+esc(item.title)+'">'+esc(item.label)+'</button>';
+  const badges=item.kind==='project'&&Array.isArray(item.calendarBadges)
+    ?'<span class="gantt-calendar-item-badges">'+item.calendarBadges.map(badge=>'<span class="gantt-calendar-item-badge is-'+(badge==='마감'?'end':'start')+'">'+esc(badge)+'</span>').join('')+'</span>'
+    :'';
+  const label='<span class="gantt-calendar-item-label">'+esc(item.label)+'</span>';
+  return '<button class="gantt-calendar-item '+itemClass+activeClass+'" type="button" onclick="'+action+'" style="background:'+bg+';color:'+text+';border:1px solid '+border+(item.dueToday?';box-shadow:inset 0 0 0 1px rgba(146,64,14,.24)':'')+'" title="'+esc(item.title)+'">'+badges+label+'</button>';
 }
 
 function renderGanttEntryViewChrome(){
