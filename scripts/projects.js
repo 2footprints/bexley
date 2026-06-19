@@ -307,6 +307,7 @@ function renderMemberFilterTabs(){
   const wrap=document.getElementById('memberFilterTabs');
   const sel=document.getElementById('memberFilter');
   if(!wrap||!sel)return;
+  wrap.classList.add('pg-person-tabs');
   const currentValue=sel.value||'';
   const options=[{value:'',label:'전체'}].concat(
     getAvailableGanttMembers().map(member=>({value:member.name,label:member.name}))
@@ -315,7 +316,7 @@ function renderMemberFilterTabs(){
   options.forEach(option=>{
     const btn=document.createElement('button');
     btn.type='button';
-    btn.className='member-filter-tab'+(currentValue===option.value?' active':'');
+    btn.className='member-filter-tab pg-person-tab'+(currentValue===option.value?' active':'');
     btn.textContent=option.label;
     btn.onclick=()=>setMemberFilter(option.value);
     wrap.appendChild(btn);
@@ -939,7 +940,7 @@ function ensureGanttTodayButton(){
   const btn=document.createElement('button');
   btn.type='button';
   btn.id='ganttTodayBtn';
-  btn.className='btn sm gantt-today-btn';
+  btn.className='btn sm gantt-today-btn pg-today-btn';
   btn.textContent='오늘';
   btn.onclick=goToCurrentGanttMonth;
   nav.appendChild(btn);
@@ -953,9 +954,10 @@ function ensureGanttTopFilterBar(){
   if(!bar){
     bar=document.createElement('div');
     bar.id='ganttTopFilterBar';
-    bar.className='gantt-top-filter-bar';
+    bar.className='gantt-top-filter-bar pg-filter-bar';
     memberTabs.parentNode.insertBefore(bar,memberTabs);
   }
+  bar.classList.add('pg-filter-bar');
   return bar;
 }
 
@@ -1505,20 +1507,31 @@ function buildGanttCalendarItemMap(projs,schs){
     const endDate=toDate(project?.end||project?.end_date||'');
     if(Number.isNaN(startDate.getTime())||Number.isNaN(endDate.getTime()))return;
     if(startDate>monthLast||endDate<monthFirst)return;
-    const visibleStart=startDate<monthFirst?new Date(monthFirst):new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate());
-    const visibleEnd=endDate>monthLast?new Date(monthLast):new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate());
-    for(let cursor=new Date(visibleStart);cursor<=visibleEnd;cursor.setDate(cursor.getDate()+1)){
-      const dateValue=getGanttCalendarDateValue(cursor);
-      if(!dateValue)continue;
+    const projectStart=new Date(startDate.getFullYear(),startDate.getMonth(),startDate.getDate());
+    const projectEnd=new Date(endDate.getFullYear(),endDate.getMonth(),endDate.getDate());
+    const visibleStart=projectStart<monthFirst?new Date(monthFirst):new Date(projectStart);
+    const visibleEnd=projectEnd>monthLast?new Date(monthLast):new Date(projectEnd);
+    const anchorValues=new Set();
+    [projectStart,projectEnd].forEach(anchor=>{
+      if(anchor>=monthFirst&&anchor<=monthLast)anchorValues.add(getGanttCalendarDateValue(anchor));
+    });
+    const firstMonday=new Date(visibleStart);
+    const daysUntilMonday=(8-firstMonday.getDay())%7;
+    firstMonday.setDate(firstMonday.getDate()+daysUntilMonday);
+    for(let cursor=new Date(firstMonday);cursor<=visibleEnd;cursor.setDate(cursor.getDate()+7)){
+      anchorValues.add(getGanttCalendarDateValue(cursor));
+    }
+    anchorValues.forEach(dateValue=>{
+      if(!dateValue)return;
       pushItem(dateValue,{
         kind:'project',
         id:project.id,
         label:project.name,
         title:[project.name,getProjectTypeLabel(project),(project.members||[]).join(', ')].filter(Boolean).join(' | '),
         color:TYPES[getProjectTypeLabel(project)]||TYPES[project.type]||'#4e5968',
-        dueToday:isDueToday(project)&&getGanttCalendarDateValue(endDate)===dateValue
+        dueToday:isDueToday(project)&&getGanttCalendarDateValue(projectEnd)===dateValue
       });
-    }
+    });
     const tasks=Array.isArray(ganttProjectTasksByProjectId[String(project.id||'')])
       ?ganttProjectTasksByProjectId[String(project.id||'')]
       :[];
@@ -2896,7 +2909,7 @@ function syncGanttPrimaryToolbarVisibility(){
   }
   if(summary)summary.classList.add('is-quiet');
   if(memberTabs){
-    const shouldShowMemberTabs=curGanttLayout==='timeline'&&curGView==='member';
+    const shouldShowMemberTabs=(curGanttLayout==='timeline'&&curGView==='member')||curGanttLayout==='calendar';
     memberTabs.hidden=!shouldShowMemberTabs;
     memberTabs.classList.toggle('is-gantt-secondary',shouldShowMemberTabs);
   }
@@ -4525,9 +4538,11 @@ function refreshGanttSupportTaskCompatibility(projectId){
   }
 }
 
-function getGanttCalendarTaskItemsForDate(cellDate){
+function getGanttCalendarTaskItemsForDate(cellDate,visibleProjects){
   const project=getGanttSupportCueProject();
   if(!project)return [];
+  const visibleProjectIds=new Set((visibleProjects||[]).map(item=>String(item?.id||'')).filter(Boolean));
+  if(visibleProjectIds.size&&!visibleProjectIds.has(String(project.id||'')))return [];
   const dayValue=getGanttCalendarDateValue(cellDate);
   if(!dayValue)return [];
   return getGanttProjectTasks(project.id).reduce((rows,task)=>{
@@ -4578,7 +4593,7 @@ function buildGanttCalendarItemsForDate(cellDate,projs,schs){
       });
     }
   });
-  getGanttCalendarTaskItemsForDate(cellDate).forEach(item=>items.push(item));
+  getGanttCalendarTaskItemsForDate(cellDate,projs).forEach(item=>items.push(item));
   schs.forEach(schedule=>{
     if(toDate(schedule.start).getTime()<=ts&&toDate(schedule.end).getTime()>=ts){
       const labelBase=schedule.title||scheduleLabel(schedule.schedule_type);
@@ -6401,52 +6416,53 @@ function renderGanttListClientGroupHeader(group,forceExpanded=false){
 renderGanttTopFilterBar=function(){
   const bar=ensureGanttTopFilterBar();
   if(!bar)return;
+  bar.classList.add('pg-filter-bar');
   const clientOptions=[...new Set((clients||[]).map(client=>String(client?.name||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   const memberValue=document.getElementById('memberFilter')?.value||'';
   const typeFilterValue=getGanttTypeFilterValue();
   const teamFilterValue=getGanttTeamFilterValue();
-  const showAssigneeFilter=curGanttLayout==='list';
+  const showAssigneeFilter=curGanttLayout==='list'||curGanttLayout==='calendar';
   const assigneeOptions=getGanttListAssigneeFilterOptions();
   const typeOptions=getActiveProjectTypeRows();
   const teamOptions=getVisibleProjectTeamRows();
   bar.innerHTML=''
-    +'<div class="gantt-top-filter-group gantt-status-group">'
-      +'<span class="gantt-top-filter-label">상태</span>'
-      +'<div class="gantt-status-chip-list">'
-        +getGanttStatusOptions().map(option=>'<button type="button" class="gantt-status-chip'+(ganttStatusFilter===option.value?' active':'')+'" onclick="setGanttStatusFilter(\''+option.value+'\')">'+option.label+'</button>').join('')
-      +'</div>'
+    +'<div class="pg-status-filters gantt-top-filter-group gantt-status-group">'
+      +getGanttStatusOptions().map(option=>'<button type="button" class="gantt-status-chip pg-status-chip'+(ganttStatusFilter===option.value?' active':'')+(option.value==='overdue'?' is-delay':'')+'" onclick="setGanttStatusFilter(\''+option.value+'\')">'+option.label+'</button>').join('')
     +'</div>'
-    +(showAssigneeFilter
-      ?'<div class="gantt-top-filter-group gantt-assignee-group">'
-        +'<span class="gantt-top-filter-label">담당</span>'
-        +'<select id="ganttAssigneeFilterSelect">'
-          +assigneeOptions.map(option=>'<option value="'+esc(option.value)+'"'+(memberValue===option.value?' selected':'')+'>'+esc(option.label)+'</option>').join('')
+    +'<div class="pg-right-filters">'
+      +(showAssigneeFilter
+        ?'<label class="pg-filter-field gantt-top-filter-group gantt-assignee-group">'
+          +'<span class="gantt-top-filter-label">담당</span>'
+          +'<select id="ganttAssigneeFilterSelect">'
+            +assigneeOptions.map(option=>'<option value="'+esc(option.value)+'"'+(memberValue===option.value?' selected':'')+'>'+esc(option.label)+'</option>').join('')
+          +'</select>'
+        +'</label>'
+        :'')
+      +'<label class="pg-filter-field gantt-top-filter-group gantt-type-group">'
+        +'<span class="gantt-top-filter-label">유형</span>'
+        +'<select id="ganttTopTypeFilterSelect">'
+          +'<option value="all">전체</option>'
+          +(typeOptions.length
+            ?typeOptions.map(type=>'<option value="'+esc(type.id)+'"'+(typeFilterValue===String(type.id)?' selected':'')+'>'+esc(type.name||type.code||'유형')+'</option>').join('')
+            :GANTT_TYPE_OPTIONS.map(type=>'<option value="'+esc(type)+'"'+(typeFilterValue===type?' selected':'')+'>'+esc(type)+'</option>').join(''))
         +'</select>'
+      +'</label>'
+      +'<label class="pg-filter-field gantt-top-filter-group gantt-team-group">'
+        +'<span class="gantt-top-filter-label">팀</span>'
+        +'<select id="ganttTeamFilterSelect" '+(!canViewAllProjectTeams()?'disabled':'')+'>'
+          +(canViewAllProjectTeams()?'<option value="all">전체</option>':'')
+          +teamOptions.map(team=>'<option value="'+esc(team.id)+'"'+(teamFilterValue===String(team.id)?' selected':'')+'>'+esc(team.name||team.code||'팀')+'</option>').join('')
+        +'</select>'
+      +'</label>'
+      +'<label class="pg-filter-field gantt-top-filter-group gantt-client-group">'
+        +'<span class="gantt-top-filter-label">고객사</span>'
+        +'<input id="ganttClientFilterInput" class="gantt-client-search" list="ganttClientFilterOptions" value="'+esc(ganttClientFilterQuery)+'" placeholder="고객사 검색" />'
+        +'<datalist id="ganttClientFilterOptions">'
+          +clientOptions.map(name=>'<option value="'+esc(name)+'"></option>').join('')
+        +'</datalist>'
+      +'</label>'
       +'</div>'
-      :'')
-    +'<div class="gantt-top-filter-group gantt-type-group">'
-      +'<span class="gantt-top-filter-label">유형</span>'
-      +'<select id="ganttTopTypeFilterSelect">'
-        +'<option value="all">전체</option>'
-        +(typeOptions.length
-          ?typeOptions.map(type=>'<option value="'+esc(type.id)+'"'+(typeFilterValue===String(type.id)?' selected':'')+'>'+esc(type.name||type.code||'유형')+'</option>').join('')
-          :GANTT_TYPE_OPTIONS.map(type=>'<option value="'+esc(type)+'"'+(typeFilterValue===type?' selected':'')+'>'+esc(type)+'</option>').join(''))
-      +'</select>'
-    +'</div>'
-    +'<div class="gantt-top-filter-group gantt-team-group">'
-      +'<span class="gantt-top-filter-label">팀</span>'
-      +'<select id="ganttTeamFilterSelect" '+(!canViewAllProjectTeams()?'disabled':'')+'>'
-        +(canViewAllProjectTeams()?'<option value="all">전체</option>':'')
-        +teamOptions.map(team=>'<option value="'+esc(team.id)+'"'+(teamFilterValue===String(team.id)?' selected':'')+'>'+esc(team.name||team.code||'팀')+'</option>').join('')
-      +'</select>'
-    +'</div>'
-    +'<div class="gantt-top-filter-group gantt-client-group">'
-      +'<span class="gantt-top-filter-label">고객사</span>'
-      +'<input id="ganttClientFilterInput" class="gantt-client-search" list="ganttClientFilterOptions" value="'+esc(ganttClientFilterQuery)+'" placeholder="고객사 검색" />'
-      +'<datalist id="ganttClientFilterOptions">'
-        +clientOptions.map(name=>'<option value="'+esc(name)+'"></option>').join('')
-      +'</datalist>'
-    +'</div>';
+    +'';
   const assigneeSelect=document.getElementById('ganttAssigneeFilterSelect');
   if(assigneeSelect)assigneeSelect.onchange=e=>setMemberFilter(e.target.value);
   const typeSelect=document.getElementById('ganttTopTypeFilterSelect');
