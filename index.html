@@ -3881,13 +3881,27 @@ async function apiEx(method,path,body,prefer){
     const h=makeHeaders();const p=makePrefer();if(p)h['Prefer']=p;
     return fetch(SB_URL+'/rest/v1/'+path,{method,headers:h,body:body?JSON.stringify(body):undefined});
   };
+  const usedAnonFallback=!accessToken;
   let r=await doFetch();
   if(!r.ok){
     const e=await r.text();
     let parsed=null;try{parsed=JSON.parse(e);}catch(_){}
+    const sessionRetryMessage='세션이 만료되었거나 인증 정보가 유효하지 않습니다. 다시 로그인한 뒤 시도해주세요.';
     if(parsed?.code==='PGRST303'||r.status===401){
       const refreshed=await restoreSession().catch(()=>false);
       if(refreshed){r=await doFetch();if(!r.ok){const e2=await r.text();throw new Error(e2);}const t2=await r.text();return t2?JSON.parse(t2):null;}
+    }
+    if(parsed?.code==='42501'&&usedAnonFallback&&(currentUser||refreshToken)){
+      const refreshed=await restoreSession().catch(()=>false);
+      if(!refreshed)throw new Error(sessionRetryMessage);
+      r=await doFetch();
+      if(!r.ok){
+        const e2=await r.text();
+        let parsed2=null;try{parsed2=JSON.parse(e2);}catch(_){}
+        if(parsed2?.code==='42501'||r.status===401)throw new Error(sessionRetryMessage);
+        throw new Error(e2);
+      }
+      const t2=await r.text();return t2?JSON.parse(t2):null;
     }
     throw new Error(e);
   }
@@ -4404,7 +4418,7 @@ function getProjectContractIdFromForm(){
 
 function validateProjectClientAndContractSelection(){
   if(projectClientCombobox&&typeof projectClientCombobox.hasUncommittedText==='function'&&projectClientCombobox.hasUncommittedText()){
-    alert('목록에서 고객사를 선택해 주세요.');
+    alert('입력하신 텍스트가 거래처로 선택되지 않았습니다. 목록에서 선택하거나 X 버튼으로 비워주세요.');
     projectClientCombobox.input?.focus();
     return false;
   }
