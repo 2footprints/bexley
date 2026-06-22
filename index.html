@@ -4286,7 +4286,7 @@ function getContractClientIdFromForm(){
 
 function validateContractClientSelection(){
   if(contractClientCombobox&&typeof contractClientCombobox.hasUncommittedText==='function'&&contractClientCombobox.hasUncommittedText()){
-    alert('목록에서 고객사를 선택해 주세요.');
+    alert('입력하신 텍스트가 거래처로 선택되지 않았습니다. 목록에서 선택하거나 X 버튼으로 비워주세요.');
     contractClientCombobox.input?.focus();
     return false;
   }
