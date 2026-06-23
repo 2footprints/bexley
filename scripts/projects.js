@@ -1612,22 +1612,28 @@ function renderGanttCalendarActiveProjects(projs,baseDate=getHomeBaseDate()){
     return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
   });
   const baseLabel=base?getGanttCalendarDateValue(base):'오늘';
+  const subline=baseLabel+' 기준으로 진행 중인 프로젝트입니다.';
   const chips=activeProjects.length
     ?activeProjects.map(project=>{
       const dday=getGanttCalendarActiveProjectDdayMeta(project,base);
       const members=(project.members||[]).filter(Boolean).join(', ')||'담당자 미정';
-      return '<button type="button" class="pg-cal-active-chip" onclick="openGanttProjectDetail(\''+project.id+'\')">'
-        +'<span class="pg-cal-active-main">'+esc(project.name||'프로젝트')+'</span>'
-        +'<span class="pg-cal-active-meta">'+esc(members)+'</span>'
-        +'<span class="pg-cal-active-dday is-'+dday.tone+'">'+esc(dday.label)+'</span>'
+      const chipTone=dday.tone==='danger'?' is-urgent':(dday.tone==='warn'?' is-soon':'');
+      return '<button type="button" class="pg-active-chip'+chipTone+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
+        +'<span class="pg-active-dot" aria-hidden="true"></span>'
+        +'<span class="pg-active-body">'
+          +'<span class="pg-active-name">'+esc(project.name||'프로젝트')+'</span>'
+          +'<span class="pg-active-meta">'+esc(members)+'</span>'
+        +'</span>'
+        +'<span class="pg-active-dday">'+esc(dday.label)+'</span>'
       +'</button>';
     }).join('')
     :'<div class="pg-cal-active-empty">오늘 기준 진행 중인 프로젝트가 없습니다.</div>';
   return '<section class="pg-cal-active" aria-label="진행 중인 프로젝트">'
     +'<div class="pg-cal-active-head">'
-      +'<div><div class="pg-cal-active-title">진행 중인 프로젝트</div><div class="pg-cal-active-sub">'+esc(baseLabel)+' 기준 · '+activeProjects.length+'건</div></div>'
+      +'<div><h3 class="pg-cal-active-title">진행 중인 프로젝트</h3><p class="pg-cal-active-sub" id="pgActiveSubline">'+esc(subline)+'</p></div>'
+      +'<div class="pg-cal-active-actions"><button type="button" class="pg-today-jump" id="pgTodayJumpBtn" style="display:none">오늘로 돌아가기</button><span class="pg-cal-active-count" id="pgActiveCount">'+activeProjects.length+'건</span></div>'
     +'</div>'
-    +'<div class="pg-cal-active-list">'+chips+'</div>'
+    +'<div class="pg-active-row-wrap" id="pgActiveList">'+chips+'</div>'
   +'</section>';
 }
 
