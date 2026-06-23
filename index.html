@@ -10271,7 +10271,10 @@ window.deleteGanttProject=async function(projectId,event){
   try{
     await api('DELETE','schedules?project_id=eq.'+projectId).catch(()=>null);
     await api('DELETE','project_tasks?project_id=eq.'+projectId).catch(()=>null);
-    await api('DELETE','projects?id=eq.'+projectId);
+    const deletedRows=await apiEx('DELETE','projects?id=eq.'+projectId+'&select=id',null,'return=representation');
+    if(!Array.isArray(deletedRows)||!deletedRows.length){
+      throw new Error('삭제 권한이 없거나 이미 삭제된 프로젝트입니다.');
+    }
     if(typeof logActivity==='function'){
       await logActivity('\uD504\uB85C\uC81D\uD2B8 \uC0AD\uC81C','project',projectId,project.name||'');
     }

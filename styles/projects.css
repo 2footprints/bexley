@@ -2772,6 +2772,7 @@ td{
   display:flex;
   flex-direction:column;
   gap:8px;
+  cursor:pointer;
 }
 .gantt-calendar-day.is-empty{
   background:linear-gradient(180deg,#fbfcfe 0%, #f8fafc 100%);
@@ -2779,6 +2780,10 @@ td{
 .gantt-calendar-day.is-today{
   border-color:rgba(19,52,89,.42);
   box-shadow:0 0 0 1px rgba(19,52,89,.06), 0 12px 24px rgba(15,23,42,.05);
+}
+.gantt-calendar-day.is-selected{
+  border-color:#2563EB;
+  box-shadow:0 0 0 2px rgba(37,99,235,.18), 0 14px 28px rgba(15,23,42,.08);
 }
 .gantt-calendar-day.is-weekend .gantt-calendar-date{
   color:#B45309;
@@ -4630,6 +4635,10 @@ td{
 #pageGantt .gantt-calendar-day.is-today{
   border-color:rgba(19,52,89,.22)!important;
   box-shadow:0 0 0 1px rgba(19,52,89,.05),0 14px 28px rgba(15,23,42,.05)!important;
+}
+#pageGantt .gantt-calendar-day.is-selected{
+  border-color:#2563EB!important;
+  box-shadow:0 0 0 2px rgba(37,99,235,.18),0 14px 28px rgba(15,23,42,.08)!important;
 }
 #pageGantt .gantt-calendar-day.is-weekend .gantt-calendar-date{
   color:#B45309!important;

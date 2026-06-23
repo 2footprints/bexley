@@ -32,6 +32,8 @@ let ganttTaskViewError='';
 let ganttTaskViewStatusFilter='open';
 let ganttCalendarDisplayMode='full';
 let ganttCalendarTaskRefreshTimer=0;
+let ganttCalendarActiveProjectRows=[];
+let ganttCalendarSelectedDateValue='';
 let ganttDetailInlineEditKey='';
 let ganttDetailInlineSaveMessage='';
 let ganttDetailIssueSaveMessage='';
@@ -1602,7 +1604,22 @@ function getGanttCalendarActiveProjectDdayMeta(project,baseDate){
   return {label:'D-'+diff,tone:diff<=3?'warn':'neutral'};
 }
 
-function renderGanttCalendarActiveProjects(projs,baseDate=getHomeBaseDate()){
+function getGanttCalendarActiveDateLabel(baseDate){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  if(!base)return '오늘';
+  return (base.getMonth()+1)+'월 '+base.getDate()+'일';
+}
+
+function getGanttCalendarActiveSubline(baseDate){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  const today=getGanttLocalDateValue(getHomeBaseDate());
+  if(base&&today&&getGanttCalendarDateValue(base)===getGanttCalendarDateValue(today)){
+    return '오늘('+(base.getMonth()+1)+'.'+base.getDate()+') 기준으로 진행 중인 프로젝트입니다. 날짜를 클릭하면 그 날짜 기준으로 바뀝니다.';
+  }
+  return getGanttCalendarActiveDateLabel(base)+' 기준으로 진행 중인 프로젝트입니다.';
+}
+
+function getGanttCalendarSortedActiveProjects(projs,baseDate){
   const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
   const activeProjects=getGanttActiveProjectsForDate(projs,base).sort((a,b)=>{
     const aEnd=getGanttLocalDateValue(a?.end||a?.end_date||'')||new Date(8640000000000000);
@@ -1611,8 +1628,11 @@ function renderGanttCalendarActiveProjects(projs,baseDate=getHomeBaseDate()){
     if(diff)return diff;
     return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
   });
-  const baseLabel=base?getGanttCalendarDateValue(base):'오늘';
-  const subline=baseLabel+' 기준으로 진행 중인 프로젝트입니다.';
+  return activeProjects;
+}
+
+function renderGanttCalendarActiveProjectChips(activeProjects,baseDate){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
   const chips=activeProjects.length
     ?activeProjects.map(project=>{
       const dday=getGanttCalendarActiveProjectDdayMeta(project,base);
@@ -1627,7 +1647,28 @@ function renderGanttCalendarActiveProjects(projs,baseDate=getHomeBaseDate()){
         +'<span class="pg-active-dday">'+esc(dday.label)+'</span>'
       +'</button>';
     }).join('')
-    :'<div class="pg-cal-active-empty">오늘 기준 진행 중인 프로젝트가 없습니다.</div>';
+    :'<div class="pg-cal-active-empty">'+esc(getGanttCalendarActiveDateLabel(base))+' 기준 진행 중인 프로젝트가 없습니다.</div>';
+  return chips;
+}
+
+function updateGanttCalendarActiveProjectsForDate(baseDate,{showTodayButton=false}={}){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  const activeProjects=getGanttCalendarSortedActiveProjects(ganttCalendarActiveProjectRows,base);
+  const list=document.getElementById('pgActiveList');
+  const subline=document.getElementById('pgActiveSubline');
+  const count=document.getElementById('pgActiveCount');
+  const todayBtn=document.getElementById('pgTodayJumpBtn');
+  if(list)list.innerHTML=renderGanttCalendarActiveProjectChips(activeProjects,base);
+  if(subline)subline.textContent=getGanttCalendarActiveSubline(base);
+  if(count)count.textContent=activeProjects.length+'건';
+  if(todayBtn)todayBtn.style.display=showTodayButton?'inline-flex':'none';
+}
+
+function renderGanttCalendarActiveProjects(projs,baseDate=getHomeBaseDate()){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  const activeProjects=getGanttCalendarSortedActiveProjects(projs,base);
+  const subline=getGanttCalendarActiveSubline(base);
+  const chips=renderGanttCalendarActiveProjectChips(activeProjects,base);
   return '<section class="pg-cal-active" aria-label="진행 중인 프로젝트">'
     +'<div class="pg-cal-active-head">'
       +'<div><h3 class="pg-cal-active-title">진행 중인 프로젝트</h3><p class="pg-cal-active-sub" id="pgActiveSubline">'+esc(subline)+'</p></div>'
@@ -1637,10 +1678,48 @@ function renderGanttCalendarActiveProjects(projs,baseDate=getHomeBaseDate()){
   +'</section>';
 }
 
+function selectGanttCalendarDate(dateValue){
+  const base=getGanttLocalDateValue(dateValue);
+  if(!base)return;
+  const selectedValue=getGanttCalendarDateValue(base);
+  const todayValue=getGanttCalendarDateValue(getGanttLocalDateValue(getHomeBaseDate()));
+  ganttCalendarSelectedDateValue=selectedValue;
+  document.querySelectorAll('.gantt-calendar-day.is-selected').forEach(cell=>cell.classList.remove('is-selected'));
+  const selectedCell=document.querySelector('.gantt-calendar-day[data-gantt-calendar-date="'+selectedValue+'"]');
+  if(selectedCell)selectedCell.classList.add('is-selected');
+  updateGanttCalendarActiveProjectsForDate(base,{showTodayButton:selectedValue!==todayValue});
+}
+
+function resetGanttCalendarActiveProjectsToToday(){
+  const today=getGanttLocalDateValue(getHomeBaseDate());
+  const todayValue=getGanttCalendarDateValue(today);
+  ganttCalendarSelectedDateValue=todayValue;
+  document.querySelectorAll('.gantt-calendar-day.is-selected').forEach(cell=>cell.classList.remove('is-selected'));
+  const todayCell=document.querySelector('.gantt-calendar-day[data-gantt-calendar-date="'+todayValue+'"]');
+  if(todayCell)todayCell.classList.add('is-selected');
+  updateGanttCalendarActiveProjectsForDate(today,{showTodayButton:false});
+}
+
+function bindGanttCalendarDateInteractions(){
+  const grid=document.querySelector('#ganttWrap .gantt-calendar-grid');
+  if(!grid)return;
+  grid.addEventListener('click',event=>{
+    if(event.target.closest('.gantt-calendar-item'))return;
+    const cell=event.target.closest('.gantt-calendar-day[data-gantt-calendar-date]');
+    if(!cell)return;
+    selectGanttCalendarDate(cell.dataset.ganttCalendarDate);
+  });
+  const todayBtn=document.getElementById('pgTodayJumpBtn');
+  if(todayBtn)todayBtn.onclick=resetGanttCalendarActiveProjectsToToday;
+}
+
 function renderGanttCalendarGrid(projs,schs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
   ensureGanttCalendarProjectTasksLoaded(projs);
+  ganttCalendarActiveProjectRows=Array.isArray(projs)?projs:[];
+  const todayValue=getGanttCalendarDateValue(getGanttLocalDateValue(getHomeBaseDate()));
+  ganttCalendarSelectedDateValue=todayValue;
   const weekdayLabels=['일','월','화','수','목','금','토'];
   const totalDays=daysInMonth(curYear,curMonth);
   const firstDay=new Date(curYear,curMonth-1,1);
@@ -1670,7 +1749,9 @@ function renderGanttCalendarGrid(projs,schs){
     const isWeekendCell=cellDate.getDay()===0||cellDate.getDay()===6;
     const todayClass=isToday(curYear,curMonth,dayNumber)?' is-today':'';
     const weekendClass=isWeekendCell?' is-weekend':'';
-    cells+='<div class="gantt-calendar-day'+todayClass+weekendClass+'">'
+    const dateValue=getGanttCalendarDateValue(cellDate);
+    const selectedClass=dateValue===ganttCalendarSelectedDateValue?' is-selected':'';
+    cells+='<div class="gantt-calendar-day'+todayClass+weekendClass+selectedClass+'" data-gantt-calendar-date="'+dateValue+'">'
       +'<div class="gantt-calendar-date-row"><div class="gantt-calendar-date">'+dayNumber+'</div>'+(items.length?'<div class="gantt-calendar-count">'+items.length+'건</div>':'')+'</div>'
       +'<div class="gantt-calendar-items">'+preview+overflow+'</div>'
       +'</div>';
@@ -1688,6 +1769,7 @@ function renderGanttCalendarGrid(projs,schs){
       +'</div>'
     +'</div>'
     +'<div class="gantt-calendar-wrap"><div class="gantt-calendar-board"><div class="gantt-calendar-weekdays">'+weekdayHead+'</div><div class="gantt-calendar-grid">'+cells+'</div></div></div>';
+  bindGanttCalendarDateInteractions();
   renderLegend();
 }
 
@@ -3856,14 +3938,17 @@ async function deleteProjectTask(projectId,taskId){
   if(!projectKey||!taskKey)return;
   if(!window.confirm('이 업무를 삭제하시겠습니까?'))return;
   try{
-    await api('DELETE',getGanttProjectTaskApiPath('id=eq.'+taskKey));
+    const deletedRows=await apiEx('DELETE',getGanttProjectTaskApiPath('id=eq.'+taskKey+'&select=id'),null,'return=representation');
+    if(!Array.isArray(deletedRows)||!deletedRows.length){
+      throw new Error('삭제 권한이 없거나 이미 삭제된 업무입니다.');
+    }
     closeModal();
     await loadGanttProjectTasks(projectKey,true);
     refreshGanttProjectTaskListState(projectKey);
     if(curPage==='home'&&typeof renderHomeDashboardIssues==='function')renderHomeDashboardIssues();
   }catch(error){
     console.error('deleteProjectTask failed',error);
-    alert('업무 삭제 중 오류가 발생했습니다.');
+    alert(error?.message||'업무 삭제 중 오류가 발생했습니다.');
   }
 }
 
