@@ -2549,6 +2549,108 @@ td{
   overflow-x:auto;
   padding-bottom:8px;
 }
+.pg-cal-active{
+  margin:0 0 12px;
+  padding:14px 16px;
+  border:1px solid rgba(148,163,184,.2);
+  border-radius:16px;
+  background:#fff;
+}
+.pg-cal-active-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.pg-cal-active-title{
+  font-size:13px;
+  font-weight:900;
+  color:var(--navy);
+}
+.pg-cal-active-sub{
+  margin-top:3px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text3);
+}
+.pg-cal-active-list{
+  display:flex;
+  align-items:stretch;
+  gap:8px;
+  overflow-x:auto;
+  padding-bottom:2px;
+}
+.pg-cal-active-chip{
+  flex:0 0 auto;
+  min-width:190px;
+  max-width:260px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:4px 10px;
+  align-items:center;
+  padding:10px 12px;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:12px;
+  background:#F8FAFC;
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+  font-family:inherit;
+}
+.pg-cal-active-chip:hover{
+  border-color:rgba(37,99,235,.22);
+  background:#F8FBFF;
+}
+.pg-cal-active-main{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px;
+  font-weight:900;
+  color:var(--navy);
+}
+.pg-cal-active-meta{
+  grid-column:1;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text3);
+}
+.pg-cal-active-dday{
+  grid-column:2;
+  grid-row:1 / span 2;
+  align-self:center;
+  padding:5px 8px;
+  border-radius:999px;
+  background:#EEF2F7;
+  color:#475569;
+  font-size:11px;
+  font-weight:900;
+}
+.pg-cal-active-dday.is-warn{
+  background:#FFF7ED;
+  color:#C2410C;
+}
+.pg-cal-active-dday.is-danger{
+  background:#FEF2F2;
+  color:#B91C1C;
+}
+.pg-cal-active-empty{
+  width:100%;
+  padding:12px;
+  border:1px dashed rgba(148,163,184,.28);
+  border-radius:12px;
+  background:#F8FAFC;
+  color:var(--text3);
+  font-size:12px;
+  font-weight:700;
+  text-align:center;
+}
 .gantt-calendar-viewbar{
   display:flex;
   align-items:center;

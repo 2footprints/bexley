@@ -1580,6 +1580,57 @@ function buildGanttCalendarItemMap(projs,schs){
   return itemMap;
 }
 
+function getGanttActiveProjectsForDate(projectRows,baseDate){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  if(!base)return [];
+  return (projectRows||[]).filter(project=>{
+    const start=getGanttLocalDateValue(project?.start||project?.start_date||project?.end||project?.end_date);
+    const end=getGanttLocalDateValue(project?.end||project?.end_date||project?.start||project?.start_date);
+    if(!start||!end)return false;
+    return start<=base&&base<=end;
+  });
+}
+
+function getGanttCalendarActiveProjectDdayMeta(project,baseDate){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  const end=getGanttLocalDateValue(project?.end||project?.end_date||'');
+  if(!base||!end)return {label:'마감 미정',tone:'neutral'};
+  const diff=Math.round((end-base)/GANTT_DAY_MS);
+  if(typeof isGanttProjectOverdue==='function'&&isGanttProjectOverdue(project,base))return {label:'D+'+Math.abs(diff),tone:'danger'};
+  if(typeof isGanttProjectDueToday==='function'&&isGanttProjectDueToday(project,base))return {label:'D-day',tone:'warn'};
+  if(diff<0)return {label:'D+'+Math.abs(diff),tone:'danger'};
+  return {label:'D-'+diff,tone:diff<=3?'warn':'neutral'};
+}
+
+function renderGanttCalendarActiveProjects(projs,baseDate=getHomeBaseDate()){
+  const base=getGanttLocalDateValue(baseDate)||getGanttLocalDateValue(new Date());
+  const activeProjects=getGanttActiveProjectsForDate(projs,base).sort((a,b)=>{
+    const aEnd=getGanttLocalDateValue(a?.end||a?.end_date||'')||new Date(8640000000000000);
+    const bEnd=getGanttLocalDateValue(b?.end||b?.end_date||'')||new Date(8640000000000000);
+    const diff=aEnd-bEnd;
+    if(diff)return diff;
+    return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
+  });
+  const baseLabel=base?getGanttCalendarDateValue(base):'오늘';
+  const chips=activeProjects.length
+    ?activeProjects.map(project=>{
+      const dday=getGanttCalendarActiveProjectDdayMeta(project,base);
+      const members=(project.members||[]).filter(Boolean).join(', ')||'담당자 미정';
+      return '<button type="button" class="pg-cal-active-chip" onclick="openGanttProjectDetail(\''+project.id+'\')">'
+        +'<span class="pg-cal-active-main">'+esc(project.name||'프로젝트')+'</span>'
+        +'<span class="pg-cal-active-meta">'+esc(members)+'</span>'
+        +'<span class="pg-cal-active-dday is-'+dday.tone+'">'+esc(dday.label)+'</span>'
+      +'</button>';
+    }).join('')
+    :'<div class="pg-cal-active-empty">오늘 기준 진행 중인 프로젝트가 없습니다.</div>';
+  return '<section class="pg-cal-active" aria-label="진행 중인 프로젝트">'
+    +'<div class="pg-cal-active-head">'
+      +'<div><div class="pg-cal-active-title">진행 중인 프로젝트</div><div class="pg-cal-active-sub">'+esc(baseLabel)+' 기준 · '+activeProjects.length+'건</div></div>'
+    +'</div>'
+    +'<div class="pg-cal-active-list">'+chips+'</div>'
+  +'</section>';
+}
+
 function renderGanttCalendarGrid(projs,schs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
@@ -1619,6 +1670,7 @@ function renderGanttCalendarGrid(projs,schs){
       +'</div>';
   }
   wrap.innerHTML=''
+    +renderGanttCalendarActiveProjects(projs,getHomeBaseDate())
     +'<div class="gantt-calendar-viewbar">'
       +'<div class="gantt-calendar-viewbar-copy">'
         +'<div class="gantt-calendar-viewbar-title">월간 표시</div>'
