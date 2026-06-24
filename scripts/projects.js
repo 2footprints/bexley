@@ -139,6 +139,33 @@ function getProjectTypeLabel(project){
   return String(typeRow?.name||project?.type||'기타').trim()||'기타';
 }
 
+function getGanttProjectTypeMeta(project){
+  const rawType=String(project?.type||'').trim();
+  const typeRow=getProjectTypeRowById(project?.project_type_id);
+  const label=String(typeRow?.name||rawType||'유형 미지정').trim()||'유형 미지정';
+  const isUuidLike=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(label);
+  const text=isUuidLike?'유형 미지정':label;
+  let tone='unknown';
+  if(!isUuidLike){
+    if(text.includes('감사'))tone='audit';
+    else if(text.includes('세무'))tone='tax';
+    else if(text.includes('밸류'))tone='valuation';
+    else if(text.includes('자문')||text.includes('실사'))tone='advisory';
+    else if(text.includes('기타'))tone='misc';
+  }
+  return {label:text,tone};
+}
+
+function getGanttProjectStatusMeta(project){
+  const status=String(project?.status||'상태 없음').trim()||'상태 없음';
+  let tone='planned';
+  if(status==='진행중')tone='progress';
+  else if(status==='완료')tone='done';
+  else if(status.includes('지연'))tone='delay';
+  else if(status.includes('보류')||status.includes('대기'))tone='hold';
+  return {label:status,tone};
+}
+
 function getProjectTeamLabel(project){
   const teamRow=getProjectTeamRowById(project?.team_id);
   return String(teamRow?.name||project?.team||project?.assigned_team||'팀 미지정').trim()||'팀 미지정';
@@ -1285,6 +1312,64 @@ renderGanttSidebarList=function(projs){
       +'<div class="gantt-project-warn">'+esc(warning)+'</div>'
       +(isActiveCard?'<div class="gantt-project-selection-hint">선택됨 · 아래 상세 패널에서 바로 후속 작업을 이어서 처리할 수 있습니다.</div>':'')
       +'</div>';
+  }).join('');
+};
+
+renderGanttSidebarList=function(projs){
+  const el=document.getElementById('ganttProjectList');
+  if(!el)return;
+  el.classList.add('pg-gantt-list');
+  if(!projs.length){
+    el.innerHTML='<div class="gantt-empty-copy">No projects match this filter.</div>';
+    return;
+  }
+  const focusKey=String(ganttFocusProjectId||'');
+  if(focusKey&&!projs.some(p=>String(p?.id||'')===focusKey))ganttFocusProjectId=null;
+  const groups={};
+  projs.forEach(project=>{
+    const key=project?.client_id||'__none__';
+    if(!groups[key])groups[key]=[];
+    groups[key].push(project);
+  });
+  const sortedClientIds=Object.keys(groups).sort((a,b)=>{
+    const nameA=(clients||[]).find(client=>String(client?.id||'')===String(a))?.name||'거래처 미지정';
+    const nameB=(clients||[]).find(client=>String(client?.id||'')===String(b))?.name||'거래처 미지정';
+    return String(nameA).localeCompare(String(nameB),'ko');
+  });
+  el.innerHTML=sortedClientIds.map(clientId=>{
+    const client=(clients||[]).find(c=>String(c?.id||'')===String(clientId));
+    const clientProjects=groups[clientId].sort((a,b)=>toDate(a.end)-toDate(b.end));
+    const counts=typeof getGanttClientGroupCounts==='function'
+      ?getGanttClientGroupCounts(clientProjects)
+      :{active:clientProjects.length,overdue:0,completed:0};
+    const groupHtml='<div class="pg-client-group'+(clientId==='__none__'?' muted':'')+'">'
+      +'<span class="pg-client-group-name">'+esc(client?.name||'거래처 미지정')+'</span>'
+      +'<span class="pg-client-group-count">· 진행 '+counts.active+' · 지연 '+counts.overdue+' · 완료 '+counts.completed+'</span>'
+      +'</div>';
+    const rowsHtml=clientProjects.map(project=>{
+      const issueCount=openIssuesByProject[project.id]||0;
+      const isActiveCard=String(project?.id||'')===String(ganttFocusProjectId||'');
+      const typeMeta=getGanttProjectTypeMeta(project);
+      const statusMeta=getGanttProjectStatusMeta(project);
+      const progress=typeof getGanttProjectProgress==='function'?getGanttProjectProgress(project):0;
+      const memberText=(project.members||[]).join(', ')||'담당자 미배정';
+      const alertText=isOverdue(project)
+        ?'기간 초과'
+        :isDueToday(project)
+        ?'오늘 마감'
+        :issueCount
+        ?'열린 이슈 '+issueCount+'건'
+        :'';
+      return '<button type="button" class="pg-item-row'+(isActiveCard?' active':'')+'" onclick="openGanttProjectDetail(\''+project.id+'\')">'
+        +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
+        +'<span class="pg-item-info">'
+        +'<span class="pg-item-name-row"><span class="pg-item-title">'+esc(project.name)+'</span><span class="pg-status-pill pg-status-pill--'+statusMeta.tone+'">'+esc(statusMeta.label)+'</span></span>'
+        +'<span class="pg-item-assignee">'+esc(memberText)+'</span>'
+        +'<span class="pg-item-progress-row"><span class="pg-progress-track"><span class="pg-progress-fill'+(statusMeta.tone==='done'?' is-done':'')+'" style="width:'+progress+'%"></span></span><span class="pg-progress-pct">'+progress+'%</span>'+(alertText?'<span class="pg-row-alert">'+esc(alertText)+'</span>':'')+'</span>'
+        +'</span>'
+        +'</button>';
+    }).join('');
+    return groupHtml+rowsHtml;
   }).join('');
 };
 
@@ -7926,7 +8011,10 @@ async function deleteGanttOutput(projectId,outputId){
   if(!output)return;
   if(!confirm('"'+(output.title||'이 산출물')+'"을 삭제할까요?'))return;
   try{
-    await api('DELETE','project_outputs?id=eq.'+outputId);
+    const deletedRows=await apiEx('DELETE','project_outputs?id=eq.'+outputId+'&select=id',null,'return=representation');
+    if(!Array.isArray(deletedRows)||!deletedRows.length){
+      throw new Error('삭제 권한이 없거나 이미 삭제된 산출물입니다.');
+    }
     if(String(ganttProjectQcActiveOutputId||'')===String(outputId||''))ganttProjectQcActiveOutputId='';
     delete ganttProjectQcByProjectId[String(projectId)];
     await loadGanttProjectQc(projectId,true);

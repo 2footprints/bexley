@@ -2696,27 +2696,27 @@ input,textarea{border-radius:12px!important}
       <div class="gantt-top-shell">
         <div id="ganttOverview" class="gantt-overview"></div>
         <div class="gantt-controls-shell">
-          <div class="gantt-toolbar">
-            <div class="gantt-toolbar-zone gantt-toolbar-zone--nav" id="ganttToolbarNav" data-group-label="날짜">
-              <div class="month-nav">
+          <div class="gantt-toolbar pg-toolbar">
+            <div class="gantt-toolbar-zone gantt-toolbar-zone--nav pg-toolbar-left" id="ganttToolbarNav" data-group-label="날짜">
+              <div class="month-nav pg-nav-month">
                 <button class="month-nav-btn" id="prevM">‹</button>
-                <span class="month-label" id="monthLabel"></span>
+                <span class="month-label m" id="monthLabel"></span>
                 <button class="month-nav-btn" id="nextM">›</button>
               </div>
             </div>
-            <div class="gantt-toolbar-zone gantt-toolbar-zone--view" id="ganttToolbarView" data-group-label="보기">
+            <div class="gantt-toolbar-zone gantt-toolbar-zone--view pg-view-tabs" id="ganttToolbarView" data-group-label="보기">
               <button class="btn sm" id="gvp" onclick="setGView('project')">프로젝트별</button>
               <button class="btn sm" id="gvm" onclick="setGView('member')">인력별</button>
             </div>
-            <div class="gantt-toolbar-zone gantt-toolbar-zone--actions" id="ganttToolbarActions" data-group-label="작업">
+            <div class="gantt-toolbar-zone gantt-toolbar-zone--actions pg-toolbar-right" id="ganttToolbarActions" data-group-label="작업">
               <input type="hidden" id="memberFilter" value="">
-              <button class="btn sm" id="scheduleAddBtn" onclick="setPage('mySchedule')">일정 관리</button>
-              <button class="btn primary sm" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
+              <button class="btn sm pg-btn pg-btn-ghost" id="scheduleAddBtn" onclick="setPage('mySchedule')">일정 관리</button>
+              <button class="btn primary sm pg-btn pg-btn-blue" id="projectAddBtn" onclick="openProjModal()">+ 프로젝트</button>
             </div>
           </div>
         </div>
       </div>
-      <div id="memberFilterTabs" class="member-filter-tabs"></div>
+      <div id="memberFilterTabs" class="member-filter-tabs pg-person-tabs"></div>
       <div class="gantt-top-note" id="ganttTopNote" hidden></div>
       <div class="gantt-shell">
         <div class="gantt-stage">
@@ -5959,7 +5959,10 @@ async function submitProjectComment(projectId,parentId=''){
 async function deleteProjectComment(commentId,projectId){
   if(!confirm('이 메모를 삭제할까요?'))return;
   try{
-    await api('DELETE','project_comments?or=(id.eq.'+commentId+',parent_id.eq.'+commentId+')');
+    const deletedRows=await apiEx('DELETE','project_comments?or=(id.eq.'+commentId+',parent_id.eq.'+commentId+')&select=id',null,'return=representation');
+    if(!Array.isArray(deletedRows)||!deletedRows.some(row=>String(row?.id||'')===String(commentId))){
+      throw new Error('삭제 권한이 없거나 이미 삭제된 메모입니다.');
+    }
     activeProjectCommentEditId=null;
     await loadProjectComments(projectId);
   }catch(e){
@@ -7206,8 +7209,15 @@ async function deleteIssue(issueId){
   if(!confirm('이슈와 연결된 댓글을 삭제할까요?'))return;
   try{
     const issueMeta=(await api('GET','project_issues?id=eq.'+issueId+'&select=title').catch(()=>[]))?.[0];
-    await api('DELETE','issue_comments?issue_id=eq.'+issueId);
-    await api('DELETE','project_issues?id=eq.'+issueId);
+    const existingComments=await api('GET','issue_comments?issue_id=eq.'+issueId+'&select=id').catch(()=>[]);
+    const deletedComments=await apiEx('DELETE','issue_comments?issue_id=eq.'+issueId+'&select=id',null,'return=representation');
+    if(Array.isArray(existingComments)&&existingComments.length&&(!Array.isArray(deletedComments)||deletedComments.length!==existingComments.length)){
+      throw new Error('이슈 댓글 삭제 권한이 없거나 이미 삭제된 댓글이 있습니다.');
+    }
+    const deletedIssues=await apiEx('DELETE','project_issues?id=eq.'+issueId+'&select=id',null,'return=representation');
+    if(!Array.isArray(deletedIssues)||!deletedIssues.length){
+      throw new Error('삭제 권한이 없거나 이미 삭제된 이슈입니다.');
+    }
     await logActivity('이슈 삭제', 'issue', issueId, issueMeta?.title||'');
     closeModal();
     await loadIssueFeed();
@@ -9176,7 +9186,10 @@ async function deleteSchedule(id){
   if(!confirm('일정을 삭제할까요?'))return;
   const schedule=schedules.find(s=>s.id===id);
   try{
-    await api('DELETE','schedules?id=eq.'+id);
+    const deletedRows=await apiEx('DELETE','schedules?id=eq.'+id+'&select=id',null,'return=representation');
+    if(!Array.isArray(deletedRows)||!deletedRows.length){
+      throw new Error('삭제 권한이 없거나 이미 삭제된 일정입니다.');
+    }
     await logActivity('일정 삭제','schedule',id,schedule?.title||'');
     closeModal();
     await loadAll();
@@ -9926,11 +9939,11 @@ function ensureGanttVisibilityToggles(){
   if(!wrap){
     wrap=document.createElement('div');
     wrap.id='ganttVisibilityToggleWrap';
-    wrap.className='toggle-wrap gantt-visibility-toggle';
+    wrap.className='toggle-wrap gantt-visibility-toggle pg-toggle-group';
     wrap.innerHTML=''
-      +'<button class="toggle-btn" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
-      +'<button class="toggle-btn" id="ganttPersonalOverlayBtn" onclick="setGanttPersonalOverlayToggle(!ganttShowPersonalOverlay)">개인 일정 레이어</button>'
-      +'<button class="toggle-btn" id="ganttPersonalRowsBtn" onclick="setGanttPersonalRowsToggle(!ganttShowPersonalRows)">개인 일정 행</button>';
+      +'<button class="toggle-btn pg-toggle-pill" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완전 종료 숨기기</button>'
+      +'<button class="toggle-btn pg-toggle-pill" id="ganttPersonalOverlayBtn" onclick="setGanttPersonalOverlayToggle(!ganttShowPersonalOverlay)">개인 일정 레이어</button>'
+      +'<button class="toggle-btn pg-toggle-pill" id="ganttPersonalRowsBtn" onclick="setGanttPersonalRowsToggle(!ganttShowPersonalRows)">개인 일정 행</button>';
     actionZone.insertBefore(wrap,actionZone.firstChild);
   }else if(wrap.parentElement!==actionZone){
     actionZone.insertBefore(wrap,actionZone.firstChild);
@@ -10379,7 +10392,7 @@ function ensureGanttLayoutToggle(){
   const viewZone=document.getElementById('ganttToolbarView')||toolbar;
   const wrap=document.createElement('div');
   wrap.id='ganttLayoutToggle';
-  wrap.className='toggle-wrap gantt-layout-toggle';
+  wrap.className='toggle-wrap gantt-layout-toggle pg-view-tabs';
   wrap.innerHTML='<button class="toggle-btn active" id="gll" type="button">리스트</button><button class="toggle-btn" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button><button class="toggle-btn" id="gltask" type="button">태스크</button>';
   viewZone.appendChild(wrap);
   document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
@@ -10527,15 +10540,24 @@ window.gRow=function(p,days){
   });
   const issueCount=openIssuesByProject[p.id]||0;
   const isActive=String(ganttFocusProjectId||'')===String(p.id||'');
-  const finalBadges=(isCompleted?'<span class="gantt-complete-badge">\uC644\uB8CC</span>':'')
-    +(od?'<span class="g-badge overdue">\uC9C0\uC5F0</span>':'')
-    +(dueToday?'<span class="g-badge" style="background:#FED7AA;color:#9A3412">오늘 마감</span>':'')
-    +(mine?'<span class="g-badge mine">\uB0B4 \uB2F4\uB2F9</span>':'')
-    +(issueCount?'<span class="g-badge" style="background:var(--red);color:#fff">\uC774\uC288 '+issueCount+'</span>':'');
+  const typeMeta=typeof getGanttProjectTypeMeta==='function'?getGanttProjectTypeMeta(p):{label:p.type||'유형 미지정',tone:'unknown'};
+  const statusMeta=typeof getGanttProjectStatusMeta==='function'?getGanttProjectStatusMeta(p):{label:p.status||'상태 없음',tone:'planned'};
   const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'')+(isActive?' is-active':'');
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
-  const progressHtml='<div class="gantt-row-progress" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><span class="gantt-row-progress-text">기간 경과율 '+progress+'%</span><div class="gantt-row-progress-track"><div class="gantt-row-progress-fill" style="width:'+progress+'%;background:'+progressColor+'"></div></div></div>';
-  const finalLabelHtml='<div class="gantt-row-main"><div class="gantt-row-copy"><div class="rn"><span class="gantt-row-name'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="gantt-row-badges">'+finalBadges+'</span></div><div class="rs">'+esc(memberText)+'</div>'+progressHtml+'</div>'+getGanttProjectActionButtons(p,isCompleted)+'</div>';
+  const alertHtml=(od?'<span class="pg-row-alert">기간 초과</span>':'')
+    +(dueToday?'<span class="pg-row-alert">오늘 마감</span>':'')
+    +(mine?'<span class="pg-row-alert is-soft">내 담당</span>':'')
+    +(issueCount?'<span class="pg-row-alert is-danger">이슈 '+issueCount+'</span>':'');
+  const progressHtml='<span class="pg-item-progress-row" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><span class="pg-progress-track"><span class="pg-progress-fill'+(isCompleted?' is-done':'')+'" style="width:'+progress+'%;background:'+progressColor+'"></span></span><span class="pg-progress-pct">'+progress+'%</span>'+alertHtml+'</span>';
+  const finalLabelHtml='<div class="pg-timeline-project-cell">'
+    +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
+    +'<span class="pg-item-info">'
+    +'<span class="pg-item-name-row"><span class="pg-item-title'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="pg-status-pill pg-status-pill--'+statusMeta.tone+'">'+esc(statusMeta.label)+'</span></span>'
+    +'<span class="pg-item-assignee">'+esc(memberText)+'</span>'
+    +progressHtml
+    +'</span>'
+    +getGanttProjectActionButtons(p,isCompleted)
+    +'</div>';
   const spanOverlayHtml=(visible&&ganttShowPersonalOverlay)
     ?buildGanttSpanOverlaySummary(overlaysByDay,barS,barE)
     :'';
@@ -10593,11 +10615,11 @@ function renderFilteredGanttTimeline(projs,schs){
           ?getGanttClientGroupCounts(clientProjects)
           :{active:0,overdue:0,completed:0};
         const isCollapsed=!!ganttCollapsed[clientId];
-        html+='<tr class="sec-row'+(groupCounts.overdue?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
-          +'<td colspan="'+(days+1)+'" style="padding-left:10px;user-select:none">'
-          +'<span style="font-size:13px;color:var(--text3);margin-right:6px">'+(isCollapsed?'▸':'▾')+'</span>'
-          +'<span class="gantt-group-name">'+esc(clientName)+'</span>'
-          +'<span class="gantt-group-summary">— 진행 '+groupCounts.active+' · 지연 <span class="'+(groupCounts.overdue?'gantt-group-stat is-overdue':'gantt-group-stat')+'">'+groupCounts.overdue+'</span> · 완료 '+groupCounts.completed+'</span>'
+        html+='<tr class="sec-row pg-timeline-group-row'+(clientId==='__none__'?' muted':'')+(groupCounts.overdue?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
+          +'<td colspan="'+(days+1)+'">'
+          +'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>'
+          +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
+          +'<span class="pg-client-group-count">· 진행 '+groupCounts.active+' · 지연 <span class="'+(groupCounts.overdue?'gantt-group-stat is-overdue':'gantt-group-stat')+'">'+groupCounts.overdue+'</span> · 완료 '+groupCounts.completed+'</span>'
           +'</td></tr>';
         if(!isCollapsed)clientProjects.forEach(project=>{html+=gRow(project,days);});
       });
