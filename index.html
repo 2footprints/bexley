@@ -2643,31 +2643,31 @@ input,textarea{border-radius:12px!important}
               <div class="team-fun-section">
               <div class="card home-card" style="margin-bottom:0">
                 <div class="home-section-title">빠른 실행</div>
-                <div class="team-fun-grid">
-                  <button type="button" class="team-fun-card" onclick="if(typeof openProjModal==='function')openProjModal();else setPage('gantt')">
-                    <div class="team-fun-kicker">프로젝트</div>
-                    <div class="team-fun-title">새 프로젝트 등록</div>
-                    <div class="team-fun-desc">고객사 업무를 새 프로젝트로 등록합니다.</div>
+                <div class="team-fun-grid hp-qa-list">
+                  <button type="button" class="team-fun-card hp-qa-item" onclick="if(typeof openProjModal==='function')openProjModal();else setPage('gantt')">
+                    <span class="hp-qa-icon">+</span>
+                    <span class="hp-qa-copy"><span class="hp-qa-tag">프로젝트</span><span class="hp-qa-name">새 프로젝트 등록</span></span>
+                    <span class="hp-qa-arrow">→</span>
                   </button>
-                  <button type="button" class="team-fun-card" onclick="if(typeof openIssueModal==='function')openIssueModal();else setPage('issues')">
-                    <div class="team-fun-kicker">이슈</div>
-                    <div class="team-fun-title">새 이슈 등록</div>
-                    <div class="team-fun-desc">확인이 필요한 이슈를 바로 등록합니다.</div>
+                  <button type="button" class="team-fun-card hp-qa-item" onclick="if(typeof openIssueModal==='function')openIssueModal();else setPage('issues')">
+                    <span class="hp-qa-icon">!</span>
+                    <span class="hp-qa-copy"><span class="hp-qa-tag">이슈</span><span class="hp-qa-name">새 이슈 등록</span></span>
+                    <span class="hp-qa-arrow">→</span>
                   </button>
-                  <button type="button" class="team-fun-card" onclick="if(typeof openHomeQuickTaskProjectPicker==='function')openHomeQuickTaskProjectPicker();else setPage('gantt')">
-                    <div class="team-fun-kicker">태스크</div>
-                    <div class="team-fun-title">새 태스크 등록</div>
-                    <div class="team-fun-desc">프로젝트에 새 업무를 바로 추가합니다.</div>
+                  <button type="button" class="team-fun-card hp-qa-item" onclick="if(typeof openHomeQuickTaskProjectPicker==='function')openHomeQuickTaskProjectPicker();else setPage('gantt')">
+                    <span class="hp-qa-icon">+</span>
+                    <span class="hp-qa-copy"><span class="hp-qa-tag">태스크</span><span class="hp-qa-name">새 태스크 등록</span></span>
+                    <span class="hp-qa-arrow">→</span>
                   </button>
-                  <button type="button" class="team-fun-card" onclick="setPage('gantt');if(typeof setGanttLayout==='function')setGanttLayout('task')">
-                    <div class="team-fun-kicker">태스크</div>
-                    <div class="team-fun-title">태스크 보기</div>
-                    <div class="team-fun-desc">전체 태스크 현황과 마감 상태를 확인합니다.</div>
+                  <button type="button" class="team-fun-card hp-qa-item" onclick="setPage('gantt');if(typeof setGanttLayout==='function')setGanttLayout('task')">
+                    <span class="hp-qa-icon">≡</span>
+                    <span class="hp-qa-copy"><span class="hp-qa-tag">태스크</span><span class="hp-qa-name">태스크 보기</span></span>
+                    <span class="hp-qa-arrow">→</span>
                   </button>
-                  <button type="button" class="team-fun-card" onclick="setPage('weeklyReview')">
-                    <div class="team-fun-kicker">회의</div>
-                    <div class="team-fun-title">주간리뷰 열기</div>
-                    <div class="team-fun-desc">이번 주 산출물과 회의 메모를 확인합니다.</div>
+                  <button type="button" class="team-fun-card hp-qa-item" onclick="setPage('weeklyReview')">
+                    <span class="hp-qa-icon">✓</span>
+                    <span class="hp-qa-copy"><span class="hp-qa-tag">회의</span><span class="hp-qa-name">주간리뷰 열기</span></span>
+                    <span class="hp-qa-arrow">→</span>
                   </button>
                 </div>
               </div>

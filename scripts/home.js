@@ -1370,10 +1370,11 @@ function getHomeScheduleTone(type){
 
 function renderHomeScheduleGroupByType(type,items){
   const renderScheduleRow=schedule=>renderHomeScheduleRow(schedule,{memberLabel:getScheduleMemberLabel(schedule),typeView:true});
-  return '<div class="home-team-schedule-group is-type-view">'
-    +'<div class="home-team-schedule-group-title">'+esc(scheduleLabel(type))+'</div>'
+  const tone=getHomeScheduleTone(type);
+  return '<div class="home-team-schedule-group hp-sched-group hp-sched-group--'+tone+' is-type-view">'
+    +'<div class="home-team-schedule-group-title hp-sched-group-title"><span>'+esc(scheduleLabel(type))+'</span><span class="hp-sched-group-count">'+items.length+'건</span></div>'
     +(items.length
-      ?'<div class="home-team-schedule-group-body">'+items.map(renderScheduleRow).join('')+'</div>'
+      ?'<div class="home-team-schedule-group-body hp-sched-group-body">'+items.map(renderScheduleRow).join('')+'</div>'
       :'<div class="weekly-empty">일정 없음</div>')
     +'</div>';
 }
@@ -1383,13 +1384,14 @@ function renderHomeScheduleRow(schedule,options={}){
   const title=String(schedule?.title||scheduleLabel(schedule?.schedule_type)||'일정').trim();
   const metaParts=[formatHomeDateRangeWithWeekday(schedule.start,schedule.end,'.')];
   if(schedule?.location)metaParts.push(schedule.location);
-  const classNames=['home-team-schedule-item'];
+  const tone=getHomeScheduleTone(schedule.schedule_type);
+  const classNames=['home-team-schedule-item','hp-sched-item','hp-sched-item--'+tone];
   if(options.typeView)classNames.push('is-type-view');
   if(!memberLabel)classNames.push('is-compact');
   return '<button type="button" class="'+classNames.join(' ')+'" onclick="openScheduleModal(\''+schedule.id+'\')">'
-    +(memberLabel?'<span class="home-team-schedule-item-name" title="'+esc(memberLabel)+'">'+esc(memberLabel)+'</span>':'')
+    +(memberLabel?'<span class="home-team-schedule-item-name hp-sched-member" title="'+esc(memberLabel)+'">'+esc(memberLabel)+'</span>':'')
     +'<span class="home-team-schedule-item-main"><span class="home-team-schedule-item-title">'+esc(title)+'</span><span class="home-team-schedule-item-meta">'+esc(metaParts.filter(Boolean).join(' · '))+'</span></span>'
-    +'<span class="home-team-schedule-item-tag '+getHomeScheduleTone(schedule.schedule_type)+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span>'
+    +'<span class="home-team-schedule-item-tag hp-sched-type '+tone+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span>'
   +'</button>';
 }
 
@@ -3436,6 +3438,18 @@ function renderHomeAttentionItem(item){
     +'</button>';
 }
 
+function renderHomeRecentUpdateItem(item){
+  const parts=getHomeWorkItemParts(item);
+  return '<button type="button" class="hp-upd-item" onclick="'+parts.action+'">'
+    +'<span class="hp-upd-badge '+parts.badgeClass+'">'+esc(parts.badgeLabel)+'</span>'
+    +'<span class="hp-upd-copy">'
+      +'<span class="hp-upd-title">'+esc(parts.title)+'</span>'
+      +'<span class="hp-upd-meta">'+esc(parts.clientLabel)+' · '+esc(parts.summary)+'</span>'
+    +'</span>'
+    +'<span class="hp-upd-destination">'+esc(parts.destination)+'</span>'
+    +'</button>';
+}
+
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
@@ -3619,7 +3633,7 @@ renderHomeDailyWorkSection = function(payload,options={}){
     :buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.',renderHomeQueueProjectItem)
       +'<div class="home-daily-work-section-stack">'
         +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.',renderHomeAttentionItem)
-        +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
+        +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.',renderHomeRecentUpdateItem)
       +'</div>';
   const queueCardHtml='<div class="card home-card home-queue-card home-queue-card--main">'
     +'<div class="home-daily-work-head">'
@@ -3631,7 +3645,7 @@ renderHomeDailyWorkSection = function(payload,options={}){
     +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.',renderHomeAttentionItem)
   +'</div>';
   const recentCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
-    +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
+    +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.',renderHomeRecentUpdateItem)
   +'</div>';
   const queueEl=document.getElementById('homeQueueWrap');
   const attentionEl=document.getElementById('homeAttentionWrap');
@@ -3893,30 +3907,30 @@ renderTeamNotices = function(){
   const unreadRequired=getUnreadRequiredNotices();
   const topRequired=unreadRequired[0]||null;
   const visible=list.slice(0,4);
-  el.innerHTML='<div class="card team-notice-panel home-card home-support-card" style="margin-bottom:0">'
-    +'<div class="team-notice-head">'
-      +'<div><div class="home-section-title" style="margin:0">공지</div><div class="home-section-support">필독 공지와 최근 공지를 먼저 확인합니다.</div></div>'
-      +(isAdmin?'<button class="btn sm" onclick="openNoticeWrite()">공지 작성</button>':'')
+  el.innerHTML='<div class="card team-notice-panel home-card home-support-card hp-notice-card" style="margin-bottom:0">'
+    +'<div class="team-notice-head hp-notice-head">'
+      +'<div><div class="home-section-title hp-notice-title" style="margin:0">공지</div><div class="home-section-support hp-notice-sub">필독 공지와 최근 공지를 먼저 확인합니다.</div></div>'
+      +(isAdmin?'<button class="btn sm hp-notice-write" onclick="openNoticeWrite()">공지 작성</button>':'')
     +'</div>'
     +(topRequired
-      ?'<div class="home-notice-alert">'
-        +'<div class="home-notice-alert-main" onclick="openNoticeDetail(\''+topRequired.id+'\')">'
-          +'<div class="home-notice-alert-kicker">필독 공지 미확인'+(unreadRequired.length>1?' · '+unreadRequired.length+'건':'')+'</div>'
-          +'<div class="home-notice-alert-title">'+esc(topRequired.title)+'</div>'
-          +'<div class="home-notice-alert-meta">'+formatDate(topRequired.created_at)+'</div>'
+      ?'<div class="home-notice-alert hp-notice-required">'
+        +'<div class="home-notice-alert-main hp-notice-required-main" onclick="openNoticeDetail(\''+topRequired.id+'\')">'
+          +'<div class="home-notice-alert-kicker hp-notice-required-kicker">필독 공지 미확인'+(unreadRequired.length>1?' · '+unreadRequired.length+'건':'')+'</div>'
+          +'<div class="home-notice-alert-title hp-notice-required-title">'+esc(topRequired.title)+'</div>'
+          +'<div class="home-notice-alert-meta hp-notice-required-meta">'+formatDate(topRequired.created_at)+'</div>'
         +'</div>'
-        +'<button class="btn sm" onclick="confirmHomeRequiredNotice(\''+topRequired.id+'\')">확인</button>'
+        +'<button class="btn sm hp-notice-confirm" onclick="confirmHomeRequiredNotice(\''+topRequired.id+'\')">확인</button>'
       +'</div>'
       :'')
     +(!visible.length
       ?'<div class="notice-empty" style="padding:22px 16px">등록된 공지가 없습니다.</div>'
-      :'<div class="team-notice-list home-notice-list-compact" style="display:flex;flex-direction:column;gap:0;max-height:none;overflow:visible;padding-right:0">'
-        +visible.map(n=>'<div class="team-notice-row" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
-          +'<div style="min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden">'
-            +(n.is_pinned?'<span class="home-notice-pin">고정</span>':'')
-            +'<span class="team-notice-row-title">'+esc(n.title)+'</span>'
+      :'<div class="team-notice-list home-notice-list-compact hp-notice-list" style="display:flex;flex-direction:column;gap:0;max-height:none;overflow:visible;padding-right:0">'
+        +visible.map(n=>'<div class="team-notice-row hp-notice-row" onclick="openNoticeDetail(this.dataset.id)" data-id="'+n.id+'">'
+          +'<div class="hp-notice-row-main">'
+            +(n.is_pinned?'<span class="home-notice-pin hp-notice-pin">고정</span>':'')
+            +'<span class="team-notice-row-title hp-notice-row-title">'+esc(n.title)+'</span>'
           +'</div>'
-          +'<div class="team-notice-row-date">'+formatDate(n.created_at)+'</div>'
+          +'<div class="team-notice-row-date hp-notice-row-date">'+formatDate(n.created_at)+'</div>'
         +'</div>').join('')
       +'</div>')
   +'</div>';
