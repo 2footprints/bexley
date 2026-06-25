@@ -722,6 +722,153 @@ td{
 }
 .pg-row-alert.is-danger{background:#FEE2E2!important;color:#B91C1C!important}
 .pg-row-alert.is-soft{background:#EEF2FF!important;color:#4F46E5!important}
+.th-day.today-h{
+  background:#EFF6FF!important;
+  color:#2563EB!important;
+  box-shadow:inset 0 -2px 0 #2563EB!important;
+  font-weight:800!important;
+}
+.th-day.weekend{
+  background:#FBFCFE!important;
+  color:#94A3B8!important;
+}
+.cell.today-c{
+  background:#F8FBFF!important;
+  box-shadow:inset 1px 0 0 rgba(37,99,235,.16),inset -1px 0 0 rgba(37,99,235,.16)!important;
+}
+.cell.weekend{
+  background:#FBFCFE!important;
+}
+.gantt-project-row.is-due-today .row-label{
+  background:#FFF7ED!important;
+}
+.gantt-project-row.is-due-today .cell:not(.weekend){
+  background:#FFFBEB!important;
+}
+.pg-timeline-bar{
+  top:8px!important;
+  bottom:8px!important;
+  border-radius:6px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:0 10px!important;
+  color:#fff!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  letter-spacing:0!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.08),var(--gantt-bar-shadow,none)!important;
+  outline:var(--gantt-bar-outline,none)!important;
+  outline-offset:var(--gantt-bar-outline-offset,0)!important;
+}
+.pg-timeline-bar--progress{
+  background:#475569!important;
+}
+.pg-timeline-bar--done{
+  background:#15803D!important;
+}
+.pg-timeline-bar--planned{
+  background:#CBD5E1!important;
+  color:#334155!important;
+}
+.pg-timeline-bar.is-overdue{
+  box-shadow:0 0 0 2px rgba(220,38,38,.18),0 1px 2px rgba(15,23,42,.08),var(--gantt-bar-shadow,none)!important;
+}
+.pg-timeline-bar.is-due-today{
+  outline:2px solid #F59E0B!important;
+  outline-offset:2px!important;
+}
+.pg-timeline-bar:hover{
+  transform:scaleY(1.08)!important;
+  box-shadow:0 6px 14px rgba(15,23,42,.15),var(--gantt-bar-shadow,none)!important;
+}
+.pg-bar-dot{
+  width:6px!important;
+  height:6px!important;
+  border-radius:99px!important;
+  background:rgba(255,255,255,.82)!important;
+  flex-shrink:0!important;
+}
+.pg-timeline-bar--planned .pg-bar-dot{
+  background:rgba(15,23,42,.38)!important;
+}
+.pg-bar-label{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+.pg-bar-due-pill,
+.pg-bar-issue-pill{
+  display:inline-flex!important;
+  align-items:center!important;
+  min-height:16px!important;
+  padding:1px 6px!important;
+  border-radius:999px!important;
+  font-size:9.5px!important;
+  font-weight:800!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  flex-shrink:0!important;
+}
+.pg-bar-due-pill{
+  background:#FEF3C7!important;
+  color:#92400E!important;
+}
+.pg-bar-issue-pill{
+  background:#FEE2E2!important;
+  color:#B91C1C!important;
+}
+.pg-legend{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  flex-wrap:wrap!important;
+  padding:12px 16px!important;
+  border:1px solid #E2E8F0!important;
+  border-radius:12px!important;
+  background:#fff!important;
+}
+.pg-legend-group{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+  flex-wrap:wrap!important;
+}
+.pg-legend-label{
+  color:#94A3B8!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
+  letter-spacing:.03em!important;
+  text-transform:uppercase!important;
+}
+.pg-legend-item{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  color:#64748B!important;
+  font-size:11px!important;
+  font-weight:700!important;
+}
+.pg-legend-bar{
+  width:18px!important;
+  height:9px!important;
+  border-radius:3px!important;
+  flex-shrink:0!important;
+}
+.pg-legend-bar--progress{background:#475569!important}
+.pg-legend-bar--done{background:#15803D!important}
+.pg-legend-bar--planned{background:#CBD5E1!important}
+.pg-legend-today{
+  width:14px!important;
+  height:14px!important;
+  border-radius:4px!important;
+  background:#EFF6FF!important;
+  border:1px solid #93C5FD!important;
+  box-shadow:inset 0 -2px 0 #2563EB!important;
+  flex-shrink:0!important;
+}
 .gantt-project-card{
   border:1px solid var(--border)!important;
   border-radius:16px!important;

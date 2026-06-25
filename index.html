@@ -10507,7 +10507,6 @@ window.gRow=function(p,days){
   const od=toDate(p.end)<today&&!isCompleted;
   const dueToday=isDueToday(p)&&!isCompleted;
   const mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const color=od?'#FCA5A5':(TYPES[p.type]||'#4e5968');
   const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
   const progress=typeof getGanttProjectProgress==='function'?getGanttProjectProgress(p,today):0;
   const progressColor=od?'#EA580C':(dueToday?'#D97706':(TYPES[p.type]||'#4e5968'));
@@ -10542,6 +10541,7 @@ window.gRow=function(p,days){
   const isActive=String(ganttFocusProjectId||'')===String(p.id||'');
   const typeMeta=typeof getGanttProjectTypeMeta==='function'?getGanttProjectTypeMeta(p):{label:p.type||'유형 미지정',tone:'unknown'};
   const statusMeta=typeof getGanttProjectStatusMeta==='function'?getGanttProjectStatusMeta(p):{label:p.status||'상태 없음',tone:'planned'};
+  const barStatusClass=statusMeta.tone==='done'?'done':statusMeta.tone==='progress'?'progress':'planned';
   const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'')+(isActive?' is-active':'');
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
   const alertHtml=(od?'<span class="pg-row-alert">기간 초과</span>':'')
@@ -10564,7 +10564,7 @@ window.gRow=function(p,days){
   const cells=buildGanttSpanCells(days,rangeMeta,({cls,span:colSpan})=>{
     const barText=colSpan>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):colSpan>=3?p.name:'';
     return '<td class="'+cls+' gantt-span-cell" colspan="'+colSpan+'" style="position:relative">'
-      +'<div class="bar'+(isActive?' is-active':'')+'" style="left:2px;right:2px;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-pid="'+p.id+'" data-duration="'+(duration||colSpan)+'" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+esc(barText)+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+      +'<div class="bar pg-timeline-bar pg-timeline-bar--'+barStatusClass+(dueToday?' is-due-today':'')+(od?' is-overdue':'')+(isActive?' is-active':'')+'" style="left:2px;right:2px;'+(issueCount?'--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-pid="'+p.id+'" data-duration="'+(duration||colSpan)+'" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'"><span class="pg-bar-dot"></span><span class="pg-bar-label">'+esc(barText)+'</span>'+(dueToday?'<span class="pg-bar-due-pill">오늘 마감</span>':'')+(issueCount?'<span class="pg-bar-issue-pill">이슈 '+issueCount+'</span>':'')+'</div>'
       +spanOverlayHtml
       +'</td>';
   },({cls})=>'<td class="'+cls+'" style="position:relative"></td>');

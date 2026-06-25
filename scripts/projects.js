@@ -1471,6 +1471,26 @@ function renderLegend(){
     '<div class="legend-item" style="margin-left:12px;gap:8px"><span style="opacity:.3">■</span> 완료 <span style="opacity:.5">■</span> 예정 <span>■</span> 진행중</div>';
 }
 
+function renderLegend(){
+  const legend=document.getElementById('legend');
+  if(!legend)return;
+  legend.classList.add('pg-legend');
+  legend.innerHTML=''
+    +'<div class="pg-legend-group"><span class="pg-legend-label">업무유형</span>'
+    +'<span class="pg-legend-item"><span class="pg-type-dot pg-type-dot--audit"></span>감사</span>'
+    +'<span class="pg-legend-item"><span class="pg-type-dot pg-type-dot--tax"></span>세무</span>'
+    +'<span class="pg-legend-item"><span class="pg-type-dot pg-type-dot--valuation"></span>밸류에이션</span>'
+    +'<span class="pg-legend-item"><span class="pg-type-dot pg-type-dot--advisory"></span>자문/실사</span>'
+    +'<span class="pg-legend-item"><span class="pg-type-dot pg-type-dot--unknown"></span>기타/미지정</span>'
+    +'</div>'
+    +'<div class="pg-legend-group"><span class="pg-legend-label">상태</span>'
+    +'<span class="pg-legend-item"><span class="pg-legend-bar pg-legend-bar--progress"></span>진행중</span>'
+    +'<span class="pg-legend-item"><span class="pg-legend-bar pg-legend-bar--done"></span>완료</span>'
+    +'<span class="pg-legend-item"><span class="pg-legend-bar pg-legend-bar--planned"></span>예정</span>'
+    +'<span class="pg-legend-item"><span class="pg-legend-today"></span>오늘</span>'
+    +'</div>';
+}
+
 function buildGanttCalendarItemHtml(item){
   const itemClass=item.kind==='project'?'project':'schedule';
   const bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
