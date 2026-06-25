@@ -3656,12 +3656,11 @@ renderHomeDailyWorkSection = function(payload,options={}){
     recentEl.innerHTML=options.loading?'':recentCardHtml;
     return;
   }
-  el.innerHTML='<div class="card home-card home-queue-card">'
-    +'<div class="home-daily-work-head">'
-      +'<div><div class="home-daily-work-title">오늘 처리할 업무</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
-    +'</div>'
-    +contentHtml
-  +'</div>';
+  console.warn('[home] daily work placeholders are missing; skip renderHomeDailyWorkSection fallback render.',{
+    hasQueue:!!queueEl,
+    hasAttention:!!attentionEl,
+    hasRecent:!!recentEl
+  });
 };
 
 renderHomeDashboardIssues = async function(){
