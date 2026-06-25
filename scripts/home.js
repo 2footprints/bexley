@@ -3377,6 +3377,65 @@ renderHomeDailyWorkCard = function(item){
     +'</button>';
 };
 
+function isHomeEmptyClientLabel(label){
+  const normalized=String(label||'').trim();
+  return !normalized||normalized==='거래처 없음'||normalized==='거래처 미지정'||normalized.includes('없음')||normalized.includes('미지정');
+}
+
+function getHomeWorkItemParts(item){
+  const action=getHomeTaskClickAction(item)||item.action||'';
+  const badgeLabel=item.badgeLabel||(item.kind==='issue'?'이슈':(item.kind==='deadline'?'마감':'일정'));
+  const badgeClass=item.badgeClass||(item.kind==='issue'?'issue':(item.kind==='deadline'?'deadline':'schedule'));
+  const dueClass=item.dueMeta?.tone==='urgent'?' urgent':(item.dueMeta?.tone==='warn'?' warn':'');
+  const dueLabel=item.dueMeta?.diff===0?'오늘 마감':(item.dueMeta?.label||'확인 필요');
+  const clientLabel=item.contextLead||'거래처 없음';
+  const clientClass=isHomeEmptyClientLabel(clientLabel)?' hp-work-client-tag--empty':' hp-work-client-tag--filled';
+  return {
+    action,
+    badgeLabel,
+    badgeClass,
+    dueClass,
+    dueLabel,
+    clientLabel,
+    clientClass,
+    title:item.contextTitle||item.context||'',
+    summary:item.summary||'',
+    destination:getHomeDailyWorkDestinationLabel(item)
+  };
+}
+
+function renderHomeQueueProjectItem(item){
+  const parts=getHomeWorkItemParts(item);
+  return '<button type="button" class="hp-work-item" onclick="'+parts.action+'">'
+    +'<span class="hp-work-main">'
+      +'<span class="hp-work-topline">'
+        +'<span class="hp-work-client-tag'+parts.clientClass+'">'+esc(parts.clientLabel)+'</span>'
+        +'<span class="hp-work-title">'+esc(parts.title)+'</span>'
+      +'</span>'
+      +'<span class="hp-work-summary">'+esc(parts.summary)+'</span>'
+    +'</span>'
+    +'<span class="hp-work-side">'
+      +'<span class="hp-work-badge '+parts.badgeClass+'">'+esc(parts.badgeLabel)+'</span>'
+      +'<span class="hp-work-due'+parts.dueClass+'">'+esc(parts.dueLabel)+'</span>'
+    +'</span>'
+    +'</button>';
+}
+
+function renderHomeAttentionItem(item){
+  const parts=getHomeWorkItemParts(item);
+  return '<button type="button" class="hp-attn-item" onclick="'+parts.action+'">'
+    +'<span class="hp-attn-badge '+parts.badgeClass+'">'+esc(parts.badgeLabel)+'</span>'
+    +'<span class="hp-attn-copy">'
+      +'<span class="hp-attn-title">'+esc(parts.title)+'</span>'
+      +'<span class="hp-attn-meta">'+esc(parts.clientLabel)+' · '+esc(parts.summary)+'</span>'
+    +'</span>'
+    +'<span class="hp-attn-side">'
+      +'<span class="hp-attn-due'+parts.dueClass+'">'+esc(parts.dueLabel)+'</span>'
+      +'<span class="hp-attn-destination">'+esc(parts.destination)+'</span>'
+    +'</span>'
+    +'</button>';
+}
+
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
@@ -3542,7 +3601,7 @@ renderHomeDailyWorkSection = function(payload,options={}){
   const queueItems=Array.isArray(payload)?payload:(payload?.queueItems||[]);
   const attentionItems=Array.isArray(payload)?[]:(payload?.attentionItems||[]);
   const recentItems=Array.isArray(payload)?[]:(payload?.recentItems||[]);
-  const buildSection=(title,count,items,emptyText,extraClass='',description='')=>{
+  const buildSection=(title,count,items,emptyText,extraClass='',description='',itemRenderer=renderHomeDailyWorkCard)=>{
     return '<div class="home-daily-work-section'+(extraClass?' '+extraClass:'')+'">'
       +'<div class="home-daily-work-section-head">'
         +'<div><div class="home-daily-work-section-title">'+title+'</div>'
@@ -3551,25 +3610,25 @@ renderHomeDailyWorkSection = function(payload,options={}){
         +(typeof count==='number'?'<div class="home-daily-work-section-count">'+count+'건</div>':'')
       +'</div>'
       +(items.length
-        ?'<div class="home-daily-work-list">'+items.map(renderHomeDailyWorkCard).join('')+'</div>'
+        ?'<div class="home-daily-work-list">'+items.map(itemRenderer).join('')+'</div>'
         :'<div class="home-daily-work-empty is-compact">'+emptyText+'</div>')
       +'</div>';
   };
   const contentHtml=options.loading
     ?'<div class="weekly-empty">불러오는 중..</div>'
-    :buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.')
+    :buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.',renderHomeQueueProjectItem)
       +'<div class="home-daily-work-section-stack">'
-        +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
+        +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--panel home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.',renderHomeAttentionItem)
         +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--panel home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
       +'</div>';
   const queueCardHtml='<div class="card home-card home-queue-card home-queue-card--main">'
     +'<div class="home-daily-work-head">'
       +'<div><div class="home-daily-work-title">오늘 처리할 업무</div><div class="home-daily-work-date">'+getHomeDailyWorkDateLabel(today)+'</div></div>'
     +'</div>'
-    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.'))
+    +(options.loading?'<div class="weekly-empty">불러오는 중..</div>':buildSection('오늘 확인할 프로젝트',queueItems.length,queueItems,'오늘 바로 처리할 프로젝트가 없습니다','','오늘 확인하거나 진행해야 할 프로젝트입니다.',renderHomeQueueProjectItem))
   +'</div>';
   const attentionCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
-    +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.')
+    +buildSection('주의 필요 항목',attentionItems.length,attentionItems,'주의가 필요한 항목이 없습니다','home-daily-work-section--attention','오늘 또는 이번 주 안에 확인이 필요한 태스크와 프로젝트입니다.',renderHomeAttentionItem)
   +'</div>';
   const recentCardHtml='<div class="card home-card home-queue-card home-queue-card--section">'
     +buildSection('최근 업데이트',recentItems.length,recentItems,'최근 업데이트된 업무가 없습니다','home-daily-work-section--secondary','최근 변경된 프로젝트와 태스크를 최신순으로 보여줍니다.')
