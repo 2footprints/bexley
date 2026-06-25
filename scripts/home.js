@@ -2639,6 +2639,27 @@ function renderHomeRiskSummaryCard(card){
     +(card.meta?'<div class="home-risk-meta">'+esc(card.meta)+'</div>':'')
     +'</button>';
 }
+
+function getHomeStatCardTone(card){
+  if(card?.quiet)return 'ok';
+  if(card?.tone==='danger')return 'danger';
+  if(card?.tone==='warning')return 'warn';
+  if(card?.tone==='info')return 'info';
+  return 'neutral';
+}
+
+function renderHomeRiskSummaryCard(card){
+  const tone=getHomeStatCardTone(card);
+  const classNames=['hp-stat-card','hp-stat-card--'+tone];
+  if(card?.quiet)classNames.push('is-quiet');
+  if(card?.emphasis)classNames.push('is-'+card.emphasis);
+  const titleAttr=card?.titleText?' title="'+esc(card.titleText)+'"':'';
+  return '<button type="button" class="'+classNames.join(' ')+'" onclick="'+card.action+'"'+titleAttr+'>'
+    +'<div class="hp-stat-label">'+esc(card.label)+'</div>'
+    +'<div class="hp-stat-value">'+esc(card.value)+'</div>'
+    +(card.meta?'<div class="hp-stat-sub">'+esc(card.meta)+'</div>':'')
+    +'</button>';
+}
 function getHomeProjectBillingAmount(project){
   const directAmount=Number(project?.billing_amount||0);
   if(directAmount>0)return directAmount;
@@ -3787,8 +3808,8 @@ renderTeamWorkload = async function(){
     ];
     el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
       +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구·자료·인력 리스크를 보여줍니다.</div></div></div>'
-      +'<div class="home-risk-grid home-risk-grid--warning">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>'
-      +'<div class="home-warning-foot">'+notes.map(note=>'<div class="home-warning-note">'+note+'</div>').join('')+'</div>'
+      +'<div class="hp-stat-grid hp-stat-grid--3">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>'
+      +'<div class="hp-support-chip-row">'+notes.map((note,index)=>'<div class="hp-support-chip '+(index===0?'hp-support-chip--warn':'hp-support-chip--info')+'">'+note+'</div>').join('')+'</div>'
       +'</div>';
   }catch(e){
     console.error('renderTeamWorkload failed',e);
@@ -3988,7 +4009,7 @@ renderHomeRiskSummary = async function(){
     ];
     el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
       +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY ACTION</div><div class="home-layer-title">오늘 액션</div><div class="home-layer-sub">오늘 내가 직접 처리하거나 확인해야 할 업무입니다.</div></div></div>'
-      +'<div class="home-risk-grid home-risk-grid--actions">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>'
+      +'<div class="hp-stat-grid hp-stat-grid--4">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>'
       +'</div>';
   }catch(e){
     console.error('renderHomeRiskSummary failed',e);
