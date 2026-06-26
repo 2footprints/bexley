@@ -7022,7 +7022,7 @@ async function loadGanttTaskViewRows(projectIds,key){
       'GET',
       getGanttProjectTaskApiPath(
         'project_id=in.('+ids.join(',')+')'
-        +'&select=id,project_id,title,description,status,priority,assignee_member_id,due_date,actual_done_at,progress_percent,created_at,updated_at,sort_order'
+        +'&select=id,project_id,title,description,status,priority,assignee_member_id,start_date,due_date,actual_done_at,progress_percent,created_at,updated_at,sort_order'
         +'&order=created_at.asc'
       )
     );
