@@ -8053,7 +8053,7 @@ async function toggleGanttOutputWeeklyReview(projectId,outputId,checked){
     }
     invalidateGanttProjectQcRender(projectId);
   }catch(error){
-    alert('주간리뷰 포함 여부 저장에 실패했습니다. '+(error?.message||error));
+    alert('회의 안건 포함 여부 저장에 실패했습니다. '+(error?.message||error));
     delete ganttProjectQcByProjectId[String(projectId)];
     await loadGanttProjectQc(projectId,true);
   }
@@ -8079,7 +8079,7 @@ function renderGanttOutputRow(projectId,output){
       +'</div>'
       +'<div class="pd-deliv-meta">작성자 <b>'+esc(getGanttQcOutputAuthorName(output))+'</b> · 등록일 <b>'+esc(formatGanttOutputDate(output?.created_at))+'</b> · 리뷰어 <b>'+esc(getGanttQcReviewerName(output))+'</b>'+(output?.requires_partner_review?' · <b>파트너 리뷰 필요</b>':'')+'</div>'
       +'<div class="pd-deliv-foot">'
-        +'<label class="pd-deliv-options" onclick="event.stopPropagation()"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 제외')+'</span></label>'
+        +'<label class="pd-deliv-options" title="회의 안건 포함 여부" onclick="event.stopPropagation()"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'회의 안건 포함':'회의 안건 미포함')+'</span></label>'
         +'<div class="pd-deliv-links">'
           +(link?'<button type="button" class="pd-deliv-link" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
           +(qcRequired&&status==='none'?'<button type="button" class="pd-deliv-link" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+outputId+'\')">QC 요청</button>':'')

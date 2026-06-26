@@ -839,6 +839,13 @@ body{
   color:var(--navy)!important;
 }
 
+#pageWeeklyReview .wr-group-hint{
+  margin-left:8px!important;
+  color:var(--text3)!important;
+  font-size:11px!important;
+  font-weight:600!important;
+}
+
 #pageWeeklyReview .weekly-review-section-group-count{
   background:var(--semantic-neutral-bg)!important;
   color:var(--semantic-neutral-fg)!important;
@@ -1243,6 +1250,27 @@ body{
   background:#EFF6FF!important;
   color:#1D4ED8!important;
 }
+
+#pageWeeklyReview .wr-empty-hint{
+  display:block!important;
+  margin-top:4px!important;
+  color:var(--text3)!important;
+  font-size:11px!important;
+  font-weight:600!important;
+}
+
+#pageWeeklyReview .wr-agenda-pill{
+  flex-shrink:0!important;
+  padding:2px 8px!important;
+  border-radius:999px!important;
+  background:#EFF6FF!important;
+  color:#1D4ED8!important;
+  border:1px solid rgba(37,99,235,.16)!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  line-height:1.4!important;
+}
+
 #pageWeeklyReview .wr-output-project-groups{
   display:flex!important;
   flex-direction:column!important;
