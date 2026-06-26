@@ -5202,6 +5202,52 @@ td{
   top:13px!important;
   bottom:13px!important;
 }
+#pageGantt .pg-annual-table .th-label{
+  min-width:220px!important;
+}
+#pageGantt .pg-annual-week-head{
+  min-width:26px!important;
+  width:26px!important;
+  padding:6px 0!important;
+  vertical-align:bottom!important;
+}
+#pageGantt .pg-annual-month-label{
+  display:block!important;
+  min-height:13px!important;
+  color:var(--navy)!important;
+  font-size:9px!important;
+  font-weight:800!important;
+  line-height:1.1!important;
+}
+#pageGantt .pg-annual-week-label{
+  display:block!important;
+  color:#94A3B8!important;
+  font-size:8.5px!important;
+  font-weight:700!important;
+  line-height:1.2!important;
+}
+#pageGantt .pg-annual-cell{
+  min-width:26px!important;
+  width:26px!important;
+  height:42px!important;
+}
+#pageGantt .pg-annual-today-week{
+  background:#EAF1FB!important;
+  box-shadow:inset 0 -2px 0 rgba(19,52,89,.16)!important;
+}
+#pageGantt .pg-annual-project-cell{
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  min-width:0!important;
+}
+#pageGantt .pg-annual-bar{
+  top:11px!important;
+  bottom:11px!important;
+}
+#pageGantt .pg-annual-empty{
+  padding:40px!important;
+}
 #pageGantt .legend{
   gap:16px!important;
   padding:6px 2px 0!important;
