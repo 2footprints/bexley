@@ -3968,7 +3968,7 @@ async function saveProjectTask(){
   const status=String(document.getElementById('taskStatus')?.value||existingTask?.status||'예정').trim()||'예정';
   const priority=String(existingTask?.priority||'medium').trim()||'medium';
   const assigneeMemberId=getProjectTaskAssigneeIdFromForm()||null;
-  const startDate=existingTask?.start_date||null;
+  const startDate=document.getElementById('taskStart')?.value||null;
   const dueDate=document.getElementById('taskDue')?.value||null;
   const description=document.getElementById('taskDescription')?.value.trim()||null;
   const existingProgress=Number(existingTask?.progress_percent);
@@ -4322,6 +4322,7 @@ function openProjectTaskModal(projectId,taskId){
           +'<div class="project-task-form-section-title">업무 기본 정보</div>'
           +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
           +'<div class="form-grid two">'
+            +'<div class="form-row"><label class="form-label">시작일</label><input id="taskStart" type="date" value="'+esc(task?.start_date||'')+'"></div>'
             +'<div class="form-row"><label class="form-label">담당자</label><div id="taskAssigneeCombo"></div></div>'
             +'<div class="form-row"><label class="form-label">상태</label><select id="taskStatus" onchange="syncProjectTaskStatusUI()">'+GANTT_TASK_STATUS_OPTIONS.map(status=>'<option value="'+status+'"'+((task?.status||'예정')===status?' selected':'')+'>'+status+'</option>').join('')+'</select></div>'
             +'<div class="form-row"><label class="form-label">기한</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
