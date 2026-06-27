@@ -7,11 +7,11 @@ let myScheduleCalendarDate = new Date();
 
 function getMyScheduleTypeOptions(){
   return [
-    {value:'leave',label:'휴가',color:'#F97316'},
-    {value:'fieldwork',label:'필드워크',color:'#2563EB'},
-    {value:'meeting',label:'회의',color:'#16A34A'},
+    {value:'leave',label:'휴가',color:'#16A34A'},
+    {value:'fieldwork',label:'필드워크',color:'#F97316'},
+    {value:'meeting',label:'회의',color:'#2563EB'},
     {value:'internal',label:'내부',color:'#64748B'},
-    {value:'external',label:'외부',color:'#7C3AED'}
+    {value:'external',label:'외근',color:'#FDBA74'}
   ];
 }
 
@@ -176,40 +176,50 @@ function renderMySchedulePage(){
   const summary=getMyScheduleWeekSummary();
   el.innerHTML=''
     +'<div class="my-schedule-shell">'
-      +'<div class="my-schedule-head">'
-        +'<div><div class="my-schedule-title">일정</div><div class="my-schedule-sub">팀 전체의 휴가, 외근, 회의 등 프로젝트 외 일정을 관리합니다.</div></div>'
-        +'<button type="button" class="btn primary sm" onclick="openMyScheduleModal()">일정 추가</button>'
+      +'<div class="my-schedule-head sc-header">'
+        +'<div class="sc-header-copy"><div class="my-schedule-title sc-title">일정</div><div class="my-schedule-sub sc-sub">팀 전체의 휴가, 외근, 회의 등 프로젝트 외 일정을 관리합니다.</div></div>'
+        +'<button type="button" class="btn primary sm sc-add-btn" onclick="openMyScheduleModal()">일정 추가</button>'
       +'</div>'
-      +'<div class="my-schedule-summary-grid">'
+      +'<div class="my-schedule-summary-grid sc-stat-grid">'
         +renderMyScheduleSummaryCard('이번 주 휴가',summary.leave,'leave')
         +renderMyScheduleSummaryCard('이번 주 필드워크',summary.fieldwork,'fieldwork')
         +renderMyScheduleSummaryCard('이번 주 회의',summary.meeting,'meeting')
       +'</div>'
-      +'<div class="card my-schedule-toolbar">'
-        +'<div class="my-schedule-toolbar-left">'
-          +'<div class="my-schedule-view-toggle" role="group" aria-label="일정 보기 전환">'
+      +'<div class="card my-schedule-toolbar sc-toolbar">'
+        +'<div class="my-schedule-toolbar-left sc-toolbar-left">'
+          +'<div class="my-schedule-view-toggle sc-view-tabs" role="group" aria-label="일정 보기 전환">'
             +'<button type="button" class="'+(myScheduleViewMode==='calendar'?'active':'')+'" onclick="setMyScheduleViewMode(\'calendar\')">달력</button>'
             +'<button type="button" class="'+(myScheduleViewMode==='list'?'active':'')+'" onclick="setMyScheduleViewMode(\'list\')">리스트</button>'
           +'</div>'
           +(myScheduleViewMode==='calendar'?renderMyScheduleCalendarNav():'')
         +'</div>'
-        +'<div class="my-schedule-filters">'
+        +'<div class="my-schedule-filters sc-filters">'
           +renderMyScheduleScopeFilter()
           +renderMyScheduleTypeFilter()
           +renderMyScheduleMemberFilter()
           +renderMyScheduleRangeFilter()
+          +'<span class="my-schedule-badge sc-count-chip">'+rows.length+'건</span>'
         +'</div>'
-        +'<span class="my-schedule-badge">'+rows.length+'건</span>'
       +'</div>'
+      +renderMyScheduleLegend()
       +(myScheduleViewMode==='calendar'?renderMyScheduleCalendar(rows):renderMyScheduleList(rows))
     +'</div>';
 }
 
 function renderMyScheduleSummaryCard(label,count,type){
   const meta=getMyScheduleTypeMeta(type);
-  return '<div class="my-schedule-summary-card" style="border-left-color:'+meta.color+'">'
-    +'<span>'+esc(label)+'</span>'
-    +'<strong>'+Number(count||0)+'건</strong>'
+  const value=Number(count||0);
+  const toneClass=value?'sc-stat--'+meta.value:'sc-stat--ok';
+  return '<div class="my-schedule-summary-card sc-stat '+toneClass+'" style="--sc-color:'+meta.color+'">'
+    +'<span class="sc-stat-label">'+esc(label)+'</span>'
+    +'<strong class="sc-stat-val">'+value+'건</strong>'
+  +'</div>';
+}
+
+function renderMyScheduleLegend(){
+  return '<div class="sc-legend" aria-label="일정 유형 범례">'
+    +'<span class="sc-legend-label">일정 유형</span>'
+    +getMyScheduleTypeOptions().map(type=>'<span class="sc-legend-item sc-legend-item--'+esc(type.value)+'"><span class="sc-legend-dot" style="background:'+type.color+'"></span>'+esc(type.label)+'</span>').join('')
   +'</div>';
 }
 
