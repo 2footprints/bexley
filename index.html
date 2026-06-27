@@ -8020,8 +8020,8 @@ function closeModal(){
 }
 
 // ── Init ──
-document.getElementById('prevM').onclick=()=>{if(curGanttLayout==='annual'){curYear--;}else if(curMonth===1){curMonth=12;curYear--;}else curMonth--;renderGantt();};
-document.getElementById('nextM').onclick=()=>{if(curGanttLayout==='annual'){curYear++;}else if(curMonth===12){curMonth=1;curYear++;}else curMonth++;renderGantt();};
+document.getElementById('prevM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear--;}else if(curMonth===1){curMonth=12;curYear--;}else curMonth--;renderGantt();};
+document.getElementById('nextM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear++;}else if(curMonth===12){curMonth=1;curYear++;}else curMonth++;renderGantt();};
 document.getElementById('memberFilter').onchange=renderGantt;
 document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;border-color:var(--navy)';
 
@@ -9307,6 +9307,7 @@ renderIssueFeed = function(el,pinned,recent){
 };
 
 let curGanttLayout='list';
+let curGanttTimelineScale='month';
 const LOCAL_VERIFY_MODE =
   window.location.protocol==='file:' ||
   /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname) ||
@@ -10436,7 +10437,10 @@ function updateGanttLayoutButtons(){
   [['glt','timeline'],['glannual','annual'],['glc','calendar'],['gll','list'],['gltask','task']].forEach(([id,mode])=>{
     const btn=document.getElementById(id);
     if(!btn) return;
-    btn.classList.toggle('active',curGanttLayout===mode);
+    const active=mode==='annual'
+      ?curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'
+      :curGanttLayout===mode&&(mode!=='timeline'||curGanttTimelineScale!=='annual');
+    btn.classList.toggle('active',active);
   });
   ['gvp','gvm'].forEach(id=>{
     const btn=document.getElementById(id);
@@ -10448,7 +10452,13 @@ function updateGanttLayoutButtons(){
 }
 
 function setGanttLayout(mode){
-  curGanttLayout=mode;
+  if(mode==='annual'){
+    curGanttLayout='timeline';
+    curGanttTimelineScale='annual';
+  }else{
+    curGanttLayout=mode;
+    if(mode==='timeline')curGanttTimelineScale='month';
+  }
   updateGanttLayoutButtons();
   renderGantt();
 }
@@ -10631,11 +10641,11 @@ function ensureGanttTimelineTaskData(projs){
       return !hasLoaded&&!loadMeta?.loading;
     });
   if(!missingIds.length)return;
-  const renderKey=curYear+'-'+curMonth+'-'+curGView+'-'+(curGanttLayout||'timeline');
+  const renderKey=curYear+'-'+curMonth+'-'+curGView+'-'+(curGanttLayout||'timeline')+'-'+(curGanttTimelineScale||'month');
   Promise.all(missingIds.map(projectId=>loadGanttProjectTasks(projectId,false).catch(error=>{
     console.error('load timeline task rows failed',projectId,error);
   }))).then(()=>{
-    const currentKey=curYear+'-'+curMonth+'-'+curGView+'-'+(curGanttLayout||'timeline');
+    const currentKey=curYear+'-'+curMonth+'-'+curGView+'-'+(curGanttLayout||'timeline')+'-'+(curGanttTimelineScale||'month');
     if(currentKey===renderKey&&curGanttLayout!=='task'&&curGanttLayout!=='calendar'&&curGanttLayout!=='list'&&typeof renderGantt==='function')renderGantt();
   });
 }
@@ -10965,7 +10975,7 @@ window.renderGantt=function(){
       return;
     }
   }
-  if(curGanttLayout==='annual'){
+  if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){
     renderGanttAnnualTimeline(projs);
     return;
   }
