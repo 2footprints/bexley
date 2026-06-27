@@ -212,14 +212,16 @@ function setGanttTeamFilter(value){
 
 function getProjectTypeSelectOptions(selectedId='',legacyType=''){
   const rows=getActiveProjectTypeRows();
-  const selected=String(selectedId||'').trim();
+  const legacyValue=String(legacyType||'').trim();
+  const legacyTypeRow=!selectedId&&legacyValue?getProjectTypeRowById(legacyValue):null;
+  const selected=String(selectedId||legacyTypeRow?.id||'').trim();
   const currentRow=selected?getProjectTypeRowById(selected):null;
   const options=[...rows];
   if(currentRow&&!options.some(row=>String(row?.id||'')===selected))options.unshift(currentRow);
-  const hasLegacySelection=!!legacyType&&!selected;
+  const hasLegacySelection=!!legacyValue&&!selected;
   const base=hasLegacySelection?'':'<option value="">유형 선택</option>';
   const dynamic=options.map(type=>'<option value="'+esc(type.id)+'"'+(String(type.id)===selected?' selected':'')+'>'+esc(type.name||type.code||'유형')+'</option>').join('');
-  const legacy=hasLegacySelection?'<option value="" selected>'+esc(legacyType)+'</option>':'';
+  const legacy=hasLegacySelection?'<option value="" selected>'+esc(legacyValue)+'</option>':'';
   return base+legacy+dynamic;
 }
 
