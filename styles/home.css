@@ -1100,8 +1100,7 @@
     box-sizing:border-box;
     width:min(1760px, calc(100vw - 64px));
     max-width:1760px;
-    margin-left:50%;
-    transform:translateX(-50%);
+    margin-inline:auto;
     padding-inline:32px;
   }
   #pageTeam .home-body-side{
