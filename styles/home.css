@@ -1097,10 +1097,13 @@
 }
 @media (min-width: 1181px){
   #pageTeam .home-dashboard-shell{
+    --home-shell-width:min(1760px, calc(100vw - 64px));
+    --home-shell-half-width:min(880px, calc(50vw - 32px));
     box-sizing:border-box;
-    width:min(1760px, calc(100vw - 64px));
+    width:var(--home-shell-width);
     max-width:1760px;
-    margin-inline:auto;
+    margin-left:calc(50% - var(--home-shell-half-width));
+    margin-right:calc(50% - var(--home-shell-half-width));
     padding-inline:32px;
   }
   #pageTeam .home-body-side{
