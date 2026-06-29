@@ -4919,6 +4919,33 @@ td{
   color:#FFFFFF!important;
   box-shadow:0 5px 12px rgba(15,23,42,.10)!important;
 }
+#pageGantt #ganttTimelineScaleToggle{
+  flex-basis:100%!important;
+  justify-content:center!important;
+  margin-top:4px!important;
+}
+#pageGantt #ganttTimelineScaleToggle .toggle-btn{
+  min-width:64px!important;
+  min-height:30px!important;
+  padding:0 10px!important;
+  border:1px solid transparent!important;
+  border-radius:10px!important;
+  background:transparent!important;
+  color:#64748B!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  box-shadow:none!important;
+}
+#pageGantt #ganttTimelineScaleToggle .toggle-btn:hover{
+  background:rgba(255,255,255,.92)!important;
+  color:var(--navy)!important;
+}
+#pageGantt #ganttTimelineScaleToggle .toggle-btn.active{
+  background:#EAF1FB!important;
+  border-color:rgba(19,52,89,.18)!important;
+  color:var(--navy)!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)!important;
+}
 #pageGantt #gvp,
 #pageGantt #gvm{
   min-height:32px!important;
@@ -4930,6 +4957,11 @@ td{
   font-size:12px!important;
   font-weight:800!important;
   box-shadow:none!important;
+}
+#pageGantt #gvp:disabled,
+#pageGantt #gvm:disabled{
+  cursor:not-allowed!important;
+  opacity:.45!important;
 }
 #pageGantt #gvp.active,
 #pageGantt #gvm.active{
@@ -5231,6 +5263,16 @@ td{
   width:26px!important;
   height:42px!important;
 }
+#pageGantt .pg-annual-table--week .pg-annual-week-head,
+#pageGantt .pg-annual-table--week .pg-annual-cell{
+  min-width:92px!important;
+  width:92px!important;
+}
+#pageGantt .pg-annual-table--annual .pg-annual-week-head,
+#pageGantt .pg-annual-table--annual .pg-annual-cell{
+  min-width:68px!important;
+  width:68px!important;
+}
 #pageGantt .pg-annual-today-week{
   background:#EAF1FB!important;
   box-shadow:inset 0 -2px 0 rgba(19,52,89,.16)!important;
@@ -5486,7 +5528,15 @@ td{
     width:100%!important;
     justify-content:space-between!important;
   }
+  #pageGantt #ganttTimelineScaleToggle{
+    width:100%!important;
+    justify-content:space-between!important;
+  }
   #pageGantt #ganttLayoutToggle .toggle-btn{
+    flex:1 1 0!important;
+    min-width:0!important;
+  }
+  #pageGantt #ganttTimelineScaleToggle .toggle-btn{
     flex:1 1 0!important;
     min-width:0!important;
   }

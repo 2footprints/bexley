@@ -2733,10 +2733,7 @@ input,textarea{border-radius:12px!important}
                 <button class="month-nav-btn" id="nextM">›</button>
               </div>
             </div>
-            <div class="gantt-toolbar-zone gantt-toolbar-zone--view pg-view-tabs" id="ganttToolbarView" data-group-label="보기">
-              <button class="btn sm" id="gvp" onclick="setGView('project')">프로젝트별</button>
-              <button class="btn sm" id="gvm" onclick="setGView('member')">인력별</button>
-            </div>
+            <div class="gantt-toolbar-zone gantt-toolbar-zone--view pg-view-tabs" id="ganttToolbarView" data-group-label="보기"></div>
             <div class="gantt-toolbar-zone gantt-toolbar-zone--actions pg-toolbar-right" id="ganttToolbarActions" data-group-label="작업">
               <input type="hidden" id="memberFilter" value="">
               <button class="btn sm pg-btn pg-btn-ghost" id="scheduleAddBtn" onclick="setPage('mySchedule')">일정 관리</button>
@@ -8023,7 +8020,7 @@ function closeModal(){
 document.getElementById('prevM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear--;}else if(curMonth===1){curMonth=12;curYear--;}else curMonth--;renderGantt();};
 document.getElementById('nextM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear++;}else if(curMonth===12){curMonth=1;curYear++;}else curMonth++;renderGantt();};
 document.getElementById('memberFilter').onchange=renderGantt;
-document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;border-color:var(--navy)';
+if(document.getElementById('gvp'))document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;border-color:var(--navy)';
 
 (async()=>{
   // URL ?client= 파라미터 확인 (포털 직접 진입)
@@ -10423,32 +10420,57 @@ function ensureGanttLayoutToggle(){
   const wrap=document.createElement('div');
   wrap.id='ganttLayoutToggle';
   wrap.className='toggle-wrap gantt-layout-toggle pg-view-tabs';
-  wrap.innerHTML='<button class="toggle-btn active" id="gll" type="button">리스트</button><button class="toggle-btn" id="glt" type="button">간트</button><button class="toggle-btn" id="glannual" type="button">연간</button><button class="toggle-btn" id="glc" type="button">달력</button><button class="toggle-btn" id="gltask" type="button">태스크</button>';
+  wrap.innerHTML='<button class="toggle-btn active" id="gll" type="button">리스트</button><button class="toggle-btn" id="glt" type="button">간트</button><button class="toggle-btn" id="glc" type="button">달력</button><button class="toggle-btn" id="gltask" type="button">태스크</button>';
   viewZone.appendChild(wrap);
+  const scaleWrap=document.createElement('div');
+  scaleWrap.id='ganttTimelineScaleToggle';
+  scaleWrap.className='toggle-wrap gantt-time-scale-toggle pg-view-tabs';
+  scaleWrap.innerHTML='<button class="toggle-btn active" id="gtsDay" type="button">일간</button><button class="toggle-btn" id="gtsWeek" type="button">주간</button><button class="toggle-btn" id="gtsMonth" type="button">월간</button>';
+  viewZone.appendChild(scaleWrap);
   document.getElementById('glt').onclick=()=>setGanttLayout('timeline');
-  document.getElementById('glannual').onclick=()=>setGanttLayout('annual');
   document.getElementById('glc').onclick=()=>setGanttLayout('calendar');
   document.getElementById('gll').onclick=()=>setGanttLayout('list');
   document.getElementById('gltask').onclick=()=>setGanttLayout('task');
+  document.getElementById('gtsDay').onclick=()=>setGanttTimeScale('month');
+  document.getElementById('gtsWeek').onclick=()=>setGanttTimeScale('week');
+  document.getElementById('gtsMonth').onclick=()=>setGanttTimeScale('annual');
   updateGanttLayoutButtons();
 }
 
 function updateGanttLayoutButtons(){
-  [['glt','timeline'],['glannual','annual'],['glc','calendar'],['gll','list'],['gltask','task']].forEach(([id,mode])=>{
+  [['glt','timeline'],['glc','calendar'],['gll','list'],['gltask','task']].forEach(([id,mode])=>{
     const btn=document.getElementById(id);
     if(!btn) return;
-    const active=mode==='annual'
-      ?curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'
-      :curGanttLayout===mode&&(mode!=='timeline'||curGanttTimelineScale!=='annual');
-    btn.classList.toggle('active',active);
+    btn.classList.toggle('active',curGanttLayout===mode);
+  });
+  const scaleWrap=document.getElementById('ganttTimelineScaleToggle');
+  if(scaleWrap){
+    const isTimeline=curGanttLayout==='timeline';
+    scaleWrap.hidden=!isTimeline;
+    scaleWrap.style.display=isTimeline?'inline-flex':'none';
+  }
+  [['gtsDay','month'],['gtsWeek','week'],['gtsMonth','annual']].forEach(([id,scale])=>{
+    const btn=document.getElementById(id);
+    if(!btn)return;
+    btn.classList.toggle('active',curGanttLayout==='timeline'&&curGanttTimelineScale===scale);
   });
   ['gvp','gvm'].forEach(id=>{
     const btn=document.getElementById(id);
     if(!btn) return;
-    const disabled=curGanttLayout!=='timeline'&&curGanttLayout!=='annual';
+    const disabled=curGanttLayout!=='timeline';
+    const active=(id==='gvp'&&curGView==='project')||(id==='gvm'&&curGView==='member');
+    btn.classList.toggle('active',active);
+    btn.disabled=disabled;
     btn.style.opacity=disabled?'.45':'';
     btn.style.pointerEvents=disabled?'none':'';
   });
+}
+
+function setGanttTimeScale(scale){
+  curGanttLayout='timeline';
+  curGanttTimelineScale=scale==='week'?'week':(scale==='annual'?'annual':'month');
+  updateGanttLayoutButtons();
+  renderGantt();
 }
 
 function setGanttLayout(mode){
@@ -10633,6 +10655,7 @@ function getGanttTimelineOpenTasks(projectId){
 }
 
 function ensureGanttTimelineTaskData(projs){
+  if(curGanttLayout!=='timeline'||curGanttTimelineScale!=='month')return;
   if(typeof loadGanttProjectTasks!=='function'||!Array.isArray(projs)||!projs.length)return;
   const missingIds=[...new Set(projs.map(project=>String(project?.id||'')).filter(Boolean))]
     .filter(projectId=>{
@@ -10646,7 +10669,7 @@ function ensureGanttTimelineTaskData(projs){
     console.error('load timeline task rows failed',projectId,error);
   }))).then(()=>{
     const currentKey=curYear+'-'+curMonth+'-'+curGView+'-'+(curGanttLayout||'timeline')+'-'+(curGanttTimelineScale||'month');
-    if(currentKey===renderKey&&curGanttLayout!=='task'&&curGanttLayout!=='calendar'&&curGanttLayout!=='list'&&typeof renderGantt==='function')renderGantt();
+    if(currentKey===renderKey&&curGanttLayout==='timeline'&&curGanttTimelineScale==='month'&&typeof renderGantt==='function')renderGantt();
   });
 }
 
@@ -10690,31 +10713,50 @@ function renderGanttTimelineTaskRows(project,days){
   }).join('');
 }
 
-function getGanttAnnualWeeks(year){
-  const weeks=[];
+function getGanttTimelineScaleUnits(scale,year,month){
+  const units=[];
   const today=new Date();
   today.setHours(0,0,0,0);
-  let cursor=new Date(year,0,1);
-  const yearEnd=new Date(year,11,31);
-  while(cursor<=yearEnd){
-    const start=new Date(cursor);
-    const end=new Date(cursor);
-    end.setDate(end.getDate()+6);
-    if(end>yearEnd)end.setTime(yearEnd.getTime());
-    const monthChanged=weeks.length===0||start.getMonth()!==weeks[weeks.length-1].start.getMonth();
-    weeks.push({
-      index:weeks.length+1,
+  if(scale==='week'){
+    let cursor=new Date(year,month-1,1);
+    const monthEnd=new Date(year,month,0);
+    while(cursor<=monthEnd){
+      const start=new Date(cursor);
+      const end=new Date(cursor);
+      end.setDate(end.getDate()+6);
+      if(end>monthEnd)end.setTime(monthEnd.getTime());
+      units.push({
+        index:units.length+1,
+        start,
+        end,
+        monthLabel:units.length===0?String(month)+'월':'',
+        unitLabel:'W'+(units.length+1),
+        isTodayUnit:today>=start&&today<=end
+      });
+      cursor.setDate(cursor.getDate()+7);
+    }
+    return units;
+  }
+  for(let idx=0;idx<12;idx++){
+    const start=new Date(year,idx,1);
+    const end=new Date(year,idx+1,0);
+    units.push({
+      index:idx+1,
       start,
       end,
-      monthLabel:monthChanged?String(start.getMonth()+1)+'월':'',
-      isTodayWeek:today>=start&&today<=end
+      monthLabel:String(idx+1)+'월',
+      unitLabel:'',
+      isTodayUnit:today>=start&&today<=end
     });
-    cursor.setDate(cursor.getDate()+7);
   }
-  return weeks;
+  return units;
 }
 
-function getGanttAnnualRangeMeta(item,weeks,year){
+function getGanttAnnualWeeks(year){
+  return getGanttTimelineScaleUnits('annual',year,curMonth);
+}
+
+function getGanttAnnualRangeMeta(item,units,year){
   const fallbackStart=item?.start_date??item?.start??item?.due_date??item?.end_date??item?.end??'';
   const fallbackEnd=item?.end_date??item?.end??item?.due_date??item?.start_date??item?.start??'';
   const startDate=typeof getGanttLocalDateValue==='function'?getGanttLocalDateValue(fallbackStart||fallbackEnd):toDate(fallbackStart||fallbackEnd);
@@ -10724,13 +10766,13 @@ function getGanttAnnualRangeMeta(item,weeks,year){
   if(!Number.isFinite(startMs)||!Number.isFinite(endMs))return {visible:false,startIndex:1,endIndex:1,span:1};
   const normalizedStart=startMs<=endMs?startDate:endDate;
   const normalizedEnd=startMs<=endMs?endDate:startDate;
-  const yearStart=new Date(year,0,1);
-  const yearEnd=new Date(year,11,31);
-  if(normalizedStart>yearEnd||normalizedEnd<yearStart)return {visible:false,startIndex:1,endIndex:1,span:1,startDate:normalizedStart,endDate:normalizedEnd};
-  const clippedStart=normalizedStart<yearStart?yearStart:normalizedStart;
-  const clippedEnd=normalizedEnd>yearEnd?yearEnd:normalizedEnd;
-  const startIndex=Math.max(1,weeks.findIndex(week=>clippedStart>=week.start&&clippedStart<=week.end)+1);
-  const endIndex=Math.max(startIndex,weeks.findIndex(week=>clippedEnd>=week.start&&clippedEnd<=week.end)+1);
+  const rangeStart=units[0]?.start||new Date(year,0,1);
+  const rangeEnd=units[units.length-1]?.end||new Date(year,11,31);
+  if(normalizedStart>rangeEnd||normalizedEnd<rangeStart)return {visible:false,startIndex:1,endIndex:1,span:1,startDate:normalizedStart,endDate:normalizedEnd};
+  const clippedStart=normalizedStart<rangeStart?rangeStart:normalizedStart;
+  const clippedEnd=normalizedEnd>rangeEnd?rangeEnd:normalizedEnd;
+  const startIndex=Math.max(1,units.findIndex(unit=>clippedStart>=unit.start&&clippedStart<=unit.end)+1);
+  const endIndex=Math.max(startIndex,units.findIndex(unit=>clippedEnd>=unit.start&&clippedEnd<=unit.end)+1);
   return {
     visible:true,
     startIndex,
@@ -10741,7 +10783,7 @@ function getGanttAnnualRangeMeta(item,weeks,year){
   };
 }
 
-function renderGanttAnnualProjectRow(project,weeks){
+function renderGanttAnnualProjectRow(project,units){
   const today=new Date();
   today.setHours(0,0,0,0);
   const isCompleted=isCompletedGanttStatus(project.status);
@@ -10751,7 +10793,7 @@ function renderGanttAnnualProjectRow(project,weeks){
   const typeMeta=typeof getGanttProjectTypeMeta==='function'?getGanttProjectTypeMeta(project):{label:project.type||'유형 미지정',tone:'unknown'};
   const statusMeta=typeof getGanttProjectStatusMeta==='function'?getGanttProjectStatusMeta(project):{label:project.status||'상태 없음',tone:'planned'};
   const barStatusClass=statusMeta.tone==='done'?'done':statusMeta.tone==='progress'?'progress':'planned';
-  const rangeMeta=getGanttAnnualRangeMeta(project,weeks,curYear);
+  const rangeMeta=getGanttAnnualRangeMeta(project,units,curYear);
   const memberText=(project.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
   const labelHtml='<div class="pg-annual-project-cell">'
     +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
@@ -10762,11 +10804,11 @@ function renderGanttAnnualProjectRow(project,weeks){
     +getGanttProjectActionButtons(project,isCompleted)
     +'</div>';
   let cells='';
-  for(let i=0;i<weeks.length;i++){
-    const week=weeks[i];
-    const weekIndex=i+1;
-    const cellCls='cell pg-annual-cell '+(week.isTodayWeek?'pg-annual-today-week ':'');
-    if(rangeMeta.visible&&weekIndex===rangeMeta.startIndex){
+  for(let i=0;i<units.length;i++){
+    const unit=units[i];
+    const unitIndex=i+1;
+    const cellCls='cell pg-annual-cell '+(unit.isTodayUnit?'pg-annual-today-week ':'');
+    if(rangeMeta.visible&&unitIndex===rangeMeta.startIndex){
       const colSpan=rangeMeta.span;
       const labelText=colSpan>=4?project.name:colSpan>=2?(project.client_name||project.name):'';
       cells+='<td class="'+cellCls+'gantt-span-cell" colspan="'+colSpan+'" style="position:relative">'
@@ -10786,16 +10828,22 @@ function renderGanttAnnualTimeline(projs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
   const monthLabel=document.getElementById('monthLabel');
-  if(monthLabel)monthLabel.textContent=curYear+'년 연간';
-  const weeks=getGanttAnnualWeeks(curYear);
+  const scale=curGanttTimelineScale==='week'?'week':'annual';
+  if(monthLabel)monthLabel.textContent=scale==='week'
+    ?curYear+'-'+String(curMonth).padStart(2,'0')+' 주간'
+    :curYear+'년 월간';
+  const units=getGanttTimelineScaleUnits(scale,curYear,curMonth);
   if(!projs.length){
     wrap.innerHTML='<div class="empty-state pg-annual-empty">현재 필터에서 표시할 프로젝트가 없습니다.</div>';
     renderLegend();
     return;
   }
-  let html='<table class="pg-annual-table"><thead><tr><th class="th-label">구분</th>';
-  weeks.forEach(week=>{
-    html+='<th class="th-day pg-annual-week-head '+(week.isTodayWeek?'today-h pg-annual-today-week':'')+'" title="'+esc(curYear+'년 '+week.index+'주')+'"><span class="pg-annual-month-label">'+esc(week.monthLabel)+'</span><span class="pg-annual-week-label">W'+week.index+'</span></th>';
+  let html='<table class="pg-annual-table pg-annual-table--'+scale+'"><thead><tr><th class="th-label">구분</th>';
+  units.forEach(unit=>{
+    const title=scale==='week'
+      ?curYear+'년 '+curMonth+'월 '+unit.index+'주'
+      :curYear+'년 '+unit.index+'월';
+    html+='<th class="th-day pg-annual-week-head '+(unit.isTodayUnit?'today-h pg-annual-today-week':'')+'" title="'+esc(title)+'"><span class="pg-annual-month-label">'+esc(unit.monthLabel)+'</span><span class="pg-annual-week-label">'+esc(unit.unitLabel)+'</span></th>';
   });
   html+='</tr></thead><tbody>';
   if(curGView==='project'){
@@ -10816,12 +10864,12 @@ function renderGanttAnnualTimeline(projs){
       const groupCounts=typeof getGanttClientGroupCounts==='function'?getGanttClientGroupCounts(clientProjects):{active:0,overdue:0,completed:0};
       const isCollapsed=!!ganttCollapsed[clientId];
       html+='<tr class="sec-row pg-timeline-group-row pg-annual-group-row'+(clientId==='__none__'?' muted':'')+(groupCounts.overdue?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
-        +'<td colspan="'+(weeks.length+1)+'">'
+        +'<td colspan="'+(units.length+1)+'">'
         +'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>'
         +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
         +'<span class="pg-client-group-count">· 진행 '+groupCounts.active+' · 지연 <span class="'+(groupCounts.overdue?'gantt-group-stat is-overdue':'gantt-group-stat')+'">'+groupCounts.overdue+'</span> · 완료 '+groupCounts.completed+'</span>'
         +'</td></tr>';
-      if(!isCollapsed)clientProjects.forEach(project=>{html+=renderGanttAnnualProjectRow(project,weeks);});
+      if(!isCollapsed)clientProjects.forEach(project=>{html+=renderGanttAnnualProjectRow(project,units);});
     });
   }else{
     const memberFilter=document.getElementById('memberFilter')?.value||'';
@@ -10833,8 +10881,8 @@ function renderGanttAnnualTimeline(projs){
     memberNames.forEach(name=>{
       const memberProjects=projs.filter(project=>(project.members||[]).includes(name));
       if(!memberProjects.length)return;
-      html+='<tr class="sec-row pg-annual-group-row"><td colspan="'+(weeks.length+1)+'"><span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(name)+'</span> <span style="color:var(--text3);font-weight:400">프로젝트 '+memberProjects.length+'건</span></td></tr>';
-      memberProjects.sort((a,b)=>toDate(a.end)-toDate(b.end)).forEach(project=>{html+=renderGanttAnnualProjectRow(project,weeks);});
+      html+='<tr class="sec-row pg-annual-group-row"><td colspan="'+(units.length+1)+'"><span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(name)+'</span> <span style="color:var(--text3);font-weight:400">프로젝트 '+memberProjects.length+'건</span></td></tr>';
+      memberProjects.sort((a,b)=>toDate(a.end)-toDate(b.end)).forEach(project=>{html+=renderGanttAnnualProjectRow(project,units);});
     });
   }
   html+='</tbody></table>';
@@ -10975,8 +11023,12 @@ window.renderGantt=function(){
       return;
     }
   }
-  if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){
-    renderGanttAnnualTimeline(projs);
+  if(curGanttLayout==='timeline'){
+    if(curGanttTimelineScale==='annual'||curGanttTimelineScale==='week'){
+      renderGanttAnnualTimeline(projs);
+      return;
+    }
+    renderFilteredGanttTimeline(projs,schs);
     return;
   }
   renderFilteredGanttTimeline(projs,schs);

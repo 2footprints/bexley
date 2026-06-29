@@ -738,6 +738,10 @@ function refreshGanttActiveViewOnly(){
     renderGanttCalendarGrid(currentData.projs,currentData.schs);
     return;
   }
+  if(curGanttLayout==='timeline'&&(curGanttTimelineScale==='annual'||curGanttTimelineScale==='week')&&typeof renderGanttAnnualTimeline==='function'){
+    renderGanttAnnualTimeline(currentData.projs);
+    return;
+  }
   if(typeof renderFilteredGanttTimeline==='function'){
     renderFilteredGanttTimeline(currentData.projs,currentData.schs);
     return;
@@ -3213,7 +3217,6 @@ syncGanttPrimaryToolbarVisibility=function(){
   const completedBtn=document.getElementById('ganttHideCompletedBtn');
   const personalOverlayBtn=document.getElementById('ganttPersonalOverlayBtn');
   const personalRowsBtn=document.getElementById('ganttPersonalRowsBtn');
-  const showTimelineModeToggle=curGanttLayout==='timeline';
   const showPersonalScheduleViewToggles=curGanttLayout==='timeline';
   if(scheduleBtn){
     const canShowScheduleBtn=typeof canManageCore==='function'?canManageCore():true;
@@ -3224,8 +3227,8 @@ syncGanttPrimaryToolbarVisibility=function(){
   }
   [projectViewBtn,memberViewBtn].forEach(btn=>{
     if(!btn)return;
-    btn.hidden=!showTimelineModeToggle;
-    btn.style.display=showTimelineModeToggle?'inline-flex':'none';
+    btn.hidden=false;
+    btn.style.display='inline-flex';
   });
   if(visibilityWrap){
     if(viewZone&&visibilityWrap.parentNode!==viewZone)viewZone.appendChild(visibilityWrap);
@@ -6720,11 +6723,17 @@ renderGanttTopFilterBar=function(){
   const assigneeOptions=getGanttListAssigneeFilterOptions();
   const typeOptions=getActiveProjectTypeRows();
   const teamOptions=getVisibleProjectTeamRows();
+  const basisDisabled=curGanttLayout!=='timeline';
   bar.innerHTML=''
     +'<div class="pg-status-filters gantt-top-filter-group gantt-status-group">'
       +getGanttStatusOptions().map(option=>'<button type="button" class="gantt-status-chip pg-status-chip'+(ganttStatusFilter===option.value?' active':'')+(option.value==='overdue'?' is-delay':'')+'" onclick="setGanttStatusFilter(\''+option.value+'\')">'+option.label+'</button>').join('')
     +'</div>'
     +'<div class="pg-right-filters">'
+      +'<div class="pg-filter-field gantt-top-filter-group gantt-view-basis-group">'
+        +'<span class="gantt-top-filter-label">보기 기준</span>'
+        +'<button type="button" class="btn sm" id="gvp" onclick="setGView(\'project\')" '+(basisDisabled?'disabled':'')+'>프로젝트별</button>'
+        +'<button type="button" class="btn sm" id="gvm" onclick="setGView(\'member\')" '+(basisDisabled?'disabled':'')+'>인력별</button>'
+      +'</div>'
       +(showAssigneeFilter
         ?'<label class="pg-filter-field gantt-top-filter-group gantt-assignee-group">'
           +'<span class="gantt-top-filter-label">담당</span>'
@@ -6771,6 +6780,7 @@ renderGanttTopFilterBar=function(){
       if(!e.target.value)setGanttClientFilter('');
     };
   }
+  if(typeof updateGanttLayoutButtons==='function')updateGanttLayoutButtons();
 };
 
 renderGanttActiveFilterTags=function(){
