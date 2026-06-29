@@ -255,9 +255,31 @@ function ensureSelectedOption(select,value,label){
   select.insertBefore(option,select.firstChild);
 }
 
+function markProjectReferenceSelectsReady(){
+  ['fType','fTeam'].forEach(id=>{
+    const select=document.getElementById(id);
+    if(!select)return;
+    if(!select.dataset.projectReferenceTouchGuard){
+      select.addEventListener('change',()=>{
+        select.dataset.userTouched='true';
+      });
+      select.dataset.projectReferenceTouchGuard='true';
+    }
+    select.dataset.referenceLoading='false';
+  });
+}
+
 function setProjectReferenceSelectLoading(){
   const typeSelect=document.getElementById('fType');
   const teamSelect=document.getElementById('fTeam');
+  [typeSelect,teamSelect].forEach(select=>{
+    if(!select)return;
+    if(!select.dataset.referencePreviousDisabled){
+      select.dataset.referencePreviousDisabled=select.disabled?'true':'false';
+    }
+    select.dataset.referenceLoading='true';
+    select.disabled=true;
+  });
   if(typeSelect&&!typeSelect.options.length)typeSelect.innerHTML='<option value="">불러오는 중...</option>';
   if(teamSelect&&!teamSelect.options.length)teamSelect.innerHTML='<option value="">불러오는 중...</option>';
 }
@@ -265,26 +287,45 @@ function setProjectReferenceSelectLoading(){
 function renderFreshProjectReferenceSelects(project){
   const typeSelect=document.getElementById('fType');
   const teamSelect=document.getElementById('fTeam');
-  const selectedTypeId=String(typeSelect?.value||project?.project_type_id||'').trim();
-  const selectedTeamId=String(teamSelect?.value||project?.team_id||'').trim();
+  const typeUserTouched=typeSelect?.dataset.userTouched==='true';
+  const teamUserTouched=teamSelect?.dataset.userTouched==='true';
+  const selectedTypeId=String(typeUserTouched?typeSelect?.value:(typeSelect?.value||project?.project_type_id||'')).trim();
+  const selectedTeamId=String(teamUserTouched?teamSelect?.value:(teamSelect?.value||project?.team_id||'')).trim();
   if(typeSelect){
     const legacyType=project?.type||(!selectedTypeId?typeSelect.selectedOptions?.[0]?.textContent||'':'');
     typeSelect.innerHTML=getProjectTypeSelectOptions(selectedTypeId,legacyType);
     ensureSelectedOption(typeSelect,selectedTypeId,project?.type||selectedTypeId);
     typeSelect.value=selectedTypeId;
+    typeSelect.disabled=typeSelect.dataset.referencePreviousDisabled==='true';
+    delete typeSelect.dataset.referencePreviousDisabled;
+    typeSelect.dataset.referenceLoading='false';
   }
   if(teamSelect){
     teamSelect.innerHTML=getProjectTeamSelectOptions(selectedTeamId);
     ensureSelectedOption(teamSelect,selectedTeamId,project?.team||project?.assigned_team||selectedTeamId);
     teamSelect.value=selectedTeamId;
+    teamSelect.disabled=teamSelect.dataset.referencePreviousDisabled==='true';
+    delete teamSelect.dataset.referencePreviousDisabled;
+    teamSelect.dataset.referenceLoading='false';
   }
 }
 
 async function refreshProjectModalReferenceOptions(projectId){
   const project=projectId?(projects||[]).find(item=>String(item?.id||'')===String(projectId||'')):null;
   setProjectReferenceSelectLoading();
-  await loadFreshProjectReferenceOptions();
-  renderFreshProjectReferenceSelects(project);
+  try{
+    await loadFreshProjectReferenceOptions();
+    renderFreshProjectReferenceSelects(project);
+  }catch(error){
+    ['fType','fTeam'].forEach(id=>{
+      const select=document.getElementById(id);
+      if(!select)return;
+      select.disabled=select.dataset.referencePreviousDisabled==='true';
+      delete select.dataset.referencePreviousDisabled;
+      select.dataset.referenceLoading='false';
+    });
+    throw error;
+  }
 }
 
 function installProjectModalReferenceLoader(retryCount=0){
@@ -296,6 +337,7 @@ function installProjectModalReferenceLoader(retryCount=0){
   const baseOpenProjModal=openProjModal;
   openProjModal=function(eid,preClientId,preContractId,initialTab){
     const result=baseOpenProjModal.apply(this,arguments);
+    markProjectReferenceSelectsReady();
     refreshProjectModalReferenceOptions(eid).catch(error=>{
       console.error('project reference options load failed:',error);
     });
