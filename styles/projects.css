@@ -5270,8 +5270,11 @@ td{
 }
 #pageGantt .pg-annual-table--annual .pg-annual-week-head,
 #pageGantt .pg-annual-table--annual .pg-annual-cell{
-  min-width:68px!important;
-  width:68px!important;
+  min-width:104px!important;
+  width:104px!important;
+}
+#pageGantt .pg-annual-table--annual .pg-annual-bar{
+  min-width:40px!important;
 }
 #pageGantt .pg-annual-today-week{
   background:#EAF1FB!important;

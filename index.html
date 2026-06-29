@@ -8016,9 +8016,15 @@ function closeModal(){
   document.getElementById('modalArea').innerHTML='';
 }
 
+function shiftGanttMonth(delta){
+  const next=new Date(curYear,curMonth-1+delta,1);
+  curYear=next.getFullYear();
+  curMonth=next.getMonth()+1;
+}
+
 // ── Init ──
-document.getElementById('prevM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear--;}else if(curMonth===1){curMonth=12;curYear--;}else curMonth--;renderGantt();};
-document.getElementById('nextM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear++;}else if(curMonth===12){curMonth=1;curYear++;}else curMonth++;renderGantt();};
+document.getElementById('prevM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear--;}else if(curGanttLayout==='timeline'&&curGanttTimelineScale==='week'){shiftGanttMonth(-6);}else shiftGanttMonth(-1);renderGantt();};
+document.getElementById('nextM').onclick=()=>{if(curGanttLayout==='timeline'&&curGanttTimelineScale==='annual'){curYear++;}else if(curGanttLayout==='timeline'&&curGanttTimelineScale==='week'){shiftGanttMonth(6);}else shiftGanttMonth(1);renderGantt();};
 document.getElementById('memberFilter').onchange=renderGantt;
 if(document.getElementById('gvp'))document.getElementById('gvp').style.cssText='background:var(--navy);color:#fff;border-color:var(--navy)';
 
@@ -10719,18 +10725,27 @@ function getGanttTimelineScaleUnits(scale,year,month){
   today.setHours(0,0,0,0);
   if(scale==='week'){
     let cursor=new Date(year,month-1,1);
-    const monthEnd=new Date(year,month,0);
-    while(cursor<=monthEnd){
+    const rangeEnd=new Date(year,month-1+6,0);
+    let lastMonthKey='';
+    let weekOfMonth=0;
+    while(cursor<=rangeEnd){
       const start=new Date(cursor);
       const end=new Date(cursor);
       end.setDate(end.getDate()+6);
-      if(end>monthEnd)end.setTime(monthEnd.getTime());
+      if(end>rangeEnd)end.setTime(rangeEnd.getTime());
+      const monthKey=start.getFullYear()+'-'+start.getMonth();
+      if(monthKey!==lastMonthKey){
+        lastMonthKey=monthKey;
+        weekOfMonth=1;
+      }else{
+        weekOfMonth++;
+      }
       units.push({
         index:units.length+1,
         start,
         end,
-        monthLabel:units.length===0?String(month)+'월':'',
-        unitLabel:'W'+(units.length+1),
+        monthLabel:weekOfMonth===1?String(start.getMonth()+1)+'월':'',
+        unitLabel:'W'+weekOfMonth,
         isTodayUnit:today>=start&&today<=end
       });
       cursor.setDate(cursor.getDate()+7);
@@ -10841,7 +10856,7 @@ function renderGanttAnnualTimeline(projs){
   let html='<table class="pg-annual-table pg-annual-table--'+scale+'"><thead><tr><th class="th-label">구분</th>';
   units.forEach(unit=>{
     const title=scale==='week'
-      ?curYear+'년 '+curMonth+'월 '+unit.index+'주'
+      ?unit.start.getFullYear()+'년 '+(unit.start.getMonth()+1)+'월 '+unit.unitLabel
       :curYear+'년 '+unit.index+'월';
     html+='<th class="th-day pg-annual-week-head '+(unit.isTodayUnit?'today-h pg-annual-today-week':'')+'" title="'+esc(title)+'"><span class="pg-annual-month-label">'+esc(unit.monthLabel)+'</span><span class="pg-annual-week-label">'+esc(unit.unitLabel)+'</span></th>';
   });
