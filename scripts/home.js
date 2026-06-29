@@ -3252,7 +3252,11 @@ function getHomeQueueProjectItems(today){
 
 function getHomePendingBillingProjects(){
   return (projects||[]).filter(project=>{
-    if(!project?.is_billable)return false;
+    const isCompletedLike=typeof isGanttProjectCompleted==='function'
+      ?isGanttProjectCompleted(project)
+      :isHomeCompletedProject(project);
+    if(!isCompletedLike)return false;
+    if(project?.is_billable===false)return false;
     return String(project?.billing_status||'').trim()==='미청구';
   });
 }
