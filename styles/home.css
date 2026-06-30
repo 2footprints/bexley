@@ -1110,6 +1110,9 @@
     position:sticky;
     top:88px;
     align-self:start;
+    width:calc(100% + 18px);
+    max-width:calc(100% + 18px);
+    margin-right:-18px;
     max-height:calc(100vh - 104px);
     overflow-y:auto;
   }
