@@ -4887,6 +4887,14 @@ td{
   background:#EEF2F6!important;
   border-color:rgba(100,116,139,.22)!important;
 }
+#pageGantt .gantt-view-controls{
+  width:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+}
 #pageGantt .gantt-layout-toggle{
   display:inline-flex!important;
   align-items:center!important;
@@ -4920,19 +4928,25 @@ td{
   box-shadow:0 5px 12px rgba(15,23,42,.10)!important;
 }
 #pageGantt #ganttTimelineScaleToggle{
-  flex-basis:100%!important;
+  display:inline-flex!important;
+  align-items:center!important;
   justify-content:center!important;
-  margin-top:4px!important;
+  gap:3px!important;
+  padding:2px!important;
+  border:1px solid rgba(148,163,184,.12)!important;
+  border-radius:12px!important;
+  background:rgba(248,250,252,.72)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7)!important;
 }
 #pageGantt #ganttTimelineScaleToggle .toggle-btn{
-  min-width:64px!important;
-  min-height:30px!important;
-  padding:0 10px!important;
+  min-width:58px!important;
+  min-height:26px!important;
+  padding:0 9px!important;
   border:1px solid transparent!important;
-  border-radius:10px!important;
+  border-radius:9px!important;
   background:transparent!important;
   color:#64748B!important;
-  font-size:12px!important;
+  font-size:11px!important;
   font-weight:800!important;
   box-shadow:none!important;
 }
@@ -5499,6 +5513,9 @@ td{
   #pageGantt .gantt-toolbar-zone--view{
     justify-content:flex-start!important;
   }
+  #pageGantt .gantt-view-controls{
+    align-items:flex-start!important;
+  }
   #pageGantt .gantt-toolbar-zone--actions{
     justify-content:flex-start!important;
     margin-left:0!important;
@@ -5530,6 +5547,9 @@ td{
   #pageGantt #ganttLayoutToggle{
     width:100%!important;
     justify-content:space-between!important;
+  }
+  #pageGantt .gantt-view-controls{
+    width:100%!important;
   }
   #pageGantt #ganttTimelineScaleToggle{
     width:100%!important;
