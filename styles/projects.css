@@ -5247,6 +5247,42 @@ td{
   top:10px!important;
   bottom:10px!important;
 }
+#pageGantt .pg-timeline-bar:not(.pg-annual-bar){
+  top:11px!important;
+  bottom:11px!important;
+  border:1px solid rgba(148,163,184,.24)!important;
+  border-radius:9px!important;
+  padding:0 8px!important;
+  color:var(--navy)!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
+  box-shadow:0 1px 3px rgba(15,23,42,.08)!important;
+}
+#pageGantt .pg-timeline-bar:not(.pg-annual-bar):hover{
+  transform:scaleY(1.04)!important;
+  box-shadow:0 4px 10px rgba(15,23,42,.12)!important;
+}
+#pageGantt .pg-timeline-bar:not(.pg-annual-bar).is-active{
+  box-shadow:0 0 0 2px rgba(29,78,216,.16),0 3px 8px rgba(15,23,42,.10)!important;
+}
+#pageGantt .pg-timeline-bar--progress:not(.pg-annual-bar){
+  background:#EAF1FB!important;
+  border-color:rgba(19,52,89,.18)!important;
+}
+#pageGantt .pg-timeline-bar--done:not(.pg-annual-bar){
+  background:#EAF7EE!important;
+  border-color:rgba(21,128,61,.18)!important;
+  color:#166534!important;
+}
+#pageGantt .pg-timeline-bar--planned:not(.pg-annual-bar){
+  background:#F1F5F9!important;
+  border-color:rgba(100,116,139,.18)!important;
+  color:#475569!important;
+}
+#pageGantt .pg-timeline-bar:not(.pg-annual-bar) .pg-bar-dot{
+  background:currentColor!important;
+  opacity:.58!important;
+}
 #pageGantt .pg-task-timeline-bar{
   top:13px!important;
   bottom:13px!important;
