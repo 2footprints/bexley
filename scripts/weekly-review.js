@@ -3642,6 +3642,66 @@ function renderWeeklyReviewIncludedOutputsMarkup(outputs,taskRows=[]){
   if(!rows.length)return '<div class="wr-empty-row wr-output-empty">회의 안건으로 지정된 산출물이 없습니다.<span class="wr-empty-hint">산출물 등록 시 회의 안건으로 포함 체크 시 여기에 표시됩니다.</span></div>';
   return '<div class="wr-output-featured">'+renderWeeklyReviewOutputRows(rows,taskRows)+'</div>';
 }
+function openWeeklyReviewOutputModalForProject(projectId){
+  const projectKey=String(projectId||'').trim();
+  if(!projectKey){
+    alert('산출물을 등록할 프로젝트를 선택해주세요.');
+    return;
+  }
+  if(typeof openGanttOutputModal==='function'){
+    openGanttOutputModal(projectKey);
+    return;
+  }
+  alert('산출물 등록 모달을 열 수 없습니다.');
+}
+function openWeeklyReviewOutputModalFromSelect(selectId){
+  const projectId=document.getElementById(selectId)?.value||'';
+  openWeeklyReviewOutputModalForProject(projectId);
+}
+function getWeeklyReviewOutputAddProjectOptions(taskRows=[]){
+  const map=new Map();
+  const addProject=project=>{
+    const projectId=String(project?.id||'').trim();
+    if(!projectId||map.has(projectId))return;
+    map.set(projectId,{
+      id:projectId,
+      label:getWeeklyReviewProjectContextLabel(project,{projectFallback:project?.name||'프로젝트명 미정'})
+    });
+  };
+  (taskRows||[]).forEach(task=>{
+    const project=getWeeklyReviewProjectById(task?.project_id);
+    if(project)addProject(project);
+  });
+  (projects||[])
+    .filter(project=>project&&!isWeeklyReviewCompletedProject(project))
+    .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'))
+    .slice(0,20)
+    .forEach(addProject);
+  return [...map.values()].sort((a,b)=>String(a.label||'').localeCompare(String(b.label||''),'ko'));
+}
+function renderWeeklyReviewOutputAddButton(projectId,label='+ 산출물 추가'){
+  const projectKey=String(projectId||'').trim();
+  if(!projectKey)return '';
+  return '<button type="button" class="btn ghost sm wr-output-add-btn" onclick="event.stopPropagation();openWeeklyReviewOutputModalForProject(\''+getWeeklyReviewJsString(projectKey)+'\')">'+esc(label)+'</button>';
+}
+function renderWeeklyReviewOutputEmptyAddMarkup(taskRows=[]){
+  const options=getWeeklyReviewOutputAddProjectOptions(taskRows);
+  if(!options.length){
+    return '<div class="wr-empty-row wr-output-empty">이번 주 등록된 산출물이 없습니다.<span class="wr-empty-hint">프로젝트 상세에서 산출물을 등록하세요.</span><div style="margin-top:10px"><button type="button" class="btn ghost sm" onclick="setPage(\'gantt\')">프로젝트 관리</button></div></div>';
+  }
+  const selectId='weeklyReviewOutputProjectSelect';
+  return '<div class="wr-empty-row wr-output-empty">'
+    +'이번 주 등록된 산출물이 없습니다.'
+    +'<span class="wr-empty-hint">프로젝트를 선택해 산출물 등록 모달을 바로 열 수 있습니다.</span>'
+    +'<div style="display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:12px">'
+      +'<select id="'+selectId+'" class="select" style="min-width:min(320px,100%);height:34px;font-size:12px">'
+        +'<option value="">프로젝트 선택</option>'
+        +options.map(option=>'<option value="'+esc(option.id)+'">'+esc(option.label)+'</option>').join('')
+      +'</select>'
+      +'<button type="button" class="btn ghost sm wr-output-add-btn" onclick="openWeeklyReviewOutputModalFromSelect(\''+selectId+'\')">+ 산출물 추가</button>'
+    +'</div>'
+  +'</div>';
+}
 function groupWeeklyReviewOutputsByProject(outputs=[]){
   const map=new Map();
   (outputs||[]).forEach(output=>{
@@ -3661,11 +3721,11 @@ function groupWeeklyReviewOutputsByProject(outputs=[]){
 }
 function renderWeeklyReviewOutputsByProjectMarkup(outputs,taskRows=[]){
   const rows=Array.isArray(outputs)?outputs:[];
-  if(!rows.length)return '<div class="wr-empty-row">이번 주 등록된 산출물이 없습니다.</div>';
+  if(!rows.length)return renderWeeklyReviewOutputEmptyAddMarkup(taskRows);
   return '<div class="wr-output-project-groups">'
     +groupWeeklyReviewOutputsByProject(rows).map(group=>
       '<div class="wr-output-project-group">'
-        +'<div class="wr-output-project-head"><strong>'+esc(group.label)+'</strong><span>'+formatWeeklyReviewCount(group.rows.length)+'</span></div>'
+        +'<div class="wr-output-project-head"><strong>'+esc(group.label)+'</strong><span>'+formatWeeklyReviewCount(group.rows.length)+'</span>'+renderWeeklyReviewOutputAddButton(group.project?.id)+'</div>'
         +renderWeeklyReviewOutputRows(group.rows,taskRows,{showAgendaPill:true})
       +'</div>'
     ).join('')
