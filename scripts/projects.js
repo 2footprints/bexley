@@ -255,10 +255,16 @@ function ensureSelectedOption(select,value,label){
   select.insertBefore(option,select.firstChild);
 }
 
-function markProjectReferenceSelectsReady(){
+function markProjectReferenceSelectsReady({resetTouched=false,projectId=null}={}){
+  const project=projectId?(projects||[]).find(item=>String(item?.id||'')===String(projectId||'')):null;
   ['fType','fTeam'].forEach(id=>{
     const select=document.getElementById(id);
     if(!select)return;
+    if(resetTouched){
+      delete select.dataset.userTouched;
+      const initialValue=id==='fTeam'?project?.team_id:project?.project_type_id;
+      select.dataset.referenceInitialValue=String(initialValue||select.value||'').trim();
+    }
     if(!select.dataset.projectReferenceTouchGuard){
       select.addEventListener('change',()=>{
         select.dataset.userTouched='true';
@@ -289,8 +295,8 @@ function renderFreshProjectReferenceSelects(project){
   const teamSelect=document.getElementById('fTeam');
   const typeUserTouched=typeSelect?.dataset.userTouched==='true';
   const teamUserTouched=teamSelect?.dataset.userTouched==='true';
-  const selectedTypeId=String(typeUserTouched?typeSelect?.value:(typeSelect?.value||project?.project_type_id||'')).trim();
-  const selectedTeamId=String(teamUserTouched?teamSelect?.value:(teamSelect?.value||project?.team_id||'')).trim();
+  const selectedTypeId=String(typeUserTouched?typeSelect?.value:(typeSelect?.dataset.referenceInitialValue||project?.project_type_id||typeSelect?.value||'')).trim();
+  const selectedTeamId=String(teamUserTouched?teamSelect?.value:(teamSelect?.dataset.referenceInitialValue||project?.team_id||teamSelect?.value||'')).trim();
   if(typeSelect){
     const legacyType=project?.type||(!selectedTypeId?typeSelect.selectedOptions?.[0]?.textContent||'':'');
     typeSelect.innerHTML=getProjectTypeSelectOptions(selectedTypeId,legacyType);
@@ -337,7 +343,7 @@ function installProjectModalReferenceLoader(retryCount=0){
   const baseOpenProjModal=openProjModal;
   openProjModal=function(eid,preClientId,preContractId,initialTab){
     const result=baseOpenProjModal.apply(this,arguments);
-    markProjectReferenceSelectsReady();
+    markProjectReferenceSelectsReady({resetTouched:true,projectId:eid});
     refreshProjectModalReferenceOptions(eid).catch(error=>{
       console.error('project reference options load failed:',error);
     });
