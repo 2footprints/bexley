@@ -106,7 +106,11 @@
 
   function collectProjectFormBody(){
     const name = document.getElementById('fName')?.value?.trim() || '';
-    const type = document.getElementById('fType')?.value || null;
+    const project_type_id = document.getElementById('fType')?.value || null;
+    const type = project_type_id && typeof getProjectTypeRowById === 'function'
+      ? (getProjectTypeRowById(project_type_id)?.name || null)
+      : (document.getElementById('fType')?.selectedOptions?.[0]?.textContent || document.getElementById('fType')?.value || null);
+    const team_id = document.getElementById('fTeam')?.value || null;
     const start = document.getElementById('fStart')?.value || null;
     const end = document.getElementById('fEnd')?.value || null;
     const status = document.getElementById('fStatus')?.value || null;
@@ -147,6 +151,8 @@
       body:{
         name,
         type,
+        project_type_id,
+        team_id,
         start_date:start,
         end_date:end,
         status,
