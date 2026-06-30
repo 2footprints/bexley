@@ -114,6 +114,10 @@ function getActiveProjectTypeRows(){
     .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
 }
 
+function naturalCompareKo(a,b){
+  return String(a||'').localeCompare(String(b||''),'ko',{numeric:true,sensitivity:'base'});
+}
+
 function getActiveProjectTeamRows(){
   return getProjectReferenceRows(typeof referenceTeams==='undefined'?[]:referenceTeams)
     .filter(team=>team?.is_active!==false)
@@ -2635,7 +2639,7 @@ function filterGanttListRows(rows){
 
 function compareGanttListValues(a,b,key){
   if(key==='client_name')return a.clientName.localeCompare(b.clientName,'ko');
-  if(key==='name')return String(a.project?.name||'').localeCompare(String(b.project?.name||''),'ko');
+  if(key==='name')return naturalCompareKo(a.project?.name,b.project?.name);
   if(key==='type')return getProjectTypeLabel(a.project).localeCompare(getProjectTypeLabel(b.project),'ko');
   if(key==='status'){
     const order={진행중:3,예정:2,완료:1};
@@ -2660,7 +2664,7 @@ function sortGanttListRows(rows){
   return [...rows].sort((a,b)=>{
     const diff=compareGanttListValues(a,b,ganttListSortKey);
     if(diff)return ganttListSortDir==='asc'?diff:-diff;
-    return String(a.project?.name||'').localeCompare(String(b.project?.name||''),'ko');
+    return naturalCompareKo(a.project?.name,b.project?.name);
   });
 }
 
@@ -6094,7 +6098,7 @@ function getGanttListRowStateClass(row){
 
 function compareGanttListValues(a,b,key){
   if(key==='client_name')return a.clientName.localeCompare(b.clientName,'ko');
-  if(key==='name')return String(a.project?.name||'').localeCompare(String(b.project?.name||''),'ko');
+  if(key==='name')return naturalCompareKo(a.project?.name,b.project?.name);
   if(key==='type')return getProjectTypeLabel(a.project).localeCompare(getProjectTypeLabel(b.project),'ko');
   if(key==='status')return Number(a?.lifecycleMeta?.rank||0)-Number(b?.lifecycleMeta?.rank||0);
   if(key==='period'){
@@ -6566,7 +6570,7 @@ sortGanttListRows=function(rows){
       diff=compareGanttListValues(a,b,ganttListSortKey);
     }
     if(diff)return ganttListSortDir==='asc'?diff:-diff;
-    return String(a.project?.name||'').localeCompare(String(b.project?.name||''),'ko');
+    return naturalCompareKo(a.project?.name,b.project?.name);
   });
 };
 
@@ -6602,7 +6606,10 @@ function getGanttListClientGroups(rows){
       group.nextDueLabel=formatGanttTaskShortDate(nextDue)||String(nextDue);
     }
   });
-  return [...groupMap.values()].sort((a,b)=>{
+  return [...groupMap.values()].map(group=>{
+    group.rows.sort((a,b)=>naturalCompareKo(a?.project?.name||a?.name,b?.project?.name||b?.name));
+    return group;
+  }).sort((a,b)=>{
     const aDue=a.nextDueValue||'9999-12-31';
     const bDue=b.nextDueValue||'9999-12-31';
     const dueDiff=String(aDue).localeCompare(String(bDue));
