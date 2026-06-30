@@ -10610,6 +10610,10 @@ window.gRow=function(p,days){
   });
   const issueCount=openIssuesByProject[p.id]||0;
   const isActive=String(ganttFocusProjectId||'')===String(p.id||'');
+  const timelineTasks=typeof getGanttTimelineOpenTasks==='function'?getGanttTimelineOpenTasks(p.id):[];
+  const hasTimelineTasks=timelineTasks.length>0;
+  const taskRowsCollapsed=hasTimelineTasks&&isGanttProjectTasksCollapsed(p.id);
+  const projectKeyJs=getGanttTimelineTaskJsString(p.id);
   const typeMeta=typeof getGanttProjectTypeMeta==='function'?getGanttProjectTypeMeta(p):{label:p.type||'유형 미지정',tone:'unknown'};
   const statusMeta=typeof getGanttProjectStatusMeta==='function'?getGanttProjectStatusMeta(p):{label:p.status||'상태 없음',tone:'planned'};
   const barStatusClass=statusMeta.tone==='done'?'done':statusMeta.tone==='progress'?'progress':'planned';
@@ -10621,6 +10625,7 @@ window.gRow=function(p,days){
     +(issueCount?'<span class="pg-row-alert is-danger">이슈 '+issueCount+'</span>':'');
   const progressHtml='<span class="pg-item-progress-row" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><span class="pg-progress-track"><span class="pg-progress-fill'+(isCompleted?' is-done':'')+'" style="width:'+progress+'%;background:'+progressColor+'"></span></span><span class="pg-progress-pct">'+progress+'%</span>'+alertHtml+'</span>';
   const finalLabelHtml='<div class="pg-timeline-project-cell">'
+    +(hasTimelineTasks?'<button type="button" class="pg-project-task-toggle" onclick="toggleGanttProjectTasks(\''+projectKeyJs+'\',event)" aria-expanded="'+(!taskRowsCollapsed)+'" title="'+(taskRowsCollapsed?'하위 업무 펼치기':'하위 업무 접기')+'"><span>'+(taskRowsCollapsed?'▶':'▼')+'</span></button>':'<span class="pg-project-task-toggle-spacer"></span>')
     +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
     +'<span class="pg-item-info">'
     +'<span class="pg-item-name-row"><span class="pg-item-title'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="pg-status-pill pg-status-pill--'+statusMeta.tone+'">'+esc(statusMeta.label)+'</span></span>'
@@ -10639,9 +10644,46 @@ window.gRow=function(p,days){
       +spanOverlayHtml
       +'</td>';
   },({cls})=>'<td class="'+cls+'" style="position:relative"></td>');
-  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+'" onclick="openGanttProjectDetail(\''+p.id+'\')"><td class="'+finalRowCls+'">'+finalLabelHtml+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" onclick="'+(hasTimelineTasks?'toggleGanttProjectTasks(\''+projectKeyJs+'\',event)':'openGanttProjectDetail(\''+projectKeyJs+'\')')+'"><td class="'+finalRowCls+'">'+finalLabelHtml+'</td>'+cells+'</tr>';
 };
 gRow=window.gRow;
+
+const GANTT_LIST_COLLAPSED_PROJECTS_STORAGE_KEY='bexley.ganttList.collapsedProjectIds';
+let ganttCollapsedProjectTaskIds=loadGanttCollapsedProjectTaskIds();
+
+function loadGanttCollapsedProjectTaskIds(){
+  try{
+    const raw=localStorage.getItem(GANTT_LIST_COLLAPSED_PROJECTS_STORAGE_KEY);
+    const ids=JSON.parse(raw||'[]');
+    return new Set(Array.isArray(ids)?ids.map(id=>String(id)):[]);
+  }catch(e){
+    return new Set();
+  }
+}
+
+function persistGanttCollapsedProjectTaskIds(){
+  try{
+    localStorage.setItem(GANTT_LIST_COLLAPSED_PROJECTS_STORAGE_KEY,JSON.stringify([...ganttCollapsedProjectTaskIds]));
+  }catch(e){}
+}
+
+function isGanttProjectTasksCollapsed(projectId){
+  return ganttCollapsedProjectTaskIds.has(String(projectId||''));
+}
+
+function toggleGanttProjectTasks(projectId,event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const key=String(projectId||'');
+  if(!key)return;
+  if(ganttCollapsedProjectTaskIds.has(key))ganttCollapsedProjectTaskIds.delete(key);
+  else ganttCollapsedProjectTaskIds.add(key);
+  persistGanttCollapsedProjectTaskIds();
+  if(typeof renderGantt==='function')renderGantt();
+}
+window.toggleGanttProjectTasks=toggleGanttProjectTasks;
 
 function getGanttTimelineTaskJsString(value){
   if(typeof getGanttTaskDrilldownJsString==='function')return getGanttTaskDrilldownJsString(value);
@@ -10696,6 +10738,7 @@ function renderGanttTimelineTaskRows(project,days){
   }
   const tasks=getGanttTimelineOpenTasks(projectId);
   if(!tasks.length)return '';
+  if(isGanttProjectTasksCollapsed(projectId))return '';
   const projectKey=getGanttTimelineTaskJsString(projectId);
   return tasks.map(task=>{
     const taskKey=getGanttTimelineTaskJsString(task?.id||'');

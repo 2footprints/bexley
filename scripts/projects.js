@@ -3833,42 +3833,6 @@ function getGanttProjectTaskSummary(projectId){
   return summary;
 }
 
-function renderGanttTaskRows(projectId){
-  const tasks=getGanttProjectTasks(projectId);
-  return tasks.map(task=>{
-    const assignee=getGanttTaskMemberName(task?.assignee_member_id)||'담당자 미지정';
-    const dueMeta=getGanttTaskDueMeta(task);
-    const progress=getGanttTaskProgressValue(task);
-    const priority=String(task?.priority||'medium');
-    return ''
-      +'<div class="gantt-task-row is-'+dueMeta.tone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
-        +'<div class="gantt-task-main">'
-          +'<div class="gantt-task-title-row">'
-            +'<div class="gantt-task-title">'+esc(task?.title||'제목 없는 업무')+'</div>'
-            +'<span class="badge '+getGanttTaskPriorityBadgeClass(priority)+'">'+getGanttTaskPriorityLabel(priority)+'</span>'
-          +'</div>'
-          +(task?.description?'<div class="gantt-task-desc">'+esc(truncateText(task.description,140))+'</div>':'')
-          +'<div class="gantt-task-meta-row">'
-            +'<span class="gantt-task-meta-pill">'+esc(assignee)+'</span>'
-            +'<span class="gantt-task-meta-pill">'+esc(getGanttTaskDateRangeLabel(task))+'</span>'
-          +'</div>'
-          +'<div class="gantt-task-action-hint">'+esc(getGanttTaskActionHint(task))+'</div>'
-        +'</div>'
-        +'<div class="gantt-task-side">'
-          +'<span class="badge '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span>'
-          +'<div class="gantt-task-progress-block"><div class="gantt-task-progress-value">'+progress+'%</div><div class="gantt-task-progress-track"><div class="gantt-task-progress-fill" style="width:'+progress+'%"></div></div></div>'
-          +'<div class="gantt-task-due is-'+dueMeta.tone+'">'+esc(dueMeta.label)+'</div>'
-          +'<div class="gantt-task-row-actions">'
-            +(task?.status!=='완료'
-              ?'<button type="button" class="btn sm" onclick="event.stopPropagation();completeProjectTask(\''+projectId+'\',\''+task.id+'\')">완료</button>'
-              :'')
-            +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">수정</button>'
-          +'</div>'
-        +'</div>'
-      +'</div>';
-  }).join('');
-}
-
 function renderGanttTaskEmptyState(projectId,loadMeta){
   if(loadMeta.loading){
     return '<div class="gantt-detail-empty-state"><div class="gantt-detail-value">업무를 불러오는 중입니다.</div><div class="gantt-detail-meta">선택한 프로젝트의 업무 목록을 가져오고 있습니다.</div></div>';
@@ -4250,49 +4214,6 @@ function getGanttProjectTaskSummary(projectId){
     if(getGanttTaskDueMeta(task).tone==='danger')summary.overdue+=1;
   });
   return summary;
-}
-
-function renderGanttTaskRows(projectId){
-  const tasks=getGanttProjectTasks(projectId);
-  return tasks.map(task=>{
-    const assignee=getGanttTaskMemberName(task?.assignee_member_id)||'담당자 미정';
-    const dueMeta=getGanttTaskDueMeta(task);
-    const progress=getGanttTaskProgressValue(task);
-    const priority=String(task?.priority||'medium');
-    const rowTone=getGanttTaskRowTone(task,dueMeta);
-    const dateMeta=getGanttTaskDateDisplayMeta(task);
-    const issueCount=getGanttTaskLinkedIssueCount(projectId,task?.id);
-    return ''
-      +'<div class="gantt-task-row is-'+rowTone+'" onclick="openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">'
-        +'<div class="gantt-task-main">'
-          +'<div class="gantt-task-title-row">'
-            +'<div class="gantt-task-title">'+esc(task?.title||'제목 없는 업무')+'</div>'
-            +'<span class="badge '+getGanttTaskPriorityBadgeClass(priority)+'">'+getGanttTaskPriorityLabel(priority)+'</span>'
-            +(issueCount>0?'<span class="gantt-task-context-badge is-issue">이슈 '+issueCount+'건</span>':'')
-          +'</div>'
-          +(task?.description?'<div class="gantt-task-desc">'+esc(truncateText(task.description,140))+'</div>':'')
-          +'<div class="gantt-task-action-hint">'+esc(getGanttTaskActionHint(task))+'</div>'
-        +'</div>'
-        +'<div class="gantt-task-info">'
-          +'<div class="gantt-task-info-row"><span class="gantt-task-info-label">담당</span><span class="gantt-task-info-value">'+esc(assignee)+'</span></div>'
-          +'<div class="gantt-task-info-row"><span class="gantt-task-info-label">시작</span><span class="gantt-task-info-value">'+esc(dateMeta.startText)+'</span></div>'
-          +'<div class="gantt-task-info-row"><span class="gantt-task-info-label">기한</span><span class="gantt-task-info-value is-'+dueMeta.tone+'">'+esc(dateMeta.dueText)+'</span></div>'
-        +'</div>'
-        +'<div class="gantt-task-side">'
-          +'<div class="gantt-task-side-top">'
-            +'<span class="badge '+getGanttTaskStatusBadgeClass(task?.status)+'">'+esc(task?.status||'예정')+'</span>'
-            +'<div class="gantt-task-due is-'+dueMeta.tone+'">'+esc(dueMeta.label)+'</div>'
-          +'</div>'
-          +'<div class="gantt-task-progress-block"><div class="gantt-task-progress-value">'+progress+'%</div><div class="gantt-task-progress-track"><div class="gantt-task-progress-fill" style="width:'+progress+'%"></div></div></div>'
-          +'<div class="gantt-task-row-actions">'
-            +(task?.status!=='완료'
-              ?'<button type="button" class="btn sm" onclick="event.stopPropagation();completeProjectTask(\''+projectId+'\',\''+task.id+'\')">완료</button>'
-              :'')
-            +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();openProjectTaskModal(\''+projectId+'\',\''+task.id+'\')">수정</button>'
-          +'</div>'
-        +'</div>'
-      +'</div>';
-  }).join('');
 }
 
 function renderGanttTaskEmptyState(projectId,loadMeta){
