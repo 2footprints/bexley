@@ -4130,13 +4130,15 @@ function openProjectTaskModal(projectId,taskId){
       +'<div class="modal-header"><div><div class="modal-title">'+(task?'업무 수정':'업무 추가')+'</div><div class="modal-sub">프로젝트: '+esc(project.name||'프로젝트 없음')+'</div></div><button class="icon-btn" onclick="closeModal()">✕</button></div>'
       +'<div class="project-task-form">'
         +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
-        +'<div class="form-grid two">'
+        +'<div class="form-grid two project-task-period-grid">'
+          +'<div class="form-row"><label class="form-label">시작일</label><input id="taskStart" type="date" value="'+esc(task?.start_date||'')+'"></div>'
+          +'<div class="form-row"><label class="form-label">마감일</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
+        +'</div>'
+        +'<div class="form-grid two project-task-operation-grid">'
           +'<div class="form-row"><label class="form-label">담당자</label><div id="taskAssigneeCombo"></div></div>'
           +'<div class="form-row"><label class="form-label">상태</label><select id="taskStatus">'+GANTT_TASK_STATUS_OPTIONS.map(status=>'<option value="'+status+'"'+((task?.status||'예정')===status?' selected':'')+'>'+status+'</option>').join('')+'</select></div>'
           +'<div class="form-row"><label class="form-label">우선순위</label><select id="taskPriority">'+GANTT_TASK_PRIORITY_OPTIONS.map(option=>'<option value="'+option.value+'"'+((String(task?.priority||'medium')===option.value)?' selected':'')+'>'+option.label+'</option>').join('')+'</select></div>'
           +'<div class="form-row"><label class="form-label">진행률</label><div class="project-hours-input"><input id="taskProgress" type="number" min="0" max="100" step="5" value="'+progressValue+'"><span>%</span></div></div>'
-          +'<div class="form-row"><label class="form-label">시작일</label><input id="taskStart" type="date" value="'+esc(task?.start_date||'')+'"></div>'
-          +'<div class="form-row"><label class="form-label">기한</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
         +'</div>'
         +'<div class="form-row"><label class="form-label">설명</label><textarea id="taskDescription" class="project-modal-memo" placeholder="업무 맥락이나 다음 액션을 간단히 남겨 주세요.">'+esc(task?.description||'')+'</textarea></div>'
       +'</div>'
@@ -4467,16 +4469,18 @@ function openProjectTaskModal(projectId,taskId){
     +overlayHtml
     +'<div class="modal project-task-modal">'
       +'<div class="modal-header"><div><div class="modal-title">'+(task?'업무 수정':'업무 추가')+'</div><div class="modal-sub">프로젝트: '+esc(project.name||'프로젝트 없음')+'</div></div><button class="icon-btn" onclick="closeModal()">×</button></div>'
-      +'<div class="project-task-modal-intro">업무 제목, 담당자, 기한만 정하면 바로 저장할 수 있습니다. 설명은 필요할 때만 짧게 남겨 주세요.</div>'
+      +'<div class="project-task-modal-intro">업무 제목, 기간, 담당자와 상태만 정하면 바로 저장할 수 있습니다. 설명은 필요할 때만 짧게 남겨 주세요.</div>'
       +'<form id="projectTaskForm" class="project-task-form" onsubmit="event.preventDefault();saveProjectTask()">'
         +'<div class="project-task-form-section">'
           +'<div class="project-task-form-section-title">업무 기본 정보</div>'
           +'<div class="form-row"><label class="form-label">업무 제목</label><input id="taskTitle" value="'+esc(task?.title||'')+'" placeholder="예: 고객 전달 자료 최종 검토"></div>'
-          +'<div class="form-grid two">'
+          +'<div class="form-grid two project-task-period-grid">'
             +'<div class="form-row"><label class="form-label">시작일</label><input id="taskStart" type="date" value="'+esc(task?.start_date||'')+'"></div>'
+            +'<div class="form-row"><label class="form-label">마감일</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
+          +'</div>'
+          +'<div class="form-grid two project-task-operation-grid">'
             +'<div class="form-row"><label class="form-label">담당자</label><div id="taskAssigneeCombo"></div></div>'
             +'<div class="form-row"><label class="form-label">상태</label><select id="taskStatus" onchange="syncProjectTaskStatusUI()">'+GANTT_TASK_STATUS_OPTIONS.map(status=>'<option value="'+status+'"'+((task?.status||'예정')===status?' selected':'')+'>'+status+'</option>').join('')+'</select></div>'
-            +'<div class="form-row"><label class="form-label">기한</label><input id="taskDue" type="date" value="'+esc(task?.due_date||'')+'"></div>'
           +'</div>'
           +'<div class="form-row"><label class="form-label">설명</label><textarea id="taskDescription" class="project-modal-memo" placeholder="업무 메모나 다음 액션을 간단히 적어 주세요">'+esc(task?.description||'')+'</textarea></div>'
         +'</div>'
@@ -4725,10 +4729,16 @@ function getGanttDetailRenderSignature(projs){
     const tasks=getGanttProjectTasks(project.id);
     const taskDigest=tasks.map(task=>[
       task?.id||'',
+      task?.title||'',
       task?.status||'',
+      task?.priority||'',
+      task?.start_date||'',
       task?.due_date||'',
       task?.assignee_member_id||'',
-      task?.progress_percent||''
+      task?.progress_percent||'',
+      task?.actual_done_at||'',
+      task?.description||'',
+      task?.updated_at||''
     ].join(':')).join('|');
     baseParts.push(taskDigest);
     baseParts.push(JSON.stringify(getGanttProjectTaskLoadMeta(project.id)||{}));
@@ -7182,11 +7192,25 @@ function refreshGanttProjectTaskListState(projectId){
   if(!key)return;
   ganttListTaskSummaryByProjectId[key]=undefined;
   ganttListTaskIssueSummaryByProjectId[key]=undefined;
-  if(curGanttLayout==='task'){
+  const detail=document.getElementById('ganttDetail');
+  if(detail&&String(detail.dataset.projectId||'')===key){
+    detail.dataset.renderSignature='';
+  }
+  if(Array.isArray(ganttTaskViewRows)&&ganttTaskViewRows.some(task=>String(task?.project_id||'')===key)){
     ganttTaskViewProjectKey='';
   }
-  if((curGanttLayout==='list'||curGanttLayout==='task')&&typeof refreshGanttActiveViewOnly==='function'){
+  if(typeof refreshGanttSupportTaskCompatibility==='function')refreshGanttSupportTaskCompatibility(key);
+  if(typeof renderGantt==='function'){
+    renderGantt();
+    return;
+  }
+  if(typeof refreshGanttActiveViewOnly==='function'){
     refreshGanttActiveViewOnly();
+    return;
+  }
+  if(detail&&String(ganttFocusProjectId||'')===key&&typeof renderGanttDetailPanel==='function'){
+    const currentData=typeof getGanttFilteredData==='function'?getGanttFilteredData():{projs:projects||[],schs:schedules||[]};
+    renderGanttDetailPanel(currentData.projs||[],currentData.schs||[]);
   }
 }
 

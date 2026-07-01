@@ -1904,10 +1904,35 @@ renderTeamKudosAndReviews = async function(){
   }
 };
 
+function isHomeAttentionWorkItem(item){
+  const sourceType=String(item?.sourceType||item?.kind||'').trim();
+  return sourceType==='task'||sourceType==='project';
+}
+
+function getHomeTodayDueWorkItemsFromAttention(attentionItems){
+  return (attentionItems||[])
+    .filter(isHomeAttentionWorkItem)
+    .filter(item=>item?.dueMeta?.diff===0||item?.dueMeta?.label==='오늘 마감');
+}
+
+function getHomeOverdueWorkItemsFromAttention(attentionItems){
+  return (attentionItems||[])
+    .filter(isHomeAttentionWorkItem)
+    .filter(item=>{
+      if(typeof item?.dueMeta?.diff==='number')return item.dueMeta.diff<0;
+      return String(item?.dueMeta?.label||'').startsWith('지연');
+    });
+}
+
+function getHomeWorkMetricMeta(item,fallbackText){
+  if(!item)return fallbackText;
+  return [item.contextTitle,item.summary].filter(Boolean).join(' · ')||fallbackText;
+}
+
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','내 지연 업무','확인할 이슈','오늘 일정'];
+  const loadingLabels=['오늘 마감 업무','내 지연 업무','확인할 이슈','오늘 일정'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY ACTION</div><div class="home-layer-title">오늘 액션</div><div class="home-layer-sub">오늘 내가 직접 처리하거나 확인해야 할 업무입니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--actions">'
@@ -1917,67 +1942,44 @@ renderHomeRiskSummary = async function(){
     +'</div></div>';
   try{
     const today=getHomeBaseDate();
-    const assignedProjects=getHomeActiveAssignedProjects();
-    const assignedProjectIds=new Set(assignedProjects.map(project=>String(project.id)));
-    const todayDueProjects=assignedProjects.filter(project=>{
-      const endDateRaw=project.end||project.end_date;
-      if(!endDateRaw)return false;
-      return toDate(endDateRaw).getTime()===today.getTime();
-    }).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
-    const overdueProjects=assignedProjects.filter(project=>{
-      const endDateRaw=project.end||project.end_date;
-      if(!endDateRaw)return false;
-      return toDate(endDateRaw)<today;
-    }).sort((a,b)=>{
-      const diff=toDate(a.end||a.end_date)-toDate(b.end||b.end_date);
-      if(diff)return diff;
-      return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
-    });
-    const [issueRows,pendingDocs]=await Promise.all([
+    const [issueRows,taskRows]=await Promise.all([
       (currentMember?.id||currentMember?.name)
-        ?api('GET','project_issues?select=id,project_id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
+        ?api('GET','project_issues?select=id,project_id,title,content,status,priority,assignee_member_id,assignee_name,created_at').catch(()=>[])
         :Promise.resolve([]),
-      api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
+      loadHomeProjectTaskRows()
     ]);
+    const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
+    const attentionItems=getHomeAttentionItems(today,todayScheduleItems,issueRows,taskRows);
+    const todayDueWorkItems=getHomeTodayDueWorkItemsFromAttention(attentionItems);
+    const overdueWorkItems=getHomeOverdueWorkItemsFromAttention(attentionItems);
     const myOpenIssues=(issueRows||[]).filter(issue=>{
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
     });
     const myHighPriorityIssues=myOpenIssues.filter(issue=>String(issue?.priority||'').trim().toLowerCase()==='high');
-    const myPendingDocs=(pendingDocs||[])
-      .filter(row=>assignedProjectIds.has(String(row?.project_id||'')))
-      .sort((a,b)=>{
-        const aTime=a?.due_date?toDate(a.due_date).getTime():Number.MAX_SAFE_INTEGER;
-        const bTime=b?.due_date?toDate(b.due_date).getTime():Number.MAX_SAFE_INTEGER;
-        if(aTime!==bTime)return aTime-bTime;
-        return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
-      });
-    const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
-    const firstDueProject=todayDueProjects[0]||null;
-    const firstOverdueProject=overdueProjects[0]||null;
-    const firstPendingDoc=myPendingDocs[0]||null;
+    const firstDueWork=todayDueWorkItems[0]||null;
+    const firstOverdueWork=overdueWorkItems[0]||null;
     const firstTodayItem=todayScheduleItems[0]||null;
-    const overdueDiff=firstOverdueProject
-      ?Math.max(1,Math.round((today.getTime()-toDate(firstOverdueProject.end||firstOverdueProject.end_date).getTime())/86400000))
-      :0;
     const cards=[
       {
-        label:'오늘 마감',
-        value:todayDueProjects.length?todayDueProjects.length+'건':'없음',
-        tone:todayDueProjects.length?'warning':'neutral',
-        quiet:!todayDueProjects.length,
+        label:'오늘 마감 업무',
+        value:todayDueWorkItems.length?todayDueWorkItems.length+'건':'없음',
+        tone:todayDueWorkItems.length?'warning':'neutral',
+        quiet:!todayDueWorkItems.length,
         emphasis:'action',
-        meta:firstDueProject?firstDueProject.name:'오늘 마감 프로젝트가 없습니다',
+        meta:getHomeWorkMetricMeta(firstDueWork,'주의 필요 항목 기준 오늘 마감 업무 없음'),
+        titleText:'주의 필요 항목과 같은 기준입니다. 내가 담당하거나 내 프로젝트에서 확인해야 하는 미완료 업무 중 오늘 마감인 항목입니다.',
         action:"setPage('projects')"
       },
       {
         label:'내 지연 업무',
-        value:overdueProjects.length?overdueProjects.length+'건':'없음',
-        tone:overdueProjects.length?'danger':'neutral',
-        quiet:!overdueProjects.length,
+        value:overdueWorkItems.length?overdueWorkItems.length+'건':'없음',
+        tone:overdueWorkItems.length?'danger':'neutral',
+        quiet:!overdueWorkItems.length,
         emphasis:'action',
-        meta:firstOverdueProject?(firstOverdueProject.name+' · D+'+overdueDiff):'지연된 프로젝트가 없습니다',
+        meta:getHomeWorkMetricMeta(firstOverdueWork,'주의 필요 항목 기준 지연 업무 없음'),
+        titleText:'주의 필요 항목과 같은 기준입니다. 내가 담당하거나 내 프로젝트에서 확인해야 하는 미완료 업무 중 마감일이 지난 항목입니다.',
         action:"setPage('projects')"
       },
       {
@@ -2048,7 +2050,7 @@ function addHomeAttentionClientId(set,project){
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','내 지연 업무','확인할 이슈','오늘 일정'];
+  const loadingLabels=['오늘 마감 업무','내 지연 업무','확인할 이슈','오늘 일정'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY SUMMARY</div><div class="home-layer-title">오늘 요약</div><div class="home-layer-sub">내가 오늘 직접 확인해야 할 개인 기준 지표입니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--actions">'
@@ -3880,7 +3882,7 @@ renderTeamKudosAndReviews = async function(){
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','내 지연 업무','확인할 이슈','오늘 일정'];
+  const loadingLabels=['오늘 마감 업무','내 지연 업무','확인할 이슈','오늘 일정'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY ACTION</div><div class="home-layer-title">오늘 액션</div><div class="home-layer-sub">오늘 내가 직접 처리하거나 확인해야 할 업무입니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--actions">'
@@ -3890,67 +3892,44 @@ renderHomeRiskSummary = async function(){
     +'</div></div>';
   try{
     const today=getHomeBaseDate();
-    const assignedProjects=getHomeActiveAssignedProjects();
-    const assignedProjectIds=new Set(assignedProjects.map(project=>String(project.id)));
-    const todayDueProjects=assignedProjects.filter(project=>{
-      const endDateRaw=project.end||project.end_date;
-      if(!endDateRaw)return false;
-      return toDate(endDateRaw).getTime()===today.getTime();
-    }).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
-    const overdueProjects=assignedProjects.filter(project=>{
-      const endDateRaw=project.end||project.end_date;
-      if(!endDateRaw)return false;
-      return toDate(endDateRaw)<today;
-    }).sort((a,b)=>{
-      const diff=toDate(a.end||a.end_date)-toDate(b.end||b.end_date);
-      if(diff)return diff;
-      return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
-    });
-    const [issueRows,pendingDocs]=await Promise.all([
+    const [issueRows,taskRows]=await Promise.all([
       (currentMember?.id||currentMember?.name)
-        ?api('GET','project_issues?select=id,project_id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
+        ?api('GET','project_issues?select=id,project_id,title,content,status,priority,assignee_member_id,assignee_name,created_at').catch(()=>[])
         :Promise.resolve([]),
-      api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
+      loadHomeProjectTaskRows()
     ]);
+    const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
+    const attentionItems=getHomeAttentionItems(today,todayScheduleItems,issueRows,taskRows);
+    const todayDueWorkItems=getHomeTodayDueWorkItemsFromAttention(attentionItems);
+    const overdueWorkItems=getHomeOverdueWorkItemsFromAttention(attentionItems);
     const myOpenIssues=(issueRows||[]).filter(issue=>{
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
     });
     const myHighPriorityIssues=myOpenIssues.filter(issue=>String(issue?.priority||'').trim().toLowerCase()==='high');
-    const myPendingDocs=(pendingDocs||[])
-      .filter(row=>assignedProjectIds.has(String(row?.project_id||'')))
-      .sort((a,b)=>{
-        const aTime=a?.due_date?toDate(a.due_date).getTime():Number.MAX_SAFE_INTEGER;
-        const bTime=b?.due_date?toDate(b.due_date).getTime():Number.MAX_SAFE_INTEGER;
-        if(aTime!==bTime)return aTime-bTime;
-        return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
-      });
-    const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
-    const firstDueProject=todayDueProjects[0]||null;
-    const firstOverdueProject=overdueProjects[0]||null;
-    const firstPendingDoc=myPendingDocs[0]||null;
+    const firstDueWork=todayDueWorkItems[0]||null;
+    const firstOverdueWork=overdueWorkItems[0]||null;
     const firstTodayItem=todayScheduleItems[0]||null;
-    const overdueDiff=firstOverdueProject
-      ?Math.max(1,Math.round((today.getTime()-toDate(firstOverdueProject.end||firstOverdueProject.end_date).getTime())/86400000))
-      :0;
     const cards=[
       {
-        label:'오늘 마감',
-        value:todayDueProjects.length?todayDueProjects.length+'건':'없음',
-        tone:todayDueProjects.length?'warning':'neutral',
-        quiet:!todayDueProjects.length,
+        label:'오늘 마감 업무',
+        value:todayDueWorkItems.length?todayDueWorkItems.length+'건':'없음',
+        tone:todayDueWorkItems.length?'warning':'neutral',
+        quiet:!todayDueWorkItems.length,
         emphasis:'action',
-        meta:firstDueProject?firstDueProject.name:'오늘 마감 프로젝트가 없습니다',
+        meta:getHomeWorkMetricMeta(firstDueWork,'주의 필요 항목 기준 오늘 마감 업무 없음'),
+        titleText:'주의 필요 항목과 같은 기준입니다. 내가 담당하거나 내 프로젝트에서 확인해야 하는 미완료 업무 중 오늘 마감인 항목입니다.',
         action:"setPage('projects')"
       },
       {
         label:'내 지연 업무',
-        value:overdueProjects.length?overdueProjects.length+'건':'없음',
-        tone:overdueProjects.length?'danger':'neutral',
-        quiet:!overdueProjects.length,
+        value:overdueWorkItems.length?overdueWorkItems.length+'건':'없음',
+        tone:overdueWorkItems.length?'danger':'neutral',
+        quiet:!overdueWorkItems.length,
         emphasis:'action',
-        meta:firstOverdueProject?(firstOverdueProject.name+' · D+'+overdueDiff):'지연된 프로젝트가 없습니다',
+        meta:getHomeWorkMetricMeta(firstOverdueWork,'주의 필요 항목 기준 지연 업무 없음'),
+        titleText:'주의 필요 항목과 같은 기준입니다. 내가 담당하거나 내 프로젝트에서 확인해야 하는 미완료 업무 중 마감일이 지난 항목입니다.',
         action:"setPage('projects')"
       },
       {

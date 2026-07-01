@@ -2024,6 +2024,10 @@ td{
   grid-template-columns:repeat(2,minmax(0,1fr))!important;
   gap:14px!important;
 }
+.project-task-period-grid,
+.project-task-operation-grid{
+  align-items:start!important;
+}
 .gantt-task-summary-grid{
   grid-template-columns:repeat(auto-fit,minmax(140px,1fr))!important;
 }
@@ -2150,6 +2154,11 @@ td{
   font-weight:800!important;
   color:var(--navy)!important;
   letter-spacing:.02em!important;
+}
+@media (max-width:640px){
+  .project-task-form .form-grid.two{
+    grid-template-columns:1fr!important;
+  }
 }
 .billing-quick-toggle-card{
   display:grid!important;
