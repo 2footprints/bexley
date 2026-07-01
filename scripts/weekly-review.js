@@ -5283,7 +5283,7 @@ function renderWeeklyReviewNextWeekSection(data) {
     const end=sched?.end||sched?.end_date||start;
     const days=start&&end?Math.round((getWeeklyReviewDate(end)-getWeeklyReviewDate(start))/(1000*60*60*24))+1:null;
     rows.push({
-      type:'추가/부재',
+      type:'휴가/부재',
       title:name,
       context:'휴가·부재',
       owner:name,
@@ -5296,30 +5296,28 @@ function renderWeeklyReviewNextWeekSection(data) {
     {type:'마감 예정',empty:'다음 주 마감 예정 프로젝트가 없습니다.',show:!deadlineProjects.length},
     {type:'착수 예정',empty:'차주 신규 착수 일정이 없습니다.',show:!nextStarts.length},
     {type:'산정 일정',empty:'차주 산정 일정이 없습니다.',show:!nextFieldwork.length},
-    {type:'추가/부재',empty:'차주 휴가·부재 신청이 없습니다.',show:!leaveNames.length}
-  ].filter(item=>item.show);
-  const nextRowsHtml=[
-    ...rows.map(row=>
-      '<div class="wr-unified-row wr-next-row '+(row.tone?'is-'+row.tone:'')+'" '+(row.action?'role="button" tabindex="0" onclick="'+row.action+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+row.action+';}"':'')+'>'
-        +'<span><span class="wr-unified-badge">'+esc(row.type)+'</span></span>'
-        +'<span class="wr-unified-title" title="'+esc(row.title)+'">'+esc(row.title)+'</span>'
-        +'<span class="wr-unified-context">'+esc(row.context||'-')+'</span>'
-        +'<span class="wr-unified-meta">'+esc(row.owner||'-')+'</span>'
-        +'<span class="wr-unified-date">'+esc(row.date||'-')+'</span>'
-        +'<span></span>'
-      +'</div>'
-    ),
-    ...fallbackTypes.map(item=>
-      '<div class="wr-unified-row wr-next-row is-empty">'
-        +'<span><span class="wr-unified-badge">'+esc(item.type)+'</span></span>'
-        +'<span class="wr-unified-title">'+esc(item.empty)+'</span>'
-        +'<span class="wr-unified-context">없음</span>'
-        +'<span class="wr-unified-meta">-</span>'
-        +'<span class="wr-unified-date">-</span>'
-        +'<span></span>'
-      +'</div>'
-    )
-  ].join('');
+    {type:'휴가/부재',empty:'차주 휴가·부재 신청이 없습니다.',show:!leaveNames.length}
+  ];
+  const groupOrder=['마감 예정','착수 예정','산정 일정','휴가/부재'];
+  const emptyTextByType=Object.fromEntries(fallbackTypes.map(item=>[item.type,item.empty]));
+  const nextGroupsHtml=groupOrder.map(type=>{
+    const groupRows=rows.filter(row=>row.type===type);
+    const countHtml=groupRows.length?'<span>'+groupRows.length+'건</span>':'';
+    const bodyHtml=groupRows.length
+      ?groupRows.map(row=>
+        '<div class="wr-next-group-row '+(row.tone?'is-'+row.tone:'')+'" '+(row.action?'role="button" tabindex="0" onclick="'+row.action+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+row.action+';}"':'')+'>'
+          +'<span class="wr-next-title" title="'+esc(row.title)+'">'+esc(row.title)+'</span>'
+          +'<span class="wr-next-context">'+esc(row.context||'-')+'</span>'
+          +'<span class="wr-next-owner">'+esc(row.owner||'-')+'</span>'
+          +'<span class="wr-next-date">'+esc(row.date||'-')+'</span>'
+        +'</div>'
+      ).join('')
+      :'<div class="wr-next-empty">- '+esc(emptyTextByType[type]||'차주 일정이 없습니다.')+'</div>';
+    return '<div class="wr-next-group" data-next-type="'+esc(type)+'">'
+      +'<div class="wr-next-group-head"><span>'+esc(type)+'</span>'+countHtml+'</div>'
+      +'<div class="wr-next-group-body">'+bodyHtml+'</div>'
+    +'</div>';
+  }).join('');
   return `<section class="card weekly-review-section" data-section-id="next-week" style="margin-top:0">
     <div class="weekly-review-section-head">
       <div>
@@ -5334,9 +5332,8 @@ function renderWeeklyReviewNextWeekSection(data) {
       <div class="weekly-review-section-expanded-body">
         <div class="weekly-review-section-group">
           <div class="weekly-review-group-title">차주 할 일</div>
-          <div class="wr-unified-list wr-next-list">
-            <div class="wr-unified-head"><span>구분</span><span>항목</span><span>상태/내용</span><span>담당자</span><span>일자</span><span></span></div>
-            ${nextRowsHtml}
+          <div class="wr-next-group-list">
+            ${nextGroupsHtml}
           </div>
         </div>
       </div>

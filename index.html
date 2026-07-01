@@ -1818,6 +1818,94 @@ input,textarea{border-radius:12px!important}
   border-color:rgba(37,99,235,.24);
   background:rgba(37,99,235,.06);
 }
+#pageWeeklyReview .wr-next-group-list{
+  display:grid;
+  gap:8px;
+}
+#pageWeeklyReview .wr-next-group{
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:8px;
+  background:#fff;
+  overflow:hidden;
+}
+#pageWeeklyReview .wr-next-group-head{
+  min-height:30px;
+  padding:0 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  background:#F8FAFC;
+  border-bottom:1px solid rgba(148,163,184,.16);
+  color:var(--navy);
+  font-size:11.5px;
+  font-weight:900;
+}
+#pageWeeklyReview .wr-next-group-head span:last-child{
+  color:var(--text3);
+  font-size:10.5px;
+  font-weight:850;
+}
+#pageWeeklyReview .wr-next-group-body{
+  display:grid;
+}
+#pageWeeklyReview .wr-next-group-row{
+  min-height:42px;
+  padding:6px 10px;
+  display:grid;
+  grid-template-columns:minmax(180px,1.4fr) minmax(88px,.7fr) minmax(92px,.7fr) 104px;
+  align-items:center;
+  gap:10px;
+  border-top:1px solid rgba(148,163,184,.14);
+  cursor:pointer;
+}
+#pageWeeklyReview .wr-next-group-row:first-child{
+  border-top:0;
+}
+#pageWeeklyReview .wr-next-group-row:hover{
+  background:#F8FAFC;
+}
+#pageWeeklyReview .wr-next-group-row.is-danger{
+  box-shadow:inset 3px 0 0 var(--red);
+}
+#pageWeeklyReview .wr-next-group-row.is-warn{
+  box-shadow:inset 3px 0 0 var(--orange);
+}
+#pageWeeklyReview .wr-next-title,
+#pageWeeklyReview .wr-next-context,
+#pageWeeklyReview .wr-next-owner,
+#pageWeeklyReview .wr-next-date{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#pageWeeklyReview .wr-next-title{
+  color:var(--navy);
+  font-size:12.5px;
+  font-weight:850;
+}
+#pageWeeklyReview .wr-next-context,
+#pageWeeklyReview .wr-next-owner{
+  color:var(--text2);
+  font-size:11.5px;
+  font-weight:700;
+}
+#pageWeeklyReview .wr-next-date{
+  color:var(--text3);
+  font-size:11.5px;
+  font-weight:850;
+  text-align:right;
+}
+#pageWeeklyReview .wr-next-empty{
+  min-height:30px;
+  padding:7px 10px;
+  display:flex;
+  align-items:center;
+  color:var(--text3);
+  font-size:11.5px;
+  font-weight:700;
+}
 #pageWeeklyReview .wr-output-list{
   display:flex;
   flex-direction:column;
@@ -2400,6 +2488,20 @@ input,textarea{border-radius:12px!important}
     opacity:1;
     pointer-events:auto;
   }
+  #pageWeeklyReview .wr-next-group-row{
+    grid-template-columns:minmax(0,1fr) 88px;
+    gap:4px 8px;
+    min-height:46px;
+  }
+  #pageWeeklyReview .wr-next-context,
+  #pageWeeklyReview .wr-next-owner{
+    grid-column:1;
+  }
+  #pageWeeklyReview .wr-next-date{
+    grid-column:2;
+    grid-row:1 / span 2;
+    align-self:center;
+  }
   #pageWeeklyReview .wr-deadline-row,
   #pageWeeklyReview .wr-deadline-right{
     align-items:flex-start;
@@ -2712,32 +2814,36 @@ input,textarea{border-radius:12px!important}
 
     <!-- 계약 탭 -->
     <div id="pageContracts" style="display:none">
+      <div class="contract-lookup-head">
+        <div>
+          <h2 class="contract-lookup-title">계약</h2>
+          <p class="contract-lookup-sub">외부 계약 시스템에서 가져온 계약 정보를 조회하고, 내부 프로젝트와 연결된 정보를 확인합니다.</p>
+        </div>
+        <button class="btn ghost sm" type="button" onclick="renderContractsPage()">동기화</button>
+      </div>
       <div id="contractKpiGrid" class="contract-kpi-grid"></div>
       <div class="card contract-toolbar-shell" style="margin-bottom:14px">
         <div class="contract-toolbar-grid">
           <div class="filter-row contract-toolbar-primary">
-            <div class="toggle-wrap">
-              <button class="toggle-btn active" id="managedFilterBtn" onclick="toggleManagedFilter()">우리 팀 계약</button>
-              <button class="toggle-btn" id="allContractBtn" onclick="toggleManagedFilter()">전체</button>
-            </div>
-            <input id="contractSearch" class="contract-toolbar-search" placeholder="거래처명, 계약명, 담당자 검색" oninput="setContractSearch(this.value)"/>
+            <input id="contractSearch" class="contract-toolbar-search" placeholder="계약명/거래처 검색" oninput="setContractSearch(this.value)"/>
           </div>
           <div class="filter-row contract-toolbar-basic">
             <select id="contractStatusFilter" onchange="setContractStatusFilter(this.value)">
               <option value="all">계약 상태 전체</option>
               <option value="진행중">진행중</option>
-              <option value="검토중">검토중</option>
               <option value="완료">완료</option>
-              <option value="해지">해지</option>
+              <option value="종료">종료</option>
+              <option value="보류">보류</option>
             </select>
             <select id="contractManagerFilter" onchange="setContractManagerFilter(this.value)">
               <option value="">담당자 전체</option>
             </select>
             <select id="contractBillingFilter" onchange="setContractBillingFilter(this.value)">
-              <option value="all">빌링 상태 전체</option>
-              <option value="unbilled">미청구 있음</option>
-              <option value="receivable">미수금 있음</option>
-              <option value="paid">완납</option>
+              <option value="all">청구 상태 전체</option>
+              <option value="paid">청구 완료</option>
+              <option value="unbilled">미청구</option>
+              <option value="partial">일부 청구</option>
+              <option value="nonbill">비청구</option>
             </select>
             <select id="contractRenewalFilter" onchange="setContractRenewalFilter(this.value)">
               <option value="all">갱신 상태 전체</option>
@@ -2766,12 +2872,7 @@ input,textarea{border-radius:12px!important}
             </div>
           </details>
           <div class="filter-row contract-toolbar-actions">
-            <div class="toggle-wrap contract-view-toggle">
-              <button class="toggle-btn active" id="contractViewGroupedBtn" onclick="setContractViewMode('grouped')">거래처별</button>
-              <button class="toggle-btn" id="contractViewListBtn" onclick="setContractViewMode('list')">리스트</button>
-              <button class="toggle-btn" id="contractViewBillingBtn" onclick="setContractViewMode('billing')">빌링 보드</button>
-            </div>
-            <button class="btn primary sm" id="addContractBtn" onclick="openContractModal()">+ 계약 추가</button>
+            <button class="btn ghost sm" type="button" onclick="clearContractLookupFilters()">필터 초기화</button>
           </div>
         </div>
       </div>

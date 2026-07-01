@@ -1,5 +1,5 @@
-let managedFilterActive=true;
-let contractViewMode='grouped';
+let managedFilterActive=false;
+let contractViewMode='list';
 let contractBillingRecords=[];
 let contractBillingRecordsLoaded=false;
 let contractBillingRecordsLoading=false;
@@ -2452,4 +2452,208 @@ async function renderContractsPage(){
     return;
   }
   el.innerHTML=renderContractOverviewIntro(rows)+renderContractGroupedView(rows);
+}
+
+function getContractLookupStatus(row){
+  const raw=String(row?.contract?.contract_status||'').trim();
+  if(raw==='완료')return {key:'완료',label:'완료',tone:'ok'};
+  if(['해지','종료','완전 종료'].includes(raw))return {key:'종료',label:'종료',tone:'neutral'};
+  if(['보류','검토중','대기'].includes(raw))return {key:'보류',label:'보류',tone:'warn'};
+  return {key:'진행중',label:'진행중',tone:'normal'};
+}
+
+function getContractLookupBillingStatus(row){
+  const total=Number(row?.contractAmount||0);
+  const billed=Number(row?.billedTotal||0);
+  const unbilled=Number(row?.unbilledBalance||0);
+  if(total<=0)return {key:'nonbill',label:'비청구',tone:'neutral'};
+  if(unbilled<=0)return {key:'paid',label:'청구 완료',tone:'ok'};
+  if(billed>0)return {key:'partial',label:'일부 청구',tone:'warn'};
+  return {key:'unbilled',label:'미청구',tone:'danger'};
+}
+
+function getContractLookupManagerLabel(names){
+  const list=(Array.isArray(names)?names:[]).filter(Boolean);
+  if(!list.length)return {label:'담당자 미지정',title:'담당자 미지정'};
+  if(list.length<=2)return {label:list.join(', '),title:list.join(', ')};
+  return {label:list[0]+' 외 '+(list.length-1)+'명',title:list.join(', ')};
+}
+
+function getContractLookupProjectLabel(row){
+  const items=Array.isArray(row?.relatedProjects)?row.relatedProjects:[];
+  if(!items.length)return '-';
+  if(items.length===1)return items[0]?.title||items[0]?.name||'프로젝트 1건';
+  return '프로젝트 '+items.length+'건';
+}
+
+function getContractLookupRenewalText(row){
+  const end=row?.contract?.contract_end_date;
+  if(!end)return '-';
+  const meta=getContractRemainingDaysMeta(row);
+  return meta?.tone==='warn'||meta?.tone==='danger'
+    ?end+' · '+meta.text
+    :end;
+}
+
+function renderContractKpis(rows){
+  const el=document.getElementById('contractKpiGrid');
+  if(!el)return;
+  const safeRows=Array.isArray(rows)?rows:[];
+  const totalAmount=safeRows.reduce((sum,row)=>sum+Number(row?.contractAmount||0),0);
+  const unbilledAmount=safeRows.reduce((sum,row)=>sum+Number(row?.unbilledBalance||0),0);
+  const renewalCount=safeRows.filter(row=>row?.isActive&&row?.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60).length;
+  const warningCount=safeRows.filter(row=>getContractAttentionMeta(row).tone!=='ok').length;
+  el.className='contract-kpi-grid contract-lookup-summary';
+  el.innerHTML=''
+    +'<span>전체 <strong>'+safeRows.length+'건</strong></span>'
+    +'<span>총 계약금액 <strong>'+formatContractCurrency(totalAmount)+'</strong></span>'
+    +'<span class="'+(unbilledAmount>0?'is-warn':'is-muted')+'">미청구 <strong>'+formatContractCurrency(unbilledAmount)+'</strong></span>'
+    +'<span class="'+(renewalCount>0?'is-warn':'is-muted')+'">갱신 예정 <strong>'+renewalCount+'건</strong></span>'
+    +'<span class="'+(warningCount>0?'is-danger':'is-muted')+'">주의 <strong>'+warningCount+'건</strong></span>';
+}
+
+function contractMatchesFilters(row){
+  const status=getContractLookupStatus(row);
+  const billing=getContractLookupBillingStatus(row);
+  if(contractToolbarState.status!=='all'&&status.key!==contractToolbarState.status)return false;
+  if(contractToolbarState.clientId&&String(row.contract?.client_id||'')!==contractToolbarState.clientId)return false;
+  if(contractToolbarState.manager&&!(row.managerNames||[]).includes(contractToolbarState.manager))return false;
+  if(contractToolbarState.billing!=='all'&&billing.key!==contractToolbarState.billing)return false;
+  if(contractToolbarState.renewal==='due60'&&!(row.isActive&&row.renewalDiffDays!==null&&row.renewalDiffDays>=0&&row.renewalDiffDays<=60))return false;
+  if(contractToolbarState.renewal==='expired'&&!(row.isActive&&row.renewalDiffDays!==null&&row.renewalDiffDays<0))return false;
+  if(contractToolbarState.search){
+    const keyword=contractToolbarState.search.toLowerCase();
+    const haystack=[
+      row.client?.name||'',
+      row.contract?.contract_name||'',
+      (row.managerNames||[]).join(' ')
+    ].join(' ').toLowerCase();
+    if(!haystack.includes(keyword))return false;
+  }
+  return true;
+}
+
+function renderContractFilterTags(){
+  const el=document.getElementById('contractFilterTags');
+  if(!el)return;
+  const tags=[];
+  if(contractToolbarState.search)tags.push({key:'search',label:'검색: '+contractToolbarState.search});
+  if(contractToolbarState.status!=='all')tags.push({key:'status',label:'계약 상태: '+contractToolbarState.status});
+  if(contractToolbarState.manager)tags.push({key:'manager',label:'담당자: '+contractToolbarState.manager});
+  if(contractToolbarState.billing!=='all'){
+    const labels={paid:'청구 완료',unbilled:'미청구',partial:'일부 청구',nonbill:'비청구'};
+    tags.push({key:'billing',label:'청구 상태: '+(labels[contractToolbarState.billing]||contractToolbarState.billing)});
+  }
+  if(contractToolbarState.renewal!=='all'){
+    const labels={due60:'60일 내 만료',expired:'만료됨'};
+    tags.push({key:'renewal',label:'갱신: '+(labels[contractToolbarState.renewal]||contractToolbarState.renewal)});
+  }
+  el.innerHTML=tags.map(tag=>
+    '<button type="button" class="contract-filter-tag" onclick="clearContractFilterTag(\''+tag.key+'\')">'+esc(tag.label)+' <span>×</span></button>'
+  ).join('');
+}
+
+function renderContractLookupListView(rows){
+  const safeRows=Array.isArray(rows)?rows:[];
+  if(!safeRows.length){
+    return '<div class="contract-empty-state contract-lookup-empty"><div class="contract-empty-title">조건에 맞는 계약이 없습니다</div><div class="contract-empty-sub">검색어 또는 필터를 조정해보세요.</div></div>';
+  }
+  return ''
+    +'<div class="contract-lookup-table-shell">'
+      +'<table class="contract-lookup-table">'
+        +'<thead><tr>'
+          +'<th>계약명</th>'
+          +'<th>거래처</th>'
+          +'<th>담당자</th>'
+          +'<th class="is-money">계약금액</th>'
+          +'<th class="is-money">미청구 금액</th>'
+          +'<th>계약 상태</th>'
+          +'<th>청구 상태</th>'
+          +'<th>갱신/만료일</th>'
+          +'<th>연결 프로젝트</th>'
+          +'<th>상세</th>'
+        +'</tr></thead>'
+        +'<tbody>'
+        +safeRows.map(row=>{
+          const attention=getContractAttentionMeta(row);
+          const status=getContractLookupStatus(row);
+          const billing=getContractLookupBillingStatus(row);
+          const manager=getContractLookupManagerLabel(row.managerNames);
+          const projectLabel=getContractLookupProjectLabel(row);
+          return ''
+            +'<tr class="contract-lookup-row is-'+attention.tone+'" onclick="openContractDetail(\''+row.contract.id+'\')">'
+              +'<td><div class="contract-lookup-name" title="'+esc(row.contract?.contract_name||'계약명 없음')+'">'+esc(row.contract?.contract_name||'계약명 없음')+'</div></td>'
+              +'<td><div class="contract-lookup-client" title="'+esc(row.client?.name||'고객사 미지정')+'">'+esc(row.client?.name||'고객사 미지정')+'</div></td>'
+              +'<td><span class="contract-lookup-muted" title="'+esc(manager.title)+'">'+esc(manager.label)+'</span></td>'
+              +'<td class="is-money">'+formatContractCurrency(row.contractAmount)+'</td>'
+              +'<td class="is-money '+(Number(row.unbilledBalance||0)>0?'is-warn':'')+'">'+formatContractCurrency(row.unbilledBalance)+'</td>'
+              +'<td><span class="contract-lookup-badge is-'+status.tone+'">'+esc(status.label)+'</span></td>'
+              +'<td><span class="contract-lookup-badge is-'+billing.tone+'">'+esc(billing.label)+'</span></td>'
+              +'<td><span class="contract-lookup-muted">'+esc(getContractLookupRenewalText(row))+'</span></td>'
+              +'<td><span class="contract-lookup-muted" title="'+esc(projectLabel)+'">'+esc(projectLabel)+'</span></td>'
+              +'<td><button type="button" class="contract-detail-link" onclick="event.stopPropagation();openContractDetail(\''+row.contract.id+'\')">상세</button></td>'
+            +'</tr>';
+        }).join('')
+        +'</tbody>'
+      +'</table>'
+    +'</div>';
+}
+
+function clearContractLookupFilters(){
+  managedFilterActive=false;
+  contractToolbarState.status='all';
+  contractToolbarState.types=[];
+  contractToolbarState.clientId='';
+  contractToolbarState.manager='';
+  contractToolbarState.billing='all';
+  contractToolbarState.renewal='all';
+  contractToolbarState.search='';
+  contractToolbarState.sort='client';
+  document.getElementById('contractSearch')&&(document.getElementById('contractSearch').value='');
+  document.getElementById('contractStatusFilter')&&(document.getElementById('contractStatusFilter').value='all');
+  document.getElementById('contractManagerFilter')&&(document.getElementById('contractManagerFilter').value='');
+  document.getElementById('contractBillingFilter')&&(document.getElementById('contractBillingFilter').value='all');
+  document.getElementById('contractRenewalFilter')&&(document.getElementById('contractRenewalFilter').value='all');
+  document.getElementById('contractClientFilter')&&(document.getElementById('contractClientFilter').value='');
+  document.getElementById('contractSortFilter')&&(document.getElementById('contractSortFilter').value='client');
+  renderContractsPage();
+}
+
+function toggleManagedFilter(){
+  managedFilterActive=false;
+  renderContractsPage();
+}
+
+function setContractViewMode(){
+  contractViewMode='list';
+  renderContractsPage();
+}
+
+async function renderContractsPage(){
+  const el=document.getElementById('contractsPageContent');
+  const monthlyReportEl=document.getElementById('contractMonthlyReport');
+  if(!el)return;
+  contractViewMode='list';
+  managedFilterActive=false;
+  document.getElementById('contractSearch')&&(document.getElementById('contractSearch').value=contractToolbarState.search);
+  document.getElementById('contractStatusFilter')&&(document.getElementById('contractStatusFilter').value=contractToolbarState.status);
+  document.getElementById('contractBillingFilter')&&(document.getElementById('contractBillingFilter').value=contractToolbarState.billing);
+  document.getElementById('contractRenewalFilter')&&(document.getElementById('contractRenewalFilter').value=contractToolbarState.renewal);
+  if(monthlyReportEl){
+    monthlyReportEl.hidden=true;
+    monthlyReportEl.innerHTML='';
+  }
+
+  if(!contractBillingRecordsLoaded)await ensureContractBillingRecordsLoaded();
+  if(!contractPendingDocRequestsLoaded)await ensureContractPendingDocRequestsLoaded();
+
+  const baseRows=(contracts||[]).map(buildContractRow);
+  renderContractFilterOptions(baseRows);
+  let rows=baseRows.filter(contractMatchesFilters);
+  rows=sortContractRows(rows);
+
+  renderContractKpis(rows);
+  renderContractFilterTags();
+  syncContractAlertNotifications(baseRows).catch(()=>{});
+  el.innerHTML=renderContractLookupListView(rows);
 }

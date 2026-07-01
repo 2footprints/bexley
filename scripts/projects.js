@@ -6765,7 +6765,7 @@ function renderGanttListClientGroupHeader(group,forceExpanded=false){
   if(Number(group?.overdueTasks||0)>0)parts.push('지연 태스크 '+Number(group.overdueTasks)+'건');
   if(group?.nextDueLabel)parts.push('다음 마감 '+group.nextDueLabel);
   return '<tr class="gantt-list-client-group-row'+(collapsed?' is-collapsed':'')+'" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\',event)">'
-    +'<td colspan="6">'
+    +'<td colspan="7">'
       +'<div class="gantt-list-client-group-head">'
         +'<button type="button" class="gantt-list-client-group-toggle" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\',event)" aria-expanded="'+(!collapsed)+'">'
           +'<span class="gantt-list-client-group-chevron">'+(collapsed?'▶':'▼')+'</span>'
@@ -7128,6 +7128,22 @@ function getGanttListProjectTaskButtonText(row,isExpanded){
   return count>0?'관련 업무 '+count+'건':'업무 보기';
 }
 
+function getGanttListProjectTaskCount(row){
+  const projectId=String(row?.project?.id||'').trim();
+  const loadedTasks=Array.isArray(ganttProjectTasksByProjectId[projectId])?ganttProjectTasksByProjectId[projectId]:null;
+  return loadedTasks?loadedTasks.length:Number(row?.taskSummary?.total||0);
+}
+
+function renderGanttListProjectTaskToggle(row,isExpanded){
+  const projectId=String(row?.project?.id||'').trim();
+  if(!projectId)return '<span class="gantt-list-expand-spacer"></span>';
+  const count=getGanttListProjectTaskCount(row);
+  if(!count)return '<span class="gantt-list-expand-spacer"></span>';
+  const projectIdJs=getGanttTaskDrilldownJsString(projectId);
+  const label=isExpanded?'업무 접기':'업무 펼치기';
+  return '<button type="button" class="gantt-list-expand-toggle'+(isExpanded?' active':'')+'" title="'+label+' · 업무 '+count+'건" aria-label="'+label+'" aria-expanded="'+(isExpanded?'true':'false')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+projectIdJs+'\')">'+(isExpanded?'▾':'▸')+'</button>';
+}
+
 function getGanttListDrilldownTasks(projectId){
   if(typeof getGanttTaskDisplayRows==='function')return getGanttTaskDisplayRows(projectId);
   return [...getGanttProjectTasks(projectId)].sort((a,b)=>{
@@ -7423,7 +7439,7 @@ renderGanttListTaskDrilldownRow=function(row){
     +'</div>';
   }
   return '<tr class="gantt-list-child-row">'
-    +'<td class="gantt-list-task-detail-cell" colspan="6">'
+    +'<td class="gantt-list-task-detail-cell" colspan="7">'
       +'<div class="gantt-list-task-drill-shell">'
         +'<div class="gantt-list-task-drill-head">'
           +'<div><div class="gantt-list-task-drill-title">프로젝트 업무</div><div class="gantt-list-task-drill-sub">업무를 compact 세로 목록으로 확인하고, 항목을 클릭해 수정합니다.</div></div>'
@@ -7481,7 +7497,7 @@ renderGanttListTaskDrilldownRow=function(row){
     +'</div>';
   }
   return '<tr class="gantt-list-child-row">'
-    +'<td class="gantt-list-task-detail-cell" colspan="6">'
+    +'<td class="gantt-list-task-detail-cell" colspan="7">'
       +'<div class="gantt-list-task-drill-shell">'
         +'<div class="gantt-list-task-drill-head">'
           +'<div><div class="gantt-list-task-drill-title">업무 '+allTasks.length+'건 <span>열린 업무 '+openTasks.length+' · 완료 '+doneCount+'</span></div></div>'
@@ -7557,6 +7573,7 @@ renderGanttListView=function(projs,schs){
       +'<div class="gantt-list-table-shell"><table class="gantt-list-table gantt-list-table--queue">'
         +'<thead><tr>'
           +'<th class="gantt-list-check-col"><input type="checkbox" '+(allSelected?'checked ':'')+(selectableRows.length?'':'disabled ')+'onclick="event.stopPropagation();toggleGanttListSelectAll(this.checked,['+selectableIdsJs+'])" /></th>'
+          +'<th class="gantt-list-expand-col"></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'type\')">유형'+getGanttListSortIndicator('type')+'</button></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'name\')">프로젝트'+getGanttListSortIndicator('name')+'</button></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'members\')">담당자'+getGanttListSortIndicator('members')+'</button></th>'
@@ -7575,7 +7592,7 @@ renderGanttListView=function(projs,schs){
           const canManage=canManageGanttListProject(project);
           const isExpanded=ganttListExpandedProjectIds.includes(projectId);
           const rowStateClass=getGanttListRowStateClass(row);
-          const taskButtonText=getGanttListProjectTaskButtonText(row,isExpanded);
+          const taskCount=getGanttListProjectTaskCount(row);
           const projectTitle=getGanttListProjectTitle(row);
           const memberTitle=getGanttListMemberTitle(row);
           const memberText=getGanttListCompactMemberText(row);
@@ -7583,10 +7600,10 @@ renderGanttListView=function(projs,schs){
           const mainRow=''
             +'<tr class="gantt-list-row'+(selected?' is-selected':'')+rowStateClass+'" onclick="openGanttProjectDetail(\''+projectIdJs+'\')">'
               +'<td class="gantt-list-check-col" onclick="event.stopPropagation()"><input type="checkbox" '+(selected?'checked ':'')+(canManage?'':'disabled ')+'onchange="toggleGanttListProjectSelection(\''+projectIdJs+'\')" /></td>'
+              +'<td class="gantt-list-expand-col" onclick="event.stopPropagation()">'+renderGanttListProjectTaskToggle(row,isExpanded)+'</td>'
               +'<td><div class="gantt-list-type-cell" title="'+esc([row.typeText,row.teamText].filter(Boolean).join(' · '))+'">'+esc(row.typeText||'-')+'</div></td>'
               +'<td title="'+esc(projectTitle)+'">'
-                +'<div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div>'
-                +'<div class="gantt-list-project-actions"><button type="button" class="gantt-list-drill-toggle'+(isExpanded?' active':'')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+projectIdJs+'\')">'+esc(taskButtonText)+'</button></div>'
+                +'<div class="gantt-list-project-title-line"><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div>'+(taskCount?'<span class="gantt-list-project-task-count">업무 '+taskCount+'</span>':'')+'</div>'
               +'</td>'
               +'<td><div class="gantt-list-member-cell" title="'+esc(memberTitle)+'">'+esc(memberText)+'</div></td>'
               +'<td>'+renderGanttListDueDateCell(project)+'</td>'
@@ -7884,23 +7901,6 @@ let ganttProjectQcByProjectId={};
 let ganttProjectQcLoadMetaByProjectId={};
 let ganttProjectQcActiveOutputId='';
 
-const GANTT_QC_STATUS_META={
-  none:{label:'QC 없음',cls:'badge-gray'},
-  requested:{label:'요청중',cls:'badge-orange'},
-  reviewing:{label:'검토중',cls:'badge-blue'},
-  revision_requested:{label:'수정요청',cls:'badge-red'},
-  approved:{label:'승인완료',cls:'badge-green'}
-};
-
-function normalizeGanttQcStatus(value){
-  const status=String(value||'none').trim();
-  return GANTT_QC_STATUS_META[status]?status:'none';
-}
-
-function getGanttQcStatusMeta(value){
-  return GANTT_QC_STATUS_META[normalizeGanttQcStatus(value)];
-}
-
 function getGanttQcMemberName(memberId){
   const key=String(memberId||'').trim();
   if(!key)return '';
@@ -7912,10 +7912,6 @@ function getGanttQcOutputAuthorName(output){
   const authorId=String(output?.author_id||'').trim();
   if(authorId&&currentUser?.id&&authorId===String(currentUser.id))return currentMember?.name||currentUser?.email||'나';
   return getGanttQcMemberName(authorId)||output?.author_name||'작성자 미확인';
-}
-
-function getGanttQcReviewerName(output){
-  return getGanttQcMemberName(output?.qc_reviewer_id)||'리뷰어 미지정';
 }
 
 function getCurrentGanttQcMemberId(){
@@ -7951,44 +7947,19 @@ async function loadGanttProjectQc(projectId,force=false){
   ganttProjectQcLoadMetaByProjectId[key]={loading:true,error:''};
   invalidateGanttProjectQcRender(key);
   try{
-    const [outputs,reviews]=await Promise.all([
+    const [outputs,reviews,tasks]=await Promise.all([
       api('GET','project_outputs?project_id=eq.'+key+'&select=*&order=created_at.desc').catch(()=>[]),
-      api('GET','qc_reviews?project_id=eq.'+key+'&select=*&order=created_at.desc').catch(()=>[])
+      api('GET','qc_reviews?project_id=eq.'+key+'&select=*&order=created_at.desc').catch(()=>[]),
+      api('GET','project_tasks?project_id=eq.'+key+'&select=id,title,status,assignee_name,sort_order,created_at&order=sort_order.asc,created_at.asc').catch(()=>[])
     ]);
     ganttProjectQcByProjectId[key]={outputs:outputs||[],reviews:reviews||[]};
+    if(Array.isArray(tasks))ganttProjectTasksByProjectId[key]=tasks;
     ganttProjectQcLoadMetaByProjectId[key]={loading:false,error:''};
   }catch(error){
     ganttProjectQcByProjectId[key]={outputs:[],reviews:[]};
-    ganttProjectQcLoadMetaByProjectId[key]={loading:false,error:'QC 정보를 불러오지 못했습니다.'};
+    ganttProjectQcLoadMetaByProjectId[key]={loading:false,error:'산출물 정보를 불러오지 못했습니다.'};
   }
   invalidateGanttProjectQcRender(key);
-}
-
-function getGanttQcSummary(outputs){
-  return (outputs||[]).reduce((acc,output)=>{
-    const status=normalizeGanttQcStatus(output?.qc_status);
-    if(status==='requested'||status==='reviewing')acc.pending+=1;
-    if(status==='revision_requested')acc.revision+=1;
-    if(status==='approved')acc.approved+=1;
-    if(output?.requires_partner_review)acc.partner+=1;
-    return acc;
-  },{pending:0,revision:0,approved:0,partner:0});
-}
-
-function getGanttOutputSummary(outputs){
-  return (outputs||[]).reduce((acc,output)=>{
-    const status=normalizeGanttQcStatus(output?.qc_status);
-    acc.total+=1;
-    if(status==='requested'||status==='reviewing')acc.requested+=1;
-    if(status==='revision_requested')acc.revision+=1;
-    if(status==='approved')acc.approved+=1;
-    return acc;
-  },{total:0,requested:0,revision:0,approved:0});
-}
-
-function canReviewGanttQcOutput(output){
-  if(typeof roleIsAdmin==='function'&&roleIsAdmin())return true;
-  return !!(currentMember?.id&&String(output?.qc_reviewer_id||'')===String(currentMember.id));
 }
 
 function normalizeGanttQcOutputUrl(url){
@@ -8000,174 +7971,49 @@ function normalizeGanttQcOutputUrl(url){
 function openGanttQcOutputUrl(url){
   const normalized=normalizeGanttQcOutputUrl(url);
   if(!normalized){
-    alert('열 수 있는 OneDrive 링크가 없습니다.');
+    alert('열 수 있는 URL이 없습니다.');
     return;
   }
   window.open(normalized,'_blank','noopener');
 }
 
-function renderGanttQcReviewerOptions(selectedId=''){
-  const selected=String(selectedId||'');
-  const rows=[...(members||[])].sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
-  return '<option value="">리뷰어 선택</option>'+rows.map(member=>'<option value="'+esc(member?.id||'')+'"'+(String(member?.id||'')===selected?' selected':'')+'>'+esc(member?.name||member?.email||'이름 없음')+'</option>').join('');
-}
-
-function openGanttQcRequestModal(projectId,outputId){
-  const state=getGanttProjectQcState(projectId);
-  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''));
-  if(!output)return;
-  const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
-  document.getElementById('modalArea').innerHTML=''
-    +overlayHtml
-    +'<div class="modal" style="width:520px">'
-      +'<div class="modal-title">QC 요청</div>'
-      +'<div class="modal-sub">'+esc(output.title||'산출물')+'</div>'
-      +'<div class="form-row"><label class="form-label">리뷰어</label><select id="ganttQcReviewerSelect">'+renderGanttQcReviewerOptions(output.qc_reviewer_id||'')+'</select></div>'
-      +'<div class="checkbox-row"><input type="checkbox" id="ganttQcPartnerReview" '+(output.requires_partner_review?'checked':'')+'><label for="ganttQcPartnerReview">파트너 리뷰 필요</label></div>'
-      +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="requestGanttQcReview(\''+projectId+'\',\''+outputId+'\')">요청</button></div></div>'
-    +'</div>';
-}
-
-async function requestGanttQcReview(projectId,outputId){
-  const reviewerId=String(document.getElementById('ganttQcReviewerSelect')?.value||'').trim();
-  const partnerReview=!!document.getElementById('ganttQcPartnerReview')?.checked;
-  const state=getGanttProjectQcState(projectId);
-  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''))||null;
-  if(!reviewerId){
-    alert('리뷰어를 선택해 주세요.');
-    return;
-  }
-  const now=new Date().toISOString();
-  try{
-    await api('PATCH','project_outputs?id=eq.'+outputId,{
-      qc_required:true,
-      qc_status:'requested',
-      qc_reviewer_id:reviewerId,
-      qc_requested_at:now,
-      requires_partner_review:partnerReview
-    });
-    await api('POST','qc_reviews',{
-      output_id:outputId,
-      project_id:projectId,
-      reviewer_id:reviewerId,
-      requested_by:getCurrentGanttQcMemberId(),
-      status:'requested',
-      comment:'QC 요청',
-      is_coaching_note:false
-    });
-    await createGanttQcRequestNotification(projectId,output,reviewerId);
-    closeModal();
-    delete ganttProjectQcByProjectId[String(projectId)];
-    await loadGanttProjectQc(projectId,true);
-  }catch(error){
-    alert('QC 요청 저장에 실패했습니다. '+(error?.message||error));
-  }
-}
-
-async function createGanttQcRequestNotification(projectId,output,reviewerId){
-  const reviewer=(members||[]).find(member=>String(member?.id||'')===String(reviewerId||''))||null;
-  const title=String(output?.title||'산출물');
-  const message='['+title+'] QC 요청이 들어왔습니다.';
-  try{
-    await api('POST','notifications',{
-      recipient_id:reviewerId,
-      message,
-      type:'qc_request',
-      link:projectId,
-      is_read:false
-    });
-  }catch(error){
-    if(!reviewer?.auth_user_id){
-      console.warn('QC request notification failed',error);
-      return;
-    }
-    try{
-      await api('POST','notifications',{
-        user_id:reviewer.auth_user_id,
-        message,
-        type:'qc_request',
-        link_type:'project',
-        link_id:projectId,
-        is_read:false
-      });
-    }catch(fallbackError){
-      console.warn('QC request notification fallback failed',fallbackError);
-    }
-  }
-}
-
 async function toggleGanttQcOutputReview(projectId,outputId){
-  const nextActive=String(ganttProjectQcActiveOutputId||'')===String(outputId||'')?'':String(outputId||'');
-  ganttProjectQcActiveOutputId=nextActive;
-  const state=getGanttProjectQcState(projectId);
-  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''));
-  if(nextActive&&output&&canReviewGanttQcOutput(output)&&normalizeGanttQcStatus(output?.qc_status)==='requested'){
-    try{
-      await api('PATCH','project_outputs?id=eq.'+outputId,{qc_status:'reviewing'});
-      await api('POST','qc_reviews',{
-        output_id:outputId,
-        project_id:projectId,
-        reviewer_id:getCurrentGanttQcMemberId()||output.qc_reviewer_id||null,
-        requested_by:getCurrentGanttQcMemberId(),
-        status:'reviewing',
-        comment:'검토 시작',
-        is_coaching_note:false
-      });
-      delete ganttProjectQcByProjectId[String(projectId)];
-      await loadGanttProjectQc(projectId,true);
-      return;
-    }catch(error){
-      console.warn('QC reviewing status update failed',error);
-    }
-  }
+  ganttProjectQcActiveOutputId=String(ganttProjectQcActiveOutputId||'')===String(outputId||'')?'':String(outputId||'');
   invalidateGanttProjectQcRender(projectId);
-}
-
-async function saveGanttQcReview(projectId,outputId,nextStatus){
-  const state=getGanttProjectQcState(projectId);
-  const output=(state.outputs||[]).find(row=>String(row?.id||'')===String(outputId||''));
-  if(!output||!canReviewGanttQcOutput(output)){
-    alert('리뷰 권한이 없습니다.');
-    return;
-  }
-  const comment=String(document.getElementById('ganttQcReviewComment_'+outputId)?.value||'').trim();
-  const isCoaching=!!document.getElementById('ganttQcCoaching_'+outputId)?.checked;
-  if(!comment){
-    alert('코멘트를 입력해 주세요.');
-    return;
-  }
-  const status=nextStatus==='approved'?'approved':'revision_requested';
-  const now=new Date().toISOString();
-  const patchBody={qc_status:status};
-  if(status==='approved')patchBody.qc_completed_at=now;
-  try{
-    await api('PATCH','project_outputs?id=eq.'+outputId,patchBody);
-    await api('POST','qc_reviews',{
-      output_id:outputId,
-      project_id:projectId,
-      reviewer_id:getCurrentGanttQcMemberId()||output.qc_reviewer_id||null,
-      requested_by:getCurrentGanttQcMemberId(),
-      status,
-      comment,
-      is_coaching_note:isCoaching
-    });
-    ganttProjectQcActiveOutputId='';
-    delete ganttProjectQcByProjectId[String(projectId)];
-    await loadGanttProjectQc(projectId,true);
-  }catch(error){
-    alert('QC 리뷰 저장에 실패했습니다. '+(error?.message||error));
-  }
 }
 
 function renderGanttQcReviewHistory(outputId,reviews){
   const rows=(reviews||[]).filter(row=>String(row?.output_id||'')===String(outputId||''));
-  if(!rows.length)return '<div class="gantt-qc-history-empty">QC 코멘트 이력이 없습니다.</div>';
+  if(!rows.length)return '<div class="gantt-qc-history-empty">아직 코멘트가 없습니다.</div>';
   return '<div class="gantt-qc-history">'+rows.map(review=>''
     +'<div class="gantt-qc-history-item">'
-      +'<div class="gantt-qc-history-meta"><span>'+esc(getGanttQcMemberName(review?.reviewer_id)||getGanttQcMemberName(review?.requested_by)||'작성자 미확인')+'</span><span>'+esc(typeof formatCommentDate==='function'?formatCommentDate(review?.created_at):String(review?.created_at||''))+'</span>'+(review?.is_coaching_note?'<span class="gantt-qc-coaching-mark">코칭노트</span>':'')+'</div>'
+      +'<div class="gantt-qc-history-meta"><span>'+esc(getGanttQcMemberName(review?.reviewer_id)||getGanttQcMemberName(review?.requested_by)||'작성자 미확인')+'</span><span>'+esc(typeof formatCommentDate==='function'?formatCommentDate(review?.created_at):String(review?.created_at||''))+'</span></div>'
       +'<div class="gantt-qc-history-comment">'+esc(review?.comment||'코멘트 없음')+'</div>'
     +'</div>'
   ).join('')+'</div>';
+}
+
+async function saveGanttOutputComment(projectId,outputId){
+  const comment=String(document.getElementById('ganttOutputComment_'+outputId)?.value||'').trim();
+  if(!comment){
+    alert('코멘트를 입력해 주세요.');
+    return;
+  }
+  try{
+    await api('POST','qc_reviews',{
+      output_id:outputId,
+      project_id:projectId,
+      reviewer_id:getCurrentGanttQcMemberId(),
+      requested_by:getCurrentGanttQcMemberId(),
+      status:'comment',
+      comment,
+      is_coaching_note:false
+    });
+    delete ganttProjectQcByProjectId[String(projectId)];
+    await loadGanttProjectQc(projectId,true);
+  }catch(error){
+    alert('코멘트 저장에 실패했습니다. '+(error?.message||error));
+  }
 }
 
 function getGanttOutputWeekStartDate(date=new Date()){
@@ -8187,6 +8033,38 @@ function formatGanttOutputDate(value){
   return String(value).slice(0,10);
 }
 
+function getGanttOutputUrlDomain(url){
+  const normalized=normalizeGanttQcOutputUrl(url);
+  if(!normalized)return '링크 없음';
+  try{
+    const host=new URL(normalized).hostname.replace(/^www\./,'');
+    if(host.includes('sharepoint'))return 'SharePoint';
+    if(host.includes('onedrive'))return 'OneDrive';
+    if(host.includes('drive.google'))return 'Google Drive';
+    return host;
+  }catch(e){
+    return '외부 링크';
+  }
+}
+
+function getGanttOutputTaskOptions(projectId,selectedTaskId=''){
+  const selected=String(selectedTaskId||'');
+  const tasks=Array.isArray(ganttProjectTasksByProjectId[String(projectId||'')])
+    ?ganttProjectTasksByProjectId[String(projectId||'')]
+    :[];
+  return '<option value="">관련 태스크 없음</option>'
+    +tasks.map(task=>'<option value="'+esc(task?.id||'')+'"'+(String(task?.id||'')===selected?' selected':'')+'>'+esc(task?.title||'제목 없음')+'</option>').join('');
+}
+
+function getGanttOutputTaskTitle(projectId,taskId){
+  const key=String(taskId||'');
+  if(!key)return '';
+  const tasks=Array.isArray(ganttProjectTasksByProjectId[String(projectId||'')])
+    ?ganttProjectTasksByProjectId[String(projectId||'')]
+    :[];
+  return tasks.find(task=>String(task?.id||'')===key)?.title||'';
+}
+
 function openGanttOutputModal(projectId){
   const project=(projects||[]).find(row=>String(row?.id||'')===String(projectId||''))||null;
   const overlayHtml=typeof getInputModalOverlayHtml==='function'?getInputModalOverlayHtml():'<div class="overlay" data-modal-kind="input" data-backdrop-close="off">';
@@ -8196,9 +8074,9 @@ function openGanttOutputModal(projectId){
       +'<div class="modal-title">산출물 추가</div>'
       +'<div class="modal-sub">'+esc(project?.name||'프로젝트')+'</div>'
       +'<div class="form-row"><label class="form-label">제목</label><input id="ganttOutputTitle" placeholder="산출물 제목"></div>'
-      +'<div class="form-row"><label class="form-label">OneDrive URL</label><input id="ganttOutputUrl" placeholder="https://..."></div>'
+      +'<div class="form-row"><label class="form-label">URL</label><input id="ganttOutputUrl" placeholder="https://..."></div>'
       +'<div class="form-row"><label class="form-label">메모</label><textarea id="ganttOutputMemo" rows="3" placeholder="선택 입력"></textarea></div>'
-      +'<div class="checkbox-row"><input type="checkbox" id="ganttOutputQcRequired"><label for="ganttOutputQcRequired">QC 필요</label></div>'
+      +'<div class="form-row"><label class="form-label">관련 태스크</label><select id="ganttOutputTaskId">'+getGanttOutputTaskOptions(projectId)+'</select></div>'
       +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveGanttOutput(\''+projectId+'\')">저장</button></div></div>'
     +'</div>';
   document.getElementById('ganttOutputTitle')?.focus();
@@ -8208,13 +8086,13 @@ async function saveGanttOutput(projectId){
   const title=String(document.getElementById('ganttOutputTitle')?.value||'').trim();
   const onedriveUrl=String(document.getElementById('ganttOutputUrl')?.value||'').trim();
   const memo=String(document.getElementById('ganttOutputMemo')?.value||'').trim();
-  const qcRequired=!!document.getElementById('ganttOutputQcRequired')?.checked;
+  const taskId=String(document.getElementById('ganttOutputTaskId')?.value||'').trim();
   if(!title){
     alert('제목을 입력해 주세요.');
     return;
   }
   if(!onedriveUrl){
-    alert('OneDrive URL을 입력해 주세요.');
+    alert('URL을 입력해 주세요.');
     return;
   }
   try{
@@ -8224,11 +8102,9 @@ async function saveGanttOutput(projectId){
       title,
       onedrive_url:onedriveUrl,
       memo:memo||null,
+      task_id:taskId||null,
       author_id:currentUser?.id||null,
-      share_in_weekly_review:true,
-      qc_required:qcRequired,
-      qc_status:'none',
-      requires_partner_review:false
+      share_in_weekly_review:true
     });
     closeModal();
     delete ganttProjectQcByProjectId[String(projectId)];
@@ -8273,35 +8149,29 @@ async function toggleGanttOutputWeeklyReview(projectId,outputId,checked){
 }
 
 function renderGanttOutputRow(projectId,output){
-  const status=normalizeGanttQcStatus(output?.qc_status);
-  const statusMeta=getGanttQcStatusMeta(status);
   const link=normalizeGanttQcOutputUrl(output?.onedrive_url);
   const outputId=String(output?.id||'');
   const active=String(ganttProjectQcActiveOutputId||'')===outputId;
-  const canReview=canReviewGanttQcOutput(output);
-  const qcRequired=output?.qc_required!==false;
   const reviews=getGanttProjectQcState(projectId).reviews||[];
-  const delivTone=status==='approved'?'approved':status==='revision_requested'?'revision':(status==='requested'||status==='reviewing')?'review':qcRequired?'needqc':'none';
-  const delivStatusClass=status==='approved'?'approved':status==='revision_requested'?'revision':(status==='requested'||status==='reviewing')?'review':qcRequired?'needqc':'muted';
-  const statusLabel=qcRequired?(status==='none'?'QC 필요':statusMeta.label):'QC 불필요';
+  const outputComments=reviews.filter(row=>String(row?.output_id||'')===outputId);
+  const domain=getGanttOutputUrlDomain(output?.onedrive_url);
+  const taskTitle=getGanttOutputTaskTitle(projectId,output?.task_id);
   return ''
-    +'<div class="pd-deliv-item is-'+delivTone+(active?' is-active':'')+'" data-qc-output="'+esc(outputId)+'" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+outputId+'\')">'
+    +'<div class="pd-deliv-item pd-deliv-link-item'+(active?' is-active':'')+'" data-qc-output="'+esc(outputId)+'" onclick="toggleGanttQcOutputReview(\''+projectId+'\',\''+outputId+'\')">'
       +'<div class="pd-deliv-top">'
-        +'<div><div class="pd-deliv-name">'+esc(output?.title||'산출물명 없음')+'</div>'+(output?.memo?'<div class="pd-deliv-memo">'+esc(output.memo)+'</div>':'')+'</div>'
-        +'<span class="pd-deliv-status '+delivStatusClass+'">'+esc(statusLabel)+'</span>'
+        +'<div class="pd-deliv-titleline"><span class="pd-deliv-link-icon">링크</span><div class="pd-deliv-name">'+esc(output?.title||'산출물명 없음')+'</div></div>'
+        +'<button type="button" class="pd-deliv-link" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">열기</button>'
       +'</div>'
-      +'<div class="pd-deliv-meta">작성자 <b>'+esc(getGanttQcOutputAuthorName(output))+'</b> · 등록일 <b>'+esc(formatGanttOutputDate(output?.created_at))+'</b> · 리뷰어 <b>'+esc(getGanttQcReviewerName(output))+'</b>'+(output?.requires_partner_review?' · <b>파트너 리뷰 필요</b>':'')+'</div>'
-      +'<div class="pd-deliv-foot">'
-        +'<label class="pd-deliv-options" title="회의 안건 포함 여부" onclick="event.stopPropagation()"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'회의 안건 포함':'회의 안건 미포함')+'</span></label>'
-        +'<div class="pd-deliv-links">'
-          +(link?'<button type="button" class="pd-deliv-link" data-url="'+esc(link)+'" onclick="event.stopPropagation();openGanttQcOutputUrl(this.dataset.url)">OneDrive</button>':'')
-          +(qcRequired&&status==='none'?'<button type="button" class="pd-deliv-link" onclick="event.stopPropagation();openGanttQcRequestModal(\''+projectId+'\',\''+outputId+'\')">QC 요청</button>':'')
-          +'<button type="button" class="pd-deliv-link danger" onclick="event.stopPropagation();deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button>'
-        +'</div>'
-      +'</div>'
+      +'<div class="pd-deliv-meta"><b>'+esc(domain)+'</b> · '+esc(getGanttQcOutputAuthorName(output))+' · '+esc(formatGanttOutputDate(output?.created_at))+' · 코멘트 '+outputComments.length+'건</div>'
       +(active?'<div class="gantt-output-review-panel" onclick="event.stopPropagation()">'
-        +(canReview?'<div class="gantt-qc-review-form"><textarea id="ganttQcReviewComment_'+esc(outputId)+'" rows="3" placeholder="QC 코멘트를 입력하세요."></textarea><div class="gantt-qc-review-form-actions"><label class="checkbox-row"><input type="checkbox" id="ganttQcCoaching_'+esc(outputId)+'"><span>코칭노트</span></label><div><button type="button" class="btn ghost sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+outputId+'\',\'revision_requested\')">수정요청</button><button type="button" class="btn primary sm" onclick="saveGanttQcReview(\''+projectId+'\',\''+outputId+'\',\'approved\')">승인</button></div></div></div>':'<div class="gantt-qc-history-empty">리뷰어 또는 관리자만 코멘트를 입력할 수 있습니다.</div>')
+        +'<div class="pd-deliv-detail-grid">'
+          +'<div><span>URL</span><a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(output?.onedrive_url||'URL 없음')+'</a></div>'
+          +(output?.memo?'<div><span>메모</span><p>'+esc(output.memo)+'</p></div>':'')
+          +(taskTitle?'<div><span>관련 태스크</span><p>'+esc(taskTitle)+'</p></div>':'')
+        +'</div>'
+        +'<div class="gantt-qc-review-form"><textarea id="ganttOutputComment_'+esc(outputId)+'" rows="2" placeholder="코멘트를 입력하세요."></textarea><div class="gantt-qc-review-form-actions"><span>자유 의견으로 기록됩니다.</span><button type="button" class="btn primary sm" onclick="saveGanttOutputComment(\''+projectId+'\',\''+outputId+'\')">코멘트 등록</button></div></div>'
         +renderGanttQcReviewHistory(outputId,reviews)
+        +'<div class="pd-deliv-detail-actions"><label class="pd-deliv-options" title="회의 안건 포함 여부"><input type="checkbox" '+(output?.share_in_weekly_review?'checked':'')+' onchange="toggleGanttOutputWeeklyReview(\''+projectId+'\',\''+outputId+'\',this.checked)"><span>'+(output?.share_in_weekly_review?'주간리뷰 포함':'주간리뷰 미포함')+'</span></label><button type="button" class="pd-deliv-link danger" onclick="deleteGanttOutput(\''+projectId+'\',\''+output.id+'\')">삭제</button></div>'
       +'</div>':'')
     +'</div>';
 }
@@ -8311,22 +8181,15 @@ function renderGanttProjectOutputSection(project){
   const state=getGanttProjectQcState(projectId);
   const meta=state.meta||{};
   const outputs=state.outputs||[];
-  const summary=getGanttOutputSummary(outputs);
   return ''
     +'<div class="gantt-detail-pane gantt-output-pane">'
       +'<div class="pd-tab-panel">'
         +'<div class="pd-ov-section">'
-          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>산출물</h3><p>산출물 등록, OneDrive 링크, QC 요청과 리뷰 이력을 한 곳에서 관리합니다.</p></div><button type="button" class="btn primary sm" onclick="openGanttOutputModal(\''+projectId+'\')">산출물 추가</button></div>'
-        +'<div class="pd-deliv-stat-grid">'
-          +'<div class="pd-stat-card"><div class="pd-stat-label">전체 산출물</div><div class="pd-stat-value">'+summary.total+'</div></div>'
-          +'<div class="pd-stat-card is-wait"><div class="pd-stat-label">QC 요청중</div><div class="pd-stat-value">'+summary.requested+'</div></div>'
-          +'<div class="pd-stat-card is-danger"><div class="pd-stat-label">수정요청</div><div class="pd-stat-value">'+summary.revision+'</div></div>'
-          +'<div class="pd-stat-card is-done"><div class="pd-stat-label">승인완료</div><div class="pd-stat-value">'+summary.approved+'</div></div>'
-        +'</div>'
+          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>산출물</h3><p>외부 드라이브 URL을 등록하고 팀 코멘트를 남깁니다.</p></div><button type="button" class="btn primary sm" onclick="openGanttOutputModal(\''+projectId+'\')">+ 산출물 링크 추가</button></div>'
         +(meta.loading?'<div class="gantt-detail-empty">산출물을 불러오는 중...</div>'
           :meta.error?'<div class="gantt-detail-empty">'+esc(meta.error)+'</div>'
           :outputs.length?'<div class="pd-deliv-list">'+outputs.map(output=>renderGanttOutputRow(projectId,output)).join('')+'</div>'
-          :'<div class="gantt-detail-empty-state"><div class="gantt-detail-value">등록된 산출물이 없습니다.</div><div class="gantt-detail-meta">OneDrive 링크와 함께 산출물을 등록하면 QC와 주간리뷰에서 이어서 확인할 수 있습니다.</div></div>')
+          :'<div class="gantt-detail-empty-state pd-deliv-empty"><div class="gantt-detail-value">등록된 산출물이 없습니다.</div><div class="gantt-detail-meta">OneDrive, SharePoint, Google Drive 링크를 등록해 팀원들과 공유하세요.</div><button type="button" class="btn primary sm" onclick="openGanttOutputModal(\''+projectId+'\')">+ 산출물 링크 추가</button></div>')
         +'</div>'
       +'</div>'
     +'</div>';
