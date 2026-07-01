@@ -873,8 +873,8 @@ function getGanttTimelineRangeMeta(item,days,year=curYear,month=curMonth){
   }
   const clippedStart=normalizedStart<mFirst?mFirst:normalizedStart;
   const clippedEnd=normalizedEnd>mLast?mLast:normalizedEnd;
-  const barS=clippedStart.getDate();
-  const barE=Math.max(barS,clippedEnd.getDate());
+  const barS=Math.max(1,Math.round((clippedStart-mFirst)/GANTT_DAY_MS)+1);
+  const barE=Math.max(barS,Math.round((clippedEnd-mFirst)/GANTT_DAY_MS)+1);
   const span=Math.max(1,Math.round((clippedEnd-clippedStart)/GANTT_DAY_MS)+1);
   ganttRenderDebugLog('grid placement',{
     itemId:itemKey,

@@ -5326,8 +5326,9 @@ function buildGanttSpanCells(days,rangeMeta,renderBarCell,renderEmptyCell){
   const safeRange=rangeMeta||{visible:false,barS:1,barE:1,span:1};
   let cells='';
   for(let day=1;day<=days;){
-    const weekend=isWeekend(curYear,curMonth,day);
-    const todayCell=isToday(curYear,curMonth,day);
+    const cellDate=new Date(curYear,curMonth-1,day);
+    const weekend=cellDate.getDay()===0||cellDate.getDay()===6;
+    const todayCell=isToday(cellDate.getFullYear(),cellDate.getMonth()+1,cellDate.getDate());
     const cellCls='cell '+(weekend?'weekend ':'')+(todayCell?'today-c':'');
     if(safeRange.visible&&day===safeRange.barS){
       const spanValue=Math.max(1,Number(safeRange.span)||1);
@@ -10370,12 +10371,25 @@ function getUniqueBaseGanttProjects(projectRows){
     return true;
   });
 }
+function isGanttDailyTimelineRange(){
+  return curGanttLayout==='timeline'&&curGanttTimelineScale==='month';
+}
+function getGanttDailyTimelineDateList(year=curYear,month=curMonth){
+  const rangeStart=new Date(year,month-1,1);
+  const rangeEnd=new Date(year,month-1+2,0);
+  const dates=[];
+  for(let cursor=new Date(rangeStart);cursor<=rangeEnd;cursor.setDate(cursor.getDate()+1)){
+    dates.push(new Date(cursor));
+  }
+  return dates;
+}
 // This index.html override is the active render path; scripts/projects.js has older shared helpers.
 function getBaseGanttMonthData(){
-  const days=daysInMonth(curYear,curMonth);
   const memberFilter=document.getElementById('memberFilter')?.value||'';
   const monthFirst=new Date(curYear,curMonth-1,1);
-  const monthLast=new Date(curYear,curMonth-1,days);
+  const monthLast=isGanttDailyTimelineRange()
+    ?new Date(curYear,curMonth-1+2,0)
+    :new Date(curYear,curMonth,0);
   const monthProjects=projects.filter(project=>{
     if(!projectMatchesBaseGanttMemberFilter(project,memberFilter))return false;
     return toDate(project.start)<=monthLast&&toDate(project.end)>=monthFirst;
@@ -10586,6 +10600,7 @@ window.gRow=function(p,days){
     :{visible:true,barS:1,barE:1,span:1};
   const {visible,barS,barE,span,startText,endText,duration}=rangeMeta;
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
+  const getRangeDayIndex=date=>Math.round((date-mFirst)/(24*60*60*1000))+1;
   const overlaysByDay={};
   activeSchedules.forEach(schedule=>{
     if(schedule.schedule_type!=='leave'&&schedule.schedule_type!=='fieldwork')return;
@@ -10594,8 +10609,10 @@ window.gRow=function(p,days){
     const sE=(typeof getGanttLocalDateValue==='function'?getGanttLocalDateValue(schedule.end||schedule.end_date||schedule.start||schedule.start_date):toDate(schedule.end));
     if(!sS||!sE)return;
     if(sS>mLast||sE<mFirst)return;
-    const oS=Math.max(barS,sS<mFirst?1:sS.getDate());
-    const oE=Math.min(barE,sE>mLast?days:sE.getDate());
+    const clippedScheduleStart=sS<mFirst?mFirst:sS;
+    const clippedScheduleEnd=sE>mLast?mLast:sE;
+    const oS=Math.max(barS,getRangeDayIndex(clippedScheduleStart));
+    const oE=Math.min(barE,getRangeDayIndex(clippedScheduleEnd));
     for(let day=oS;day<=oE;day++){
       if(!overlaysByDay[day])overlaysByDay[day]=[];
       overlaysByDay[day].push({
@@ -10955,8 +10972,10 @@ function renderFilteredGanttTimeline(projs,schs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
   const monthLabel=document.getElementById('monthLabel');
-  if(monthLabel)monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0');
-  const days=daysInMonth(curYear,curMonth);
+  const dateList=getGanttDailyTimelineDateList(curYear,curMonth);
+  const rangeEnd=dateList[dateList.length-1]||new Date(curYear,curMonth,0);
+  if(monthLabel)monthLabel.textContent=curYear+'-'+String(curMonth).padStart(2,'0')+' ~ '+rangeEnd.getFullYear()+'-'+String(rangeEnd.getMonth()+1).padStart(2,'0');
+  const days=dateList.length;
   const memberFilter=document.getElementById('memberFilter')?.value||'';
   if(!projs.length&&!schs.length){
     wrap.innerHTML='<div class="empty-state" style="padding:40px">현재 필터에서 표시할 프로젝트와 일정이 없습니다.</div>';
@@ -10966,12 +10985,18 @@ function renderFilteredGanttTimeline(projs,schs){
   const weekdayLabels=['일','월','화','수','목','금','토'];
   ensureGanttTimelineTaskData(projs);
   let html='<table><thead><tr><th class="th-label">'+(curGView==='project'?'구분':'인력')+'</th>';
-  for(let day=1;day<=days;day++){
-    const weekend=isWeekend(curYear,curMonth,day);
-    const todayCell=isToday(curYear,curMonth,day);
-    const weekday=weekdayLabels[new Date(curYear,curMonth-1,day).getDay()];
-    html+='<th class="th-day '+(todayCell?'today-h':weekend?'weekend':'')+'">'+day+'<br><span style="font-size:9px;font-weight:400">'+weekday+'</span></th>';
-  }
+  let lastMonthKey='';
+  dateList.forEach(date=>{
+    const monthKey=date.getFullYear()+'-'+date.getMonth();
+    const showMonthLabel=monthKey!==lastMonthKey;
+    lastMonthKey=monthKey;
+    const weekend=date.getDay()===0||date.getDay()===6;
+    const todayCell=isToday(date.getFullYear(),date.getMonth()+1,date.getDate());
+    const weekday=weekdayLabels[date.getDay()];
+    html+='<th class="th-day '+(todayCell?'today-h':weekend?'weekend':'')+'">'
+      +(showMonthLabel?'<div style="font-size:9px;color:var(--blue);font-weight:700;line-height:1.1">'+(date.getMonth()+1)+'월</div>':'')
+      +date.getDate()+'<br><span style="font-size:9px;font-weight:400">'+weekday+'</span></th>';
+  });
   html+='</tr></thead><tbody>';
   window.__ganttVisibleSchedulesForRender=schs;
   try{
