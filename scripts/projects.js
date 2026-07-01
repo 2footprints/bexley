@@ -3396,17 +3396,7 @@ renderGanttDetailPanel=function(projs,schs){
 };
 
 getGanttProjectActionButtons=function(project,isCompleted){
-  const canUpdate=typeof canEdit==='function'?canEdit(project):true;
-  const canRemove=typeof canDeleteProject==='function'?canDeleteProject(project):true;
-  const buttons=[];
-  if(!isCompleted&&canUpdate){
-    buttons.push('<button class="gantt-action-btn complete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();markGanttProjectComplete(this.dataset.pid)" title="실행 완료">✅</button>');
-  }
-  buttons.push('<button class="gantt-action-btn edit-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();openProjModal(this.dataset.pid)" title="전체 수정">✏️</button>');
-  if(canRemove){
-    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid,event)" title="삭제">🗑️</button>');
-  }
-  return buttons.length?'<div class="gantt-row-actions">'+buttons.join('')+'</div>':'';
+  return '';
 };
 
 window.markGanttProjectComplete=async function(projectId){

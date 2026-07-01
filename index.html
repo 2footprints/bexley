@@ -10396,17 +10396,7 @@ function getGanttCompletedLikeMeta(item){
   return {isCompleted,isScheduleLike,isCompletedLike};
 }
 function getGanttProjectActionButtons(project,isCompleted){
-  const canUpdate=typeof canEdit==='function'?canEdit(project):true;
-  const canRemove=typeof canDeleteProject==='function'?canDeleteProject(project):true;
-  const buttons=[];
-  if(!isCompleted&&canUpdate){
-    buttons.push('<button class="gantt-action-btn complete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();markGanttProjectComplete(this.dataset.pid)" title="\uC644\uB8CC \uCC98\uB9AC">\u2705</button>');
-  }
-  buttons.push('<button class="gantt-action-btn edit-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();openProjModal(this.dataset.pid)" title="\uC218\uC815">\u270F\uFE0F</button>');
-  if(canRemove){
-    buttons.push('<button class="gantt-action-btn delete-action" type="button" data-pid="'+project.id+'" onclick="event.stopPropagation();deleteGanttProject(this.dataset.pid,event)" title="\uC0AD\uC81C">\uD83D\uDDD1\uFE0F</button>');
-  }
-  return buttons.length?'<div class="gantt-row-actions">'+buttons.join('')+'</div>':'';
+  return '';
 }
 window.markGanttProjectComplete=async function(projectId){
   const project=(projects||[]).find(item=>String(item.id)===String(projectId));
@@ -10887,7 +10877,7 @@ window.gRow=function(p,days){
       +spanOverlayHtml
       +'</td>';
   },({cls})=>'<td class="'+cls+'" style="position:relative"></td>');
-  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" onclick="'+(hasTimelineTasks?'toggleGanttProjectTasks(\''+projectKeyJs+'\',event)':'openGanttProjectDetail(\''+projectKeyJs+'\')')+'"><td class="'+finalRowCls+'" title="'+esc(rowTooltip)+'">'+finalLabelHtml+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" onclick="openGanttProjectDetail(\''+projectKeyJs+'\')"><td class="'+finalRowCls+'" title="'+esc(rowTooltip)+'">'+finalLabelHtml+'</td>'+cells+'</tr>';
 };
 gRow=window.gRow;
 
