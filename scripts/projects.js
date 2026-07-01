@@ -7816,7 +7816,7 @@ renderGanttProjectWorkSection=function(project,memberSchedules){
       +'<div class="pd-tab-panel">'
         +renderGanttProjectNextActionsSection(project.id)
         +'<div class="pd-ov-section">'
-          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>전체 업무</h3><p>업무명, 담당자, 마감일, 상태, 빠른 액션을 먼저 보고 바로 처리합니다.</p></div><div class="pd-work-table-actions"><span class="pd-count-chip">열린 '+taskSummary.active+'건 · 지연 '+taskSummary.overdue+'건</span></div></div>'
+          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>전체 업무</h3><p>업무명, 담당자, 마감일, 상태, 빠른 액션을 먼저 보고 바로 처리합니다.</p></div><div class="pd-work-table-actions"><span class="pd-count-chip">열린 '+taskSummary.active+'건 · 지연 '+taskSummary.overdue+'건</span><button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button></div></div>'
         +((getGanttProjectTasks(project?.id)||[]).length
           ?'<div class="pd-data-table-wrap"><table class="pd-data-table pd-work-table"><thead><tr><th>업무명</th><th>담당자</th><th>마감일</th><th>상태</th><th class="is-right">빠른 액션</th></tr></thead><tbody>'+renderGanttTaskRows(project.id)+'</tbody></table></div>'
           :renderGanttTaskEmptyState(project.id,loadMeta))

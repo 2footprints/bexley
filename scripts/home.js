@@ -1612,7 +1612,7 @@ renderHomeDashboardIssues = async function(){
 renderTeamWorkload = async function(){
   const el=document.getElementById('teamWorkloadWrap');
   if(!el)return;
-  const loadingLabels=['지연 프로젝트','미청구 금액','위험 고객'];
+  const loadingLabels=['전체 지연 프로젝트','미청구 금액','주의 거래처'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구 리스크를 보여줍니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--warning">'
@@ -1788,11 +1788,11 @@ renderTeamWorkload = async function(){
         action:"openHomePendingBillingProjectBoard()"
       },
       {
-        label:'위험 고객',
+        label:'주의 거래처',
         value:riskyClients.length?riskyClients.length+'곳':'없음',
         tone:riskyClients.length?'danger':'neutral',
         quiet:!riskyClients.length,
-        meta:riskyClients[0]?.name||'주의 고객이 없습니다',
+        meta:riskyClients[0]?.name||'주의 거래처가 없습니다',
         action:"setPage('clients')"
       }
     ];
@@ -1907,7 +1907,7 @@ renderTeamKudosAndReviews = async function(){
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','지연된 내 업무','내가 확인할 이슈','오늘 일정'];
+  const loadingLabels=['오늘 마감','내 지연 업무','확인할 이슈','오늘 일정'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY ACTION</div><div class="home-layer-title">오늘 액션</div><div class="home-layer-sub">오늘 내가 직접 처리하거나 확인해야 할 업무입니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--actions">'
@@ -1972,7 +1972,7 @@ renderHomeRiskSummary = async function(){
         action:"setPage('projects')"
       },
       {
-        label:'지연된 내 업무',
+        label:'내 지연 업무',
         value:overdueProjects.length?overdueProjects.length+'건':'없음',
         tone:overdueProjects.length?'danger':'neutral',
         quiet:!overdueProjects.length,
@@ -2013,6 +2013,248 @@ renderHomeRiskSummary = async function(){
       +loadingLabels.map(label=>
         '<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">데이터를 불러오지 못했습니다.</div></div>'
       ).join('')
+      +'</div></div>';
+  }
+};
+
+function isHomeIncompleteTaskForMetric(task){
+  const status=String(task?.status||'').trim();
+  return status!=='완료'&&!task?.actual_done_at;
+}
+
+function getHomeTaskDueDateForMetric(task){
+  const raw=task?.due_date||task?.end_date||task?.end;
+  if(!raw)return null;
+  const date=toDate(raw);
+  if(Number.isNaN(date.getTime()))return null;
+  date.setHours(0,0,0,0);
+  return date;
+}
+
+function isHomeTaskAssignedToCurrentMember(task){
+  if(!currentMember)return false;
+  return (currentMember?.id&&String(task?.assignee_member_id||task?.owner_member_id||'')===String(currentMember.id))
+    ||(currentMember?.name&&String(task?.assignee_name||task?.owner_name||'').trim()===String(currentMember.name).trim());
+}
+
+function getHomeProjectClient(project){
+  return (clients||[]).find(client=>String(client?.id||'')===String(project?.client_id||''))||null;
+}
+
+function addHomeAttentionClientId(set,project){
+  if(project?.client_id)set.add(String(project.client_id));
+}
+
+renderHomeRiskSummary = async function(){
+  const el=document.getElementById('homeRiskWrap');
+  if(!el)return;
+  const loadingLabels=['오늘 마감','내 지연 업무','확인할 이슈','오늘 일정'];
+  el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
+    +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY SUMMARY</div><div class="home-layer-title">오늘 요약</div><div class="home-layer-sub">내가 오늘 직접 확인해야 할 개인 기준 지표입니다.</div></div></div>'
+    +'<div class="home-risk-grid home-risk-grid--actions">'
+    +loadingLabels.map(label=>'<div class="home-risk-card" title="개인 기준 지표를 불러오는 중입니다."><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">불러오는 중</div></div>').join('')
+    +'</div></div>';
+  try{
+    const today=getHomeBaseDate();
+    const assignedProjects=getHomeActiveAssignedProjects();
+    const assignedProjectIds=new Set(assignedProjects.map(project=>String(project.id)));
+    const [issueRows,taskRows]=await Promise.all([
+      (currentMember?.id||currentMember?.name)
+        ?api('GET','project_issues?select=id,project_id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
+        :Promise.resolve([]),
+      (currentMember?.id||currentMember?.name)
+        ?api('GET','project_tasks?select=id,project_id,title,status,due_date,assignee_member_id,assignee_name,owner_member_id,actual_done_at').catch(()=>[])
+        :Promise.resolve([])
+    ]);
+    const todayDueProjects=assignedProjects.filter(project=>{
+      const endDateRaw=project.end||project.end_date;
+      if(!endDateRaw)return false;
+      return toDate(endDateRaw).getTime()===today.getTime();
+    }).sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+    const myOverdueTasks=(taskRows||[]).filter(task=>{
+      if(!isHomeIncompleteTaskForMetric(task)||!isHomeTaskAssignedToCurrentMember(task))return false;
+      const dueDate=getHomeTaskDueDateForMetric(task);
+      return !!dueDate&&dueDate<today;
+    }).sort((a,b)=>{
+      const diff=getHomeTaskDueDateForMetric(a)-getHomeTaskDueDateForMetric(b);
+      if(diff)return diff;
+      return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
+    });
+    const myOpenIssues=(issueRows||[]).filter(issue=>{
+      const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
+        ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
+      return matchesAssignee&&isIssueActiveStatus(issue?.status);
+    });
+    const myHighPriorityIssues=myOpenIssues.filter(issue=>String(issue?.priority||'').trim().toLowerCase()==='high');
+    const todayScheduleItems=sortHomeTodayScheduleItems(getHomeTodayScheduleItems(today));
+    const firstDueProject=todayDueProjects[0]||null;
+    const firstOverdueTask=myOverdueTasks[0]||null;
+    const firstOverdueProject=firstOverdueTask
+      ?(projects||[]).find(project=>String(project?.id||'')===String(firstOverdueTask.project_id||''))||null
+      :null;
+    const firstTodayItem=todayScheduleItems[0]||null;
+    const firstTaskDue=getHomeTaskDueDateForMetric(firstOverdueTask);
+    const overdueDiff=firstTaskDue?Math.max(1,Math.round((today.getTime()-firstTaskDue.getTime())/86400000)):0;
+    const cards=[
+      {
+        label:'오늘 마감',
+        value:todayDueProjects.length?todayDueProjects.length+'건':'없음',
+        tone:todayDueProjects.length?'warning':'neutral',
+        quiet:!todayDueProjects.length,
+        emphasis:'action',
+        meta:firstDueProject?firstDueProject.name:'내 담당 프로젝트 중 오늘 마감 없음',
+        titleText:'내가 담당자로 포함된 프로젝트 중 오늘 마감되는 항목입니다.',
+        action:"setPage('projects')"
+      },
+      {
+        label:'내 지연 업무',
+        value:myOverdueTasks.length?myOverdueTasks.length+'건':'없음',
+        tone:myOverdueTasks.length?'danger':'neutral',
+        quiet:!myOverdueTasks.length,
+        emphasis:'action',
+        meta:firstOverdueTask?((firstOverdueProject?.name||'프로젝트 미지정')+' · '+(firstOverdueTask.title||'업무')+' · D+'+overdueDiff):'내가 담당자인 지연 업무 없음',
+        titleText:'내가 담당자인 미완료 업무 중 마감일이 지난 항목입니다.',
+        action:"setPage('projects')"
+      },
+      {
+        label:'확인할 이슈',
+        value:myOpenIssues.length?myOpenIssues.length+'건':'없음',
+        tone:myHighPriorityIssues.length?'danger':(myOpenIssues.length?'warning':'neutral'),
+        quiet:!myOpenIssues.length,
+        emphasis:'action',
+        meta:myOpenIssues.length
+          ?(myHighPriorityIssues.length?('우선 확인 '+myHighPriorityIssues.length+'건 포함'):'내 담당 열린 이슈 확인')
+          :'내 담당 열린 이슈 없음',
+        titleText:'내가 담당자인 열린 이슈입니다.',
+        action:"setPage('issues')"
+      },
+      {
+        label:'오늘 일정',
+        value:todayScheduleItems.length?todayScheduleItems.length+'건':'없음',
+        tone:firstTodayItem?.dueMeta?.tone==='urgent'?'warning':(todayScheduleItems.length?'info':'neutral'),
+        quiet:!todayScheduleItems.length,
+        emphasis:'action',
+        meta:firstTodayItem?(firstTodayItem.contextTitle||firstTodayItem.summary||'오늘 일정'):'오늘 예정된 일정 없음',
+        titleText:'오늘 등록된 내 일정과 팀 주요 일정입니다.',
+        action:firstTodayItem?.action||"document.getElementById('myWeekWrap')?.scrollIntoView({behavior:'smooth',block:'start'})"
+      }
+    ];
+    el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
+      +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY SUMMARY</div><div class="home-layer-title">오늘 요약</div><div class="home-layer-sub">개인 기준: 내가 담당하거나 오늘 직접 확인해야 할 업무입니다.</div></div></div>'
+      +'<div class="hp-stat-grid hp-stat-grid--4">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>'
+      +'</div>';
+  }catch(e){
+    console.error('renderHomeRiskSummary failed',e);
+    el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
+      +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY SUMMARY</div><div class="home-layer-title">오늘 요약</div><div class="home-layer-sub">개인 기준 지표를 불러오지 못했습니다.</div></div></div>'
+      +'<div class="home-risk-grid home-risk-grid--actions">'
+      +loadingLabels.map(label=>'<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">데이터를 불러오지 못했습니다.</div></div>').join('')
+      +'</div></div>';
+  }
+};
+
+renderTeamWorkload = async function(){
+  const el=document.getElementById('teamWorkloadWrap');
+  if(!el)return;
+  const loadingLabels=['전체 지연 프로젝트','주의 거래처','미청구'];
+  el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
+    +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀/전체 기준으로 운영상 확인이 필요한 항목입니다.</div></div></div>'
+    +'<div class="home-risk-grid home-risk-grid--warning">'
+    +loadingLabels.map(label=>'<div class="home-risk-card" title="팀/전체 기준 지표를 불러오는 중입니다."><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">불러오는 중</div></div>').join('')
+    +'</div></div>';
+  const today=getHomeBaseDate();
+  const {start:weekStart,end:weekEnd}=getWeekBounds(0);
+  try{
+    const [issueRows,taskRows,pendingDocs]=await Promise.all([
+      api('GET','project_issues?'+getIssueActiveStatusFilter()+'&select=id,project_id,status,priority,assignee_member_id,owner_member_id').catch(()=>[]),
+      api('GET','project_tasks?select=id,project_id,status,due_date,actual_done_at').catch(()=>[]),
+      api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
+    ]);
+    const delayedProjects=(projects||[]).filter(project=>{
+      if(isHomeCompletedProject(project))return false;
+      const endValue=project?.end||project?.end_date;
+      if(!endValue)return false;
+      return toDate(endValue)<today;
+    }).sort((a,b)=>toDate(a.end||a.end_date)-toDate(b.end||b.end_date));
+    const overdueTasks=(taskRows||[]).filter(task=>{
+      if(!isHomeIncompleteTaskForMetric(task))return false;
+      const dueDate=getHomeTaskDueDateForMetric(task);
+      return !!dueDate&&dueDate<today;
+    });
+    const unbilledProjects=getHomeOperationsUnbilledProjects();
+    const pendingBillingAmount=unbilledProjects.reduce((sum,project)=>sum+getHomeProjectBillingAmount(project),0);
+    const attentionClientIds=new Set();
+    delayedProjects.forEach(project=>addHomeAttentionClientId(attentionClientIds,project));
+    unbilledProjects.forEach(project=>addHomeAttentionClientId(attentionClientIds,project));
+    overdueTasks.forEach(task=>{
+      const project=(projects||[]).find(item=>String(item?.id||'')===String(task?.project_id||''));
+      addHomeAttentionClientId(attentionClientIds,project);
+    });
+    (pendingDocs||[]).forEach(row=>{
+      const project=(projects||[]).find(item=>String(item?.id||'')===String(row?.project_id||''));
+      addHomeAttentionClientId(attentionClientIds,project);
+    });
+    (issueRows||[]).forEach(issue=>{
+      const project=(projects||[]).find(item=>String(item?.id||'')===String(issue?.project_id||''));
+      addHomeAttentionClientId(attentionClientIds,project);
+    });
+    const attentionClients=(clients||[])
+      .filter(client=>attentionClientIds.has(String(client.id)))
+      .sort((a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ko'));
+    const weekLeaveCount=[...new Set((schedules||[])
+      .filter(schedule=>String(schedule?.schedule_type||'').trim().toLowerCase()==='leave')
+      .filter(schedule=>toDate(schedule.start||schedule.start_date)<=weekEnd&&toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date)>=weekStart)
+      .flatMap(schedule=>getOperationalScheduleMemberNames(schedule))
+      .filter(Boolean))].length;
+    const weekFieldworkCount=[...new Set((schedules||[])
+      .filter(schedule=>String(schedule?.schedule_type||'').trim().toLowerCase()==='fieldwork')
+      .filter(schedule=>toDate(schedule.start||schedule.start_date)<=weekEnd&&toDate(schedule.end||schedule.end_date||schedule.start||schedule.start_date)>=weekStart)
+      .flatMap(schedule=>getOperationalScheduleMemberNames(schedule))
+      .filter(Boolean))].length;
+    const cards=[
+      {
+        label:'전체 지연 프로젝트',
+        value:delayedProjects.length?delayedProjects.length+'건':'없음',
+        tone:delayedProjects.length?'danger':'neutral',
+        quiet:!delayedProjects.length,
+        meta:delayedProjects[0]?.name||'전체 프로젝트 중 지연 없음',
+        titleText:'전체 프로젝트 중 마감일이 지났지만 완료되지 않은 프로젝트입니다.',
+        action:"setPage('projects')"
+      },
+      {
+        label:'주의 거래처',
+        value:attentionClients.length?attentionClients.length+'곳':'없음',
+        tone:attentionClients.length?'warning':'neutral',
+        quiet:!attentionClients.length,
+        meta:attentionClients[0]?.name||'관리 필요 거래처 없음',
+        titleText:'지연, 이슈, 미청구, 자료 대기 등 확인이 필요한 항목이 있는 거래처입니다.',
+        action:"setPage('clients')"
+      },
+      {
+        label:'미청구',
+        value:pendingBillingAmount?pendingBillingAmount.toLocaleString()+'원':'없음',
+        tone:pendingBillingAmount?'warning':'neutral',
+        quiet:!pendingBillingAmount,
+        meta:unbilledProjects.length?('계약 확인 '+unbilledProjects.length+'건'):'미청구 항목 없음',
+        titleText:'완료 후 청구 확인이 필요한 프로젝트 금액입니다.',
+        action:"openHomePendingBillingProjectBoard()"
+      }
+    ];
+    const notes=[
+      '이번 주 휴가 '+weekLeaveCount+'명',
+      '이번 주 필드워크 '+weekFieldworkCount+'명'
+    ];
+    el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
+      +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀/전체 기준: 프로젝트 지연, 거래처 주의 신호, 청구 확인 항목입니다.</div></div></div>'
+      +'<div class="hp-stat-grid hp-stat-grid--3">'+cards.map(renderHomeRiskSummaryCard).join('')+'</div>'
+      +'<div class="hp-support-chip-row">'+notes.map((note,index)=>'<div class="hp-support-chip '+(index===0?'hp-support-chip--warn':'hp-support-chip--info')+'">'+esc(note)+'</div>').join('')+'</div>'
+      +'</div>';
+  }catch(e){
+    console.error('renderTeamWorkload failed',e);
+    el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
+      +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀/전체 기준 경고 요약을 불러오지 못했습니다.</div></div></div>'
+      +'<div class="home-risk-grid home-risk-grid--warning">'
+      +loadingLabels.map(label=>'<div class="home-risk-card"><div class="home-risk-label">'+label+'</div><div class="home-risk-value">-</div><div class="home-risk-meta">데이터를 불러오지 못했습니다.</div></div>').join('')
       +'</div></div>';
   }
 };
@@ -3355,7 +3597,7 @@ renderHomeDashboardIssues = async function(){
 renderTeamWorkload = async function(){
   const el=document.getElementById('teamWorkloadWrap');
   if(!el)return;
-  const loadingLabels=['지연 프로젝트','미청구 금액','위험 고객'];
+  const loadingLabels=['전체 지연 프로젝트','미청구 금액','주의 거래처'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--warning">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">OPERATIONS WARNING</div><div class="home-layer-title">운영 경고</div><div class="home-layer-sub">팀 전체 기준으로 지연·청구·자료·인력 리스크를 보여줍니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--warning">'
@@ -3519,11 +3761,11 @@ renderTeamWorkload = async function(){
         action:"openHomePendingBillingProjectBoard()"
       },
       {
-        label:'위험 고객',
+        label:'주의 거래처',
         value:riskyClients.length?riskyClients.length+'곳':'없음',
         tone:riskyClients.length?'danger':'neutral',
         quiet:!riskyClients.length,
-        meta:riskyClients[0]?.name||'주의 고객이 없습니다',
+        meta:riskyClients[0]?.name||'주의 거래처가 없습니다',
         action:"setPage('clients')"
       }
     ];
@@ -3638,7 +3880,7 @@ renderTeamKudosAndReviews = async function(){
 renderHomeRiskSummary = async function(){
   const el=document.getElementById('homeRiskWrap');
   if(!el)return;
-  const loadingLabels=['오늘 마감','지연된 내 업무','내가 확인할 이슈','오늘 일정'];
+  const loadingLabels=['오늘 마감','내 지연 업무','확인할 이슈','오늘 일정'];
   el.innerHTML='<div class="card home-card home-layer-card home-layer-card--actions">'
     +'<div class="home-layer-head"><div><div class="home-layer-kicker">TODAY ACTION</div><div class="home-layer-title">오늘 액션</div><div class="home-layer-sub">오늘 내가 직접 처리하거나 확인해야 할 업무입니다.</div></div></div>'
     +'<div class="home-risk-grid home-risk-grid--actions">'
@@ -3703,7 +3945,7 @@ renderHomeRiskSummary = async function(){
         action:"setPage('projects')"
       },
       {
-        label:'지연된 내 업무',
+        label:'내 지연 업무',
         value:overdueProjects.length?overdueProjects.length+'건':'없음',
         tone:overdueProjects.length?'danger':'neutral',
         quiet:!overdueProjects.length,
