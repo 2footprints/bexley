@@ -1706,6 +1706,118 @@ input,textarea{border-radius:12px!important}
   background:rgba(239,68,68,.1);
   color:var(--red);
 }
+#pageWeeklyReview .wr-unified-list{
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--card);
+}
+#pageWeeklyReview .wr-unified-head,
+#pageWeeklyReview .wr-unified-row{
+  display:grid;
+  grid-template-columns:82px minmax(180px,1.2fr) minmax(190px,1.4fr) minmax(92px,.75fr) 88px 78px;
+  align-items:center;
+  gap:10px;
+}
+#pageWeeklyReview .wr-unified-head{
+  min-height:32px;
+  padding:0 10px;
+  background:var(--bg);
+  color:var(--text3);
+  font-size:10.5px;
+  font-weight:850;
+}
+#pageWeeklyReview .wr-unified-row{
+  min-height:44px;
+  padding:6px 10px;
+  border-top:1px solid rgba(148,163,184,.18);
+  cursor:pointer;
+}
+#pageWeeklyReview .wr-unified-row:hover{
+  background:#F8FAFC;
+}
+#pageWeeklyReview .wr-unified-row.is-empty{
+  cursor:default;
+  color:var(--text3);
+}
+#pageWeeklyReview .wr-unified-row.is-danger{
+  box-shadow:inset 3px 0 0 var(--red);
+}
+#pageWeeklyReview .wr-unified-row.is-warn{
+  box-shadow:inset 3px 0 0 var(--orange);
+}
+#pageWeeklyReview .wr-unified-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:20px;
+  padding:2px 7px;
+  border-radius:999px;
+  background:rgba(37,99,235,.1);
+  color:var(--blue);
+  font-size:10.5px;
+  font-weight:850;
+  white-space:nowrap;
+}
+#pageWeeklyReview .wr-next-row .wr-unified-badge{
+  background:rgba(148,163,184,.14);
+  color:var(--text2);
+}
+#pageWeeklyReview .wr-unified-title,
+#pageWeeklyReview .wr-unified-context,
+#pageWeeklyReview .wr-unified-meta,
+#pageWeeklyReview .wr-unified-date{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#pageWeeklyReview .wr-unified-title{
+  color:var(--navy);
+  font-size:12.5px;
+  font-weight:850;
+}
+#pageWeeklyReview .wr-unified-context,
+#pageWeeklyReview .wr-unified-meta{
+  color:var(--text2);
+  font-size:11.5px;
+  font-weight:700;
+}
+#pageWeeklyReview .wr-unified-date{
+  color:var(--text3);
+  font-size:11.5px;
+  font-weight:850;
+}
+#pageWeeklyReview .wr-unified-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:4px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease;
+}
+#pageWeeklyReview .wr-unified-row:hover .wr-unified-actions,
+#pageWeeklyReview .wr-unified-row:focus-within .wr-unified-actions{
+  opacity:1;
+  pointer-events:auto;
+}
+#pageWeeklyReview .wr-unified-action-btn{
+  min-height:22px;
+  padding:0 7px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:#fff;
+  color:var(--text2);
+  font-size:10.5px;
+  font-weight:850;
+  cursor:pointer;
+}
+#pageWeeklyReview .wr-unified-action-btn:hover{
+  color:var(--blue);
+  border-color:rgba(37,99,235,.24);
+  background:rgba(37,99,235,.06);
+}
 #pageWeeklyReview .wr-output-list{
   display:flex;
   flex-direction:column;
@@ -2271,6 +2383,22 @@ input,textarea{border-radius:12px!important}
   #pageWeeklyReview .weekly-review-item-table-grid{
     grid-template-columns:1fr!important;
     gap:6px;
+  }
+  #pageWeeklyReview .wr-unified-head{
+    display:none;
+  }
+  #pageWeeklyReview .wr-unified-row{
+    grid-template-columns:72px minmax(0,1fr);
+    gap:6px 10px;
+    align-items:start;
+  }
+  #pageWeeklyReview .wr-unified-row > span:nth-child(n+3){
+    grid-column:2;
+  }
+  #pageWeeklyReview .wr-unified-actions{
+    justify-content:flex-start;
+    opacity:1;
+    pointer-events:auto;
   }
   #pageWeeklyReview .wr-deadline-row,
   #pageWeeklyReview .wr-deadline-right{
@@ -10733,6 +10861,129 @@ function toggleGanttProjectTasks(projectId,event){
 }
 window.toggleGanttProjectTasks=toggleGanttProjectTasks;
 
+const GANTT_LEFT_WIDTH_STORAGE_KEY='bexley.gantt.timelineLeftWidth';
+const GANTT_LEFT_WIDTH_DEFAULT=400;
+const GANTT_LEFT_WIDTH_MIN=280;
+const GANTT_LEFT_WIDTH_MAX=720;
+let ganttTimelineLeftWidth=loadGanttTimelineLeftWidth();
+let ganttTimelineResizeState=null;
+
+function loadGanttTimelineLeftWidth(){
+  try{
+    const value=Number(localStorage.getItem(GANTT_LEFT_WIDTH_STORAGE_KEY));
+    return Number.isFinite(value)&&value>0?value:GANTT_LEFT_WIDTH_DEFAULT;
+  }catch(e){
+    return GANTT_LEFT_WIDTH_DEFAULT;
+  }
+}
+
+function getGanttTimelineLeftWidthMax(wrap){
+  const containerWidth=Number(wrap?.clientWidth||0);
+  if(!containerWidth)return GANTT_LEFT_WIDTH_MAX;
+  return Math.max(GANTT_LEFT_WIDTH_MIN,Math.min(GANTT_LEFT_WIDTH_MAX,Math.floor(containerWidth*.5)));
+}
+
+function clampGanttTimelineLeftWidth(value,wrap){
+  const max=getGanttTimelineLeftWidthMax(wrap);
+  return Math.max(GANTT_LEFT_WIDTH_MIN,Math.min(max,Math.round(Number(value)||GANTT_LEFT_WIDTH_DEFAULT)));
+}
+
+function persistGanttTimelineLeftWidth(value){
+  try{
+    localStorage.setItem(GANTT_LEFT_WIDTH_STORAGE_KEY,String(Math.round(value)));
+  }catch(e){}
+}
+
+function syncGanttTimelineDividerPosition(wrap){
+  const target=wrap||document.getElementById('ganttWrap');
+  const divider=target?.querySelector('.gantt-resize-divider');
+  if(!target||!divider)return;
+  divider.style.left=(Number(target.scrollLeft||0)+ganttTimelineLeftWidth-3)+'px';
+}
+
+function applyGanttTimelineLeftWidth(wrap,value,{persist=false}={}){
+  const page=document.getElementById('pageGantt');
+  const next=clampGanttTimelineLeftWidth(value,wrap);
+  ganttTimelineLeftWidth=next;
+  if(page)page.style.setProperty('--gantt-timeline-left-width',next+'px');
+  if(wrap)wrap.style.setProperty('--gantt-timeline-left-width',next+'px');
+  if(wrap)syncGanttTimelineDividerPosition(wrap);
+  if(persist)persistGanttTimelineLeftWidth(next);
+  return next;
+}
+
+function resetGanttTimelineLeftWidth(event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const wrap=document.getElementById('ganttWrap');
+  applyGanttTimelineLeftWidth(wrap,GANTT_LEFT_WIDTH_DEFAULT,{persist:true});
+}
+
+function endGanttTimelineResize(){
+  if(!ganttTimelineResizeState)return;
+  document.removeEventListener('pointermove',onGanttTimelineResizeMove);
+  document.removeEventListener('pointerup',endGanttTimelineResize);
+  document.body.classList.remove('gantt-resizing');
+  const wrap=ganttTimelineResizeState.wrap;
+  applyGanttTimelineLeftWidth(wrap,ganttTimelineLeftWidth,{persist:true});
+  ganttTimelineResizeState=null;
+}
+
+function onGanttTimelineResizeMove(event){
+  if(!ganttTimelineResizeState)return;
+  const {wrap,startX,startWidth}=ganttTimelineResizeState;
+  const next=startWidth+(event.clientX-startX);
+  applyGanttTimelineLeftWidth(wrap,next);
+}
+
+function startGanttTimelineResize(event){
+  const wrap=document.getElementById('ganttWrap');
+  if(!wrap||wrap.classList.contains('gantt-resize-disabled'))return;
+  event.preventDefault();
+  event.stopPropagation();
+  ganttTimelineResizeState={
+    wrap,
+    startX:event.clientX,
+    startWidth:clampGanttTimelineLeftWidth(ganttTimelineLeftWidth,wrap)
+  };
+  document.body.classList.add('gantt-resizing');
+  document.addEventListener('pointermove',onGanttTimelineResizeMove);
+  document.addEventListener('pointerup',endGanttTimelineResize);
+}
+
+function onGanttTimelineWrapScroll(event){
+  syncGanttTimelineDividerPosition(event.currentTarget);
+}
+
+function ensureGanttTimelineResizeDivider(){
+  const wrap=document.getElementById('ganttWrap');
+  if(!wrap)return;
+  const isTimeline=curGanttLayout==='timeline';
+  const hasTimelineTable=!!wrap.querySelector('table');
+  const disabled=!isTimeline||!hasTimelineTable||wrap.clientWidth<640;
+  wrap.classList.toggle('gantt-resize-disabled',disabled);
+  wrap.querySelector('.gantt-resize-divider')?.remove();
+  if(disabled)return;
+  applyGanttTimelineLeftWidth(wrap,ganttTimelineLeftWidth);
+  const divider=document.createElement('button');
+  divider.type='button';
+  divider.className='gantt-resize-divider';
+  divider.setAttribute('aria-label','프로젝트 리스트 폭 조절');
+  divider.title='드래그해서 프로젝트 리스트 폭 조절 · 더블클릭하면 기본 폭';
+  divider.addEventListener('pointerdown',startGanttTimelineResize);
+  divider.addEventListener('dblclick',resetGanttTimelineLeftWidth);
+  wrap.appendChild(divider);
+  syncGanttTimelineDividerPosition(wrap);
+  if(!wrap.dataset.ganttResizeScrollBound){
+    wrap.addEventListener('scroll',onGanttTimelineWrapScroll,{passive:true});
+    wrap.dataset.ganttResizeScrollBound='1';
+  }
+}
+window.addEventListener('resize',()=>ensureGanttTimelineResizeDivider());
+window.resetGanttTimelineLeftWidth=resetGanttTimelineLeftWidth;
+
 function getGanttTimelineTaskJsString(value){
   if(typeof getGanttTaskDrilldownJsString==='function')return getGanttTaskDrilldownJsString(value);
   return String(value??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n');
@@ -11009,6 +11260,7 @@ function renderGanttAnnualTimeline(projs){
   if(!projs.length){
     wrap.innerHTML='<div class="empty-state pg-annual-empty">현재 필터에서 표시할 프로젝트가 없습니다.</div>';
     renderLegend();
+    ensureGanttTimelineResizeDivider();
     return;
   }
   let html='<table class="pg-annual-table pg-annual-table--'+scale+'"><thead><tr><th class="th-label">구분</th>';
@@ -11061,6 +11313,7 @@ function renderGanttAnnualTimeline(projs){
   html+='</tbody></table>';
   wrap.innerHTML=html;
   renderLegend();
+  ensureGanttTimelineResizeDivider();
 }
 
 function renderFilteredGanttTimeline(projs,schs){
@@ -11075,6 +11328,7 @@ function renderFilteredGanttTimeline(projs,schs){
   if(!projs.length&&!schs.length){
     wrap.innerHTML='<div class="empty-state" style="padding:40px">현재 필터에서 표시할 프로젝트와 일정이 없습니다.</div>';
     renderLegend();
+    ensureGanttTimelineResizeDivider();
     return;
   }
   const weekdayLabels=['일','월','화','수','목','금','토'];
@@ -11162,6 +11416,7 @@ function renderFilteredGanttTimeline(projs,schs){
   html+='</tbody></table>';
   wrap.innerHTML=html;
   renderLegend();
+  ensureGanttTimelineResizeDivider();
 }
 
 window.renderGantt=function(){

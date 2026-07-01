@@ -4273,11 +4273,10 @@ function renderWeeklyReviewMeetingSummaryBar(cards=[],data=null){
   const nextDeadline=(data?._raw_nextWeekEnds||[]).length;
   const nextStarts=(data?._raw_nextWeekStarts||[]).length;
   const items=[
-    {label:'미해결 팔로업',value:openFollowups,tone:openFollowups?'danger':'quiet'},
-    {label:'리스크/지연',value:risks,tone:risks?'danger':'quiet'},
     {label:'완료',value:completed,tone:completed?'ok':'quiet'},
-    {label:'산출물',value:outputs,tone:outputs?'ok':'quiet'},
-    {label:'차주 준비',value:nextDeadline+nextStarts,tone:(nextDeadline+nextStarts)?'warn':'quiet'}
+    {label:'미완료/지연/리스크',value:risks+openFollowups,tone:(risks+openFollowups)?'danger':'quiet'},
+    {label:'차주 할 일',value:nextDeadline+nextStarts,tone:(nextDeadline+nextStarts)?'warn':'quiet'},
+    {label:'산출물',value:outputs,tone:outputs?'ok':'quiet'}
   ];
   return '<div class="wr-meeting-summary-bar">'+items.map(item=>
     '<span class="wr-meeting-summary-chip is-'+item.tone+(Number(item.value||0)===0?' is-zero':'')+'">'
@@ -4307,15 +4306,65 @@ function renderWeeklyReviewMeetingSidePanel(commentsSection,pageData,snapshotMet
     +'</section>'
   +'</aside>';
 }
+
+function renderWeeklyReviewUnifiedCompletionList(taskItems=[],projectItems=[]){
+  const taskRows=(taskItems||[]).map(item=>{
+    const task=item._task||{};
+    const project=getWeeklyReviewProjectById(item.projectId||task?.project_id);
+    const commentTarget=getWeeklyReviewCommentTargetFromItem(item);
+    const projectContext=getWeeklyReviewProjectContextLabel(project);
+    const assignee=getWeeklyReviewTaskAssigneeLabel(task)||'-';
+    const completedAt=getWeeklyReviewTaskCompletionBasisDate(task);
+    const detailAction="openWeeklyReviewProjectTaskModal('"+getWeeklyReviewJsString(item.projectId||task?.project_id||'')+"','"+getWeeklyReviewJsString(item.taskId||task?.id||'')+"')";
+    return {
+      type:'태스크',
+      title:item.title||'완료 업무',
+      context:projectContext||'관련 프로젝트 미지정',
+      assignee,
+      date:completedAt?getWeeklyReviewShortDate(completedAt):(String(item.sideText||'').replace(/^완료\s*/,'')||'-'),
+      action:detailAction,
+      commentTarget
+    };
+  });
+  const projectRows=(projectItems||[]).map(item=>{
+    const project=getWeeklyReviewProjectById(item.projectId)||{};
+    const client=getWeeklyReviewProjectClient(project);
+    const memberLabel=(Array.isArray(project?.members)?project.members.filter(Boolean):[]).join(', ')||'-';
+    return {
+      type:'프로젝트',
+      title:project?.name||item?.columns?.[1]||'완료 프로젝트',
+      context:client?.name||item?.columns?.[0]||'고객사 미지정',
+      assignee:memberLabel,
+      date:getWeeklyReviewShortDate(project?.actual_end_date)||item?.columns?.[2]||'-',
+      action:item.action||("openProjModal('"+getWeeklyReviewJsString(item.projectId||'')+"',null,null,'completion')"),
+      commentTarget:getWeeklyReviewCommentTargetFromItem(item)
+    };
+  });
+  const rows=[...taskRows,...projectRows].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''),'ko'));
+  if(!rows.length)return '<div class="wr-empty-row wr-completed-empty">이번 주에 완료된 업무와 프로젝트가 없습니다.</div>';
+  return '<div class="wr-unified-list wr-completion-list">'
+    +'<div class="wr-unified-head"><span>구분</span><span>완료 항목</span><span>관련 프로젝트</span><span>담당자</span><span>완료일</span><span></span></div>'
+    +rows.map(row=>
+      '<div class="wr-unified-row" role="button" tabindex="0" onclick="'+row.action+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+row.action+';}">'
+        +'<span><span class="wr-unified-badge">'+esc(row.type)+'</span></span>'
+        +'<span class="wr-unified-title" title="'+esc(row.title)+'">'+esc(row.title)+'</span>'
+        +'<span class="wr-unified-context" title="'+esc(row.context)+'">'+esc(row.context)+'</span>'
+        +'<span class="wr-unified-meta" title="'+esc(row.assignee)+'">'+esc(row.assignee)+'</span>'
+        +'<span class="wr-unified-date">'+esc(row.date||'-')+'</span>'
+        +'<span class="wr-unified-actions"><button type="button" class="wr-unified-action-btn" onclick="event.stopPropagation();'+row.action+'">상세</button>'+renderWeeklyReviewItemCommentButton(row.commentTarget)+'</span>'
+      +'</div>'
+    ).join('')
+  +'</div>';
+}
 renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapshotMeta=null,data=null){
   const modeIsManagement=weeklyReviewMode==='management';
   const pageData=data||weeklyReviewLastRenderPayload?.data||{cards,sections,_snapshotMeta:snapshotMeta};
   const commentsSection=(sections||[]).find(s=>s?.id==='comments');
   const regularSections=(sections||[]).filter(s=>s?.id!=='comments');
   const orderedMainSections=[
+    ...regularSections.filter(s=>s?.id==='completed'),
     ...regularSections.filter(s=>s?.id==='risks'),
     {__nextWeek:true},
-    ...regularSections.filter(s=>s?.id==='completed'),
     ...regularSections.filter(s=>s?.id==='outputs'),
     ...regularSections.filter(s=>!['risks','completed','outputs'].includes(String(s?.id||'')))
   ];
@@ -4588,7 +4637,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
   }
   const outputsSection={
     id:'outputs',
-    title:'이번 주 산출물',
+    title:'4. 이번 주 산출물',
     sub:'이번 주 등록된 산출물을 프로젝트별로 확인하고 회의 안건 포함 여부와 QC 상태를 정리합니다.',
     collapsedSummary:`회의 안건 ${includedOutputs.length}건 · 전체 산출물 ${allOutputs.length}건`,
     actionsHtml:renderWeeklyReviewSectionActionButtons([
@@ -4612,7 +4661,7 @@ getWeeklyReviewPageData=async function(offsetWeeks=weeklyReviewWeekOffset){
     ]
   };
   if(commentsSection){
-    commentsSection.title='회의 메모';
+    commentsSection.title='5. 회의 메모 / 액션 아이템';
     commentsSection.sub='결정 사항과 코멘트는 참고용으로만 간단히 확인합니다.';
     commentsSection.collapsedSummary=`메모 ${commentItems.length}건`;
     commentsSection.actionsHtml=commentsSection.actionsHtml||'';
@@ -4776,17 +4825,6 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
   const commentCount=(data.weeklyReviews||[]).length;
   data.cards=[
     {
-      key:'risks',
-      title:'리스크 / 지연',
-      badge:'이번 주 경고',
-      value:formatWeeklyReviewCount(riskTotal),
-      helper:riskTotal
-        ?'지연 프로젝트·태스크와 긴급 이슈를 먼저 확인하세요.'
-        :'이번 주 즉시 논의할 경고 항목이 없습니다.',
-      meta:`지연 프로젝트 ${overdueItems.length}건 · 긴급 이슈 ${urgentIssueItems.length}건 · 지연 태스크 ${overdueTaskItems.length}건`,
-      tone:overdueItems.length?'danger':urgentIssueItems.length||overdueTaskItems.length?'warning':'success'
-    },
-    {
       key:'completed',
       title:'이번 주 완료',
       badge:'실적',
@@ -4798,19 +4836,19 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
       tone:completedTotal?'success':''
     },
     {
-      key:'outputs',
-      title:'이번 주 산출물',
-      badge:'회의 자료',
-      value:formatWeeklyReviewCount(includedOutputs.length),
-      helper:includedOutputs.length
-        ?'회의에 포함할 산출물을 먼저 공유하세요.'
-        :'회의 안건으로 지정된 산출물이 없습니다.',
-      meta:`전체 산출물 ${allOutputs.length}건 · 회의 안건 ${includedOutputs.length}건`,
-      tone:includedOutputs.length?'success':''
+      key:'risks',
+      title:'미완료 / 지연 / 리스크',
+      badge:'이번 주 경고',
+      value:formatWeeklyReviewCount(riskTotal),
+      helper:riskTotal
+        ?'지연 프로젝트·태스크와 긴급 이슈를 확인하세요.'
+        :'이번 주 즉시 논의할 경고 항목이 없습니다.',
+      meta:`지연 프로젝트 ${overdueItems.length}건 · 긴급 이슈 ${urgentIssueItems.length}건 · 지연 태스크 ${overdueTaskItems.length}건`,
+      tone:overdueItems.length?'danger':urgentIssueItems.length||overdueTaskItems.length?'warning':'success'
     },
     {
       key:'next',
-      title:'차주 준비',
+      title:'차주 할 일',
       badge:'다음 주',
       value:formatWeeklyReviewCount(nextTotal),
       helper:nextTotal
@@ -4818,11 +4856,22 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
         :'다음 주 주요 일정이 비교적 안정적입니다.',
       meta:`마감 ${nextEndItems.length}건 · 착수 ${nextStartItems.length}건 · 일정 ${nextScheduleItems.length}건`,
       tone:nextTotal?'warning':'success'
+    },
+    {
+      key:'outputs',
+      title:'이번 주 산출물',
+      badge:'회의 자료',
+      value:formatWeeklyReviewCount(includedOutputs.length),
+      helper:includedOutputs.length
+        ?'회의에 포함할 산출물을 공유하세요.'
+        :'회의 안건으로 지정된 산출물이 없습니다.',
+      meta:`전체 산출물 ${allOutputs.length}건 · 회의 안건 ${includedOutputs.length}건`,
+      tone:includedOutputs.length?'success':''
     }
   ];
   if(risksSection){
-    risksSection.title='1. 리스크 / 이슈 / 지연';
-    risksSection.sub='이번 주 먼저 다뤄야 할 지연 프로젝트·태스크, 긴급 이슈, 미청구를 확인합니다.';
+    risksSection.title='2. 미완료 / 지연 / 리스크';
+    risksSection.sub='완료되지 못한 항목, 지연 프로젝트·태스크, 긴급 이슈를 확인합니다.';
     risksSection.collapsedSummary=`지연 프로젝트 ${overdueItems.length}건 · 긴급 이슈 ${urgentIssueItems.length}건 · 지연 태스크 ${overdueTaskItems.length}건 · 미청구 ${unbilledItems.length}건`;
     risksSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
       {label:'프로젝트 관리',action:"setPage('gantt')"},
@@ -4836,48 +4885,18 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
     ];
   }
   if(completedSection){
-    completedSection.title='2. 이번 주 완료';
-    completedSection.sub='이번 주 완료된 업무와 프로젝트를 모아 진행 결과와 후속 영향을 확인합니다.';
+    completedSection.title='1. 이번 주 완료';
+    completedSection.sub='이번 주 완료된 태스크와 프로젝트를 같은 양식으로 확인합니다.';
     completedSection.collapsedSummary=`완료 업무 ${completedTaskItems.length}건 · 완료 프로젝트 ${completedProjectItems.length}건`;
     completedSection.actionsHtml=renderWeeklyReviewSectionActionButtons([
       {label:'프로젝트 관리',action:"setPage('gantt')"}
     ]);
     completedSection.groups=[
       {
-        title:'완료 업무',
+        title:'완료 항목',
         variant:'html',
-        countLabel:formatWeeklyReviewCount(completedTaskItems.length),
-        html:completedTaskItems.length
-            ?completedTaskItems.map(item=>{
-              const task=item._task||{};
-              const project=getWeeklyReviewProjectById(item.projectId||task?.project_id);
-              const commentTarget=getWeeklyReviewCommentTargetFromItem(item);
-              const detailAction="openWeeklyReviewProjectTaskModal('"+getWeeklyReviewJsString(item.projectId||task?.project_id||'')+"','"+getWeeklyReviewJsString(item.taskId||task?.id||'')+"')";
-              return '<div class="wr-completed-card" role="button" tabindex="0" onclick="'+detailAction+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+detailAction+';}">'
-                +'<div class="wr-completed-card-main">'
-                  +renderWeeklyReviewTaskBreadcrumb(task,project)
-                  +'<div class="wr-completed-card-title">'+esc(item.title||'')+'</div>'
-                  +renderWeeklyReviewTaskCardMeta(task)
-                  +renderWeeklyReviewItemCommentBadges(commentTarget)
-                +'</div>'
-                +'<div class="wr-completed-card-side">'
-                  +'<span class="badge badge-green">완료</span>'
-                  +'<div class="wr-completed-card-date">'+esc(item.sideText||'')+'</div>'
-                  +'<button type="button" class="btn ghost sm" onclick="event.stopPropagation();'+detailAction+'">상세</button>'
-                  +renderWeeklyReviewItemCommentButton(commentTarget)
-                +'</div>'
-              +'</div>';
-            }).join('')
-          :'<div class="wr-empty-row wr-completed-empty">이번 주에 완료된 업무가 없습니다.</div>'
-      },
-      {
-        title:'이번 주 완료 프로젝트',
-        variant:'table',
-        tableClass:'wr-completed-project-table',
-        tableTemplate:'1.1fr 1.6fr .75fr 1.1fr 1fr .9fr',
-        tableHeaders:['고객사','프로젝트명','완료일','담당자','청구 금액','청구 상태'],
-        items:completedProjectItems,
-        summary:`완료 프로젝트 ${completedProjectItems.length}건`
+        countLabel:formatWeeklyReviewCount(completedTotal),
+        html:renderWeeklyReviewUnifiedCompletionList(completedTaskItems,completedProjectItems)
       }
     ];
   }
@@ -4919,7 +4938,7 @@ async function getWeeklyReviewCalculatedPageData(offsetWeeks=weeklyReviewWeekOff
   }
   data._raw_nextWeekEnds=data.nextWeekEnds||[];
   data._raw_nextWeekStarts=data.nextWeekStarts||[];
-  data.sections=[risksSection,completedSection,outputsSection,commentsSection].filter(Boolean);
+  data.sections=[completedSection,risksSection,outputsSection,commentsSection].filter(Boolean);
   return data;
 }
 async function getWeeklyReviewSnapshot(weekStart){
@@ -5217,55 +5236,95 @@ function renderWeeklyReviewNextWeekSection(data) {
     return !!startDate && !!endDate && startDate <= nextBounds.end && endDate >= nextBounds.start && scheduleHasOperationalMember(schedule);
   });
   const nextStarts = (data._raw_nextWeekStarts || []);
-  const deadlineRows = deadlineProjects.length
-    ? deadlineProjects.map(({ project, dLabel, toneClass, statusLabel, memberNames }) => {
-        const statusClass = statusLabel === '지연' ? 'danger' : 'blue';
-        return `<div class="wr-deadline-row">
-          <div class="wr-deadline-left">
-            <span class="wr-deadline-dot"></span>
-            <div>
-              <div class="wr-deadline-proj">${esc(project.name || '')}</div>
-              <div class="wr-deadline-owner">${esc(memberNames.slice(0, 2).join(', ') || '-')}</div>
-            </div>
-          </div>
-          <div class="wr-deadline-right">
-            <span class="wr-status-tag ${statusClass}">${esc(statusLabel)}</span>
-            <span class="wr-deadline-date ${toneClass}">${esc(getWeeklyReviewProjectEndDate(project) || '-')}${dLabel ? ` <span class="wr-nw-d-chip">(${dLabel})</span>` : ''}</span>
-          </div>
-        </div>`;
-      }).join('')
-    : `<div class="wr-empty-row">다음 주 마감 예정 프로젝트가 없습니다.</div>`;
-  const leaveRows = nextLeaves.length
-    ? [...new Set(nextLeaves.flatMap(s => getOperationalScheduleMemberNames(s)))].map(name => {
-        const sched = nextLeaves.find(s => getOperationalScheduleMemberNames(s).includes(name));
-        const start = sched?.start || sched?.start_date || '';
-        const end = sched?.end || sched?.end_date || start;
-        const days = start && end ? Math.round((getWeeklyReviewDate(end) - getWeeklyReviewDate(start)) / (1000 * 60 * 60 * 24)) + 1 : null;
-        return `<div class="wr-nw-absence-item"><span class="wr-nw-absence-who">${esc(name)}</span><div style="display:flex;align-items:center;gap:6px"><span class="wr-nw-absence-period">${esc(start.slice(5).replace('-', '/') || '')}</span>${days ? `<span class="wr-nw-absence-days">${days}일</span>` : ''}</div></div>`;
-      }).join('')
-    : `<div class="wr-mini-empty">차주 휴가·부재 신청이 없습니다.</div>`;
-  const fieldRows = nextFieldwork.length
-    ? nextFieldwork.slice(0, 3).map(sched => {
-        const names = getOperationalScheduleMemberNames(sched).join(', ');
-        const start = sched?.start || sched?.start_date || '';
-        return `<div class="wr-nw-field-item"><div class="wr-nw-field-who">${esc(names)}</div><div class="wr-nw-field-desc">${esc(sched.title || '필드 일정')}</div><div class="wr-nw-field-date">${esc(start.slice(5).replace('-', '/') || '')}</div></div>`;
-      }).join('')
-    : `<div class="wr-mini-empty">차주 산정 일정이 없습니다.</div>`;
-  const startRows = nextStarts.length
-    ? nextStarts.slice(0, 3).map(project => {
-        const startDate = getWeeklyReviewProjectStartDate(project);
-        const memberNames = (projectMemberLinks || [])
-          .filter(link => String(link.project_id) === String(project.id))
-          .map(link => members.find(m => m.id === link.member_id)?.name || '')
-          .filter(Boolean);
-        return `<div class="wr-nw-new-item"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><div class="wr-nw-proj-name">${esc(project.name || '')}</div><span class="badge badge-blue" style="font-size:10px">신규</span></div><div class="wr-nw-proj-owner">담당: ${esc(memberNames.slice(0, 2).join(', ') || '-')} · ${esc(startDate ? startDate.slice(5).replace('-', '/') : '')} 착수</div></div>`;
-      }).join('')
-    : `<div class="wr-mini-empty">차주 신규 착수 일정이 없습니다.</div>`;
+  const rows=[];
+  deadlineProjects.forEach(({ project, dLabel, toneClass, statusLabel, memberNames })=>{
+    rows.push({
+      type:'마감 예정',
+      title:project.name||'프로젝트',
+      context:statusLabel,
+      owner:memberNames.slice(0,2).join(', ')||'-',
+      date:(getWeeklyReviewProjectEndDate(project)||'-')+(dLabel?` (${dLabel})`:''),
+      tone:toneClass.includes('danger')?'danger':toneClass.includes('warn')?'warn':'',
+      action:"openProjModal('"+getWeeklyReviewJsString(project.id)+"')"
+    });
+  });
+  nextStarts.forEach(project=>{
+    const startDate=getWeeklyReviewProjectStartDate(project);
+    const memberNames=(projectMemberLinks||[])
+      .filter(link=>String(link.project_id)===String(project.id))
+      .map(link=>members.find(m=>m.id===link.member_id)?.name||'')
+      .filter(Boolean);
+    rows.push({
+      type:'착수 예정',
+      title:project.name||'프로젝트',
+      context:'신규 착수',
+      owner:memberNames.slice(0,2).join(', ')||'-',
+      date:startDate||'-',
+      tone:'',
+      action:"openProjModal('"+getWeeklyReviewJsString(project.id)+"')"
+    });
+  });
+  nextFieldwork.slice(0,6).forEach(schedule=>{
+    const start=schedule?.start||schedule?.start_date||'';
+    rows.push({
+      type:'산정 일정',
+      title:schedule.title||'필드 일정',
+      context:getOperationalScheduleMemberNames(schedule).join(', ')||'-',
+      owner:getScheduleMemberLabel(schedule)||'-',
+      date:start||'-',
+      tone:'',
+      action:"openScheduleModal('"+getWeeklyReviewJsString(schedule.id)+"')"
+    });
+  });
+  const leaveNames=[...new Set(nextLeaves.flatMap(schedule=>getOperationalScheduleMemberNames(schedule)))];
+  leaveNames.forEach(name=>{
+    const sched=nextLeaves.find(schedule=>getOperationalScheduleMemberNames(schedule).includes(name));
+    const start=sched?.start||sched?.start_date||'';
+    const end=sched?.end||sched?.end_date||start;
+    const days=start&&end?Math.round((getWeeklyReviewDate(end)-getWeeklyReviewDate(start))/(1000*60*60*24))+1:null;
+    rows.push({
+      type:'추가/부재',
+      title:name,
+      context:'휴가·부재',
+      owner:name,
+      date:(start?start:'-')+(days?` · ${days}일`:''),
+      tone:'',
+      action:sched?.id?("openScheduleModal('"+getWeeklyReviewJsString(sched.id)+"')"):''
+    });
+  });
+  const fallbackTypes=[
+    {type:'마감 예정',empty:'다음 주 마감 예정 프로젝트가 없습니다.',show:!deadlineProjects.length},
+    {type:'착수 예정',empty:'차주 신규 착수 일정이 없습니다.',show:!nextStarts.length},
+    {type:'산정 일정',empty:'차주 산정 일정이 없습니다.',show:!nextFieldwork.length},
+    {type:'추가/부재',empty:'차주 휴가·부재 신청이 없습니다.',show:!leaveNames.length}
+  ].filter(item=>item.show);
+  const nextRowsHtml=[
+    ...rows.map(row=>
+      '<div class="wr-unified-row wr-next-row '+(row.tone?'is-'+row.tone:'')+'" '+(row.action?'role="button" tabindex="0" onclick="'+row.action+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+row.action+';}"':'')+'>'
+        +'<span><span class="wr-unified-badge">'+esc(row.type)+'</span></span>'
+        +'<span class="wr-unified-title" title="'+esc(row.title)+'">'+esc(row.title)+'</span>'
+        +'<span class="wr-unified-context">'+esc(row.context||'-')+'</span>'
+        +'<span class="wr-unified-meta">'+esc(row.owner||'-')+'</span>'
+        +'<span class="wr-unified-date">'+esc(row.date||'-')+'</span>'
+        +'<span></span>'
+      +'</div>'
+    ),
+    ...fallbackTypes.map(item=>
+      '<div class="wr-unified-row wr-next-row is-empty">'
+        +'<span><span class="wr-unified-badge">'+esc(item.type)+'</span></span>'
+        +'<span class="wr-unified-title">'+esc(item.empty)+'</span>'
+        +'<span class="wr-unified-context">없음</span>'
+        +'<span class="wr-unified-meta">-</span>'
+        +'<span class="wr-unified-date">-</span>'
+        +'<span></span>'
+      +'</div>'
+    )
+  ].join('');
   return `<section class="card weekly-review-section" data-section-id="next-week" style="margin-top:0">
     <div class="weekly-review-section-head">
       <div>
-        <div class="weekly-review-section-title">차주 준비</div>
-        <div class="weekly-review-section-sub">다음 주 마감·착수·일정을 한눈에 점검합니다.</div>
+        <div class="weekly-review-section-title">3. 차주 할 일</div>
+        <div class="weekly-review-section-sub">다음 주 마감·착수·산정·부재를 같은 리스트로 점검합니다.</div>
       </div>
       <div class="weekly-review-section-controls">
         <button type="button" class="btn ghost sm" onclick="setPage('gantt')">프로젝트 관리</button>
@@ -5273,16 +5332,12 @@ function renderWeeklyReviewNextWeekSection(data) {
     </div>
     <div class="weekly-review-section-content">
       <div class="weekly-review-section-expanded-body">
-        <div class="weekly-review-group">
-          <div class="weekly-review-group-title">차주 마감 예정</div>
-          <div class="wr-deadline-list">
-            ${deadlineRows}
+        <div class="weekly-review-section-group">
+          <div class="weekly-review-group-title">차주 할 일</div>
+          <div class="wr-unified-list wr-next-list">
+            <div class="wr-unified-head"><span>구분</span><span>항목</span><span>상태/내용</span><span>담당자</span><span>일자</span><span></span></div>
+            ${nextRowsHtml}
           </div>
-        </div>
-        <div class="wr-mini-grid">
-          <div class="wr-mini-card"><div class="wr-mini-label">추가 · 부재</div><div class="wr-mini-value">${leaveRows}</div></div>
-          <div class="wr-mini-card"><div class="wr-mini-label">착수 예정</div><div class="wr-mini-value">${startRows}</div></div>
-          <div class="wr-mini-card"><div class="wr-mini-label">산정 일정</div><div class="wr-mini-value">${fieldRows}</div></div>
         </div>
       </div>
     </div>
