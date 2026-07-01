@@ -6011,7 +6011,7 @@ td{
   max-width:100%!important;
 }
 #pageGantt .gantt-main{
-  overflow:hidden!important;
+  overflow:visible!important;
 }
 #pageGantt .gantt-list-view{
   overflow:hidden!important;
