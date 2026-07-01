@@ -2890,18 +2890,20 @@ input,textarea{border-radius:12px!important}
       </div>
       <div class="home-dashboard-shell">
         <div id="homeRiskWrap"></div>
-        <div class="home-warning-zone">
-          <div id="teamWorkloadWrap"></div>
-        </div>
         <div class="home-body-zone">
           <div class="home-body-grid">
-            <div id="myWeekWrap" class="home-body-main">
-              <div id="homeQueueWrap"></div>
-              <div id="homeAttentionWrap"></div>
-              <div id="homeRecentWrap"></div>
+            <div class="home-body-main">
+              <div id="myWeekWrap">
+                <div id="homeQueueWrap"></div>
+                <div id="homeAttentionWrap"></div>
+                <div id="homeRecentWrap"></div>
+              </div>
             </div>
             <div class="home-body-side">
               <div id="memberScheduleWrap"></div>
+              <div class="home-warning-zone">
+                <div id="teamWorkloadWrap"></div>
+              </div>
               <div class="team-fun-section">
               <div class="card home-card" style="margin-bottom:0">
                 <div class="home-section-title">빠른 실행</div>
@@ -3147,6 +3149,7 @@ window.addEventListener('DOMContentLoaded',function(){
 
 <script src="scripts/utils.js"></script>
 <script src="scripts/home.js"></script>
+<script src="scripts/home-console.js"></script>
 <script src="scripts/issues.js"></script>
 <script src="scripts/clients.js"></script>
 <script src="scripts/contracts.js"></script>
