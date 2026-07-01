@@ -12,15 +12,17 @@ const WEEKLY_REVIEW_MODE_DEFAULTS={
   management:{
     risks:false,
     billing:false,
-    completed:false,
+    completed:true,
     next:false,
+    outputs:true,
     comments:true
   },
   team:{
     risks:false,
     billing:false,
-    completed:false,
+    completed:true,
     next:false,
+    outputs:true,
     comments:true
   }
 };
@@ -4257,15 +4259,72 @@ renderWeeklyReviewQuickJumpMarkup=function(sections){
     ).join('')
   +'</div>';
 };
+function renderWeeklyReviewMeetingSummaryBar(cards=[],data=null){
+  const sectionCount=(sectionId,groupIndex=0)=>{
+    const section=(data?.sections||[]).find(item=>String(item?.id||'')===sectionId);
+    const group=(section?.groups||[])[groupIndex];
+    if(Array.isArray(group?.items))return group.items.length;
+    return parseWeeklyReviewMetricNumber(group?.countLabel||0);
+  };
+  const openFollowups=(data?._openFollowupComments||[]).filter(comment=>String(comment?.status||'open')!=='done').length;
+  const risks=sectionCount('risks',0)+sectionCount('risks',1)+sectionCount('risks',2);
+  const completed=sectionCount('completed',0)+sectionCount('completed',1);
+  const outputs=sectionCount('outputs',0);
+  const nextDeadline=(data?._raw_nextWeekEnds||[]).length;
+  const nextStarts=(data?._raw_nextWeekStarts||[]).length;
+  const items=[
+    {label:'미해결 팔로업',value:openFollowups,tone:openFollowups?'danger':'quiet'},
+    {label:'리스크/지연',value:risks,tone:risks?'danger':'quiet'},
+    {label:'완료',value:completed,tone:completed?'ok':'quiet'},
+    {label:'산출물',value:outputs,tone:outputs?'ok':'quiet'},
+    {label:'차주 준비',value:nextDeadline+nextStarts,tone:(nextDeadline+nextStarts)?'warn':'quiet'}
+  ];
+  return '<div class="wr-meeting-summary-bar">'+items.map(item=>
+    '<span class="wr-meeting-summary-chip is-'+item.tone+(Number(item.value||0)===0?' is-zero':'')+'">'
+      +'<span>'+esc(item.label)+'</span>'
+      +'<strong>'+Number(item.value||0).toLocaleString()+'</strong>'
+    +'</span>'
+  ).join('<span class="wr-meeting-summary-sep">·</span>')+'</div>';
+}
+function renderWeeklyReviewMeetingSidePanel(commentsSection,pageData,snapshotMeta){
+  const meta=snapshotMeta||pageData?._snapshotMeta||{};
+  const weekStart=meta.weekStart||getWeekStart(weeklyReviewWeekOffset);
+  const isFinalized=String(meta.status||'').trim()==='finalized';
+  const actionItems=Array.isArray(meta.action_items)?meta.action_items:[];
+  const previousCommentsState=weeklyReviewSectionCollapseState.comments;
+  weeklyReviewSectionCollapseState={...weeklyReviewSectionCollapseState,comments:false};
+  const commentsHtml=commentsSection?renderWeeklyReviewSectionMarkup(commentsSection):'<section class="card weekly-review-section" data-section-id="comments"><div class="weekly-review-section-head"><div><div class="weekly-review-section-title">회의 메모</div></div></div><div class="weekly-review-empty">회의 메모 영역을 불러오지 못했습니다.</div></section>';
+  weeklyReviewSectionCollapseState={...weeklyReviewSectionCollapseState,comments:previousCommentsState};
+  return '<aside class="wr-meeting-side-panel">'
+    +commentsHtml
+    +'<section class="card weekly-review-section wr-side-action-section" data-section-id="action-items">'
+      +'<div class="weekly-review-section-head">'
+        +'<div><div class="weekly-review-section-title">액션 아이템</div><div class="weekly-review-section-sub">회의 후 바로 이어질 후속 조치</div></div>'
+      +'</div>'
+      +'<div class="weekly-review-section-content">'
+        +renderWeeklyReviewActionItems(actionItems,weekStart,isFinalized)
+      +'</div>'
+    +'</section>'
+  +'</aside>';
+}
 renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapshotMeta=null,data=null){
   const modeIsManagement=weeklyReviewMode==='management';
   const pageData=data||weeklyReviewLastRenderPayload?.data||{cards,sections,_snapshotMeta:snapshotMeta};
   const commentsSection=(sections||[]).find(s=>s?.id==='comments');
+  const regularSections=(sections||[]).filter(s=>s?.id!=='comments');
+  const orderedMainSections=[
+    ...regularSections.filter(s=>s?.id==='risks'),
+    {__nextWeek:true},
+    ...regularSections.filter(s=>s?.id==='completed'),
+    ...regularSections.filter(s=>s?.id==='outputs'),
+    ...regularSections.filter(s=>!['risks','completed','outputs'].includes(String(s?.id||'')))
+  ];
   const bodyHtml=modeIsManagement
-    ? '<div class="weekly-review-body-grid">'
-        +(sections||[]).filter(s=>s?.id!=='comments').map(renderWeeklyReviewSectionMarkup).join('')
-        +renderWeeklyReviewNextWeekSection(pageData)
-        +(commentsSection?renderWeeklyReviewSectionMarkup(commentsSection):'')
+    ? '<div class="wr-meeting-console">'
+        +'<main class="wr-meeting-main">'
+          +orderedMainSections.map(section=>section.__nextWeek?renderWeeklyReviewNextWeekSection(pageData):renderWeeklyReviewSectionMarkup(section)).join('')
+        +'</main>'
+        +renderWeeklyReviewMeetingSidePanel(commentsSection,pageData,snapshotMeta)
       +'</div>'
     : renderWeeklyReviewProjectMeetingView(pageData);
   const shellClass=modeIsManagement?' is-management-mode':' is-team-mode';
@@ -4296,6 +4355,7 @@ renderWeeklyReviewPageMarkup=function(rangeLabel,navLabel,cards,sections,snapsho
       +'</div>'
       +renderWeeklyReviewSnapshotNotice(snapshotMeta)
       +renderWeeklyReviewOpenFollowups(pageData)
+      +renderWeeklyReviewMeetingSummaryBar(cards,pageData)
       +'<div class="wr-kpi-grid">'
         +(cards||[]).map(renderWeeklyReviewCardMarkup).join('')
       +'</div>'
