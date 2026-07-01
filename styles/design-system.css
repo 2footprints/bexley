@@ -1,8 +1,8 @@
 :root{
-  --ds-surface-raised:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%);
-  --ds-hover-border:rgba(16,32,51,.12);
-  --ds-hover-fill:rgba(16,32,51,.03);
-  --ds-ring:0 0 0 4px rgba(37,88,200,.08);
+  --ds-surface-raised:linear-gradient(180deg,#FFFFFF 0%,#FAFAFA 100%);
+  --ds-hover-border:rgba(0,0,0,.10);
+  --ds-hover-fill:rgba(0,0,0,.02);
+  --ds-ring:0 0 0 4px rgba(0,0,0,.08);
   --ds-card-padding:20px;
   --ds-card-gap:16px;
   --ds-table-row-height:56px;
@@ -1351,10 +1351,10 @@ body{
   --ds-panel-gap:18px;
   --ds-toolbar-padding:14px 16px;
   --ds-card-radius:20px;
-  --ds-card-shadow:0 16px 40px rgba(16,32,51,.06),0 4px 12px rgba(16,32,51,.04);
-  --ds-card-shadow-hover:0 22px 48px rgba(16,32,51,.08),0 8px 18px rgba(16,32,51,.05);
-  --ds-soft-border:rgba(16,32,51,.08);
-  --ds-strong-border:rgba(16,32,51,.12);
+  --ds-card-shadow:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.03);
+  --ds-card-shadow-hover:0 4px 12px rgba(0,0,0,.06),0 1px 4px rgba(0,0,0,.04);
+  --ds-soft-border:rgba(0,0,0,.06);
+  --ds-strong-border:rgba(0,0,0,.10);
 }
 
 body{
@@ -1853,9 +1853,9 @@ table tr,
   --ds-control-height:42px;
   --ds-control-height-sm:36px;
   --ds-summary-gap:14px;
-  --ds-selected-surface:rgba(22,35,59,.055);
-  --ds-hover-surface:rgba(16,32,51,.028);
-  --ds-muted-surface:rgba(247,250,252,.9);
+  --ds-selected-surface:rgba(0,0,0,.04);
+  --ds-hover-surface:rgba(0,0,0,.02);
+  --ds-muted-surface:rgba(250,250,250,.9);
 }
 
 .section-header,
