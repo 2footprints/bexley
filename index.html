@@ -10591,10 +10591,6 @@ window.gRow=function(p,days){
   const isCompleted=isCompletedGanttStatus(p.status);
   const od=toDate(p.end)<today&&!isCompleted;
   const dueToday=isDueToday(p)&&!isCompleted;
-  const mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
-  const progress=typeof getGanttProjectProgress==='function'?getGanttProjectProgress(p,today):0;
-  const progressColor=od?'#EA580C':(dueToday?'#D97706':(TYPES[p.type]||'#4e5968'));
   const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
     ?getGanttTimelineRangeMeta(p,days)
     :{visible:true,barS:1,barE:1,span:1};
@@ -10636,18 +10632,12 @@ window.gRow=function(p,days){
   const barStatusClass=statusMeta.tone==='done'?'done':statusMeta.tone==='progress'?'progress':'planned';
   const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'')+(isActive?' is-active':'');
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
-  const alertHtml=(od?'<span class="pg-row-alert">기간 초과</span>':'')
-    +(dueToday?'<span class="pg-row-alert">오늘 마감</span>':'')
-    +(mine?'<span class="pg-row-alert is-soft">내 담당</span>':'')
-    +(issueCount?'<span class="pg-row-alert is-danger">이슈 '+issueCount+'</span>':'');
-  const progressHtml='<span class="pg-item-progress-row" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><span class="pg-progress-track"><span class="pg-progress-fill'+(isCompleted?' is-done':'')+'" style="width:'+progress+'%;background:'+progressColor+'"></span></span><span class="pg-progress-pct">'+progress+'%</span>'+alertHtml+'</span>';
-  const finalLabelHtml='<div class="pg-timeline-project-cell">'
+  const finalLabelHtml='<div class="pg-annual-project-cell pg-timeline-project-cell">'
     +(hasTimelineTasks?'<button type="button" class="pg-project-task-toggle" onclick="toggleGanttProjectTasks(\''+projectKeyJs+'\',event)" aria-expanded="'+(!taskRowsCollapsed)+'" title="'+(taskRowsCollapsed?'하위 업무 펼치기':'하위 업무 접기')+'"><span>'+(taskRowsCollapsed?'▶':'▼')+'</span></button>':'<span class="pg-project-task-toggle-spacer"></span>')
     +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
     +'<span class="pg-item-info">'
     +'<span class="pg-item-name-row"><span class="pg-item-title'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="pg-status-pill pg-status-pill--'+statusMeta.tone+'">'+esc(statusMeta.label)+'</span></span>'
     +'<span class="pg-item-assignee">'+esc(memberText)+'</span>'
-    +progressHtml
     +'</span>'
     +getGanttProjectActionButtons(p,isCompleted)
     +'</div>';
