@@ -5097,14 +5097,47 @@ function getGanttTaskOperationalRank(projectId,task){
   return 90;
 }
 
+function getGanttTaskUrgencySortRank(task){
+  const status=String(task?.status||'').trim();
+  const isDone=status==='\uC644\uB8CC'||!!String(task?.actual_done_at||'').trim();
+  if(isDone)return 5;
+  const dueDiff=typeof getGanttTaskDueDiff==='function'?getGanttTaskDueDiff(task):null;
+  if(dueDiff!==null&&dueDiff<0)return 1;
+  if(dueDiff===0)return 2;
+  if(dueDiff!==null&&dueDiff>0)return 3;
+  return 4;
+}
+
+function getGanttTaskPrioritySortRank(task){
+  const priority=String(task?.priority||'medium').trim();
+  if(priority==='high')return 0;
+  if(priority==='medium'||!priority)return 1;
+  if(priority==='low')return 2;
+  return 3;
+}
+
+function getGanttTaskCreatedSortValue(task){
+  const created=String(task?.created_at||task?.updated_at||'').trim();
+  const timestamp=created?Date.parse(created):NaN;
+  return Number.isNaN(timestamp)?Number.MAX_SAFE_INTEGER:timestamp;
+}
+
 function getGanttTaskDisplayRows(projectId){
   return [...getGanttProjectTasks(projectId)].sort((a,b)=>{
-    const rankDiff=getGanttTaskOperationalRank(projectId,a)-getGanttTaskOperationalRank(projectId,b);
+    const rankDiff=getGanttTaskUrgencySortRank(a)-getGanttTaskUrgencySortRank(b);
     if(rankDiff)return rankDiff;
     const aDue=getGanttTaskDateValue(a?.due_date);
     const bDue=getGanttTaskDateValue(b?.due_date);
     if(aDue&&bDue&&aDue!==bDue)return aDue.localeCompare(bDue);
     if(aDue!==bDue)return aDue?-1:1;
+    const priorityDiff=getGanttTaskPrioritySortRank(a)-getGanttTaskPrioritySortRank(b);
+    if(priorityDiff)return priorityDiff;
+    const assigneeDiff=Number(!String(a?.assignee_member_id||'').trim())-Number(!String(b?.assignee_member_id||'').trim());
+    if(assigneeDiff)return assigneeDiff;
+    const createdDiff=getGanttTaskCreatedSortValue(a)-getGanttTaskCreatedSortValue(b);
+    if(createdDiff)return createdDiff;
+    const orderDiff=Number(a?.sort_order||0)-Number(b?.sort_order||0);
+    if(orderDiff)return orderDiff;
     return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
   });
 }
@@ -5472,7 +5505,6 @@ function renderGanttProjectWorkSection(project,memberSchedules){
         +'<div class="gantt-detail-work-card"><div class="gantt-detail-label">대기 · 보류</div><div class="gantt-detail-value">'+(taskSummary.waiting+taskSummary.hold)+'건</div><div class="gantt-detail-meta">막힘이나 재개 확인 필요</div></div>'
         +'<div class="gantt-detail-work-card"><div class="gantt-detail-label">이슈 연결</div><div class="gantt-detail-value">'+taskSummary.issueLinked+'건</div><div class="gantt-detail-meta">Issues 탭과 함께 볼 업무</div></div>'
       +'</div>'
-      +renderGanttProjectNextActionsSection(project.id)
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
         +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">전체 업무</div><div class="gantt-detail-meta">긴 설명보다 담당자, 기한, 상태, 진행률만 빠르게 보고 실행을 이어갑니다.</div></div></div>'
         +((getGanttProjectTasks(project?.id)||[]).length
@@ -7804,7 +7836,6 @@ renderGanttProjectWorkSection=function(project,memberSchedules){
   return ''
     +'<div class="gantt-detail-pane gantt-work-pane pd-work-pane">'
       +'<div class="pd-tab-panel">'
-        +renderGanttProjectNextActionsSection(project.id)
         +'<div class="pd-ov-section">'
           +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>전체 업무</h3><p>업무명, 담당자, 마감일, 상태, 빠른 액션을 먼저 보고 바로 처리합니다.</p></div><div class="pd-work-table-actions"><span class="pd-count-chip">열린 '+taskSummary.active+'건 · 지연 '+taskSummary.overdue+'건</span><button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button></div></div>'
         +((getGanttProjectTasks(project?.id)||[]).length

@@ -11117,6 +11117,7 @@ function renderGanttTimelineTaskRows(project,days){
   if(!tasks.length)return '';
   if(isGanttProjectTasksCollapsed(projectId))return '';
   const projectKey=getGanttTimelineTaskJsString(projectId);
+  const isParentActive=String(ganttFocusProjectId||'')===projectId;
   return tasks.map(task=>{
     const taskKey=getGanttTimelineTaskJsString(task?.id||'');
     const assignee=typeof getGanttTaskMemberName==='function'?getGanttTaskMemberName(task?.assignee_member_id):'';
@@ -11128,12 +11129,12 @@ function renderGanttTimelineTaskRows(project,days){
     const cells=buildGanttSpanCells(days,rangeMeta,({cls,span:colSpan})=>{
       const labelText=colSpan>=4?task?.title||'제목 없는 업무':'';
       return '<td class="'+cls+' gantt-span-cell pg-task-span-cell" colspan="'+colSpan+'" style="position:relative">'
-        +'<div class="bar pg-task-timeline-bar" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+        +'<div class="bar pg-task-timeline-bar'+(isParentActive?' is-parent-active':'')+'" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
         +'<span class="pg-task-bar-label">'+esc(labelText)+'</span>'
         +'</div>'
         +'</td>';
     },({cls})=>'<td class="'+cls+' pg-task-empty-cell" style="position:relative"></td>');
-    return '<tr class="pg-task-row" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+    return '<tr class="pg-task-row'+(isParentActive?' is-parent-active':'')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<td class="row-label pg-task-label">'
       +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span></div>'
       +'</td>'
@@ -11292,6 +11293,7 @@ function renderGanttAnnualTaskRows(project,units){
   const tasks=getGanttTimelineOpenTasks(projectId);
   if(!tasks.length||isGanttProjectTasksCollapsed(projectId))return '';
   const projectKey=getGanttTimelineTaskJsString(projectId);
+  const isParentActive=String(ganttFocusProjectId||'')===projectId;
   return tasks.map(task=>{
     const taskKey=getGanttTimelineTaskJsString(task?.id||'');
     const assignee=typeof getGanttTaskMemberName==='function'?getGanttTaskMemberName(task?.assignee_member_id):'';
@@ -11307,7 +11309,7 @@ function renderGanttAnnualTaskRows(project,units){
         const colSpan=rangeMeta.span;
         const labelText=colSpan>=3?task?.title||'제목 없는 업무':'';
         cells+='<td class="'+cellCls+'gantt-span-cell pg-task-span-cell" colspan="'+colSpan+'" style="position:relative">'
-          +'<div class="bar pg-task-timeline-bar pg-annual-task-bar" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+          +'<div class="bar pg-task-timeline-bar pg-annual-task-bar'+(isParentActive?' is-parent-active':'')+'" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
           +'<span class="pg-task-bar-label">'+esc(labelText)+'</span>'
           +'</div>'
           +'</td>';
@@ -11316,7 +11318,7 @@ function renderGanttAnnualTaskRows(project,units){
         cells+='<td class="'+cellCls+' pg-task-empty-cell" style="position:relative"></td>';
       }
     }
-    return '<tr class="pg-task-row pg-annual-task-row" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+    return '<tr class="pg-task-row pg-annual-task-row'+(isParentActive?' is-parent-active':'')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<td class="row-label pg-task-label">'
       +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span></div>'
       +'</td>'
