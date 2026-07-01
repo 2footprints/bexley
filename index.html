@@ -5803,8 +5803,6 @@ function openProjModal(eid,preClientId,preContractId,initialTab){
   projectModalEditable=editable;
   projectChecklistDraft=[];
   renderProjModal(p,editable,preClientId,preContractId);
-  renderProjectChecklistDraft();
-  if(p) loadProjectChecklistItems(p.id);
   if(p){
     loadProjectComments(p.id);
     if(projModalTab==='issue') setTimeout(()=>loadProjIssues(p.id),50);
@@ -5924,12 +5922,6 @@ function renderProjModal(p,editable,preClientId,preContractId){
                 <div class="form-row"><label class="form-label">예상 시간</label><div class="project-hours-input"><input type="number" id="fEstimatedHours" min="0" step="1" value="${p?.estimated_hours??''}" placeholder="예상 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span>h</span></div></div>
                 <div class="form-row"><label class="form-label">실제 투입 시간</label><div class="project-hours-input"><input type="number" id="fActualHours" min="0" step="1" value="${p?.actual_hours??''}" placeholder="실제 투입 시간" ${editable?'':'readonly style="background:var(--bg)"'}/><span>h</span></div></div>
               </div>
-            </div>
-          </details>
-          <details class="project-modal-collapsible">
-            <summary>체크리스트 <span>프로젝트 생성 후 단계별 확인용</span></summary>
-            <div class="project-modal-collapsible-body">
-              <div id="projectChecklistWrap"></div>
             </div>
           </details>
           ${!editable&&p?'<div class="readonly-notice">본인이 등록한 프로젝트만 수정할 수 있습니다.</div>':''}
@@ -9861,14 +9853,6 @@ window.saveProj = async function(){
         }
       }
     }
-    if(editingProjId){
-      try{
-        await syncProjectChecklistItems(editingProjId);
-      }catch(checkErr){
-        console.warn('project checklist sync skipped',checkErr);
-      }
-    }
-
     await logActivity(
       wasEditing?'\uD504\uB85C\uC81D\uD2B8 \uC218\uC815':'\uD504\uB85C\uC81D\uD2B8 \uCD94\uAC00',
       'project',
@@ -11576,6 +11560,7 @@ window.renderGantt=function(){
 renderGantt=window.renderGantt;
 </script>
 
+<script src="scripts/project-gantt-defaults.js"></script>
 <script src="js/stabilize-auth.js"></script>
 <script src="scripts/portal.js"></script>
 <script src="js/stabilize-projects.js"></script>

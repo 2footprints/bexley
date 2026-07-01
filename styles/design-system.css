@@ -4298,3 +4298,76 @@ table{
     box-shadow:none!important;
   }
 }
+
+/* Project Gantt hierarchy and alignment */
+#pageGantt .gantt-project-row{
+  height:36px!important;
+}
+
+#pageGantt .pg-task-row{
+  height:30px!important;
+}
+
+#pageGantt .gantt-span-cell,
+#pageGantt .pg-annual-cell,
+#pageGantt .pg-task-span-cell{
+  vertical-align:middle!important;
+}
+
+#pageGantt .gantt-span-cell > .bar,
+#pageGantt .pg-annual-cell > .bar{
+  top:50%!important;
+  height:16px!important;
+  min-height:16px!important;
+  transform:translateY(-50%)!important;
+  display:flex!important;
+  align-items:center!important;
+  box-shadow:none!important;
+}
+
+#pageGantt .pg-task-span-cell > .pg-task-timeline-bar,
+#pageGantt .pg-annual-task-bar{
+  top:50%!important;
+  height:11px!important;
+  min-height:11px!important;
+  transform:translateY(-50%)!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:#9CA3AF!important;
+  opacity:.66!important;
+  box-shadow:none!important;
+}
+
+#pageGantt .pg-task-span-cell > .pg-task-timeline-bar .pg-task-bar-label,
+#pageGantt .pg-annual-task-bar .pg-task-bar-label{
+  display:none!important;
+}
+
+#pageGantt .pg-task-row .pg-task-title,
+#pageGantt .pg-task-row .pg-task-meta{
+  font-size:11px!important;
+  color:var(--color-text-muted)!important;
+}
+
+#pageGantt .pd-tabs{
+  display:flex!important;
+  gap:4px!important;
+  flex-wrap:wrap!important;
+}
+
+#pageGantt .pd-tabs button{
+  height:30px!important;
+  padding:0 10px!important;
+  border:1px solid var(--color-border)!important;
+  border-radius:7px!important;
+  background:var(--color-surface)!important;
+  color:var(--color-text-secondary)!important;
+  font-size:12px!important;
+  font-weight:650!important;
+}
+
+#pageGantt .pd-tabs button.active{
+  border-color:var(--color-text)!important;
+  background:var(--color-text)!important;
+  color:var(--color-surface)!important;
+}

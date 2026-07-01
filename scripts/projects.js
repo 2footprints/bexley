@@ -2411,7 +2411,6 @@ function getGanttListProjectTitle(row){
 
 function getGanttListProjectMetaItems(row){
   const items=[];
-  if(row?.checklistSummary)items.push({label:row.checklistSummary.label,tone:row.checklistSummary.tone});
   if(Number(row?.taskSummary?.openCount||0)>0)items.push({label:'열린 '+row.taskSummary.openCount,tone:'neutral'});
   else if(Number(row?.taskSummary?.total||0)>0)items.push({label:'업무 '+row.taskSummary.total,tone:'neutral'});
   if(Number(row?.taskSummary?.overdueCount||0)>0)items.push({label:'지연 업무 '+row.taskSummary.overdueCount+'건',tone:'warn'});
@@ -6082,7 +6081,6 @@ function getGanttListProjectRows(projs){
 
 function getGanttListProjectMetaItems(row){
   const items=[];
-  if(row?.checklistSummary)items.push({label:row.checklistSummary.label,tone:row.checklistSummary.tone});
   if(Number(row?.taskSummary?.openCount||0)>0)items.push({label:'열린 '+row.taskSummary.openCount,tone:'neutral'});
   if(Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0)items.push({label:'이슈연결 '+row.taskIssueSummary.issueLinkedTaskCount,tone:'issue'});
   else if(Number(row?.taskSummary?.dueTodayCount||0)>0)items.push({label:'오늘 '+row.taskSummary.dueTodayCount,tone:'warn'});
@@ -8500,7 +8498,6 @@ function renderGanttProjectChecklistSection(project){
     +'</div>'
   +'</div>';
 }
-
 async function toggleGanttChecklistItemStatus(itemId,checked){
   const id=String(itemId||'');
   if(!id)return;
