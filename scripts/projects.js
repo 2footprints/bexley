@@ -378,7 +378,11 @@ function populateMemberFilter(){
   if(!sel)return;
   const prev=sel.value||'';
   const allowedValues=new Set([''].concat(getAvailableGanttMembers().map(member=>member.name)));
-  sel.value=allowedValues.has(prev)?prev:'';
+  const selectedNames=typeof getGanttMemberFilterNamesFromValue==='function'?getGanttMemberFilterNamesFromValue(prev):[prev].filter(Boolean);
+  const validSelected=selectedNames.filter(name=>allowedValues.has(name));
+  sel.value=prev&&prev.startsWith('multi:')
+    ?encodeGanttMemberFilterValue(validSelected)
+    :allowedValues.has(prev)?prev:'';
   renderMemberFilterTabs();
 }
 
@@ -655,8 +659,17 @@ function getGanttProjectClientName(project){
 
 function projectMatchesGanttMemberFilter(project,memberFilter){
   const projectMembers=Array.isArray(project?.members)?project.members:[];
-  if(memberFilter==='me'&&currentMember&&!projectMembers.includes(currentMember.name))return false;
-  if(memberFilter&&memberFilter!=='me'&&!projectMembers.includes(memberFilter))return false;
+  const selectedMembers=typeof getGanttMemberFilterNamesFromValue==='function'
+    ?getGanttMemberFilterNamesFromValue(memberFilter)
+    :(memberFilter==='me'?[currentMember?.name].filter(Boolean):memberFilter?[memberFilter]:[]);
+  if(selectedMembers.length&&!selectedMembers.some(name=>projectMembers.includes(name)))return false;
+  return true;
+}
+function scheduleMatchesGanttMemberFilter(schedule,memberFilter){
+  const selectedMembers=typeof getGanttMemberFilterNamesFromValue==='function'
+    ?getGanttMemberFilterNamesFromValue(memberFilter)
+    :(memberFilter==='me'?[currentMember?.name].filter(Boolean):memberFilter?[memberFilter]:[]);
+  if(selectedMembers.length&&!selectedMembers.some(name=>scheduleHasMember(schedule,name)))return false;
   return true;
 }
 
@@ -686,8 +699,7 @@ function getGanttMonthData(year=curYear,month=curMonth){
   const overdueCarryOverProjects=memberProjects.filter(project=>isGanttProjectOverdue(project));
   const projs=getUniqueGanttProjects([...monthProjects,...overdueCarryOverProjects]);
   const schs=(schedules||[]).filter(schedule=>{
-    if(memberFilter==='me'&&currentMember&&!scheduleHasMember(schedule,currentMember.name))return false;
-    if(memberFilter&&memberFilter!=='me'&&!scheduleHasMember(schedule,memberFilter))return false;
+    if(!scheduleMatchesGanttMemberFilter(schedule,memberFilter))return false;
     const scheduleStart=getGanttLocalDateValue(schedule?.start||schedule?.start_date||schedule?.end||schedule?.end_date);
     const scheduleEnd=getGanttLocalDateValue(schedule?.end||schedule?.end_date||schedule?.start||schedule?.start_date);
     if(!scheduleStart||!scheduleEnd)return false;
@@ -913,7 +925,6 @@ function goToCurrentGanttMonth(){
 function setGanttStatusFilter(value){
   const normalized=String(value||'all').trim()||'all';
   ganttStatusFilter=normalized;
-  if(normalized==='all')ganttListExecutionRiskFilters=[];
   renderGantt();
 }
 
@@ -2630,6 +2641,7 @@ function getGanttListExecutionRiskFilterOptions(){
     {value:'issue_linked',label:'연결 이슈'},
     {value:'due_soon',label:'기한 임박'},
     {value:'unassigned_task',label:'무담당'},
+    {value:'follow_up',label:'후속 필요'},
     {value:'material_waiting',label:'자료 확인'},
     {value:'unbilled',label:'미청구'}
   ];
@@ -2649,6 +2661,7 @@ function rowMatchesGanttListExecutionRiskFilters(row){
     if(filterKey==='issue_linked')return Number(row?.taskIssueSummary?.issueLinkedTaskCount||0)>0;
     if(filterKey==='due_soon')return Number(row?.taskSummary?.dueSoonCount||0)>0;
     if(filterKey==='unassigned_task')return Number(row?.taskSummary?.unassignedCount||0)>0;
+    if(filterKey==='follow_up')return !!row?.project?.follow_up_needed||String(row?.lifecycleMeta?.key||'')==='follow_up';
     if(filterKey==='material_waiting')return Number(row?.pendingDocSummary?.total||0)>0;
     if(filterKey==='unbilled')return isGanttListUnbilledAttentionRow(row);
     return true;
@@ -3420,6 +3433,7 @@ function shouldPreloadGanttLifecycleSupport(){
   return ganttStatusFilter==='execution_done'
     ||ganttStatusFilter==='follow_up'
     ||ganttStatusFilter==='fully_closed'
+    ||(Array.isArray(ganttListExecutionRiskFilters)&&ganttListExecutionRiskFilters.length>0)
     ||(typeof ganttHideCompleted!=='undefined'&&!!ganttHideCompleted);
 }
 
@@ -5943,6 +5957,16 @@ function projectMatchesTopFilters(project){
     const clientName=getGanttProjectClientName(project).toLowerCase();
     if(!clientName.includes(String(ganttClientFilterQuery).trim().toLowerCase()))return false;
   }
+  if(Array.isArray(ganttListExecutionRiskFilters)&&ganttListExecutionRiskFilters.length){
+    const row={
+      project,
+      lifecycleMeta,
+      taskSummary:ganttListTaskSummaryByProjectId[String(project?.id||'')],
+      taskIssueSummary:ganttListTaskIssueSummaryByProjectId[String(project?.id||'')],
+      pendingDocSummary:(window.ganttProjectPendingDocSummaryByProjectId||{})[String(project?.id||'')]
+    };
+    if(!rowMatchesGanttListExecutionRiskFilters(row))return false;
+  }
   return true;
 }
 
@@ -6565,6 +6589,7 @@ getGanttListExecutionRiskFilterOptions=function(){
     {value:'issue_linked',label:'이슈 연결'},
     {value:'due_soon',label:'이번 주 마감'},
     {value:'unassigned_task',label:'담당 미지정'},
+    {value:'follow_up',label:'후속 필요'},
     {value:'material_waiting',label:'고객 응답 대기'}
   ];
 };
@@ -6752,37 +6777,150 @@ function renderGanttListClientGroupHeader(group,forceExpanded=false){
   +'</tr>';
 }
 
+const GANTT_MEMBER_MULTI_PREFIX='multi:';
+const GANTT_SIMPLE_STATUS_OPTIONS=[
+  {value:'all',label:'전체'},
+  {value:'in_progress',label:'진행중'},
+  {value:'overdue',label:'지연'},
+  {value:'due_today',label:'오늘 마감'},
+  {value:'execution_done',label:'완료'}
+];
+const GANTT_TOP_MANAGEMENT_FILTER_OPTIONS=[
+  {value:'unassigned_task',label:'담당 미지정'},
+  {value:'issue_linked',label:'이슈 연결'},
+  {value:'overdue_task',label:'지연 태스크 있음'},
+  {value:'follow_up',label:'후속 필요'}
+];
+
+function encodeGanttMemberFilterValue(names){
+  const clean=[...new Set((names||[]).map(name=>String(name||'').trim()).filter(Boolean))];
+  return clean.length?GANTT_MEMBER_MULTI_PREFIX+clean.map(encodeURIComponent).join('|'):'';
+}
+
+function getGanttMemberFilterNamesFromValue(value){
+  const raw=String(value||'').trim();
+  if(!raw)return [];
+  if(raw==='me')return [currentMember?.name].filter(Boolean);
+  if(raw.startsWith(GANTT_MEMBER_MULTI_PREFIX)){
+    return raw.slice(GANTT_MEMBER_MULTI_PREFIX.length).split('|').map(name=>{
+      try{return decodeURIComponent(name);}
+      catch(e){return name;}
+    }).map(name=>String(name||'').trim()).filter(Boolean);
+  }
+  return [raw];
+}
+
+function getGanttSelectedMemberFilters(){
+  return getGanttMemberFilterNamesFromValue(document.getElementById('memberFilter')?.value||'');
+}
+
+function setGanttMemberFilters(names){
+  const sel=document.getElementById('memberFilter');
+  if(sel)sel.value=encodeGanttMemberFilterValue(names);
+  renderMemberFilterTabs();
+  renderGantt();
+}
+
+function toggleGanttMemberFilter(name,checked){
+  const value=String(name||'').trim();
+  if(!value)return;
+  const selected=getGanttSelectedMemberFilters();
+  const next=checked?[...new Set([...selected,value])]:selected.filter(item=>item!==value);
+  setGanttMemberFilters(next);
+}
+
+function getGanttMemberFilterLabel(selected){
+  const names=selected||[];
+  if(!names.length)return '담당자 전체';
+  if(names.length===1)return '담당자: '+names[0];
+  return '담당자: '+names[0]+' 외 '+(names.length-1)+'명';
+}
+
+function renderGanttMemberMultiSelect(selected){
+  const selectedSet=new Set(selected||[]);
+  const options=getAvailableGanttMembers().map(member=>String(member?.name||'').trim()).filter(Boolean);
+  return '<details class="gantt-member-menu">'
+    +'<summary class="gantt-filter-menu-button">'+esc(getGanttMemberFilterLabel(selected))+' <span>▾</span></summary>'
+    +'<div class="gantt-filter-menu-panel gantt-member-menu-panel">'
+      +'<input id="ganttMemberFilterSearch" class="gantt-filter-search" type="search" placeholder="담당자 검색">'
+      +'<div class="gantt-member-option-list">'
+        +options.map(name=>'<label class="gantt-member-option" data-member-name="'+esc(name.toLowerCase())+'">'
+          +'<input type="checkbox" value="'+esc(name)+'" '+(selectedSet.has(name)?'checked':'')+'>'
+          +'<span>'+esc(name)+'</span>'
+        +'</label>').join('')
+      +'</div>'
+    +'</div>'
+  +'</details>';
+}
+
+function renderGanttManagementMenu(){
+  const active=new Set(Array.isArray(ganttListExecutionRiskFilters)?ganttListExecutionRiskFilters:[]);
+  const activeCount=GANTT_TOP_MANAGEMENT_FILTER_OPTIONS.filter(option=>active.has(option.value)).length;
+  const label=activeCount?'관리 필요 '+activeCount:'관리 필요';
+  return '<details class="gantt-management-menu">'
+    +'<summary class="gantt-filter-menu-button">'+label+' <span>▾</span></summary>'
+    +'<div class="gantt-filter-menu-panel gantt-management-menu-panel">'
+      +GANTT_TOP_MANAGEMENT_FILTER_OPTIONS.map(option=>'<label class="gantt-member-option">'
+        +'<input type="checkbox" value="'+esc(option.value)+'" '+(active.has(option.value)?'checked':'')+'>'
+        +'<span>'+esc(option.label)+'</span>'
+      +'</label>').join('')
+    +'</div>'
+  +'</details>';
+}
+
+function bindGanttCompactFilterMenus(){
+  document.querySelectorAll('#pageGantt .gantt-member-menu input[type="checkbox"]').forEach(input=>{
+    input.onchange=e=>toggleGanttMemberFilter(e.target.value,e.target.checked);
+  });
+  const search=document.getElementById('ganttMemberFilterSearch');
+  if(search){
+    search.oninput=e=>{
+      const query=String(e.target.value||'').trim().toLowerCase();
+      document.querySelectorAll('#pageGantt .gantt-member-option[data-member-name]').forEach(option=>{
+        option.style.display=!query||String(option.dataset.memberName||'').includes(query)?'flex':'none';
+      });
+    };
+  }
+  document.querySelectorAll('#pageGantt .gantt-management-menu input[type="checkbox"]').forEach(input=>{
+    input.onchange=e=>toggleGanttListExecutionRiskFilter(e.target.value);
+  });
+}
+
+function resetGanttTopFilters(){
+  const sel=document.getElementById('memberFilter');
+  if(sel)sel.value='';
+  ganttStatusFilter='all';
+  ganttListExecutionRiskFilters=[];
+  ganttTypeFilters=[];
+  ganttTeamFilterId='';
+  ganttClientFilterQuery='';
+  renderMemberFilterTabs();
+  renderGantt();
+}
+
 renderGanttTopFilterBar=function(){
   const bar=ensureGanttTopFilterBar();
   if(!bar)return;
   bar.classList.add('pg-filter-bar');
   const clientOptions=[...new Set((clients||[]).map(client=>String(client?.name||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
-  const memberValue=document.getElementById('memberFilter')?.value||'';
+  const selectedMembers=getGanttSelectedMemberFilters();
   const typeFilterValue=getGanttTypeFilterValue();
   const teamFilterValue=getGanttTeamFilterValue();
-  const showAssigneeFilter=curGanttLayout==='list'||curGanttLayout==='calendar';
-  const assigneeOptions=getGanttListAssigneeFilterOptions();
   const typeOptions=getActiveProjectTypeRows();
   const teamOptions=getVisibleProjectTeamRows();
   const basisDisabled=curGanttLayout!=='timeline';
   bar.innerHTML=''
     +'<div class="pg-status-filters gantt-top-filter-group gantt-status-group">'
-      +getGanttStatusOptions().map(option=>'<button type="button" class="gantt-status-chip pg-status-chip'+(ganttStatusFilter===option.value?' active':'')+(option.value==='overdue'?' is-delay':'')+'" onclick="setGanttStatusFilter(\''+option.value+'\')">'+option.label+'</button>').join('')
+      +GANTT_SIMPLE_STATUS_OPTIONS.map(option=>'<button type="button" class="gantt-status-chip pg-status-chip'+(ganttStatusFilter===option.value?' active':'')+(option.value==='overdue'?' is-delay':'')+'" onclick="setGanttStatusFilter(\''+option.value+'\')">'+option.label+'</button>').join('')
     +'</div>'
     +'<div class="pg-right-filters">'
+      +renderGanttMemberMultiSelect(selectedMembers)
+      +renderGanttManagementMenu()
       +'<div class="pg-filter-field gantt-top-filter-group gantt-view-basis-group">'
         +'<span class="gantt-top-filter-label">보기 기준</span>'
-        +'<button type="button" class="btn sm" id="gvp" onclick="setGView(\'project\')" '+(basisDisabled?'disabled':'')+'>프로젝트별</button>'
-        +'<button type="button" class="btn sm" id="gvm" onclick="setGView(\'member\')" '+(basisDisabled?'disabled':'')+'>인력별</button>'
+        +'<button type="button" class="btn sm" id="gvp" onclick="setGView(\'project\')" '+(basisDisabled?'disabled':'')+'>프로젝트</button>'
+        +'<button type="button" class="btn sm" id="gvm" onclick="setGView(\'member\')" '+(basisDisabled?'disabled':'')+'>인력</button>'
       +'</div>'
-      +(showAssigneeFilter
-        ?'<label class="pg-filter-field gantt-top-filter-group gantt-assignee-group">'
-          +'<span class="gantt-top-filter-label">담당</span>'
-          +'<select id="ganttAssigneeFilterSelect">'
-            +assigneeOptions.map(option=>'<option value="'+esc(option.value)+'"'+(memberValue===option.value?' selected':'')+'>'+esc(option.label)+'</option>').join('')
-          +'</select>'
-        +'</label>'
-        :'')
       +'<label class="pg-filter-field gantt-top-filter-group gantt-type-group">'
         +'<span class="gantt-top-filter-label">유형</span>'
         +'<select id="ganttTopTypeFilterSelect">'
@@ -6806,10 +6944,10 @@ renderGanttTopFilterBar=function(){
           +clientOptions.map(name=>'<option value="'+esc(name)+'"></option>').join('')
         +'</datalist>'
       +'</label>'
+      +'<button type="button" class="gantt-filter-reset-btn" onclick="resetGanttTopFilters()">초기화</button>'
       +'</div>'
     +'';
-  const assigneeSelect=document.getElementById('ganttAssigneeFilterSelect');
-  if(assigneeSelect)assigneeSelect.onchange=e=>setMemberFilter(e.target.value);
+  bindGanttCompactFilterMenus();
   const typeSelect=document.getElementById('ganttTopTypeFilterSelect');
   if(typeSelect)typeSelect.onchange=e=>setGanttTypeFilter(e.target.value);
   const teamSelect=document.getElementById('ganttTeamFilterSelect');
@@ -6828,14 +6966,15 @@ renderGanttActiveFilterTags=function(){
   const row=ensureGanttActiveFilterRow();
   if(!row)return;
   const tags=[];
-  const memberValue=document.getElementById('memberFilter')?.value||'';
+  const selectedMembers=getGanttSelectedMemberFilters();
   const typeFilterValue=getGanttTypeFilterValue();
   const teamFilterValue=getGanttTeamFilterValue();
-  if(memberValue){
-    const memberLabel=memberValue==='me'?'내 프로젝트':memberValue;
-    tags.push({kind:'member',value:memberValue,label:'담당 '+memberLabel});
-  }
-  if(ganttStatusFilter!=='all')tags.push({kind:'status',value:ganttStatusFilter,label:'상태 '+getGanttStatusFilterLabel(ganttStatusFilter)});
+  selectedMembers.forEach(name=>tags.push({kind:'member',value:name,label:name}));
+  if(ganttStatusFilter!=='all')tags.push({kind:'status',value:ganttStatusFilter,label:'상태 '+(GANTT_SIMPLE_STATUS_OPTIONS.find(option=>option.value===ganttStatusFilter)?.label||getGanttStatusFilterLabel(ganttStatusFilter))});
+  (Array.isArray(ganttListExecutionRiskFilters)?ganttListExecutionRiskFilters:[]).forEach(value=>{
+    const option=GANTT_TOP_MANAGEMENT_FILTER_OPTIONS.find(item=>item.value===value);
+    if(option)tags.push({kind:'management',value,label:'관리 '+option.label});
+  });
   if(typeFilterValue!=='all')tags.push({kind:'type',value:typeFilterValue,label:'유형 '+getGanttTypeFilterLabel(typeFilterValue)});
   if(teamFilterValue!=='all'){
     const teamLabel=getProjectTeamRowById(teamFilterValue)?.name||teamFilterValue;
@@ -6852,6 +6991,26 @@ renderGanttActiveFilterTags=function(){
     const safeValue=String(tag.value).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return '<button type="button" class="gantt-filter-tag" onclick="clearGanttFilterTag(\''+tag.kind+'\',\''+safeValue+'\')">'+esc(tag.label)+' <span>×</span></button>';
   }).join('');
+};
+
+clearGanttFilterTag=function(kind,value=''){
+  if(kind==='member'){
+    const selected=getGanttSelectedMemberFilters();
+    setGanttMemberFilters(selected.filter(name=>name!==String(value||'')));
+    return;
+  }
+  if(kind==='management'){
+    ganttListExecutionRiskFilters=(Array.isArray(ganttListExecutionRiskFilters)?ganttListExecutionRiskFilters:[]).filter(item=>item!==String(value||''));
+  }else if(kind==='status'){
+    ganttStatusFilter='all';
+  }else if(kind==='type'){
+    ganttTypeFilters=[];
+  }else if(kind==='team'){
+    ganttTeamFilterId='';
+  }else if(kind==='client'){
+    ganttClientFilterQuery='';
+  }
+  renderGantt();
 };
 
 renderGanttViewSettingsBar=function(){

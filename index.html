@@ -10489,8 +10489,17 @@ function isBaseGanttProjectOverdueCarryOver(project){
 }
 function projectMatchesBaseGanttMemberFilter(project,memberFilter){
   const projectMembers=Array.isArray(project?.members)?project.members:[];
-  if(memberFilter==='me'&&currentMember&&!projectMembers.includes(currentMember.name))return false;
-  if(memberFilter&&memberFilter!=='me'&&!projectMembers.includes(memberFilter))return false;
+  const selectedMembers=typeof getGanttMemberFilterNamesFromValue==='function'
+    ?getGanttMemberFilterNamesFromValue(memberFilter)
+    :(memberFilter==='me'?[currentMember?.name].filter(Boolean):memberFilter?[memberFilter]:[]);
+  if(selectedMembers.length&&!selectedMembers.some(name=>projectMembers.includes(name)))return false;
+  return true;
+}
+function scheduleMatchesBaseGanttMemberFilter(schedule,memberFilter){
+  const selectedMembers=typeof getGanttMemberFilterNamesFromValue==='function'
+    ?getGanttMemberFilterNamesFromValue(memberFilter)
+    :(memberFilter==='me'?[currentMember?.name].filter(Boolean):memberFilter?[memberFilter]:[]);
+  if(selectedMembers.length&&!selectedMembers.some(name=>scheduleHasMember(schedule,name)))return false;
   return true;
 }
 function projectMatchesBaseGanttCarryOverMemberFilter(project,memberFilter){
@@ -10537,8 +10546,7 @@ function getBaseGanttMonthData(){
   );
   const projs=getUniqueBaseGanttProjects([...monthProjects,...overdueCarryOverProjects]);
   const schs=schedules.filter(schedule=>{
-    if(memberFilter==='me'&&currentMember&&!scheduleHasMember(schedule,currentMember.name))return false;
-    if(memberFilter&&memberFilter!=='me'&&!scheduleHasMember(schedule,memberFilter))return false;
+    if(!scheduleMatchesBaseGanttMemberFilter(schedule,memberFilter))return false;
     return toDate(schedule.start)<=monthLast&&toDate(schedule.end)>=monthFirst;
   });
   return {projs,schs};
@@ -11298,10 +11306,9 @@ function renderGanttAnnualTimeline(projs){
     });
   }else{
     const memberFilter=document.getElementById('memberFilter')?.value||'';
-    const memberNames=memberFilter==='me'
-      ?[currentMember?.name].filter(Boolean)
-      :memberFilter
-      ?[memberFilter]
+    const selectedMemberNames=typeof getGanttMemberFilterNamesFromValue==='function'?getGanttMemberFilterNamesFromValue(memberFilter):[];
+    const memberNames=selectedMemberNames.length
+      ?selectedMemberNames
       :getAvailableGanttMembers().map(member=>member.name);
     memberNames.forEach(name=>{
       const memberProjects=projs.filter(project=>(project.members||[]).includes(name));
@@ -11393,10 +11400,9 @@ function renderFilteredGanttTimeline(projs,schs){
         });
       }
     }else{
-      const memberNames=memberFilter==='me'
-        ?[currentMember?.name].filter(Boolean)
-        :memberFilter
-        ?[memberFilter]
+      const selectedMemberNames=typeof getGanttMemberFilterNamesFromValue==='function'?getGanttMemberFilterNamesFromValue(memberFilter):[];
+      const memberNames=selectedMemberNames.length
+        ?selectedMemberNames
         :getAvailableGanttMembers().map(member=>member.name);
       memberNames.forEach(name=>{
         const memberProjects=projs.filter(project=>project.members.includes(name));
