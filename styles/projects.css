@@ -3174,6 +3174,8 @@ td{
 .gantt-wrap table{
   width:max-content!important;
   min-width:max-content!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
 }
 .gantt-shell.is-reverted .gantt-wrap{
   width:100%!important;
@@ -5199,6 +5201,8 @@ td{
 #pageGantt .gantt-wrap > table,
 #pageGantt .gantt-wrap table{
   background:transparent!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
 }
 #pageGantt .th-label{
   padding:12px 16px!important;
