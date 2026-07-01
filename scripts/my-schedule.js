@@ -274,8 +274,9 @@ function renderMyScheduleCalendar(rows){
     date.setDate(firstCell.getDate()+i);
     const key=getMyScheduleDateKey(date);
     const inMonth=date.getMonth()===myScheduleCalendarDate.getMonth();
+    const isWknd=date.getDay()===0||date.getDay()===6;
     const dayRows=rows.filter(schedule=>doesMyScheduleOccurOnDate(schedule,key));
-    cells.push('<div class="my-schedule-day '+(inMonth?'':'is-outside')+' '+(key===todayKey?'is-today':'')+'">'
+    cells.push('<div class="my-schedule-day '+(inMonth?'':'is-outside')+' '+(key===todayKey?'is-today':'')+(isWknd?' is-weekend':'')+'">'
       +'<div class="my-schedule-day-number">'+date.getDate()+'</div>'
       +'<div class="my-schedule-calendar-items">'
         +(dayRows.length?dayRows.map(renderMyScheduleCalendarItem).join(''):'')
