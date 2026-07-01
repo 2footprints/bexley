@@ -3333,7 +3333,6 @@ async function navigateToStoredProjectComment(commentId){
 }
 
 const TYPES={'감사':'#6366F1','세무':'#06B6D4','밸류에이션':'#8B5CF6','자문':'#10B981','실사':'#EC4899','기타':'#94A3B8'};
-const ST_OP={'진행중':1,'예정':.5,'완료':.3};
 const SCHEDULE_META={
   meeting:{label:'회의',color:'#A6B7C8'},
   external:{label:'외근',color:'#C4B29B'},
@@ -5119,6 +5118,55 @@ function getConflicts(mems,s,e,xid){
 function canEdit(p){return canManageCore()||isAdmin;}
 function canDeleteProject(p){return isAdmin||(currentUser&&p&&p.created_by===currentUser.id);}
 function isOverdue(p){return toDate(p.end)<new Date()&&p.status!=='완료';}
+function getGanttBarUrgency(p){
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const end=toDate(p?.end||p?.end_date||p?.due_date);
+  const isDone=typeof isCompletedGanttStatus==='function'
+    ?isCompletedGanttStatus(p?.status)
+    :String(p?.status||'').trim()==='완료';
+  if(isDone)return 'done';
+  if(typeof isOverdue==='function'&&isOverdue(p))return 'overdue';
+  const daysLeft=Math.ceil((end-today)/(1000*60*60*24));
+  if(daysLeft<=3)return 'urgent-high';
+  if(daysLeft<=7)return 'urgent-mid';
+  return 'normal';
+}
+function getGanttBarDayLabel(p){
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const end=toDate(p?.end||p?.end_date||p?.due_date);
+  const isDone=typeof isCompletedGanttStatus==='function'
+    ?isCompletedGanttStatus(p?.status)
+    :String(p?.status||'').trim()==='완료';
+  if(isDone)return '';
+  if(typeof isOverdue==='function'&&isOverdue(p))return '지연';
+  const daysLeft=Math.ceil((end-today)/(1000*60*60*24));
+  if(daysLeft<=7)return 'D-'+daysLeft;
+  return '';
+}
+function getGanttBarStyle(urgency){
+  switch(urgency){
+    case 'overdue':
+    case 'urgent-high':
+      return {bg:'#FEF2F2',border:'1.5px solid #EF4444',color:'#991B1B',height:'24px'};
+    case 'urgent-mid':
+      return {bg:'#18181B',border:'none',color:'#FAFAFA',height:'22px'};
+    case 'done':
+      return {bg:'#F5F5F5',border:'none',color:'#A0A0A0',height:'18px',textDecoration:'line-through'};
+    default:
+      return {bg:'#E5E5E5',border:'none',color:'#6B6B6B',height:'20px'};
+  }
+}
+function getGanttBarInlineStyle(barStyle){
+  const style=barStyle||getGanttBarStyle('normal');
+  return 'background:'+style.bg+'!important;border:'+style.border+'!important;color:'+style.color+'!important;height:'+style.height+'!important;min-height:'+style.height+'!important;top:50%;bottom:auto;transform:translateY(-50%);box-shadow:none!important;'+(style.textDecoration?'text-decoration:'+style.textDecoration+'!important;':'');
+}
+function getGanttBarLabel(project,baseLabel){
+  const label=baseLabel||project?.name||'';
+  const dayLabel=getGanttBarDayLabel(project);
+  return label+(dayLabel?' · '+dayLabel:'');
+}
 function scheduleLabel(type){return SCHEDULE_META[type]?.label||type||'일정';}
 function scheduleColor(type){return SCHEDULE_META[type]?.color||'#8b95a1';}
 function scheduleSupportsProjectLink(scheduleRow){
@@ -5222,7 +5270,8 @@ function renderGantt(){
 function gRow(p,days){
   const isCompleted=isCompletedGanttStatus(p.status);
   const od=isOverdue(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const color=TYPES[p.type]||'#4e5968';const opacity=ST_OP[p.status]||1;
+  const urgency=getGanttBarUrgency(p);
+  const barStyle=getGanttBarStyle(urgency);
   const pS=toDate(p.start),pE=toDate(p.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=pS<mFirst?1:pS.getDate();const barE=pE>mLast?days:pE.getDate();const span=barE-barS+1;
@@ -5281,9 +5330,10 @@ function gRow(p,days){
       overlayHtml='<div class="leave-marker" style="'+markerStyle+'" title="'+esc(tip)+'">'+icons+'</div>';
     }
     if(d===barS){
-      const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
+      const baseBarText=span>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?p.name:'';
+      const barText=baseBarText?esc(getGanttBarLabel(p,baseBarText)):'';
       cells+='<td class="'+cls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+(issueCount?' | 🚨 열린 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">🚨</span>':'')+'</div>'
+        +'<div class="bar" style="left:2px;right:0;'+getGanttBarInlineStyle(barStyle)+(issueCount?'outline:2px solid var(--red);outline-offset:-2px;':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+(issueCount?' | 🚨 열린 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">🚨</span>':'')+'</div>'
         +overlayHtml+'</td>';
     } else {
       cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
@@ -8164,8 +8214,8 @@ async function legacyMsLoginFinal(){
 */
 gRow = function(p,days){
   const od=isOverdue(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const color=TYPES[p.type]||'#4e5968';
-  const opacity=ST_OP[p.status]||1;
+  const urgency=getGanttBarUrgency(p);
+  const barStyle=getGanttBarStyle(urgency);
   const pS=toDate(p.start),pE=toDate(p.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=pS<mFirst?1:pS.getDate();
@@ -8206,9 +8256,10 @@ gRow = function(p,days){
       overlayHtml='<div class="leave-marker" style="left:1px;right:1px;background:'+oc+'" title="'+esc(tip)+'">'+icons+'</div>';
     }
     if(d===barS){
-      const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
+      const baseBarText=span>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?p.name:'';
+      const barText=baseBarText?esc(getGanttBarLabel(p,baseBarText)):'';
       cells+='<td class="'+cls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | 메모 있음':'')+(issueCount?' | 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +'<div class="bar" style="left:2px;right:0;'+getGanttBarInlineStyle(barStyle)+(issueCount?'outline:2px solid var(--red);outline-offset:-2px;':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | 메모 있음':'')+(issueCount?' | 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
         +overlayHtml+'</td>';
     }else{
       cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
@@ -8355,8 +8406,8 @@ copyProj = function(){
 
 gRow = function(p,days){
   const od=isOverdue(p),dueToday=isDueToday(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const color=TYPES[p.type]||'#4e5968';
-  const opacity=ST_OP[p.status]||1;
+  const urgency=getGanttBarUrgency(p);
+  const barStyle=getGanttBarStyle(urgency);
   const pS=toDate(p.start),pE=toDate(p.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=pS<mFirst?1:pS.getDate();
@@ -8402,9 +8453,10 @@ gRow = function(p,days){
       overlayHtml='<div class="leave-marker" style="'+markerStyle+'" title="'+esc(tip)+'">'+icons+'</div>';
     }
     if(d===barS){
-      const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
+      const baseBarText=span>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?p.name:'';
+      const barText=baseBarText?esc(getGanttBarLabel(p,baseBarText)):'';
       cells+='<td class="'+cls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | 메모 있음':'')+(issueCount?' | 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +'<div class="bar" style="left:2px;right:0;'+getGanttBarInlineStyle(barStyle)+(issueCount?'outline:2px solid var(--red);outline-offset:-2px;':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | 메모 있음':'')+(issueCount?' | 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
         +overlayHtml+'</td>';
     }else{
       cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
@@ -8497,8 +8549,8 @@ isOverdue = function(p){
 
 gRow = function(p,days){
   const od=isOverdue(p),dueToday=isDueToday(p),mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const color=TYPES[p.type]||'#4e5968';
-  const opacity=ST_OP[p.status]||1;
+  const urgency=getGanttBarUrgency(p);
+  const barStyle=getGanttBarStyle(urgency);
   const pS=toDate(p.start),pE=toDate(p.end);
   const mFirst=new Date(curYear,curMonth-1,1),mLast=new Date(curYear,curMonth-1,days);
   const barS=pS<mFirst?1:pS.getDate();
@@ -8540,9 +8592,10 @@ gRow = function(p,days){
       overlayHtml='<div class="leave-marker" style="left:1px;right:1px;background:'+oc+'" title="'+esc(tip)+'">'+icons+'</div>';
     }
     if(d===barS){
-      const barText=span>=6?esc(p.name)+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?esc(p.name):'';
+      const baseBarText=span>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?p.name:'';
+      const barText=baseBarText?esc(getGanttBarLabel(p,baseBarText)):'';
       cells+='<td class="'+cls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';outline:2px solid var(--red);outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | \uBA54\uBAA8 \uC788\uC74C':'')+(issueCount?' | \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +'<div class="bar" style="left:2px;right:0;'+getGanttBarInlineStyle(barStyle)+(issueCount?'outline:2px solid var(--red);outline-offset:-2px;':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+(hasMemo?' | \uBA54\uBAA8 \uC788\uC74C':'')+(issueCount?' | \uC774\uC288 '+issueCount+'\uAC74':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
         +overlayHtml+'</td>';
     }else{
       cells+='<td class="'+cls+'" style="position:relative">'+overlayHtml+'</td>';
@@ -10520,8 +10573,8 @@ window.gRow=function(p,days){
   today.setHours(0,0,0,0);
   const isCompleted=isCompletedGanttStatus(p.status);
   const od=toDate(p.end)<today&&!isCompleted,mine=currentUser&&p.created_by===currentUser.id&&!isAdmin;
-  const color=od?'#FCA5A5':(TYPES[p.type]||'#4e5968');
-  const opacity=isCompleted?0.4:(ST_OP[p.status]||1);
+  const urgency=getGanttBarUrgency(p);
+  const barStyle=getGanttBarStyle(urgency);
   const rangeMeta=typeof getGanttTimelineRangeMeta==='function'
     ?getGanttTimelineRangeMeta(p,days)
     :{visible:true,barS:1,barE:1,span:1};
@@ -10574,9 +10627,10 @@ window.gRow=function(p,days){
       overlayHtml='<div class="leave-marker" style="'+markerStyle+'" title="'+esc(tooltip)+'">'+icons+'</div>';
     }
     if(day===barS){
-      const barText=span>=6?esc(p.name)+(p.members.length?' ('+esc(p.members.join(', '))+')':''):span>=3?esc(p.name):'';
+      const baseBarText=span>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):span>=3?p.name:'';
+      const barText=baseBarText?esc(getGanttBarLabel(p,baseBarText)):'';
       cells+='<td class="'+cellCls+'" style="position:relative">'
-        +'<div class="bar" style="left:2px;right:0;background:'+color+';color:#fff;opacity:'+opacity+';--gantt-bar-shadow:inset 0 -2px 0 rgba(0,0,0,.15)'+(issueCount?';--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+(issueCount?' | 열린 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
+        +'<div class="bar" style="left:2px;right:0;'+getGanttBarInlineStyle(barStyle)+(issueCount?'--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px;':'')+'" data-span="'+span+'" data-pid="'+p.id+'" onclick="openProjModal(this.dataset.pid)" title="'+esc(p.name)+' | '+esc(p.members.join(', '))+(issueCount?' | 열린 이슈 '+issueCount+'건':'')+'">'+barText+(issueCount?'<span style="margin-left:4px;font-size:9px">!</span>':'')+'</div>'
         +overlayHtml+'</td>';
     }else{
       cells+='<td class="'+cellCls+'" style="position:relative">'+overlayHtml+'</td>';
@@ -10632,7 +10686,8 @@ window.gRow=function(p,days){
   const projectKeyJs=getGanttTimelineTaskJsString(p.id);
   const typeMeta=typeof getGanttProjectTypeMeta==='function'?getGanttProjectTypeMeta(p):{label:p.type||'유형 미지정',tone:'unknown'};
   const statusMeta=typeof getGanttProjectStatusMeta==='function'?getGanttProjectStatusMeta(p):{label:p.status||'상태 없음',tone:'planned'};
-  const barStatusClass=statusMeta.tone==='done'?'done':statusMeta.tone==='progress'?'progress':'planned';
+  const urgency=getGanttBarUrgency(p);
+  const barStyle=getGanttBarStyle(urgency);
   const finalRowCls='row-label'+(od?' row-warn':'')+(isCompleted?' row-completed':'')+(dueToday?' row-due-today':'')+(isActive?' is-active':'');
   const memberText=(p.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
   const finalLabelHtml='<div class="pg-annual-project-cell pg-timeline-project-cell">'
@@ -10648,9 +10703,10 @@ window.gRow=function(p,days){
     ?buildGanttSpanOverlaySummary(overlaysByDay,barS,barE)
     :'';
   const cells=buildGanttSpanCells(days,rangeMeta,({cls,span:colSpan})=>{
-    const barText=colSpan>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):colSpan>=3?p.name:'';
+    const baseBarText=colSpan>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):colSpan>=3?p.name:'';
+    const barText=baseBarText?getGanttBarLabel(p,baseBarText):'';
     return '<td class="'+cls+' gantt-span-cell" colspan="'+colSpan+'" style="position:relative">'
-      +'<div class="bar pg-timeline-bar pg-timeline-bar--'+barStatusClass+(dueToday?' is-due-today':'')+(od?' is-overdue':'')+(isActive?' is-active':'')+'" style="left:2px;right:2px;'+(issueCount?'--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px':'')+'" data-pid="'+p.id+'" data-duration="'+(duration||colSpan)+'" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'"><span class="pg-bar-dot"></span><span class="pg-bar-label">'+esc(barText)+'</span>'+(dueToday?'<span class="pg-bar-due-pill">오늘 마감</span>':'')+(issueCount?'<span class="pg-bar-issue-pill">이슈 '+issueCount+'</span>':'')+'</div>'
+      +'<div class="bar pg-timeline-bar pg-timeline-bar--urgency-'+urgency+(isActive?' is-active':'')+'" style="left:2px;right:2px;'+getGanttBarInlineStyle(barStyle)+(issueCount?'--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px;':'')+'" data-pid="'+p.id+'" data-duration="'+(duration||colSpan)+'" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'"><span class="pg-bar-dot"></span><span class="pg-bar-label">'+esc(barText)+'</span>'+(issueCount?'<span class="pg-bar-issue-pill">이슈 '+issueCount+'</span>':'')+'</div>'
       +spanOverlayHtml
       +'</td>';
   },({cls})=>'<td class="'+cls+'" style="position:relative"></td>');
@@ -10865,7 +10921,8 @@ function renderGanttAnnualProjectRow(project,units){
   const isActive=String(ganttFocusProjectId||'')===String(project.id||'');
   const typeMeta=typeof getGanttProjectTypeMeta==='function'?getGanttProjectTypeMeta(project):{label:project.type||'유형 미지정',tone:'unknown'};
   const statusMeta=typeof getGanttProjectStatusMeta==='function'?getGanttProjectStatusMeta(project):{label:project.status||'상태 없음',tone:'planned'};
-  const barStatusClass=statusMeta.tone==='done'?'done':statusMeta.tone==='progress'?'progress':'planned';
+  const urgency=getGanttBarUrgency(project);
+  const barStyle=getGanttBarStyle(urgency);
   const rangeMeta=getGanttAnnualRangeMeta(project,units,curYear);
   const memberText=(project.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
   const timelineTasks=typeof getGanttTimelineOpenTasks==='function'?getGanttTimelineOpenTasks(project.id):[];
@@ -10888,9 +10945,10 @@ function renderGanttAnnualProjectRow(project,units){
     const cellCls='cell pg-annual-cell '+(unit.isTodayUnit?'pg-annual-today-week ':'');
     if(rangeMeta.visible&&unitIndex===rangeMeta.startIndex){
       const colSpan=rangeMeta.span;
-      const labelText=colSpan>=4?project.name:colSpan>=2?(project.client_name||project.name):'';
+      const baseLabelText=colSpan>=4?project.name:colSpan>=2?(project.client_name||project.name):'';
+      const labelText=baseLabelText?getGanttBarLabel(project,baseLabelText):'';
       cells+='<td class="'+cellCls+'gantt-span-cell" colspan="'+colSpan+'" style="position:relative">'
-        +'<div class="bar pg-timeline-bar pg-annual-bar pg-timeline-bar--'+barStatusClass+(dueToday?' is-due-today':'')+(overdue?' is-overdue':'')+(isActive?' is-active':'')+'" style="left:2px;right:2px" data-pid="'+project.id+'" title="'+esc(project.name)+' | '+esc(memberText)+'">'
+        +'<div class="bar pg-timeline-bar pg-annual-bar pg-timeline-bar--urgency-'+urgency+(isActive?' is-active':'')+'" style="left:2px;right:2px;'+getGanttBarInlineStyle(barStyle)+'" data-pid="'+project.id+'" title="'+esc(project.name)+' | '+esc(memberText)+'">'
         +'<span class="pg-bar-dot"></span><span class="pg-bar-label">'+esc(labelText)+'</span>'
         +'</div>'
         +'</td>';

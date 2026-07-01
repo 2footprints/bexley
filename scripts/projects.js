@@ -1552,12 +1552,19 @@ function renderLegend(){
 function buildGanttCalendarItemHtml(item){
   const itemClass=item.kind==='project'?'project':'schedule';
   const bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
-  const text=item.kind==='project'?'#FFFFFF':'#243241';
-  const border=item.kind==='project'?'transparent':withAlpha(item.color,'55');
+  const text=item.kind==='project'?(item.textColor||'#6B6B6B'):'#243241';
+  const border=item.kind==='project'?(item.borderColor||'transparent'):withAlpha(item.color,'55');
   const action=item.kind==='project'
     ?`openProjModal('${item.id}')`
     :`openScheduleModal('${item.id}')`;
   return '<button class="gantt-calendar-item '+itemClass+'" type="button" onclick="'+action+'" style="background:'+bg+';color:'+text+';border:1px solid '+border+(item.dueToday?';box-shadow:inset 0 0 0 1px rgba(146,64,14,.24)':'')+'" title="'+esc(item.title)+'">'+esc(item.label)+'</button>';
+}
+
+function getGanttCalendarProjectBarStyle(project){
+  const urgency=typeof getGanttBarUrgency==='function'?getGanttBarUrgency(project):'normal';
+  return typeof getGanttBarStyle==='function'
+    ?getGanttBarStyle(urgency)
+    :{bg:'#E5E5E5',border:'none',color:'#6B6B6B'};
 }
 
 function buildGanttCalendarItemsForDate(cellDate,projs,schs){
@@ -1565,12 +1572,15 @@ function buildGanttCalendarItemsForDate(cellDate,projs,schs){
   const items=[];
   projs.forEach(p=>{
     if(toDate(p.start).getTime()<=ts&&toDate(p.end).getTime()>=ts){
+      const barStyle=getGanttCalendarProjectBarStyle(p);
       items.push({
         kind:'project',
         id:p.id,
         label:p.name,
         title:[p.name,p.type||'',(p.members||[]).join(', ')].filter(Boolean).join(' | '),
-        color:TYPES[p.type]||'#4e5968',
+        color:barStyle.bg,
+        textColor:barStyle.color,
+        borderColor:barStyle.border,
         dueToday:isDueToday(p)&&toDate(p.end).getTime()===ts
       });
     }
@@ -1685,13 +1695,16 @@ function buildGanttCalendarItemMap(projs,schs){
     }
     anchorMap.forEach((badges,dateValue)=>{
       if(!dateValue)return;
+      const barStyle=getGanttCalendarProjectBarStyle(project);
       pushItem(dateValue,{
         kind:'project',
         id:project.id,
         label:project.name,
         calendarBadges:badges,
         title:[project.name,getProjectTypeLabel(project),(project.members||[]).join(', ')].filter(Boolean).join(' | '),
-        color:TYPES[getProjectTypeLabel(project)]||TYPES[project.type]||'#4e5968',
+        color:barStyle.bg,
+        textColor:barStyle.color,
+        borderColor:barStyle.border,
         dueToday:isDueToday(project)&&getGanttCalendarDateValue(projectEnd)===dateValue
       });
     });
@@ -4592,8 +4605,8 @@ function buildGanttCalendarItemHtml(item){
   const itemClass=item.kind==='project'?'project':'schedule';
   const activeClass=item.kind==='project'&&String(ganttFocusProjectId||'')===String(item.id||'')?' is-active':'';
   const bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
-  const text=item.kind==='project'?'#FFFFFF':'#243241';
-  const border=item.kind==='project'?'transparent':withAlpha(item.color,'55');
+  const text=item.kind==='project'?(item.textColor||'#6B6B6B'):'#243241';
+  const border=item.kind==='project'?(item.borderColor||'transparent'):withAlpha(item.color,'55');
   const action=item.kind==='project'
     ?`openGanttProjectDetail('${item.id}')`
     :`openScheduleModal('${item.id}')`;
@@ -4808,12 +4821,15 @@ function buildGanttCalendarItemsForDate(cellDate,projs,schs){
   const items=[];
   projs.forEach(project=>{
     if(toDate(project.start).getTime()<=ts&&toDate(project.end).getTime()>=ts){
+      const barStyle=getGanttCalendarProjectBarStyle(project);
       items.push({
         kind:'project',
         id:project.id,
         label:project.name,
         title:[project.name,getProjectTypeLabel(project),(project.members||[]).join(', ')].filter(Boolean).join(' | '),
-        color:TYPES[getProjectTypeLabel(project)]||TYPES[project.type]||'#4e5968',
+        color:barStyle.bg,
+        textColor:barStyle.color,
+        borderColor:barStyle.border,
         dueToday:isDueToday(project)&&toDate(project.end).getTime()===ts
       });
     }
@@ -4843,8 +4859,8 @@ function buildGanttCalendarItemHtml(item){
   const itemClass=item.kind==='project'?'project':item.kind==='task'?'task':'schedule';
   const activeClass=item.kind==='project'&&String(ganttFocusProjectId||'')===String(item.id||'')?' is-active':'';
   let bg=item.kind==='project'?item.color:withAlpha(item.color,'2B');
-  let text=item.kind==='project'?'#FFFFFF':'#243241';
-  let border=item.kind==='project'?'transparent':withAlpha(item.color,'55');
+  let text=item.kind==='project'?(item.textColor||'#6B6B6B'):'#243241';
+  let border=item.kind==='project'?(item.borderColor||'transparent'):withAlpha(item.color,'55');
   let action=item.kind==='project'
     ?`openGanttProjectDetail('${item.id}')`
     :`openScheduleModal('${item.id}')`;
