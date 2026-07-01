@@ -5182,6 +5182,9 @@ function renderGantt(){
       const c=clients.find(x=>x.id===cid);
       const clientName=c?c.name:'거래처 미지정';
       const cProjs=clientGroups[cid];
+      cProjs.sort((a,b)=>typeof naturalCompareKo==='function'
+        ?naturalCompareKo(a?.name,b?.name)
+        :String(a?.name||'').localeCompare(String(b?.name||''),'ko',{numeric:true,sensitivity:'base'}));
       const isCollapsed=ganttCollapsed[cid]||false;
       const safeId=cid.replace(/[^a-zA-Z0-9]/g,'_');
       html+='<tr class="sec-row" style="cursor:pointer" onclick="toggleGanttGroup(\''+cid+'\')">'
@@ -11061,7 +11064,9 @@ function renderFilteredGanttTimeline(projs,schs){
       sortedClientIds.forEach(clientId=>{
         const client=clients.find(item=>item.id===clientId);
         const clientName=client?client.name:'거래처 미지정';
-        const clientProjects=clientGroups[clientId].sort((a,b)=>toDate(a.end)-toDate(b.end));
+        const clientProjects=clientGroups[clientId].sort((a,b)=>typeof naturalCompareKo==='function'
+          ?naturalCompareKo(a?.name,b?.name)
+          :String(a?.name||'').localeCompare(String(b?.name||''),'ko',{numeric:true,sensitivity:'base'}));
         const groupCounts=typeof getGanttClientGroupCounts==='function'
           ?getGanttClientGroupCounts(clientProjects)
           :{active:0,overdue:0,completed:0};
