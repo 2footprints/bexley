@@ -5559,7 +5559,7 @@ async function openDocumentReminderModal(projectId){
         +'<div class="modal-title">자료 요청 리마인드 메일 문안</div>'
         +'<div class="helper-box" style="margin-bottom:12px"><div class="helper-title">대상 자료</div><div class="helper-text">'+((pendingDocs||[]).length?(pendingDocs.map(doc=>esc(doc.title||'자료 요청')+(doc.due_date?' · '+esc(doc.due_date):'')).join('<br>')):'현재 pending 자료 요청이 없습니다.')+'</div></div>'
         +'<div class="form-row"><label class="form-label">메일 문안</label><textarea id="docReminderPreview" class="copy-area" readonly>'+esc(draft)+'</textarea></div>'
-        +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="openProjModal(\''+projectId+'\',null,null,\'document-requests\')">닫기</button><button class="btn primary" onclick="copyDocumentReminder()">문안 복사</button></div></div>'
+        +'<div class="modal-footer"><div></div><div class="modal-footer-right"><button class="btn ghost" onclick="closeModal()">닫기</button><button class="btn primary" onclick="copyDocumentReminder()">문안 복사</button></div></div>'
       +'</div>'
     +'</div>';
 }
@@ -5571,7 +5571,8 @@ async function copyDocumentReminder(){
 function openProjModal(eid,preClientId,preContractId,initialTab){
   if(!eid&&!canManageCore()){alert('멤버 이상 권한이 필요합니다.');return;}
   editingProjId=eid||null;
-  projModalTab=(initialTab==='documents'?'document-requests':initialTab)||'basic';
+  const requestedTab=initialTab==='documents'||initialTab==='document-requests'||initialTab==='completion'?'basic':initialTab;
+  projModalTab=['basic','issue','billing'].includes(requestedTab)?requestedTab:'basic';
   const p=eid?projects.find(x=>x.id===eid):null;
   formMembers=p?[...p.members]:(currentMember?[currentMember.name]:[]);
   const editable=!p||canEdit(p);
@@ -5583,17 +5584,16 @@ function openProjModal(eid,preClientId,preContractId,initialTab){
   if(p){
     loadProjectComments(p.id);
     if(projModalTab==='issue') setTimeout(()=>loadProjIssues(p.id),50);
-    if(projModalTab==='document-requests') setTimeout(()=>loadDocumentRequests(p.id),50);
   }
 }
 
 function switchProjTab(tab){
-  tab=tab==='documents'?'document-requests':tab;
+  tab=tab==='documents'||tab==='document-requests'||tab==='completion'?'basic':tab;
+  if(!['basic','issue','billing'].includes(tab))tab='basic';
   projModalTab=tab;
   document.querySelectorAll('.modal-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.modal-tab-content').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   if(tab==='issue'&&editingProjId) loadProjIssues(editingProjId);
-  if(tab==='document-requests'&&editingProjId) loadDocumentRequests(editingProjId);
 }
 
 
@@ -5657,10 +5657,6 @@ function renderProjModal(p,editable,preClientId,preContractId){
   const mOpts=members.map(m=>'<option value="'+m.name+'">'+esc(m.name)+'</option>').join('');
   const isBillable=p?p.is_billable!==false:true;
   const linkedContract=resolvedContractId?contracts.find(x=>x.id===resolvedContractId):null;
-  const completionHelper=(p&&p.status==='완료')
-    ?'<div class="helper-box" style="margin-bottom:12px"><div class="helper-title">완료 후속 정리</div><div class="helper-text">실제 완료일, 결과 요약, 내부 메모, 후속 액션을 한 번에 정리해두면 청구/재제안/사후관리 흐름이 훨씬 매끈해집니다.</div></div>'
-    :'<div class="readonly-notice" style="margin-bottom:12px">프로젝트 상태가 완료가 아니어도 미리 작성할 수 있습니다. 완료 처리 시 실제 완료일과 후속 액션을 함께 점검해보세요.</div>';
-
   document.getElementById('modalArea').innerHTML=`
     ${editable?getInputModalOverlayHtml():'<div class="overlay" onclick="if(event.target===this)closeModal()">'}
       <div class="modal project-modal ui-modal-680" style="width:680px">
@@ -5670,9 +5666,7 @@ function renderProjModal(p,editable,preClientId,preContractId){
         <div class="modal-tabs project-modal-tabs">
           <button class="modal-tab${projModalTab==='basic'?' active':''}" data-tab="basic" onclick="switchProjTab('basic')">기본 정보</button>
           <button class="modal-tab${projModalTab==='issue'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="issue" onclick="switchProjTab('issue')">이슈</button>
-          <button class="modal-tab${projModalTab==='document-requests'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="document-requests" onclick="switchProjTab('document-requests')">자료요청</button>
           <button class="modal-tab${projModalTab==='billing'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="billing" onclick="switchProjTab('billing')">청구 설정</button>
-          <button class="modal-tab${projModalTab==='completion'?' active':''}${!p?' project-modal-tab-secondary':''}" data-tab="completion" onclick="switchProjTab('completion')">완료·후속</button>
         </div>
 
         <div class="modal-tab-content project-modal-basic${projModalTab==='basic'?' active':''}" data-tab="basic">
@@ -5723,12 +5717,6 @@ function renderProjModal(p,editable,preClientId,preContractId){
             :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 이슈를 등록할 수 있습니다.</div>'}
         </div>
 
-        <div id="tab-document-requests" class="modal-tab-content${projModalTab==='document-requests'?' active':''}" data-tab="document-requests">
-          ${p
-            ?'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font-size:12px;color:var(--text3)">고객사 자료 요청과 확인 상태를 한 곳에서 관리합니다.</div><button class="btn sm" type="button" onclick="openDocumentReminderModal(\''+p.id+'\')">일괄 리마인드 메일 문안</button></div><div id="projDocumentRequestList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
-            :'<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">프로젝트를 먼저 저장하면 자료 요청을 등록할 수 있습니다.</div>'}
-        </div>
-
         <div class="modal-tab-content${projModalTab==='billing'?' active':''}" data-tab="billing">
           <div class="helper-box" style="margin-bottom:12px"><div class="helper-title">프로젝트 청구 설정</div><div class="helper-text">여기서는 빌링 대상 여부, 계약 연결, 기준 금액 같은 프로젝트 설정값을 관리합니다. 현재 청구 상태와 실제 미청구 여부는 하단 상세패널의 실행 요약에서 확인합니다.</div></div>
           <div class="checkbox-row"><input type="checkbox" id="fBillable" ${isBillable?'checked':''} ${editable?'':'disabled'}/><label for="fBillable">빌링 대상 프로젝트</label></div>
@@ -5741,24 +5729,6 @@ function renderProjModal(p,editable,preClientId,preContractId){
             <div class="helper-box"><div class="helper-title">빌링 요청 메일</div><div class="helper-text">세금계산서 발행 요청 메일 문안을 자동으로 만들 수 있습니다.</div><div style="margin-top:10px"><button class="btn sm" type="button" data-id="${p?p.id:''}" onclick="openBillingMailModal(this.dataset.id)">메일 문안 만들기</button></div></div>
           </div>
           ${p&&linkedContract?'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-top:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">계약 빌링 현황</div>'+buildContractBillingSummary(linkedContract.id)+'</div>':''}
-        </div>
-
-        <div class="modal-tab-content${projModalTab==='completion'?' active':''}" data-tab="completion">
-          ${completionHelper}
-          <div class="form-half">
-            <div class="form-row"><label class="form-label">프로젝트 코드</label><input id="fProjCode" value="${esc(p?.project_code||'')}" placeholder="내부 관리 코드" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
-            <div class="form-row"><label class="form-label">실제 완료일</label><input type="date" id="fActualEnd" value="${p?.actual_end_date||''}" ${editable?'':'readonly style="background:var(--bg)"'}/></div>
-          </div>
-          <div class="form-half">
-            <div class="form-row"><label class="form-label">고객 만족도</label><select id="fCustomerSatisfaction" ${editable?'':'disabled'}><option value="">미입력</option>${[1,2,3,4,5].map(score=>'<option value="'+score+'" '+(String(p?.customer_satisfaction||'')===String(score)?'selected':'')+'>'+score+'점</option>').join('')}</select></div>
-            <div class="form-row"><label class="form-label">후속 액션 여부</label><div style="padding-top:10px" class="checkbox-row"><input type="checkbox" id="fFollowUp" ${p?.follow_up_needed?'checked':''} ${editable?'':'disabled'}/><label for="fFollowUp">후속 액션 필요</label></div></div>
-          </div>
-          <div class="form-row"><label class="form-label">결과 요약</label><textarea id="fResultSummary" rows="3" style="resize:vertical" placeholder="고객사 전달 결과, 주요 산출물, 완료 기준 등을 요약" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.result_summary||'')}</textarea></div>
-          <div class="form-row"><label class="form-label">내부 작업 메모</label><textarea id="fWorkSummary" rows="3" style="resize:vertical" placeholder="실무상 배운 점, 다음 번 참고할 포인트" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.work_summary||'')}</textarea></div>
-          <div class="form-row"><label class="form-label">이슈 / 리스크 메모</label><textarea id="fIssueNote" rows="2" style="resize:vertical" placeholder="잔여 리스크, 고객사 커뮤니케이션 메모" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.issue_note||'')}</textarea></div>
-          <div id="followUpFields" style="${p?.follow_up_needed?'':'display:none'}">
-            <div class="form-row"><label class="form-label">후속 액션 내용</label><textarea id="fFollowUpNote" rows="3" style="resize:vertical" placeholder="예) 재계약 제안, 후속 세무 검토, 고객사 피드백 회수" ${editable?'':'readonly style="background:var(--bg)"'}>${esc(p?.follow_up_note||'')}</textarea></div>
-          </div>
         </div>
 
         <div class="modal-footer">
@@ -5775,8 +5745,6 @@ function renderProjModal(p,editable,preClientId,preContractId){
 
   if(editable){
     document.getElementById('fBillable').onchange=function(){document.getElementById('billingFields').style.display=this.checked?'':'none';};
-    const followUp=document.getElementById('fFollowUp');
-    if(followUp)followUp.onchange=function(){document.getElementById('followUpFields').style.display=this.checked?'':'none';};
     renderMemberTags();
     document.getElementById('fStart').oninput=refreshConflict;
     document.getElementById('fEnd').oninput=refreshConflict;
@@ -6243,8 +6211,8 @@ renderDash = async function(){
     +'<div class="stat-card clickable '+(followups.length?'warn':'ok')+'" onclick="openDashDrilldown(\'followup\')"><div class="stat-label">Follow-up</div><div class="stat-num">'+followups.length+'</div><div class="stat-sub">'+(followups.length?'Additional action needed':'No issue right now')+'</div></div>'
     +'</div>'
     +(overdue.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Overdue Projects</div>'+overdue.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="info-value" style="color:var(--red);font-weight:700">'+p.end+' overdue</span></div>').join('')+'</div>':'')
-    +(unbilled.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Billing Queue</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+' KRW</span>':'')+'<span class="badge badge-red" style="margin-left:8px">Need billing</span></div>').join('')+'</div>':'')
-    +(followups.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Follow-up Queue</div>'+followups.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange" style="margin-left:8px">Need follow-up</span><span class="info-value">'+esc(truncateText(p.follow_up_note||'No detail',22))+'</span></div>').join('')+'</div>':'')
+    +(unbilled.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Billing Queue</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'billing\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+' KRW</span>':'')+'<span class="badge badge-red" style="margin-left:8px">Need billing</span></div>').join('')+'</div>':'')
+    +(followups.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">Follow-up Queue</div>'+followups.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'basic\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange" style="margin-left:8px">Need follow-up</span><span class="info-value">'+esc(truncateText(p.follow_up_note||'No detail',22))+'</span></div>').join('')+'</div>':'')
     +'<div class="card" id="activityFeedCard"><div class="section-label">Activity Feed</div>'
     +'<div id="activityFeedList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">Loading...</div></div>'
     +'</div>';
@@ -6393,10 +6361,10 @@ function openDashDrilldown(type){
     body=overdue.length?overdue.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 종료일 '+p.end)+'</div><div class="notice-preview">'+esc((p.members||[]).join(', ')||'담당자 미배정')+'</div></div>').join(''):'<div class="notice-empty">기간 초과 프로젝트가 없습니다.</div>';
   }else if(type==='unbilled'){
     title='빌링 미처리 프로젝트';
-    body=unbilled.length?unbilled.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\',null,null,\'completion\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc((p.billing_amount?Number(p.billing_amount).toLocaleString()+'원 · ':'')+(p.billing_note||'청구 필요'))+'</div></div>').join(''):'<div class="notice-empty">빌링 미처리 프로젝트가 없습니다.</div>';
+    body=unbilled.length?unbilled.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\',null,null,\'billing\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc((p.billing_amount?Number(p.billing_amount).toLocaleString()+'원 · ':'')+(p.billing_note||'청구 필요'))+'</div></div>').join(''):'<div class="notice-empty">빌링 미처리 프로젝트가 없습니다.</div>';
   }else if(type==='followup'){
     title='후속 액션 필요 프로젝트';
-    body=followups.length?followups.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\',null,null,\'completion\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc(p.follow_up_note||'후속 액션 내용 확인 필요')+'</div></div>').join(''):'<div class="notice-empty">후속 액션이 필요한 프로젝트가 없습니다.</div>';
+    body=followups.length?followups.map(p=>'<div class="notice-card" onclick="closeModal();openProjModal(\''+p.id+'\',null,null,\'basic\')"><div class="notice-title">'+esc(p.name)+'</div><div class="notice-meta">'+esc((clients.find(c=>c.id===p.client_id)?.name||'고객사 없음')+' · 완료')+'</div><div class="notice-preview">'+esc(p.follow_up_note||'후속 액션 내용 확인 필요')+'</div></div>').join(''):'<div class="notice-empty">후속 액션이 필요한 프로젝트가 없습니다.</div>';
   }else if(type==='leave'){
     title='휴가 일정';
 body=leaves.length?leaves.map(s=>'<div class="notice-card" onclick="closeModal();openScheduleModal(\''+s.id+'\')"><div class="notice-title">'+esc(getScheduleMemberLabel(s))+'</div><div class="notice-meta">'+esc((s.title||'휴가')+' · '+s.start_date+' ~ '+s.end_date)+'</div><div class="notice-preview">'+esc(s.memo||'')+'</div></div>').join(''):'<div class="notice-empty">휴가 일정이 없습니다.</div>';
@@ -6441,8 +6409,8 @@ async function renderDash(){
     +Object.entries(bt).sort((a,b)=>b[1]-a[1]).map(([t,c])=>'<div class="load-row"><div class="load-name">'+t+'</div><div class="load-bar-wrap"><div class="load-bar" style="width:'+Math.round(c/tot*100)+'%;background:'+TYPES[t]+'"></div></div><div class="load-count">'+c+'</div></div>').join('')
     +'</div></div>'
     +(overdue.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">기간 초과 목록</div>'+overdue.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="info-value" style="color:var(--red);font-weight:700">'+p.end+' 초과</span></div>').join('')+'</div>':'')
-    +(unbilled.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">빌링 미처리 목록</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')+'<span class="badge badge-red" style="margin-left:8px">청구 필요</span></div>').join('')+'</div>':'')
-    +(followups.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">후속 액션 목록</div>'+followups.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange" style="margin-left:8px">후속 필요</span><span class="info-value">'+esc(truncateText(p.follow_up_note||'내용 미작성',22))+'</span></div>').join('')+'</div>':'')
+    +(unbilled.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">빌링 미처리 목록</div>'+unbilled.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'billing\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span>'+(p.billing_amount?'<span style="font-size:12px;color:var(--text2);font-weight:700">'+Number(p.billing_amount).toLocaleString()+'원</span>':'')+'<span class="badge badge-red" style="margin-left:8px">청구 필요</span></div>').join('')+'</div>':'')
+    +(followups.length?'<div class="card" style="margin-bottom:14px"><div class="section-label">후속 액션 목록</div>'+followups.map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'basic\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange" style="margin-left:8px">후속 필요</span><span class="info-value">'+esc(truncateText(p.follow_up_note||'내용 미작성',22))+'</span></div>').join('')+'</div>':'')
     +'<div class="card" id="activityFeedCard"><div class="section-label">활동 피드</div>'
     +'<div id="activityFeedList"><div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">불러오는 중...</div></div>'
     +'</div>';
@@ -9507,12 +9475,12 @@ renderDash = function(){
           :'<div style="font-size:12px;color:var(--text3);padding:8px 0">지금 바로 대응할 기간 초과 프로젝트가 없습니다.</div>')
         +(unbilled.length
           ?'<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">'
-            +unbilled.slice(0,5).map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange">빌링 필요</span></div>').join('')
+            +unbilled.slice(0,5).map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'billing\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange">빌링 필요</span></div>').join('')
           +'</div>'
           :'')
         +(followups.length
           ?'<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">'
-            +followups.slice(0,5).map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'completion\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange">후속 조치</span></div>').join('')
+            +followups.slice(0,5).map(p=>'<div class="info-row" style="cursor:pointer" onclick="openProjModal(\''+p.id+'\',null,null,\'basic\')"><span class="info-label" style="width:auto;flex:1">'+esc(p.name)+'</span><span class="badge badge-orange">후속 조치</span></div>').join('')
           +'</div>'
           :'')
       +'</div>'
@@ -9581,20 +9549,10 @@ window.saveProj = async function(){
   const contract_id=getProjectContractIdFromForm()||null;
   const is_billable=!!document.getElementById('fBillable')?.checked;
   const billingPendingStatus='\uBBF8\uCCAD\uAD6C';
-  const doneStatus='\uC644\uB8CC';
   const billing_status=is_billable?(document.getElementById('fBilling')?.value||billingPendingStatus):billingPendingStatus;
   const billing_amount=is_billable&&document.getElementById('fAmt')?.value?parseInt(document.getElementById('fAmt').value,10):null;
   const billing_note=is_billable?(document.getElementById('fBNote')?.value?.trim()||null):null;
   const memo=document.getElementById('fMemo')?.value?.trim()||null;
-  const project_code=document.getElementById('fProjCode')?.value?.trim()||null;
-  let actual_end_date=document.getElementById('fActualEnd')?.value||null;
-  if(status===doneStatus && !actual_end_date) actual_end_date=new Date().toISOString().slice(0,10);
-  const result_summary=document.getElementById('fResultSummary')?.value?.trim()||null;
-  const work_summary=document.getElementById('fWorkSummary')?.value?.trim()||null;
-  const issue_note=document.getElementById('fIssueNote')?.value?.trim()||null;
-  const follow_up_needed=!!document.getElementById('fFollowUp')?.checked;
-  const follow_up_note=document.getElementById('fFollowUpNote')?.value?.trim()||null;
-  const customer_satisfaction=document.getElementById('fCustomerSatisfaction')?.value?parseInt(document.getElementById('fCustomerSatisfaction').value,10):null;
   const billing_status_changed_at=(
     is_billable && (
       !existing ||
@@ -9628,20 +9586,11 @@ window.saveProj = async function(){
     billing_status,
     billing_amount,
     billing_note,
-    memo,
-    project_code,
-    actual_end_date,
-    result_summary,
-    work_summary,
-    issue_note,
-    follow_up_needed,
-    follow_up_note
+    memo
   };
   const extensionBody={};
   if(actual_hours!==null)extensionBody.actual_hours=actual_hours;
   else extensionBody.actual_hours=null;
-  if(customer_satisfaction!==null)extensionBody.customer_satisfaction=customer_satisfaction;
-  else extensionBody.customer_satisfaction=null;
   if(billing_status_changed_at)extensionBody.billing_status_changed_at=billing_status_changed_at;
 
   const canSyncMembers=!existing || (typeof canManageProjectMembers==='function'

@@ -3013,6 +3013,66 @@ window.applyGanttProjectQuickLifecycleSelection=async function(projectId){
   await updateGanttProjectQuickLifecycle(targetProjectId,select.value);
 };
 
+function openGanttProjectFullyCloseModal(project){
+  const projectId=String(project?.id||'');
+  const modalArea=document.getElementById('modalArea');
+  if(!projectId||!modalArea)return;
+  const currentSatisfaction=String(project?.customer_satisfaction||'');
+  const satisfactionOptions='<option value="">미입력</option>'
+    +[1,2,3,4,5].map(score=>'<option value="'+score+'" '+(currentSatisfaction===String(score)?'selected':'')+'>'+score+'점</option>').join('');
+  const overlayHtml=typeof getInputModalOverlayHtml==='function'
+    ?getInputModalOverlayHtml()
+    :'<div class="overlay" onclick="if(event.target===this)closeModal()">';
+  modalArea.innerHTML=''
+    +overlayHtml
+      +'<div class="modal ui-modal-480" style="width:480px">'
+        +'<div class="modal-title">프로젝트를 완전 종료하시겠습니까?</div>'
+        +'<div class="helper-box" style="margin-bottom:14px">'
+          +'<div class="helper-title">'+esc(project?.name||'프로젝트')+'</div>'
+          +'<div class="helper-text">완전 종료로 변경합니다. 완전 종료된 프로젝트는 기본 목록에서 숨길 수 있습니다.</div>'
+        +'</div>'
+        +'<div class="form-row">'
+          +'<label class="form-label" for="ganttFullyCloseSatisfaction">고객 만족도 <span style="font-size:10px;color:var(--text3);font-weight:400">선택사항</span></label>'
+          +'<select id="ganttFullyCloseSatisfaction">'+satisfactionOptions+'</select>'
+        +'</div>'
+        +'<div class="modal-footer"><div></div><div class="modal-footer-right">'
+          +'<button type="button" class="btn ghost" onclick="closeModal()">취소</button>'
+          +'<button type="button" class="btn primary" onclick="confirmGanttProjectFullyClose(\''+projectId+'\')">완전 종료</button>'
+        +'</div></div>'
+      +'</div>'
+    +'</div>';
+}
+
+window.confirmGanttProjectFullyClose=async function(projectId){
+  const key=getActiveGanttDetailProjectId(projectId);
+  const project=getGanttProjectById(key);
+  if(!key||!project){
+    alert('선택한 프로젝트 정보를 다시 불러온 뒤 시도해 주세요.');
+    return;
+  }
+  const rawSatisfaction=document.getElementById('ganttFullyCloseSatisfaction')?.value||'';
+  const satisfactionValue=rawSatisfaction?parseInt(rawSatisfaction,10):null;
+  try{
+    await api('PATCH','projects?id=eq.'+key,{
+      status:'완전 종료',
+      follow_up_needed:false,
+      actual_end_date:project?.actual_end_date||new Date().toISOString().slice(0,10),
+      customer_satisfaction:Number.isInteger(satisfactionValue)?satisfactionValue:null
+    });
+    closeModal();
+    if(typeof logActivity==='function'){
+      await logActivity('프로젝트 완전 종료','project',key,project?.name||'');
+    }
+    await loadAll();
+    ganttActionDebugLog('fully close saved',{projectId:key,customerSatisfaction:satisfactionValue});
+    renderGantt();
+    if(typeof showToast==='function')showToast('프로젝트를 완전 종료했습니다.','success');
+  }catch(error){
+    ganttActionDebugLog('fully close failed',{projectId:key,message:error?.message||String(error)});
+    alert('완전 종료 처리 중 오류가 발생했습니다: '+error.message);
+  }
+};
+
 window.requestGanttProjectFullyClose=async function(projectId){
   const key=getActiveGanttDetailProjectId(projectId);
   const project=getGanttProjectById(key);
@@ -3039,23 +3099,7 @@ window.requestGanttProjectFullyClose=async function(projectId){
     alert('완전 종료 전 확인이 필요합니다.\n- '+closureMeta.blockers.join('\n- '));
     return;
   }
-  if(!confirm('이 프로젝트를 완전 종료로 변경할까요? 완전 종료된 프로젝트는 기본 목록에서 숨길 수 있습니다.'))return;
-  try{
-    await api('PATCH','projects?id=eq.'+key,{
-      status:'완전 종료',
-      follow_up_needed:false,
-      actual_end_date:project?.actual_end_date||new Date().toISOString().slice(0,10)
-    });
-    if(typeof logActivity==='function'){
-      await logActivity('프로젝트 완전 종료','project',key,project?.name||'');
-    }
-    await loadAll();
-    ganttActionDebugLog('fully close saved',{projectId:key});
-    renderGantt();
-  }catch(error){
-    ganttActionDebugLog('fully close failed',{projectId:key,message:error?.message||String(error)});
-    alert('완전 종료 처리 중 오류가 발생했습니다: '+error.message);
-  }
+  openGanttProjectFullyCloseModal(project);
 };
 
 function renderGanttProjectLifecycleActionPanel(project){
@@ -3438,7 +3482,7 @@ function renderGanttDetailDocumentPreview(projectId,documents){
     return;
   }
   container.innerHTML=documents.map(doc=>{
-    return '<div class="gantt-detail-item is-clickable" onclick="openProjModal(\''+projectId+'\',null,null,\'document-requests\')">'
+    return '<div class="gantt-detail-item">'
       +'<div><div class="gantt-detail-item-title">'+esc(doc.title||'자료명 없음')+'</div><div class="gantt-detail-item-sub">'+esc(doc.due_date?('회수 희망일 '+doc.due_date):'회수 희망일 미지정')+'</div></div>'
       +'<span class="badge badge-orange">대기</span>'
     +'</div>';
@@ -3696,15 +3740,15 @@ function renderGanttProjectIssuesSection(project){
 function renderGanttProjectMemoSection(project){
   const noteCards=[
     {label:'프로젝트 메모',value:project?.memo||'',tab:'basic'},
-    {label:'결과 요약',value:project?.result_summary||'',tab:'completion'},
-    {label:'내부 작업 메모',value:project?.work_summary||'',tab:'completion'},
-    {label:'이슈 / 리스크 메모',value:project?.issue_note||'',tab:'completion'},
-    {label:'후속 액션',value:project?.follow_up_note||'',tab:'completion'}
+    {label:'결과 요약',value:project?.result_summary||'',tab:'basic'},
+    {label:'내부 작업 메모',value:project?.work_summary||'',tab:'basic'},
+    {label:'이슈 / 리스크 메모',value:project?.issue_note||'',tab:'basic'},
+    {label:'후속 액션',value:project?.follow_up_note||'',tab:'basic'}
   ].filter(card=>String(card.value||'').trim());
   return ''
     +'<div class="gantt-detail-pane">'
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div>'
+        +'<div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청</div></div>'
         +'<div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div>'
       +'</div>'
       +'<div class="gantt-detail-section">'
@@ -4521,7 +4565,7 @@ renderGanttDetailPanel=function(projs,schs){
       +'<div><div class="gantt-detail-label">빌링 금액</div><div class="gantt-detail-value">'+formatGanttCurrency(billingAmount)+'</div></div>'
     +'</div>'
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">이슈 미리보기</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'issue\')">전체 이슈 보기</button></div><div class="gantt-detail-list" id="ganttDetailIssueList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
-    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청 미리보기</div><button type="button" class="gantt-detail-link" onclick="openProjModal(\''+project.id+'\',null,null,\'document-requests\')">자료요청 관리</button></div><div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
+    +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">자료 요청 미리보기</div></div><div class="gantt-detail-list" id="ganttDetailDocumentList"><div class="gantt-detail-empty">불러오는 중...</div></div></div>'
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">팀 일정 충돌</div></div><div class="gantt-detail-list">'+(memberSchedules.map(schedule=>'<div class="gantt-detail-item is-clickable" onclick="openScheduleModal(\''+schedule.id+'\')"><div><div class="gantt-detail-item-title">'+esc(getScheduleMemberLabel(schedule))+' '+esc(scheduleLabel(schedule.schedule_type))+'</div><div class="gantt-detail-item-sub">'+esc((schedule.start||'')+' ~ '+(schedule.end||'')+(schedule.location?' · '+schedule.location:''))+'</div></div><span class="badge '+(schedule.schedule_type==='leave'?'badge-orange':'badge-blue')+'">'+esc(scheduleLabel(schedule.schedule_type))+'</span></div>').join('')||'<div class="gantt-detail-empty">담당자 휴가/필드웍 일정이 없습니다.</div>')+'</div></div>'
     +'<div class="gantt-detail-section"><div class="gantt-detail-section-head"><div class="gantt-panel-title">메모 미리보기</div></div>'+(project.memo?'<button type="button" class="gantt-detail-memo" onclick="openProjModal(\''+project.id+'\')">'+esc(project.memo)+'</button>':'<div class="gantt-detail-empty">등록된 메모가 없습니다.</div>')+'</div>';
   loadGanttDetailAsync(project);
@@ -5596,10 +5640,10 @@ function renderGanttProjectIssuesSection(project){
 function buildGanttMemoSupportCards(project){
   return [
     {label:'프로젝트 메모',context:'프로젝트 단위 · 운영 메모',value:project?.memo||'',tab:'basic'},
-    {label:'결과 요약',context:'프로젝트 단위 · 참고 기록',value:project?.result_summary||'',tab:'completion'},
-    {label:'내부 작업 메모',context:'프로젝트 단위 · 실행 메모',value:project?.work_summary||'',tab:'completion'},
-    {label:'이슈 / 리스크 메모',context:'프로젝트 단위 · 리스크 메모',value:project?.issue_note||'',tab:'completion'},
-    {label:'후속 액션',context:'프로젝트 단위 · 다음 액션',value:project?.follow_up_note||'',tab:'completion'}
+    {label:'결과 요약',context:'프로젝트 단위 · 참고 기록',value:project?.result_summary||'',tab:'basic'},
+    {label:'내부 작업 메모',context:'프로젝트 단위 · 실행 메모',value:project?.work_summary||'',tab:'basic'},
+    {label:'이슈 / 리스크 메모',context:'프로젝트 단위 · 리스크 메모',value:project?.issue_note||'',tab:'basic'},
+    {label:'후속 액션',context:'프로젝트 단위 · 다음 액션',value:project?.follow_up_note||'',tab:'basic'}
   ].filter(card=>String(card.value||'').trim());
 }
 
@@ -5727,7 +5771,7 @@ function renderGanttDetailDocumentPreview(projectId,documents){
     return;
   }
   container.innerHTML=rows.map(doc=>''
-    +'<div class="gantt-detail-item is-clickable" onclick="openProjModal(\''+projectId+'\',null,null,\'document-requests\')">'
+    +'<div class="gantt-detail-item">'
       +'<div>'
         +'<div class="gantt-detail-item-title">'+esc(doc.title||'자료 요청')+'</div>'
         +'<div class="gantt-detail-item-sub">프로젝트 단위 · 자료 요청'+(doc.due_date?' · 회수 희망일 '+esc(doc.due_date):' · 회수 희망일 미정')+'</div>'
@@ -5752,7 +5796,7 @@ function renderGanttProjectMemoSection(project){
               +'<div class="pd-memo-footer"><span>'+esc(card.context)+'</span><span class="pd-memo-edit">수정</span></div>'
             +'</button>'
           ).join('')+'</div>'
-          :'<div class="pd-memo-box pd-memo-box--empty"><div class="pd-memo-text">아직 남겨둔 실행 메모가 없습니다.</div><div class="pd-memo-footer"><span>프로젝트 메모나 완료·후속 탭에서 기록을 남겨 두면 회의와 후속 작업에 도움이 됩니다.</span></div></div>')
+        :'<div class="pd-memo-box pd-memo-box--empty"><div class="pd-memo-text">아직 남겨둔 실행 메모가 없습니다.</div><div class="pd-memo-footer"><span>프로젝트 메모를 남겨 두면 회의와 후속 작업에 도움이 됩니다.</span></div></div>')
         +'</div>'
       +'</div>'
     +'</div>';
@@ -6086,10 +6130,10 @@ function renderGanttListDueDateCell(project){
 function buildGanttProjectMemoSummaryEntries(project){
   return [
     {label:'프로젝트 메모',value:project?.memo||'',tab:'basic'},
-    {label:'후속 액션',value:project?.follow_up_note||'',tab:'completion'},
-    {label:'이슈 / 리스크 메모',value:project?.issue_note||'',tab:'completion'},
-    {label:'내부 작업 메모',value:project?.work_summary||'',tab:'completion'},
-    {label:'결과 요약',value:project?.result_summary||'',tab:'completion'}
+    {label:'후속 액션',value:project?.follow_up_note||'',tab:'basic'},
+    {label:'이슈 / 리스크 메모',value:project?.issue_note||'',tab:'basic'},
+    {label:'내부 작업 메모',value:project?.work_summary||'',tab:'basic'},
+    {label:'결과 요약',value:project?.result_summary||'',tab:'basic'}
   ].filter(entry=>String(entry.value||'').trim()).slice(0,3);
 }
 
