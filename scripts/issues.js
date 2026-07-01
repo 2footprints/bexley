@@ -104,7 +104,7 @@ function getIssuesPageAgingDays(issue){
 function getIssuesPageAgingText(issue){
   const days=getIssuesPageAgingDays(issue);
   if(days===null)return '';
-  return '에이징 '+days+'일';
+  return '열림 '+days+'일';
 }
 
 function getIssuesPageDueDateText(issue){
@@ -223,10 +223,11 @@ function getIssuesPageImpactMeta(issue){
   if(status==='resolved')return {label:'해결됨',tone:'ok',rank:9};
   if(status==='waiting')return {label:'실행 영향',tone:'danger',rank:0};
   if(dueMeta.tone==='danger')return {label:'실행 영향',tone:'danger',rank:1};
-  if(priority==='high'||!!issue?.is_pinned)return {label:'우선 확인',tone:'warn',rank:2};
+  if(isIssueActiveStatus(issue?.status)&&!String(issue?.assignee_member_id||issue?.assignee_name||issue?.owner_member_id||issue?.owner_name||'').trim())return {label:'담당자 없음',tone:'danger',rank:2};
   if(agingDays!==null&&agingDays>=14)return {label:'장기 미해결',tone:'warn',rank:3};
-  if(String(issue?.category||'').trim()==='고객 커뮤니케이션'||/고객|거래처/.test(textBlob))return {label:'고객 영향 가능',tone:'warn',rank:4};
-  return {label:'확인 필요',tone:'neutral',rank:5};
+  if(priority==='high'||!!issue?.is_pinned)return {label:'우선 확인',tone:'warn',rank:4};
+  if(String(issue?.category||'').trim()==='고객 커뮤니케이션'||/고객|거래처/.test(textBlob))return {label:'고객 영향 가능',tone:'warn',rank:5};
+  return {label:'확인 필요',tone:'neutral',rank:6};
 }
 
 function getIssuesPageFollowUpMeta(issue){
@@ -327,7 +328,7 @@ function renderIssuesPageSummaryCards(rows){
   const counts=getIssuesPageSummaryCounts(rows);
   const cards=[
     {label:'열린 이슈 수',value:counts.open,sub:'현재 후속 확인이 필요한 이슈',tone:counts.open?'warn':'quiet'},
-    {label:'장기 미해결 이슈 수',value:counts.longOpen,sub:'14일 이상 열린 이슈',tone:counts.longOpen?'danger':'quiet'},
+    {label:'장기 미해결 이슈 수',value:counts.longOpen,sub:'14일 이상 열린 이슈',tone:counts.longOpen?'warn':'quiet'},
     {label:'영향 프로젝트 수',value:counts.projects,sub:'열린 이슈가 걸린 프로젝트 기준',tone:counts.projects?'info':'quiet'},
     {label:'이번 주 신규 이슈',value:counts.newThisWeek,sub:'이번 주 새로 등록된 리스크',tone:counts.newThisWeek?'warn':'quiet'}
   ];
@@ -344,7 +345,7 @@ function renderIssuesPageSummaryCards(rows){
   const counts=getIssuesPageSummaryCounts(rows);
   const cards=[
     {label:'열린 이슈',value:counts.open,tone:counts.open?'warn':'quiet'},
-    {label:'장기 미해결',value:counts.longOpen,tone:counts.longOpen?'danger':'quiet'},
+    {label:'장기 미해결',value:counts.longOpen,tone:counts.longOpen?'warn':'quiet'},
     {label:'영향 프로젝트',value:counts.projects,tone:counts.projects?'info':'quiet'},
     {label:'이번 주 신규',value:counts.newThisWeek,tone:counts.newThisWeek?'warn':'quiet'}
   ];
@@ -478,10 +479,10 @@ function renderIssuesPageFromCache(){
                   +'<div class="issues-page-row-head" onclick="toggleIssuesPageAccordion(\''+issue.id+'\')">'
                     +'<div class="issues-page-row-main">'
                       +'<div class="issues-page-row-chipline">'
+                        +(isLongOpen?'<span class="issues-page-inline-tag long-open" title="14일 이상 열린 이슈입니다.">장기 미해결</span>':'')
                         +'<span class="issues-page-category is-'+categoryMeta.cls+'">'+esc(categoryMeta.label)+'</span>'
                         +'<span class="issues-page-scope '+scopeMeta.cls+'">'+esc(scopeMeta.label)+'</span>'
-                        +'<span class="issues-page-impact is-'+impactMeta.tone+'">'+esc(impactMeta.label)+'</span>'
-                        +(isLongOpen?'<span class="issues-page-inline-tag long-open">장기 미해결</span>':'')
+                        +(!isLongOpen?'<span class="issues-page-impact is-'+impactMeta.tone+'">'+esc(impactMeta.label)+'</span>':'')
                         +(priorityMeta.cls==='high'?'<span class="issues-page-priority '+priorityMeta.cls+'">'+priorityMeta.label+'</span>':'')
                         +(estimatedHoursLabel?'<span class="issues-page-inline-tag">'+esc(estimatedHoursLabel)+'</span>':'')
                         +'<span class="badge '+statusMeta.cls+' issues-page-row-status">'+statusMeta.label+'</span>'
