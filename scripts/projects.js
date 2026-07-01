@@ -5377,7 +5377,7 @@ function renderGanttProjectWorkSection(project,memberSchedules){
       +'</div>'
       +renderGanttProjectNextActionsSection(project.id)
       +'<div class="gantt-detail-section gantt-detail-section--flush">'
-        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">전체 업무</div><div class="gantt-detail-meta">긴 설명보다 담당자, 기한, 상태, 진행률만 빠르게 보고 실행을 이어갑니다.</div></div><button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button></div>'
+        +'<div class="gantt-detail-section-head"><div><div class="gantt-panel-title">전체 업무</div><div class="gantt-detail-meta">긴 설명보다 담당자, 기한, 상태, 진행률만 빠르게 보고 실행을 이어갑니다.</div></div></div>'
         +((getGanttProjectTasks(project?.id)||[]).length
           ?'<div class="gantt-task-list-head"><span>업무</span><span>담당자</span><span>기한</span><span>상태 / 실행</span></div><div class="gantt-task-list">'+renderGanttTaskRows(project.id)+'</div>'
           :renderGanttTaskEmptyState(project.id,loadMeta))
@@ -7573,7 +7573,7 @@ renderGanttProjectWorkSection=function(project,memberSchedules){
       +'<div class="pd-tab-panel">'
         +renderGanttProjectNextActionsSection(project.id)
         +'<div class="pd-ov-section">'
-          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>전체 업무</h3><p>업무명, 담당자, 마감일, 상태, 빠른 액션을 먼저 보고 바로 처리합니다.</p></div><div class="pd-work-table-actions"><span class="pd-count-chip">열린 '+taskSummary.active+'건 · 지연 '+taskSummary.overdue+'건</span><button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button></div></div>'
+          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>전체 업무</h3><p>업무명, 담당자, 마감일, 상태, 빠른 액션을 먼저 보고 바로 처리합니다.</p></div><div class="pd-work-table-actions"><span class="pd-count-chip">열린 '+taskSummary.active+'건 · 지연 '+taskSummary.overdue+'건</span></div></div>'
         +((getGanttProjectTasks(project?.id)||[]).length
           ?'<div class="pd-data-table-wrap"><table class="pd-data-table pd-work-table"><thead><tr><th>업무명</th><th>담당자</th><th>마감일</th><th>상태</th><th class="is-right">빠른 액션</th></tr></thead><tbody>'+renderGanttTaskRows(project.id)+'</tbody></table></div>'
           :renderGanttTaskEmptyState(project.id,loadMeta))
@@ -7621,9 +7621,6 @@ renderGanttDetailPanel=function(projs,schs){
   else if(ganttDetailTab==='checklist')sectionHtml=renderGanttProjectChecklistSection(project);
   else if(ganttDetailTab==='memo')sectionHtml=renderGanttProjectMemoSection(project);
   else if(ganttDetailTab==='documents')sectionHtml=renderGanttProjectDocumentsSection(project);
-  const primaryAction=ganttDetailTab==='work'
-    ?'<button type="button" class="btn primary sm" onclick="openProjectTaskModal(\''+project.id+'\')">+ 업무 추가</button>'
-    :'<button type="button" class="btn primary sm" onclick="setGanttDetailTab(\'work\')">Work 열기</button>';
   el.innerHTML=''
     +'<div class="pd-proj-card">'
       +'<div class="pd-proj-top">'
@@ -7633,7 +7630,6 @@ renderGanttDetailPanel=function(projs,schs){
           +'<div class="pd-proj-client">'+esc(client?.name||'고객사 미지정')+'</div>'
         +'</div>'
         +'<div class="pd-proj-actions">'
-        +primaryAction
         +'<button type="button" class="btn sm" onclick="openProjModal(\''+project.id+'\',null,null,\'basic\')" title="프로젝트명, 고객사, 계약 연결, 빌링 대상 여부 같은 기본 설정을 수정합니다.">프로젝트 설정</button>'
         +'<button type="button" class="btn ghost sm" onclick="handleProjectOutlookEvent(\''+project.id+'\')">Outlook 추가</button>'
         +'<button type="button" class="btn ghost sm" onclick="closeGanttProjectDetail()">목록으로 돌아가기</button>'
