@@ -7276,6 +7276,70 @@ renderGanttListTaskDrilldownRow=function(row){
   +'</tr>';
 };
 
+renderGanttListTaskDrilldownRow=function(row){
+  const projectId=String(row?.project?.id||'').trim();
+  if(!projectId)return '';
+  const projectIdJs=getGanttTaskDrilldownJsString(projectId);
+  const loadMeta=getGanttProjectTaskLoadMeta(projectId);
+  const hasLoadedTasks=Array.isArray(ganttProjectTasksByProjectId[projectId]);
+  const allTasks=hasLoadedTasks?getGanttListDrilldownTasks(projectId):[];
+  const openTasks=allTasks.filter(task=>String(task?.status||'').trim()!=='완료');
+  const doneCount=Math.max(0,allTasks.length-openTasks.length);
+  const showAll=ganttListExpandedMoreProjectIds.includes(projectId);
+  const visibleTasks=showAll?openTasks:openTasks.slice(0,GANTT_LIST_TASK_DRILL_LIMIT);
+  const hiddenCount=Math.max(0,openTasks.length-visibleTasks.length);
+  let bodyHtml='';
+  if(loadMeta.loading&&!hasLoadedTasks){
+    bodyHtml='<div class="gantt-list-task-drill-empty">업무를 불러오는 중입니다.</div>';
+  }else if(loadMeta.error){
+    bodyHtml='<div class="gantt-list-task-drill-empty">'+esc(loadMeta.error)+'</div>';
+  }else if(!visibleTasks.length){
+    bodyHtml='<div class="gantt-list-task-drill-empty">표시할 열린 업무가 없습니다. 완료 업무와 전체 목록은 Work 탭에서 확인하세요.</div>';
+  }else{
+    bodyHtml='<div class="gantt-list-task-drill-table">'
+      +'<div class="gantt-list-task-drill-table-head"><span>업무</span><span>담당</span><span>상태</span><span>마감</span><span></span></div>'
+      +'<div class="gantt-list-task-drill-items">'
+        +visibleTasks.map(task=>{
+          const projectKey=getGanttTaskDrilldownJsString(projectId);
+          const taskKey=getGanttTaskDrilldownJsString(task?.id||'');
+          const assignee=getGanttTaskMemberName(task?.assignee_member_id)||'담당 미정';
+          const dueMeta=getGanttTaskDueMeta(task);
+          const statusMeta=getGanttTaskDrilldownStatusMeta(task,dueMeta);
+          const dueText=getGanttTaskDrilldownDueText(task);
+          const title=task?.title||'제목 없는 업무';
+          const tone=dueMeta?.tone||'neutral';
+          return '<div class="gantt-list-task-drill-item is-'+tone+'" role="button" tabindex="0" title="'+esc([title,assignee,dueText,statusMeta.label].filter(Boolean).join(' · '))+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')}">'
+            +'<div class="gantt-list-task-drill-name">'+esc(title)+'</div>'
+            +'<div class="gantt-list-task-drill-assignee">'+esc(assignee)+'</div>'
+            +'<div><span class="badge '+statusMeta.className+'">'+esc(statusMeta.label)+'</span></div>'
+            +'<div class="gantt-list-task-drill-due is-'+tone+'">'+esc(dueText)+'</div>'
+            +'<div class="gantt-list-task-drill-actions">'
+              +'<button type="button" class="gantt-list-task-complete-btn" onclick="event.stopPropagation();completeProjectTask(\''+projectKey+'\',\''+taskKey+'\')">완료</button>'
+            +'</div>'
+          +'</div>';
+        }).join('')
+      +'</div>'
+    +'</div>';
+  }
+  return '<tr class="gantt-list-child-row">'
+    +'<td class="gantt-list-task-detail-cell" colspan="6">'
+      +'<div class="gantt-list-task-drill-shell">'
+        +'<div class="gantt-list-task-drill-head">'
+          +'<div><div class="gantt-list-task-drill-title">업무 '+allTasks.length+'건 <span>열린 업무 '+openTasks.length+' · 완료 '+doneCount+'</span></div></div>'
+          +'<div class="gantt-list-task-drill-head-actions">'
+            +'<button type="button" class="gantt-list-drill-more" onclick="event.stopPropagation();openProjectTaskModal(\''+projectIdJs+'\',null)">+ 추가</button>'
+            +'<button type="button" class="gantt-list-drill-more" onclick="event.stopPropagation();openGanttProjectWorkTab(\''+projectIdJs+'\')">전체 업무</button>'
+          +'</div>'
+        +'</div>'
+        +bodyHtml
+        +'<div class="gantt-list-task-drill-footer">'
+          +(hiddenCount?'<button type="button" class="gantt-list-drill-more" onclick="event.stopPropagation();toggleGanttListTaskDrilldownMore(\''+projectIdJs+'\')">'+(showAll?'업무 접기':'열린 업무 '+hiddenCount+'건 더 보기')+'</button>':(doneCount?'<span class="gantt-list-task-drill-note">완료 업무 '+doneCount+'건은 기본 숨김입니다.</span>':'<span class="gantt-list-task-drill-note">전체 목록은 Work 탭에서 확인하세요.</span>'))
+        +'</div>'
+      +'</div>'
+    +'</td>'
+  +'</tr>';
+};
+
 renderGanttListView=function(projs,schs){
   const wrap=document.getElementById('ganttWrap');
   if(!wrap)return;
