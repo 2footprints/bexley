@@ -2094,3 +2094,323 @@
   .main-focus-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .team-fun-grid{grid-template-columns:1fr}
 }
+
+/* Compact home operations console */
+#pageTeam .home-dashboard-shell{
+  gap:12px;
+}
+#pageTeam .home-body-grid{
+  gap:14px;
+}
+#pageTeam .home-body-main,
+#pageTeam .home-body-side{
+  gap:12px;
+}
+#pageTeam .home-card{
+  padding:13px 14px!important;
+  margin-bottom:10px!important;
+  border-radius:12px!important;
+  box-shadow:0 1px 3px rgba(15,23,42,.05)!important;
+}
+#pageTeam .home-execution-grid{
+  grid-template-columns:minmax(0,1.7fr) minmax(280px,.75fr);
+  gap:12px;
+}
+#pageTeam .home-support-grid{
+  grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);
+  gap:12px;
+}
+#pageTeam .home-layer-card,
+#pageTeam .home-queue-card{
+  padding:14px 15px!important;
+  border-radius:12px!important;
+}
+#pageTeam .home-layer-head,
+#pageTeam .home-queue-card .home-daily-work-head,
+#pageTeam .home-daily-work-section-head,
+#pageTeam .home-section-head,
+#pageTeam .team-notice-head{
+  gap:8px;
+  margin-bottom:9px!important;
+}
+#pageTeam .home-layer-kicker,
+#pageTeam .home-layer-sub,
+#pageTeam .home-daily-work-section-sub,
+#pageTeam .home-section-sub{
+  display:none!important;
+}
+#pageTeam .home-layer-title,
+#pageTeam .home-queue-card .home-daily-work-title,
+#pageTeam .home-section-title{
+  font-size:15px!important;
+  line-height:1.25!important;
+}
+#pageTeam .home-queue-card .home-daily-work-date{
+  font-size:11px!important;
+}
+#pageTeam .hp-stat-grid,
+#pageTeam .home-risk-grid{
+  gap:8px!important;
+}
+#pageTeam .hp-stat-grid--4,
+#pageTeam .home-risk-grid--actions{
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+}
+#pageTeam .hp-stat-grid--3,
+#pageTeam .home-risk-grid--warning{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+#pageTeam .hp-stat-card,
+#pageTeam .home-risk-card{
+  min-height:0!important;
+  padding:8px 10px!important;
+  border-radius:10px!important;
+  box-shadow:none!important;
+}
+#pageTeam .home-risk-card{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  column-gap:8px;
+  row-gap:2px;
+}
+#pageTeam .home-risk-label,
+#pageTeam .hp-stat-label{
+  font-size:10px!important;
+  letter-spacing:0!important;
+  line-height:1.2!important;
+}
+#pageTeam .home-risk-value,
+#pageTeam .hp-stat-value{
+  font-size:16px!important;
+  line-height:1.1!important;
+}
+#pageTeam .home-risk-meta,
+#pageTeam .hp-stat-sub{
+  grid-column:1 / -1;
+  min-height:0!important;
+  font-size:10px!important;
+  line-height:1.25!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#pageTeam .home-risk-card.is-quiet .home-risk-meta,
+#pageTeam .home-risk-card.is-neutral .home-risk-meta{
+  display:none!important;
+}
+#pageTeam .home-daily-work-section--panel{
+  padding:10px!important;
+  border-radius:10px!important;
+}
+#pageTeam .home-daily-work-list,
+#pageTeam .hp-work-list,
+#pageTeam .hp-attn-list,
+#pageTeam .hp-upd-list{
+  gap:6px!important;
+}
+#pageTeam .home-daily-work-card,
+#pageTeam .hp-work-item,
+#pageTeam .hp-attn-item,
+#pageTeam .hp-upd-item{
+  min-height:42px!important;
+  padding:8px 10px!important;
+  border-radius:9px!important;
+  gap:8px!important;
+  box-shadow:none!important;
+}
+#pageTeam .home-daily-work-card{
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+}
+#pageTeam .home-daily-work-badge{
+  min-width:34px!important;
+  height:22px!important;
+  padding:0 7px!important;
+  font-size:10px!important;
+}
+#pageTeam .home-daily-work-title-text,
+#pageTeam .home-daily-work-project,
+#pageTeam .hp-work-title,
+#pageTeam .hp-attn-title,
+#pageTeam .hp-upd-title{
+  font-size:12px!important;
+  line-height:1.25!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#pageTeam .home-daily-work-client,
+#pageTeam .home-daily-work-summary,
+#pageTeam .hp-work-meta,
+#pageTeam .hp-attn-meta,
+#pageTeam .hp-upd-meta{
+  font-size:10px!important;
+  line-height:1.25!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+#pageTeam .home-daily-work-summary{
+  display:block!important;
+}
+#pageTeam .home-daily-work-due-wrap,
+#pageTeam .hp-work-side,
+#pageTeam .hp-attn-side{
+  min-width:72px!important;
+  gap:3px!important;
+}
+#pageTeam .home-daily-work-due,
+#pageTeam .home-daily-work-destination,
+#pageTeam .hp-work-due,
+#pageTeam .hp-attn-chip{
+  font-size:10px!important;
+  white-space:nowrap;
+}
+#pageTeam .home-daily-work-empty,
+#pageTeam .weekly-empty,
+#pageTeam .hp-empty{
+  min-height:0!important;
+  padding:9px 10px!important;
+  font-size:12px!important;
+  border-radius:9px!important;
+}
+#pageTeam .home-team-schedule-stack,
+#pageTeam .home-team-schedule-week-list,
+#pageTeam .home-team-schedule-group-body{
+  gap:7px!important;
+}
+#pageTeam .home-team-schedule-week{
+  padding:9px 10px!important;
+  border-radius:10px!important;
+}
+#pageTeam .home-team-schedule-week-head{
+  margin-bottom:6px!important;
+}
+#pageTeam .home-team-schedule-week.next{
+  display:none!important;
+}
+#pageTeam .home-team-schedule-type-grid{
+  gap:8px!important;
+}
+#pageTeam .home-team-schedule-item{
+  min-height:34px!important;
+  padding:7px 8px!important;
+  border-radius:8px!important;
+}
+#pageTeam .home-team-schedule-group-body .home-team-schedule-item:nth-of-type(n+5){
+  display:none!important;
+}
+#pageTeam .home-inline-toggle{
+  padding:2px!important;
+  gap:2px!important;
+}
+#pageTeam .home-inline-btn{
+  min-height:24px!important;
+  padding:0 8px!important;
+  font-size:10px!important;
+}
+#pageTeam .team-fun-section .home-card,
+#pageTeam .home-support-grid > #teamNoticeWrap > .home-card{
+  padding:12px!important;
+}
+#pageTeam .hp-qa-list{
+  display:flex!important;
+  flex-wrap:wrap;
+  gap:7px!important;
+}
+#pageTeam .hp-qa-item{
+  width:auto!important;
+  min-height:32px!important;
+  padding:7px 9px!important;
+  border-radius:8px!important;
+  gap:6px!important;
+}
+#pageTeam .hp-qa-icon{
+  width:22px!important;
+  height:22px!important;
+  font-size:11px!important;
+}
+#pageTeam .hp-qa-title{
+  font-size:11px!important;
+}
+#pageTeam .hp-qa-desc,
+#pageTeam .hp-qa-tag,
+#pageTeam .hp-qa-arrow{
+  display:none!important;
+}
+#pageTeam .hp-notice-list{
+  gap:6px!important;
+}
+#pageTeam .hp-notice-row{
+  min-height:34px!important;
+  padding:7px 9px!important;
+  border-radius:8px!important;
+}
+#pageTeam .hp-notice-row-title{
+  font-size:12px!important;
+}
+#pageTeam .hp-notice-row-date{
+  font-size:10px!important;
+}
+
+@media (max-width: 1180px){
+  #pageTeam .home-execution-grid,
+  #pageTeam .home-support-grid{
+    grid-template-columns:1fr!important;
+  }
+  #pageTeam .hp-stat-grid--4,
+  #pageTeam .home-risk-grid--actions{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}
+
+@media (max-width: 760px){
+  #pageTeam .home-card,
+  #pageTeam .home-layer-card,
+  #pageTeam .home-queue-card{
+    padding:12px!important;
+  }
+  #pageTeam .hp-stat-grid--4,
+  #pageTeam .hp-stat-grid--3,
+  #pageTeam .home-risk-grid--actions,
+  #pageTeam .home-risk-grid--warning{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #pageTeam .home-daily-work-card{
+    grid-template-columns:auto minmax(0,1fr)!important;
+  }
+  #pageTeam .hp-work-item,
+  #pageTeam .hp-attn-item,
+  #pageTeam .hp-upd-item{
+    align-items:center!important;
+    flex-direction:row!important;
+  }
+  #pageTeam .hp-work-topline,
+  #pageTeam .hp-work-main,
+  #pageTeam .hp-attn-main,
+  #pageTeam .hp-upd-main{
+    min-width:0!important;
+  }
+  #pageTeam .hp-work-side,
+  #pageTeam .hp-attn-side{
+    width:auto!important;
+    align-items:flex-end!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+  }
+  #pageTeam .home-daily-work-due-wrap{
+    grid-column:2!important;
+    flex-direction:row!important;
+    justify-content:space-between!important;
+    width:100%!important;
+  }
+}
+
+@media (max-width: 560px){
+  #pageTeam .hp-stat-grid--4,
+  #pageTeam .hp-stat-grid--3,
+  #pageTeam .home-risk-grid--actions,
+  #pageTeam .home-risk-grid--warning{
+    grid-template-columns:1fr!important;
+  }
+}
