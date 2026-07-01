@@ -2602,6 +2602,9 @@ td{
   cursor:pointer!important;
   transition:background .15s ease, box-shadow .15s ease!important;
 }
+#pageGantt .gantt-list-row.is-overdue{
+  border-left:2px solid #EF4444;
+}
 .gantt-list-row:hover td{
   background:#FBFDFF!important;
 }
@@ -2698,14 +2701,14 @@ td{
 .gantt-list-drill-toggle{
   display:inline-flex!important;
   align-items:center!important;
-  gap:8px!important;
-  min-height:28px!important;
-  padding:0 10px!important;
+  gap:6px!important;
+  min-height:24px!important;
+  padding:0 8px!important;
   border:1px solid #E2E8F0!important;
   border-radius:999px!important;
   background:#F8FAFC!important;
   color:#475569!important;
-  font-size:11px!important;
+  font-size:10.5px!important;
   font-weight:700!important;
   font-family:inherit!important;
   cursor:pointer!important;
@@ -2720,12 +2723,33 @@ td{
   background:#EFF6FF!important;
   color:#1D4ED8!important;
 }
+.gantt-list-due-date{
+  font-size:12px!important;
+  color:var(--text)!important;
+}
+.gantt-list-due-overdue{
+  color:#991B1B!important;
+  font-weight:500!important;
+}
+.gantt-list-due-urgent{
+  color:#92400E!important;
+}
+.gantt-list-due-tag{
+  display:inline-block!important;
+  font-size:10px!important;
+  padding:1px 5px!important;
+  border-radius:99px!important;
+  background:#FEF2F2!important;
+  color:#991B1B!important;
+  border:.5px solid #FECACA!important;
+  margin-left:4px!important;
+}
 .gantt-list-drill-count{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  min-width:18px!important;
-  min-height:18px!important;
+  min-width:16px!important;
+  min-height:16px!important;
   padding:0 5px!important;
   border-radius:999px!important;
   background:rgba(255,255,255,.9)!important;

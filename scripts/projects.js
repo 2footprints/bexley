@@ -2663,6 +2663,7 @@ function compareGanttListValues(a,b,key){
     if(startDiff)return startDiff;
     return toDate(a.project?.end||a.project?.end_date||'')-toDate(b.project?.end||b.project?.end_date||'');
   }
+  if(key==='end')return toDate(a.project?.end||a.project?.end_date||'')-toDate(b.project?.end||b.project?.end_date||'');
   if(key==='members')return a.memberText.localeCompare(b.memberText,'ko');
   if(key==='billing_status')return a.billingStatus.localeCompare(b.billingStatus,'ko');
   if(key==='billing_amount')return Number(a.billingAmount||0)-Number(b.billingAmount||0);
@@ -6063,6 +6064,25 @@ function getGanttListStatusBadgeClass(status){
   return 'badge-gray';
 }
 
+function renderGanttListDueDateCell(project){
+  const endDate=toDate(project?.end||project?.end_date||'');
+  const hasEndDate=endDate instanceof Date&&!Number.isNaN(endDate.getTime());
+  const endLabel=hasEndDate?(endDate.getMonth()+1)+'.'+endDate.getDate():'-';
+  const overdue=typeof isGanttProjectOverdue==='function'
+    ?isGanttProjectOverdue(project)
+    :hasEndDate&&endDate<new Date()&&String(project?.status||'').trim()!=='완료';
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const daysLeft=hasEndDate?Math.ceil((endDate-today)/86400000):null;
+  const dueDateClass=overdue
+    ?'gantt-list-due-overdue'
+    :(daysLeft!==null&&daysLeft<=7?'gantt-list-due-urgent':'');
+  const dueSuffix=overdue
+    ?' <span class="gantt-list-due-tag">지연</span>'
+    :(daysLeft!==null&&daysLeft<=3?' <span class="gantt-list-due-tag">D-'+daysLeft+'</span>':'');
+  return '<span class="gantt-list-due-date '+dueDateClass+'">'+esc(endLabel)+dueSuffix+'</span>';
+}
+
 function buildGanttProjectMemoSummaryEntries(project){
   return [
     {label:'프로젝트 메모',value:project?.memo||'',tab:'basic'},
@@ -6227,11 +6247,8 @@ function renderGanttListView(projs,schs){
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'client_name\')">고객사'+getGanttListSortIndicator('client_name')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'name\')">프로젝트'+getGanttListSortIndicator('name')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'members\')">담당'+getGanttListSortIndicator('members')+'</button></th>'
-        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'period\')">기간'+getGanttListSortIndicator('period')+'</button></th>'
+        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'end\')">마감일'+getGanttListSortIndicator('end')+'</button></th>'
         +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'status\')">상태'+getGanttListSortIndicator('status')+'</button></th>'
-        +'<th><button type="button" class="gantt-list-sort-btn" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다." onclick="sortGanttListBy(\'progress\')">기간 경과율'+getGanttListSortIndicator('progress')+'</button></th>'
-        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'risk\')">보조 신호'+getGanttListSortIndicator('risk')+'</button></th>'
-        +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'billing_status\')">빌링 상태'+getGanttListSortIndicator('billing_status')+'</button></th>'
       +'</tr></thead>'
       +'<tbody>'
       +rows.map(row=>{
@@ -6250,11 +6267,8 @@ function renderGanttListView(projs,schs){
           +'<td>'+esc(row.clientName)+'</td>'
           +'<td><div class="gantt-list-project-name">'+esc(project.name||'프로젝트명 없음')+'</div><div class="gantt-list-project-sub">'+esc([row.typeText,row.teamText].filter(Boolean).join(' · '))+'</div>'+(metaItems.length?'<div class="gantt-list-project-metachips" title="'+esc(row.taskSummaryTitle||'')+'">'+renderGanttListMetaChips(metaItems)+'</div>':'')+(hasTaskSummary?'<div class="gantt-list-project-actions"><button type="button" class="gantt-list-drill-toggle'+(isExpanded?' active':'')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+project.id+'\')">관련 업무'+(drillCount?'<span class="gantt-list-drill-count">'+drillCount+'</span>':'')+'</button></div>':'')+'</td>'
           +'<td><div class="gantt-list-member-cell">'+esc(row.memberText)+'</div></td>'
-          +'<td><div class="gantt-list-period-cell">'+esc(row.periodText)+'</div></td>'
+          +'<td>'+renderGanttListDueDateCell(project)+'</td>'
           +'<td><span class="badge '+getGanttListStatusBadgeClass(row.lifecycleMeta?.label)+'">'+esc(row.lifecycleMeta?.label||'예정')+'</span></td>'
-          +'<td><div class="gantt-list-progress" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><div class="gantt-list-progress-text">기간 경과율 '+row.progressPercent+'%</div><div class="gantt-list-progress-track"><div class="gantt-list-progress-fill" style="width:'+row.progressPercent+'%"></div></div></div></td>'
-          +'<td><div class="gantt-list-attention-cell" title="'+esc(getGanttListAttentionSubtext(row)||row.riskMeta?.detail||'')+'">'+renderGanttListAttentionBadges(row)+'</div></td>'
-          +'<td><div class="gantt-list-billing-cell"><span class="badge '+getGanttListBillingBadgeClass(row.billingStatus)+'">'+esc(row.billingStatus)+'</span>'+(row.billingAmount>0?'<div class="gantt-list-billing-sub">'+formatGanttCurrency(row.billingAmount)+'</div>':'')+'</div></td>'
         +'</tr>';
         return mainRow+(isExpanded?renderGanttListTaskDrilldownRow(row):'');
       }).join('')
@@ -6267,8 +6281,8 @@ function renderGanttListView(projs,schs){
 }
 
 if(ganttListSortKey==='period'&&ganttListSortDir==='asc'){
-  ganttListSortKey='risk';
-  ganttListSortDir='desc';
+  ganttListSortKey='end';
+  ganttListSortDir='asc';
 }
 
 const baseRenderGanttViewSettingsBarForProjectListUX=renderGanttViewSettingsBar;
@@ -6649,7 +6663,7 @@ function renderGanttListClientGroupHeader(group,forceExpanded=false){
   if(Number(group?.overdueTasks||0)>0)parts.push('지연 태스크 '+Number(group.overdueTasks)+'건');
   if(group?.nextDueLabel)parts.push('다음 마감 '+group.nextDueLabel);
   return '<tr class="gantt-list-client-group-row'+(collapsed?' is-collapsed':'')+'" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\',event)">'
-    +'<td colspan="8">'
+    +'<td colspan="6">'
       +'<div class="gantt-list-client-group-head">'
         +'<button type="button" class="gantt-list-client-group-toggle" onclick="toggleGanttListClientGroup(\''+groupKeyJs+'\',event)" aria-expanded="'+(!collapsed)+'">'
           +'<span class="gantt-list-client-group-chevron">'+(collapsed?'▶':'▼')+'</span>'
@@ -7173,7 +7187,7 @@ renderGanttListTaskDrilldownRow=function(row){
     +'</div>';
   }
   return '<tr class="gantt-list-child-row">'
-    +'<td class="gantt-list-task-detail-cell" colspan="8">'
+    +'<td class="gantt-list-task-detail-cell" colspan="6">'
       +'<div class="gantt-list-task-drill-shell">'
         +'<div class="gantt-list-task-drill-head">'
           +'<div><div class="gantt-list-task-drill-title">프로젝트 업무</div><div class="gantt-list-task-drill-sub">업무를 compact 세로 목록으로 확인하고, 항목을 클릭해 수정합니다.</div></div>'
@@ -7246,11 +7260,8 @@ renderGanttListView=function(projs,schs){
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'client_name\')">고객사'+getGanttListSortIndicator('client_name')+'</button></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'name\')">프로젝트'+getGanttListSortIndicator('name')+'</button></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'members\')">담당자'+getGanttListSortIndicator('members')+'</button></th>'
-          +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'next_due\')">다음 마감'+getGanttListSortIndicator('next_due')+'</button></th>'
-          +'<th><button type="button" class="gantt-list-sort-btn" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다." onclick="sortGanttListBy(\'progress\')">기간 경과율'+getGanttListSortIndicator('progress')+'</button></th>'
+          +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'end\')">마감일'+getGanttListSortIndicator('end')+'</button></th>'
           +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'status\')">상태'+getGanttListSortIndicator('status')+'</button></th>'
-          +'<th><button type="button" class="gantt-list-sort-btn" onclick="sortGanttListBy(\'risk\')">다음 확인'+getGanttListSortIndicator('risk')+'</button></th>'
-          +'<th>관리</th>'
         +'</tr></thead>'
         +'<tbody>'
         +clientGroups.map(group=>{
@@ -7264,7 +7275,6 @@ renderGanttListView=function(projs,schs){
           const canManage=canManageGanttListProject(project);
           const isExpanded=ganttListExpandedProjectIds.includes(projectId);
           const rowStateClass=getGanttListRowStateClass(row);
-          const nextDueMeta=getGanttListNextDueMeta(row);
           const taskButtonText=getGanttListProjectTaskButtonText(row,isExpanded);
           const metaItems=getGanttListProjectMetaItems(row);
           const mainRow=''
@@ -7278,11 +7288,8 @@ renderGanttListView=function(projs,schs){
                 +'<div class="gantt-list-project-actions"><button type="button" class="gantt-list-drill-toggle'+(isExpanded?' active':'')+'" onclick="event.stopPropagation();toggleGanttListTaskDrilldown(\''+projectIdJs+'\')">'+esc(taskButtonText)+'</button></div>'
               +'</td>'
               +'<td><div class="gantt-list-member-cell">'+esc(row.memberText)+'</div></td>'
-              +'<td><div class="gantt-list-due-cell is-'+esc(nextDueMeta.tone||'neutral')+'"><div class="gantt-list-due-label">'+esc(nextDueMeta.label)+'</div><div class="gantt-list-due-sub">'+esc(nextDueMeta.sub)+'</div></div></td>'
-              +'<td><div class="gantt-list-progress" title="프로젝트 시작일과 종료일 기준으로 계산한 기간 경과율입니다. 실제 업무 완료율과 다를 수 있습니다."><div class="gantt-list-progress-text">기간 경과율 '+row.progressPercent+'%</div><div class="gantt-list-progress-track"><div class="gantt-list-progress-fill" style="width:'+row.progressPercent+'%"></div></div></div></td>'
+              +'<td>'+renderGanttListDueDateCell(project)+'</td>'
               +'<td><span class="badge '+getGanttListStatusBadgeClass(row.lifecycleMeta?.label)+'">'+esc(row.lifecycleMeta?.label||'예정')+'</span></td>'
-              +'<td>'+renderGanttListRiskCell(row)+'</td>'
-              +'<td onclick="event.stopPropagation()">'+getGanttProjectActionButtons(project,typeof isGanttProjectCompleted==='function'?isGanttProjectCompleted(project):String(project?.status||'')==='완료')+'</td>'
             +'</tr>';
           return mainRow+(isExpanded?renderGanttListTaskDrilldownRow(row):'');
           }).join('');
