@@ -7302,81 +7302,9 @@ renderGanttListView=function(projs,schs){
   syncGanttListWorkShortcuts(rows);
 };
 
-function getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,memberSchedules){
-  const projectId=String(project?.id||'');
-  const summary=getGanttOverviewTaskSummary(projectId);
-  const issueLinkedCount=getGanttOverviewIssueLinkedCount(projectId);
-  const pendingDocSummary=getGanttProjectPendingDocSummary(projectId);
-  const waitingCount=Number(summary?.waitingCount||0);
-  const overdueCount=Number(summary?.overdueCount||0);
-  const nextDueLabel=summary?.nearestDueLabel
-    || formatGanttTaskShortDate(project?.end||project?.end_date||'')
-    || '미정';
-  const nextDueTone=overdueCount>0
-    ?'warn'
-    :nextDueLabel&&nextDueLabel!=='미정'
-      ?'neutral'
-      :'quiet';
-  const bottleneckValue=overdueCount>0
-    ?'지연 업무 '+overdueCount+'건'
-    :issueLinkedCount>0
-      ?'이슈 연결 '+issueLinkedCount+'건'
-      :waitingCount>0
-        ?'대기 업무 '+waitingCount+'건'
-        :'없음';
-  const bottleneckTone=(overdueCount>0||issueLinkedCount>0)?'warn':waitingCount>0?'neutral':'quiet';
-  const customerWaitingValue=pendingDocSummary===undefined
-    ?'확인 중'
-    :pendingDocSummary?.total
-      ?'자료 요청 '+pendingDocSummary.total+'건'
-      :'없음';
-  const customerWaitingTone=pendingDocSummary&&pendingDocSummary.total?'warn':'quiet';
-  const internalWaitingValue=waitingCount>0
-    ?'검토 대기 '+waitingCount+'건'
-    :(memberSchedules||[]).length
-      ?'개인 일정 '+memberSchedules.length+'건'
-      :'없음';
-  const internalWaitingTone=waitingCount>0?'warn':(memberSchedules||[]).length?'neutral':'quiet';
-  const billingValue=project?.is_billable===false
-    ?'비청구'
-    :billingStatus||'미청구';
-  const actualBillingAmount=Number(project?.billing_amount||0);
-  const billingActionNote=String(project?.billing_note||'').trim();
-  const billingMeta=project?.is_billable===false
-    ?'비청구 설정 프로젝트입니다.'
-    :billingValue==='미청구'
-      ?((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||'청구 확인 필요'))
-      :billingValue==='청구완료'
-        ?((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||'수금 확인 필요'))
-        :billingValue==='수금완료'
-          ?((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||'청구 정리 완료'))
-          :((actualBillingAmount>0?formatGanttCurrency(actualBillingAmount)+' · ':'')+(billingActionNote||formatGanttCurrency(billingAmount)));
-  return [
-    {label:'다음 마감',value:nextDueLabel,meta:nextDueLabel==='미정'?'일정 확인 필요':'가장 가까운 일정',tone:nextDueTone},
-    {label:'현재 병목',value:bottleneckValue,meta:overdueCount>0?'Work에서 우선 조정 필요':issueLinkedCount>0?'Issues와 함께 확인':'큰 병목 없음',tone:bottleneckTone},
-    {label:'고객 대기',value:customerWaitingValue,meta:pendingDocSummary?.nearestDueLabel?'다음 회수 '+pendingDocSummary.nearestDueLabel:'자료 요청/응답 기준',tone:customerWaitingTone},
-    {label:'내부 검토 대기',value:internalWaitingValue,meta:waitingCount>0?'대기·보류 업무 우선 확인':'내부 일정/검토 기준',tone:internalWaitingTone},
-    {label:'청구 상태',value:billingValue,meta:billingMeta,tone:billingValue==='미청구'?'warn':'neutral',action:'<button type="button" class="gantt-signal-card-action" onclick="openBillingQuickEditModal(\''+projectId+'\')">수정</button>'}
-  ];
-}
-
 renderGanttProjectOverviewSection=function(project,client,linkedContract,projectMembers,memberSchedules,billingStatus,billingAmount){
-  const actionCards=getGanttProjectOverviewActionCards(project,billingStatus,billingAmount,memberSchedules);
-  const overviewCards=actionCards.filter(item=>item.label!=='내부 검토 대기');
-  const plannedBillingAmount=Number(project?.billing_amount||0)>0
-    ?Number(project.billing_amount||0)
-    :Number(linkedContract?.contract_amount||0);
-  const settingsMetaParts=[
-    linkedContract?.contract_name?('연결 계약 · '+linkedContract.contract_name):'연결 계약 없음'
-  ];
-  if(project?.is_billable!==false&&plannedBillingAmount>0){
-    settingsMetaParts.push((Number(project?.billing_amount||0)>0?'기준 금액 ':'계약 금액 ')+formatGanttCurrency(plannedBillingAmount));
-  }
-  if(project?.is_billable===false&&String(project?.billing_note||'').trim()){
-    settingsMetaParts.push(String(project.billing_note||'').trim());
-  }
-  const settingsValue=project?.is_billable===false?'비청구 프로젝트':'빌링 대상 프로젝트';
-  const billingStatusText=project?.is_billable===false?'비청구':billingStatus;
+  const effectiveBillingStatus=String(billingStatus||project?.billing_status||'미청구').trim()||'미청구';
+  const billingStatusText=project?.is_billable===false?'비청구':effectiveBillingStatus;
   const billingStatusMeta=billingStatusText==='미청구'
     ?'청구 처리 필요'
     :billingStatusText==='청구완료'
@@ -7384,46 +7312,22 @@ renderGanttProjectOverviewSection=function(project,client,linkedContract,project
       :billingStatusText==='수금완료'
         ?'청구 정리 완료'
         :'청구 대상에서 제외';
+  const billingNote=String(project?.billing_note||'').trim();
   return ''
     +'<div class="gantt-detail-pane gantt-overview-pane pd-overview-pane">'
       +'<div class="pd-tab-panel">'
         +'<div class="pd-ov-section">'
-          +'<div class="pd-ov-section-head"><h3>실행 요약</h3><p>설명보다 다음 일정과 병목, 고객 대기, 청구 상태를 먼저 봅니다.</p></div>'
-          +'<div class="pd-stat-grid">'
-            +overviewCards.map(item=>{
-              const valueText=String(item.value||'');
-              const cardTone=item.label==='청구 상태'&&valueText==='미청구'
-                ?'wait'
-                :item.label==='고객 대기'&&valueText!=='없음'
-                  ?'wait'
-                  :item.tone==='warn'
-                    ?'danger'
-                    :item.tone==='quiet'
-                      ?'done'
-                      :'progress';
-              return '<div class="pd-stat-card is-'+cardTone+'"><div class="pd-stat-label"><span>'+esc(item.label)+'</span>'+(item.action?'<button type="button" class="pd-edit-tag" onclick="openBillingQuickEditModal(\''+project.id+'\')">수정</button>':'')+'</div><div class="pd-stat-value">'+esc(item.value)+'</div><div class="pd-stat-sub">'+esc(item.meta)+'</div></div>';
-            }).join('')
-          +'</div>'
-        +'</div>'
-        +'<div class="pd-ov-section">'
-          +'<div class="pd-info-grid">'
-            +'<div class="pd-info-card"><div class="pd-info-label">고객사 / 담당</div><div class="pd-info-value">'+esc(client?.name||'미지정')+'</div><div class="pd-info-sub">'+esc(projectMembers.join(', ')||'담당 미지정')+'</div></div>'
-            +'<div class="pd-info-card"><div class="pd-info-label">프로젝트 설정</div><div class="pd-info-value">'+esc(settingsValue)+'</div><div class="pd-info-sub">'+esc(settingsMetaParts.join(' · '))+'</div></div>'
-            +'<div class="pd-info-card is-full"><div class="pd-info-label">기본 기간</div><div class="pd-info-value">'+esc((project.start||'')+' ~ '+(project.end||''))+'</div><div class="pd-info-sub">'+esc(getGanttProjectCurrentLifecycleMeta(project)?.detail||'프로젝트 일정 확인')+'</div></div>'
-          +'</div>'
-        +'</div>'
-        +'<div class="pd-ov-section">'
-          +'<div class="pd-ov-section-head pd-ov-section-head-row"><div><h3>청구 정보</h3><p>청구 여부, 상태, 금액을 확인하고 바로 수정합니다.</p></div><button type="button" class="pd-link-action" onclick="openBillingQuickEditModal(\''+project.id+'\')">수정</button></div>'
+          +'<div class="pd-ov-section-head"><h3>청구 정보</h3><p>청구 여부, 상태, 금액을 확인합니다.</p></div>'
           +'<div class="pd-billing-grid">'
-            +'<div class="pd-billing-card '+(project.is_billable===false?'':'is-pending')+'"><div class="pd-billing-label">청구 여부</div><div class="pd-billing-value">'+(project.is_billable===false?'비청구 대상':'청구 대상')+'</div><div class="pd-billing-sub">'+(project.is_billable===false?'청구 대상에서 제외':'청구 관리 대상 프로젝트')+'</div></div>'
+            +'<div class="pd-billing-card '+(project.is_billable===false?'':'is-pending')+'"><div class="pd-billing-label">청구 여부</div><div class="pd-billing-value">'+(project.is_billable===false?'비청구 프로젝트':'청구 대상')+'</div><div class="pd-billing-sub">'+(project.is_billable===false?'청구 대상에서 제외':'청구 관리 대상 프로젝트')+'</div></div>'
             +(project.is_billable!==false
-              ?'<div class="pd-billing-card '+(billingStatus==='미청구'?'is-pending':'is-done')+'"><div class="pd-billing-label">청구 상태</div><div class="pd-billing-value"><span class="pd-billing-pill '+(billingStatus==='미청구'?'is-pending':'is-done')+'">'+esc(billingStatus)+'</span></div><div class="pd-billing-sub">'+esc(billingStatusMeta)+'</div></div>'
+              ?'<div class="pd-billing-card '+(effectiveBillingStatus==='미청구'?'is-pending':'is-done')+'"><div class="pd-billing-label">청구 상태 <button type="button" class="pd-edit-tag" onclick="openBillingQuickEditModal(\''+project.id+'\')">변경</button></div><div class="pd-billing-value"><span class="pd-billing-pill '+(effectiveBillingStatus==='미청구'?'is-pending':'is-done')+'">'+esc(effectiveBillingStatus)+'</span></div><div class="pd-billing-sub">'+esc(billingStatusMeta)+'</div></div>'
               :'')
-            +(billingAmount>0
+            +(project.is_billable!==false&&billingAmount>0
               ?'<div class="pd-billing-card"><div class="pd-billing-label">금액</div><div class="pd-billing-value">'+formatGanttCurrency(billingAmount)+'</div><div class="pd-billing-sub">'+(Number(project?.billing_amount||0)>0?'기준 금액':'계약 금액 참조')+'</div></div>'
               :'')
-            +(String(project?.billing_note||'').trim()
-              ?'<div class="pd-billing-card is-full"><div class="pd-billing-label">비고</div><div class="pd-billing-value">'+esc(String(project.billing_note||'').trim())+'</div><div class="pd-billing-sub">청구 관련 메모</div></div>'
+            +(project.is_billable!==false&&billingNote
+              ?'<div class="pd-billing-card is-full"><div class="pd-billing-label">비고</div><div class="pd-billing-value">'+esc(billingNote)+'</div><div class="pd-billing-sub">청구 관련 메모</div></div>'
               :'')
           +'</div>'
         +'</div>'
