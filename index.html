@@ -10655,12 +10655,14 @@ window.gRow=function(p,days){
 };
 gRow=window.gRow;
 
-const GANTT_LIST_COLLAPSED_PROJECTS_STORAGE_KEY='bexley.ganttList.collapsedProjectIds';
+const GANTT_PROJECT_TASKS_COLLAPSED_KEY='bexley.ganttList.collapsedProjectTaskIds';
+const GANTT_PROJECT_TASKS_COLLAPSED_LEGACY_KEY='bexley.ganttList.collapsedProjectIds';
 let ganttCollapsedProjectTaskIds=loadGanttCollapsedProjectTaskIds();
 
 function loadGanttCollapsedProjectTaskIds(){
   try{
-    const raw=localStorage.getItem(GANTT_LIST_COLLAPSED_PROJECTS_STORAGE_KEY);
+    const raw=localStorage.getItem(GANTT_PROJECT_TASKS_COLLAPSED_KEY)
+      ||localStorage.getItem(GANTT_PROJECT_TASKS_COLLAPSED_LEGACY_KEY);
     const ids=JSON.parse(raw||'[]');
     return new Set(Array.isArray(ids)?ids.map(id=>String(id)):[]);
   }catch(e){
@@ -10670,7 +10672,7 @@ function loadGanttCollapsedProjectTaskIds(){
 
 function persistGanttCollapsedProjectTaskIds(){
   try{
-    localStorage.setItem(GANTT_LIST_COLLAPSED_PROJECTS_STORAGE_KEY,JSON.stringify([...ganttCollapsedProjectTaskIds]));
+    localStorage.setItem(GANTT_PROJECT_TASKS_COLLAPSED_KEY,JSON.stringify([...ganttCollapsedProjectTaskIds]));
   }catch(e){}
 }
 
@@ -10713,7 +10715,7 @@ function getGanttTimelineOpenTasks(projectId){
 }
 
 function ensureGanttTimelineTaskData(projs){
-  if(curGanttLayout!=='timeline'||curGanttTimelineScale!=='month')return;
+  if(curGanttLayout!=='timeline')return;
   if(typeof loadGanttProjectTasks!=='function'||!Array.isArray(projs)||!projs.length)return;
   const missingIds=[...new Set(projs.map(project=>String(project?.id||'')).filter(Boolean))]
     .filter(projectId=>{
@@ -10727,7 +10729,7 @@ function ensureGanttTimelineTaskData(projs){
     console.error('load timeline task rows failed',projectId,error);
   }))).then(()=>{
     const currentKey=curYear+'-'+curMonth+'-'+curGView+'-'+(curGanttLayout||'timeline')+'-'+(curGanttTimelineScale||'month');
-    if(currentKey===renderKey&&curGanttLayout==='timeline'&&curGanttTimelineScale==='month'&&typeof renderGantt==='function')renderGantt();
+    if(currentKey===renderKey&&curGanttLayout==='timeline'&&typeof renderGantt==='function')renderGantt();
   });
 }
 
@@ -10863,7 +10865,12 @@ function renderGanttAnnualProjectRow(project,units){
   const barStatusClass=statusMeta.tone==='done'?'done':statusMeta.tone==='progress'?'progress':'planned';
   const rangeMeta=getGanttAnnualRangeMeta(project,units,curYear);
   const memberText=(project.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
+  const timelineTasks=typeof getGanttTimelineOpenTasks==='function'?getGanttTimelineOpenTasks(project.id):[];
+  const hasTimelineTasks=timelineTasks.length>0;
+  const taskRowsCollapsed=hasTimelineTasks&&isGanttProjectTasksCollapsed(project.id);
+  const projectKeyJs=getGanttTimelineTaskJsString(project.id);
   const labelHtml='<div class="pg-annual-project-cell">'
+    +(hasTimelineTasks?'<button type="button" class="pg-project-task-toggle" onclick="toggleGanttProjectTasks(\''+projectKeyJs+'\',event)" aria-expanded="'+(!taskRowsCollapsed)+'" title="'+(taskRowsCollapsed?'하위 업무 펼치기':'하위 업무 접기')+'"><span>'+(taskRowsCollapsed?'▶':'▼')+'</span></button>':'<span class="pg-project-task-toggle-spacer"></span>')
     +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
     +'<span class="pg-item-info">'
     +'<span class="pg-item-name-row"><span class="pg-item-title'+(isCompleted?' is-completed':'')+'">'+esc(project.name)+'</span><span class="pg-status-pill pg-status-pill--'+statusMeta.tone+'">'+esc(statusMeta.label)+'</span></span>'
@@ -10889,7 +10896,55 @@ function renderGanttAnnualProjectRow(project,units){
       cells+='<td class="'+cellCls+'" style="position:relative"></td>';
     }
   }
-  return '<tr class="gantt-project-row pg-annual-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+'" onclick="openGanttProjectDetail(\''+project.id+'\')"><td class="row-label'+(overdue?' row-warn':'')+(isCompleted?' row-completed':'')+(isActive?' is-active':'')+'">'+labelHtml+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-project-row pg-annual-project-row'+(dueToday?' is-due-today':'')+(isActive?' is-active':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" onclick="openGanttProjectDetail(\''+projectKeyJs+'\')"><td class="row-label'+(overdue?' row-warn':'')+(isCompleted?' row-completed':'')+(isActive?' is-active':'')+'">'+labelHtml+'</td>'+cells+'</tr>';
+}
+
+function renderGanttAnnualTaskRows(project,units){
+  const projectId=String(project?.id||'');
+  if(!projectId)return '';
+  const hasLoadedTasks=Array.isArray(ganttProjectTasksByProjectId?.[projectId]);
+  const loadMeta=typeof getGanttProjectTaskLoadMeta==='function'?getGanttProjectTaskLoadMeta(projectId):{loading:false,error:''};
+  if(!hasLoadedTasks){
+    if(loadMeta?.loading){
+      const loadingCells=units.map(unit=>'<td class="cell pg-annual-cell '+(unit.isTodayUnit?'pg-annual-today-week ':'')+'" style="position:relative"></td>').join('');
+      return '<tr class="pg-task-row pg-annual-task-row is-loading"><td class="row-label pg-task-label"><div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-name">업무 불러오는 중</span></div></td>'+loadingCells+'</tr>';
+    }
+    return '';
+  }
+  const tasks=getGanttTimelineOpenTasks(projectId);
+  if(!tasks.length||isGanttProjectTasksCollapsed(projectId))return '';
+  const projectKey=getGanttTimelineTaskJsString(projectId);
+  return tasks.map(task=>{
+    const taskKey=getGanttTimelineTaskJsString(task?.id||'');
+    const assignee=typeof getGanttTaskMemberName==='function'?getGanttTaskMemberName(task?.assignee_member_id):'';
+    const dateText=task?.due_date?('마감 '+task.due_date):(task?.start_date?('시작 '+task.start_date):'일정 미정');
+    const statusText=String(task?.status||'상태 없음').trim()||'상태 없음';
+    const rangeMeta=getGanttAnnualRangeMeta(task,units,curYear);
+    let cells='';
+    for(let i=0;i<units.length;i++){
+      const unit=units[i];
+      const unitIndex=i+1;
+      const cellCls='cell pg-annual-cell '+(unit.isTodayUnit?'pg-annual-today-week ':'');
+      if(rangeMeta.visible&&unitIndex===rangeMeta.startIndex){
+        const colSpan=rangeMeta.span;
+        const labelText=colSpan>=3?task?.title||'제목 없는 업무':'';
+        cells+='<td class="'+cellCls+'gantt-span-cell pg-task-span-cell" colspan="'+colSpan+'" style="position:relative">'
+          +'<div class="bar pg-task-timeline-bar pg-annual-task-bar" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+          +'<span class="pg-task-bar-label">'+esc(labelText)+'</span>'
+          +'</div>'
+          +'</td>';
+        i+=colSpan-1;
+      }else{
+        cells+='<td class="'+cellCls+' pg-task-empty-cell" style="position:relative"></td>';
+      }
+    }
+    return '<tr class="pg-task-row pg-annual-task-row" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+      +'<td class="row-label pg-task-label">'
+      +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span></div>'
+      +'</td>'
+      +cells
+      +'</tr>';
+  }).join('');
 }
 
 function renderGanttAnnualTimeline(projs){
@@ -10901,6 +10956,7 @@ function renderGanttAnnualTimeline(projs){
     ?curYear+'-'+String(curMonth).padStart(2,'0')+' 주간'
     :curYear+'년 월간';
   const units=getGanttTimelineScaleUnits(scale,curYear,curMonth);
+  ensureGanttTimelineTaskData(projs);
   if(!projs.length){
     wrap.innerHTML='<div class="empty-state pg-annual-empty">현재 필터에서 표시할 프로젝트가 없습니다.</div>';
     renderLegend();
@@ -10937,7 +10993,7 @@ function renderGanttAnnualTimeline(projs){
         +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
         +'<span class="pg-client-group-count">· 진행 '+groupCounts.active+' · 지연 <span class="'+(groupCounts.overdue?'gantt-group-stat is-overdue':'gantt-group-stat')+'">'+groupCounts.overdue+'</span> · 완료 '+groupCounts.completed+'</span>'
         +'</td></tr>';
-      if(!isCollapsed)clientProjects.forEach(project=>{html+=renderGanttAnnualProjectRow(project,units);});
+      if(!isCollapsed)clientProjects.forEach(project=>{html+=renderGanttAnnualProjectRow(project,units)+renderGanttAnnualTaskRows(project,units);});
     });
   }else{
     const memberFilter=document.getElementById('memberFilter')?.value||'';
@@ -10950,7 +11006,7 @@ function renderGanttAnnualTimeline(projs){
       const memberProjects=projs.filter(project=>(project.members||[]).includes(name));
       if(!memberProjects.length)return;
       html+='<tr class="sec-row pg-annual-group-row"><td colspan="'+(units.length+1)+'"><span style="font-size:11px;font-weight:800;color:var(--navy)">'+esc(name)+'</span> <span style="color:var(--text3);font-weight:400">프로젝트 '+memberProjects.length+'건</span></td></tr>';
-      memberProjects.sort((a,b)=>toDate(a.end)-toDate(b.end)).forEach(project=>{html+=renderGanttAnnualProjectRow(project,units);});
+      memberProjects.sort((a,b)=>toDate(a.end)-toDate(b.end)).forEach(project=>{html+=renderGanttAnnualProjectRow(project,units)+renderGanttAnnualTaskRows(project,units);});
     });
   }
   html+='</tbody></table>';
