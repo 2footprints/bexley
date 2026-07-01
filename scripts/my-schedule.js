@@ -7,11 +7,11 @@ let myScheduleCalendarDate = new Date();
 
 function getMyScheduleTypeOptions(){
   return [
-    {value:'leave',label:'휴가',color:'#16A34A'},
-    {value:'fieldwork',label:'필드워크',color:'#F97316'},
-    {value:'meeting',label:'회의',color:'#2563EB'},
-    {value:'internal',label:'내부',color:'#64748B'},
-    {value:'external',label:'외근',color:'#FDBA74'}
+    {value:'leave',label:'휴가',color:'#4B8F6A'},
+    {value:'fieldwork',label:'필드워크',color:'#B7791F'},
+    {value:'meeting',label:'회의',color:'#52637A'},
+    {value:'internal',label:'내부',color:'#737373'},
+    {value:'external',label:'외근',color:'#9A6B45'}
   ];
 }
 
