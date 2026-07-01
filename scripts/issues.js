@@ -1,5 +1,5 @@
 let issuesPageCache=[];
-let issuesPageFilters={project_id:'',client_id:'',member_id:'',status:'all',focus:'all'};
+let issuesPageFilters={q:'',project_id:'',client_id:'',member_id:'',status:'all',focus:'all'};
 let expandedIssuesPageIds=new Set();
 let issuesPageCollapsedClients={};
 let issuesPageTaskTitleMap={};
@@ -284,6 +284,20 @@ function getIssuesPageRows(){
       };
     })
     .filter(issue=>{
+      if(issuesPageFilters.q){
+        const query=String(issuesPageFilters.q||'').trim().toLowerCase();
+        const haystack=[
+          issue?.title,
+          issue?.content,
+          issue?.waiting_reason,
+          issue?._project?.name,
+          issue?._client?.name,
+          issue?.assignee_name,
+          issue?.owner_name,
+          issue?.category
+        ].filter(Boolean).join(' ').toLowerCase();
+        if(query&&!haystack.includes(query))return false;
+      }
       if(issuesPageFilters.project_id&&issue.project_id!==issuesPageFilters.project_id)return false;
       if(issuesPageFilters.client_id&&String(issue?._client?.id||'')!==String(issuesPageFilters.client_id))return false;
       if(issuesPageFilters.member_id){
@@ -324,6 +338,22 @@ function renderIssuesPageSummaryCards(rows){
       +(card.sub?'<div class="issues-page-summary-sub">'+card.sub+'</div>':'')
     +'</div>'
   ).join('')+'</div>';
+}
+
+function renderIssuesPageSummaryCards(rows){
+  const counts=getIssuesPageSummaryCounts(rows);
+  const cards=[
+    {label:'열린 이슈',value:counts.open,tone:counts.open?'warn':'quiet'},
+    {label:'장기 미해결',value:counts.longOpen,tone:counts.longOpen?'danger':'quiet'},
+    {label:'영향 프로젝트',value:counts.projects,tone:counts.projects?'info':'quiet'},
+    {label:'이번 주 신규',value:counts.newThisWeek,tone:counts.newThisWeek?'warn':'quiet'}
+  ];
+  return '<div class="issues-page-summary-bar">'+cards.map(card=>
+    '<span class="issues-page-summary-chip'+(card.tone?' is-'+card.tone:'')+(Number(card.value||0)===0?' is-zero':'')+'">'
+      +'<span class="issues-page-summary-label">'+card.label+'</span>'
+      +'<strong class="issues-page-summary-value">'+Number(card.value||0).toLocaleString()+'</strong>'
+    +'</span>'
+  ).join('<span class="issues-page-summary-sep">·</span>')+'</div>';
 }
 
 function renderIssuesPageFromCache(){
@@ -407,7 +437,7 @@ function renderIssuesPageFromCache(){
   el.innerHTML='<div class="section-header" style="margin-bottom:12px"><h2 class="section-title">이슈 리스크 보드</h2>'+createBtn+'</div>'
     +'<div class="issues-page-intro">열린 이슈와 장기 미해결 이슈를 먼저 보고, 다음 확인과 연결 업무로 바로 이어지는 리스크 관리 화면입니다.</div>'
     +renderIssuesPageSummaryCards(rows)
-    +'<div class="card issues-page-filter-card"><div class="filter-row issues-page-filter-row" style="width:100%"><select onchange="setIssuesPageFilter(\'client_id\',this.value)">'+clientOptions+'</select><select onchange="setIssuesPageFilter(\'project_id\',this.value)">'+projectOptions+'</select><select onchange="setIssuesPageFilter(\'member_id\',this.value)">'+memberOptions+'</select><select onchange="setIssuesPageFilter(\'focus\',this.value)">'+focusOptions+'</select><div class="toggle-wrap">'+statusFilterButtons+'</div></div></div>'
+    +'<div class="card issues-page-filter-card"><div class="filter-row issues-page-filter-row" style="width:100%"><input type="search" class="issues-page-search" placeholder="검색" value="'+esc(issuesPageFilters.q||'')+'" oninput="setIssuesPageFilter(\'q\',this.value)" /><select onchange="setIssuesPageFilter(\'client_id\',this.value)">'+clientOptions+'</select><select onchange="setIssuesPageFilter(\'project_id\',this.value)">'+projectOptions+'</select><select onchange="setIssuesPageFilter(\'member_id\',this.value)">'+memberOptions+'</select><select onchange="setIssuesPageFilter(\'focus\',this.value)">'+focusOptions+'</select><div class="toggle-wrap">'+statusFilterButtons+'</div></div></div>'
     +(groupedClients.length
       ?'<div class="issues-page-groups">'+groupedClients.map(group=>{
         const isCollapsed=!!issuesPageCollapsedClients[group.key];
