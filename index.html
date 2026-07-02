@@ -10207,7 +10207,7 @@ try{
     localStorage.setItem(GANTT_PERSONAL_OPTIONS_MIGRATION_KEY,'1');
   }
 }catch(e){}
-let ganttHideCompleted=readStoredGanttToggle(GANTT_HIDE_COMPLETED_KEY,false);
+let ganttHideCompleted=readStoredGanttToggle(GANTT_HIDE_COMPLETED_KEY,true);
 let ganttShowPersonalOverlay=readStoredGanttToggle(GANTT_SHOW_PERSONAL_OVERLAY_KEY,false);
 let ganttShowPersonalRows=readStoredGanttToggle(GANTT_SHOW_PERSONAL_ROWS_KEY,false);
 
@@ -10233,7 +10233,7 @@ function ensureGanttVisibilityToggles(){
     wrap.id='ganttVisibilityToggleWrap';
     wrap.className='toggle-wrap gantt-visibility-toggle pg-toggle-group';
     wrap.innerHTML=''
-      +'<button class="toggle-btn pg-toggle-pill" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)">완료 숨김</button>';
+      +'<button class="toggle-btn pg-toggle-pill" id="ganttHideCompletedBtn" onclick="setGanttVisibilityToggle(!ganttHideCompleted)"></button>';
     actionZone.insertBefore(wrap,actionZone.firstChild);
   }else if(wrap.parentElement!==actionZone){
     actionZone.insertBefore(wrap,actionZone.firstChild);
@@ -10255,7 +10255,23 @@ function ensureGanttVisibilitySummary(){
 }
 function updateGanttVisibilityToggleButtons(){
   const completedBtn=document.getElementById('ganttHideCompletedBtn');
-  if(completedBtn)completedBtn.classList.toggle('active',ganttHideCompleted);
+  if(completedBtn){
+    completedBtn.classList.toggle('active',!ganttHideCompleted);
+    completedBtn.textContent=ganttHideCompleted?'미완료만':'완료 포함';
+    completedBtn.title=ganttHideCompleted
+      ?'완료된 프로젝트와 업무를 숨깁니다.'
+      :'조회기간에 걸린 완료 프로젝트와 업무도 함께 표시합니다.';
+    completedBtn.setAttribute('aria-pressed',ganttHideCompleted?'false':'true');
+  }
+  document.querySelectorAll('#pageGantt button[onclick*="setGanttVisibilityToggle"]').forEach(btn=>{
+    if(btn.id==='ganttHideCompletedBtn')return;
+    btn.classList.toggle('active',!ganttHideCompleted);
+    btn.textContent=ganttHideCompleted?'미완료만':'완료 포함';
+    btn.title=ganttHideCompleted
+      ?'완료된 프로젝트와 업무를 숨깁니다.'
+      :'조회기간에 걸린 완료 프로젝트와 업무도 함께 표시합니다.';
+    btn.setAttribute('aria-pressed',ganttHideCompleted?'false':'true');
+  });
   const personalOverlayBtn=document.getElementById('ganttPersonalOverlayBtn');
   if(personalOverlayBtn)personalOverlayBtn.classList.toggle('active',ganttShowPersonalOverlay);
   const personalRowsBtn=document.getElementById('ganttPersonalRowsBtn');
@@ -10265,7 +10281,9 @@ function updateGanttVisibilitySummary(hiddenCompletedCount){
   const summary=ensureGanttVisibilitySummary();
   if(!summary)return;
   const parts=[
-    ganttHideCompleted?'\uC644\uB8CC/\uC885\uB8CC '+hiddenCompletedCount+'\uAC74 \uC228\uAE40':'\uC644\uB8CC/\uC885\uB8CC \uD45C\uC2DC \uC911'
+    isGanttCompletionStatusFilter()
+      ?'완료 필터 적용 · 조회기간 관련 완료 항목 표시'
+      :(ganttHideCompleted?'미완료만 표시 · 완료 '+hiddenCompletedCount+'건 숨김':'완료 포함 표시 중')
   ];
   summary.textContent=parts.join(' · ');
 }
@@ -10636,6 +10654,58 @@ function getGanttDailyTimelineDateList(year=curYear,month=curMonth){
   }
   return dates;
 }
+function isGanttCompletionStatusFilter(){
+  return ['completed','execution_done','follow_up','fully_closed'].includes(String(ganttStatusFilter||'all'));
+}
+function shouldIncludeCompletedInGanttView(){
+  return !ganttHideCompleted||isGanttCompletionStatusFilter();
+}
+function getGanttLocalDayValue(value){
+  if(!value)return null;
+  if(typeof getGanttLocalDateValue==='function')return getGanttLocalDateValue(value);
+  const parsed=toDate(value);
+  if(Number.isNaN(parsed.getTime()))return null;
+  parsed.setHours(0,0,0,0);
+  return parsed;
+}
+function isGanttDateInsideRange(value,rangeStart,rangeEnd){
+  const date=getGanttLocalDayValue(value);
+  return !!date&&date>=rangeStart&&date<=rangeEnd;
+}
+function getGanttItemRangeStart(item){
+  return getGanttLocalDayValue(item?.start||item?.start_date||item?.due_date||item?.end||item?.end_date||item?.actual_end_date||item?.actual_done_at);
+}
+function getGanttItemRangeEnd(item){
+  return getGanttLocalDayValue(item?.end||item?.end_date||item?.due_date||item?.start||item?.start_date||item?.actual_end_date||item?.actual_done_at);
+}
+function ganttItemOverlapsRange(item,rangeStart,rangeEnd){
+  const itemStart=getGanttItemRangeStart(item);
+  const itemEnd=getGanttItemRangeEnd(item);
+  return !!itemStart&&!!itemEnd&&itemStart<=rangeEnd&&itemEnd>=rangeStart;
+}
+function ganttItemHasPointDateInRange(item,rangeStart,rangeEnd){
+  return [
+    item?.actual_end_date,
+    item?.completed_at,
+    item?.actual_done_at,
+    item?.done_at,
+    item?.due_date,
+    item?.end,
+    item?.end_date
+  ].some(value=>isGanttDateInsideRange(value,rangeStart,rangeEnd));
+}
+function isGanttItemRelevantToRange(item,rangeStart,rangeEnd){
+  return ganttItemOverlapsRange(item,rangeStart,rangeEnd)||ganttItemHasPointDateInRange(item,rangeStart,rangeEnd);
+}
+function isGanttTaskCompleted(task){
+  const status=String(task?.status||'').trim().toLowerCase();
+  return status==='완료'||status==='completed'||status==='done'||!!String(task?.actual_done_at||task?.completed_at||'').trim();
+}
+function taskMatchesGanttCompletionVisibility(task,rangeStart,rangeEnd){
+  if(!isGanttTaskCompleted(task))return true;
+  if(!shouldIncludeCompletedInGanttView())return false;
+  return isGanttItemRelevantToRange(task,rangeStart,rangeEnd);
+}
 // This index.html override is the active render path; scripts/projects.js has older shared helpers.
 function getBaseGanttMonthData(){
   const memberFilter=document.getElementById('memberFilter')?.value||'';
@@ -10645,7 +10715,7 @@ function getBaseGanttMonthData(){
     :new Date(curYear,curMonth,0);
   const monthProjects=projects.filter(project=>{
     if(!projectMatchesBaseGanttMemberFilter(project,memberFilter))return false;
-    return toDate(project.start)<=monthLast&&toDate(project.end)>=monthFirst;
+    return isGanttItemRelevantToRange(project,monthFirst,monthLast);
   });
   const overdueCarryOverProjects=projects.filter(project=>
     isBaseGanttProjectOverdueCarryOver(project)
@@ -10661,11 +10731,12 @@ function getBaseGanttMonthData(){
 function getGanttVisibleData(){
   const {projs:baseProjs,schs:baseSchedules}=getBaseGanttMonthData();
   let hiddenCompletedCount=0;
+  const includeCompleted=shouldIncludeCompletedInGanttView();
   const projs=baseProjs.map(project=>{
     const meta=getGanttCompletedLikeMeta(project);
     return {...project,isCompletedLike:meta.isCompletedLike,ganttIsScheduleLike:meta.isScheduleLike};
   }).filter(project=>{
-    const hidden=ganttHideCompleted&&project.isCompletedLike;
+    const hidden=!includeCompleted&&project.isCompletedLike;
     if(hidden)hiddenCompletedCount+=1;
     return !hidden;
   });
@@ -10673,7 +10744,7 @@ function getGanttVisibleData(){
     const meta=getGanttCompletedLikeMeta(schedule);
     return {...schedule,isCompletedLike:meta.isCompletedLike,ganttIsScheduleLike:meta.isScheduleLike};
   }).filter(schedule=>{
-    const hidden=ganttHideCompleted&&schedule.isCompletedLike;
+    const hidden=!includeCompleted&&schedule.isCompletedLike;
     if(hidden)hiddenCompletedCount+=1;
     return !hidden;
   });
@@ -10912,11 +10983,11 @@ window.gRow=function(p,days){
     const baseBarText=colSpan>=6?p.name+(p.members.length?' ('+p.members.join(', ')+')':''):colSpan>=3?p.name:'';
     const barText=baseBarText?getGanttBarLabel(p,baseBarText):'';
     return '<td class="'+cls+' gantt-span-cell" colspan="'+colSpan+'" style="position:relative">'
-      +'<div class="bar pg-timeline-bar pg-timeline-bar--urgency-'+urgency+(isActive?' is-active':'')+(projectDelayDays?' is-overdue-project':'')+'" style="left:2px;right:2px;'+getGanttBarInlineStyle(barStyle)+(issueCount?'--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px;':'')+'" data-pid="'+p.id+'" data-duration="'+(duration||colSpan)+'" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(projectDelayDays?' | 지연 D+'+projectDelayDays:'')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'"><span class="pg-bar-dot"></span><span class="pg-bar-label">'+esc(barText)+'</span>'+(projectDelayDays?'<span class="pg-bar-delay-pill">D+'+projectDelayDays+'</span>':'')+(issueCount?'<span class="pg-bar-issue-pill">이슈 '+issueCount+'</span>':'')+'</div>'
+      +'<div class="bar pg-timeline-bar pg-timeline-bar--urgency-'+urgency+(isCompleted?' is-completed':'')+(isActive?' is-active':'')+(projectDelayDays?' is-overdue-project':'')+'" style="left:2px;right:2px;'+getGanttBarInlineStyle(barStyle)+(issueCount?'--gantt-bar-outline:2px solid var(--red);--gantt-bar-outline-offset:-2px;':'')+'" data-pid="'+p.id+'" data-duration="'+(duration||colSpan)+'" title="'+esc(p.name)+' | '+esc((p.members||[]).join(', '))+' | '+(startText||'-')+' ~ '+(endText||'-')+(projectDelayDays?' | 지연 D+'+projectDelayDays:'')+(issueCount?' | \uC5F4\uB9B0 \uC774\uC288 '+issueCount+'\uAC74':'')+'"><span class="pg-bar-dot"></span><span class="pg-bar-label">'+esc(barText)+'</span>'+(isCompleted?'<span class="pg-bar-complete-pill">완료</span>':'')+(projectDelayDays?'<span class="pg-bar-delay-pill">D+'+projectDelayDays+'</span>':'')+(issueCount?'<span class="pg-bar-issue-pill">이슈 '+issueCount+'</span>':'')+'</div>'
       +spanOverlayHtml
       +'</td>';
   },({cls})=>'<td class="'+cls+'" style="position:relative"></td>');
-  return '<tr class="gantt-project-row'+(dueToday?' is-due-today':'')+(projectDelayDays?' is-overdue-project':'')+(isActive?' is-active':'')+(hasTimelineTasks?' has-task-rows':'')+(hasTimelineTasks&&!taskRowsCollapsed?' is-task-expanded':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" data-client-id="'+esc(p.client_id||'__none__')+'" onclick="openGanttProjectDetail(\''+projectKeyJs+'\')"><td class="'+finalRowCls+'" title="'+esc(rowTooltip)+'">'+finalLabelHtml+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-project-row'+(isCompleted?' is-completed':'')+(dueToday?' is-due-today':'')+(projectDelayDays?' is-overdue-project':'')+(isActive?' is-active':'')+(hasTimelineTasks?' has-task-rows':'')+(hasTimelineTasks&&!taskRowsCollapsed?' is-task-expanded':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" data-client-id="'+esc(p.client_id||'__none__')+'" onclick="openGanttProjectDetail(\''+projectKeyJs+'\')"><td class="'+finalRowCls+'" title="'+esc(rowTooltip)+'">'+finalLabelHtml+'</td>'+cells+'</tr>';
 };
 gRow=window.gRow;
 
@@ -11108,10 +11179,13 @@ function getGanttTimelineTaskJsString(value){
   return String(value??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n');
 }
 
-function getGanttTimelineOpenTasks(projectId){
+function getGanttTimelineOpenTasks(projectId,rangeStart=null,rangeEnd=null){
   if(typeof getGanttProjectTasks!=='function')return [];
+  const dateList=(!rangeStart||!rangeEnd)?getGanttDailyTimelineDateList(curYear,curMonth):[];
+  const visibleRangeStart=rangeStart||dateList[0]||new Date(curYear,curMonth-1,1);
+  const visibleRangeEnd=rangeEnd||dateList[dateList.length-1]||new Date(curYear,curMonth,0);
   return getGanttProjectTasks(projectId)
-    .filter(task=>String(task?.status||'').trim()!=='완료')
+    .filter(task=>taskMatchesGanttCompletionVisibility(task,visibleRangeStart,visibleRangeEnd))
     .sort((a,b)=>{
       const sortA=Number(a?.sort_order);
       const sortB=Number(b?.sort_order);
@@ -11162,6 +11236,7 @@ function renderGanttTimelineTaskRows(project,days){
   return tasks.map(task=>{
     const taskKey=getGanttTimelineTaskJsString(task?.id||'');
     const assignee=typeof getGanttTaskMemberName==='function'?getGanttTaskMemberName(task?.assignee_member_id):'';
+    const isDone=isGanttTaskCompleted(task);
     const delayDays=typeof getGanttTaskOverdueDays==='function'?getGanttTaskOverdueDays(task):0;
     const dateText=task?.due_date?('마감 '+task.due_date+(delayDays?' · 지연 D+'+delayDays:'')):(task?.start_date?('시작 '+task.start_date):'일정 미정');
     const statusText=String(task?.status||'상태 없음').trim()||'상태 없음';
@@ -11171,14 +11246,14 @@ function renderGanttTimelineTaskRows(project,days){
     const cells=buildGanttSpanCells(days,rangeMeta,({cls,span:colSpan})=>{
       const labelText=colSpan>=4?task?.title||'제목 없는 업무':'';
       return '<td class="'+cls+' gantt-span-cell pg-task-span-cell" colspan="'+colSpan+'" style="position:relative">'
-        +'<div class="bar pg-task-timeline-bar'+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+        +'<div class="bar pg-task-timeline-bar'+(isDone?' is-completed':'')+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
         +'<span class="pg-task-bar-label">'+esc(labelText)+'</span>'
         +'</div>'
         +'</td>';
     },({cls})=>'<td class="'+cls+' pg-task-empty-cell" style="position:relative"></td>');
-    return '<tr class="pg-task-row'+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" data-client-id="'+esc(project?.client_id||'__none__')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+    return '<tr class="pg-task-row'+(isDone?' is-completed':'')+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" data-client-id="'+esc(project?.client_id||'__none__')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<td class="row-label pg-task-label">'
-      +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
+      +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(isDone?'<span class="pg-task-complete-pill">완료</span>':'')+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
       +'</td>'
       +cells
       +'</tr>';
@@ -11280,7 +11355,9 @@ function renderGanttAnnualProjectRow(project,units){
   const rangeMeta=getGanttAnnualRangeMeta(project,units,curYear);
   const memberText=(project.members||[]).join(' \u00B7 ')||'\uB2F4\uB2F9\uC790 \uBBF8\uBC30\uC815';
   const memberSummary=getGanttCompactMemberText(project.members);
-  const timelineTasks=typeof getGanttTimelineOpenTasks==='function'?getGanttTimelineOpenTasks(project.id):[];
+  const annualRangeStart=units[0]?.start||new Date(curYear,0,1);
+  const annualRangeEnd=units[units.length-1]?.end||new Date(curYear,11,31);
+  const timelineTasks=typeof getGanttTimelineOpenTasks==='function'?getGanttTimelineOpenTasks(project.id,annualRangeStart,annualRangeEnd):[];
   const hasTimelineTasks=timelineTasks.length>0;
   const taskRowsCollapsed=hasTimelineTasks&&isGanttProjectTasksCollapsed(project.id);
   const projectKeyJs=getGanttTimelineTaskJsString(project.id);
@@ -11310,8 +11387,9 @@ function renderGanttAnnualProjectRow(project,units){
       const baseLabelText=colSpan>=4?project.name:colSpan>=2?(project.client_name||project.name):'';
       const labelText=baseLabelText?getGanttBarLabel(project,baseLabelText):'';
       cells+='<td class="'+cellCls+'gantt-span-cell" colspan="'+colSpan+'" style="position:relative">'
-        +'<div class="bar pg-timeline-bar pg-annual-bar pg-timeline-bar--urgency-'+urgency+(isActive?' is-active':'')+(projectDelayDays?' is-overdue-project':'')+'" style="left:2px;right:2px;'+getGanttBarInlineStyle(barStyle)+'" data-pid="'+project.id+'" title="'+esc(project.name)+' | '+esc(memberText)+(projectDelayDays?' | 지연 D+'+projectDelayDays:'')+'">'
+        +'<div class="bar pg-timeline-bar pg-annual-bar pg-timeline-bar--urgency-'+urgency+(isCompleted?' is-completed':'')+(isActive?' is-active':'')+(projectDelayDays?' is-overdue-project':'')+'" style="left:2px;right:2px;'+getGanttBarInlineStyle(barStyle)+'" data-pid="'+project.id+'" title="'+esc(project.name)+' | '+esc(memberText)+(projectDelayDays?' | 지연 D+'+projectDelayDays:'')+'">'
         +'<span class="pg-bar-dot"></span><span class="pg-bar-label">'+esc(labelText)+'</span>'
+        +(isCompleted?'<span class="pg-bar-complete-pill">완료</span>':'')
         +(projectDelayDays?'<span class="pg-bar-delay-pill">D+'+projectDelayDays+'</span>':'')
         +'</div>'
         +'</td>';
@@ -11320,7 +11398,7 @@ function renderGanttAnnualProjectRow(project,units){
       cells+='<td class="'+cellCls+'" style="position:relative"></td>';
     }
   }
-  return '<tr class="gantt-project-row pg-annual-project-row'+(dueToday?' is-due-today':'')+(projectDelayDays?' is-overdue-project':'')+(isActive?' is-active':'')+(hasTimelineTasks?' has-task-rows':'')+(hasTimelineTasks&&!taskRowsCollapsed?' is-task-expanded':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" data-client-id="'+esc(project.client_id||'__none__')+'" onclick="openGanttProjectDetail(\''+projectKeyJs+'\')"><td class="row-label'+(overdue?' row-warn':'')+(isCompleted?' row-completed':'')+(isActive?' is-active':'')+'" title="'+esc(rowTooltip)+'">'+labelHtml+'</td>'+cells+'</tr>';
+  return '<tr class="gantt-project-row pg-annual-project-row'+(isCompleted?' is-completed':'')+(dueToday?' is-due-today':'')+(projectDelayDays?' is-overdue-project':'')+(isActive?' is-active':'')+(hasTimelineTasks?' has-task-rows':'')+(hasTimelineTasks&&!taskRowsCollapsed?' is-task-expanded':'')+(taskRowsCollapsed?' is-task-collapsed':'')+'" data-client-id="'+esc(project.client_id||'__none__')+'" onclick="openGanttProjectDetail(\''+projectKeyJs+'\')"><td class="row-label'+(overdue?' row-warn':'')+(isCompleted?' row-completed':'')+(isActive?' is-active':'')+'" title="'+esc(rowTooltip)+'">'+labelHtml+'</td>'+cells+'</tr>';
 }
 
 function renderGanttAnnualTaskRows(project,units){
@@ -11335,13 +11413,16 @@ function renderGanttAnnualTaskRows(project,units){
     }
     return '';
   }
-  const tasks=getGanttTimelineOpenTasks(projectId);
+  const annualRangeStart=units[0]?.start||new Date(curYear,0,1);
+  const annualRangeEnd=units[units.length-1]?.end||new Date(curYear,11,31);
+  const tasks=getGanttTimelineOpenTasks(projectId,annualRangeStart,annualRangeEnd);
   if(!tasks.length||isGanttProjectTasksCollapsed(projectId))return '';
   const projectKey=getGanttTimelineTaskJsString(projectId);
   const isParentActive=String(ganttFocusProjectId||'')===projectId;
   return tasks.map(task=>{
     const taskKey=getGanttTimelineTaskJsString(task?.id||'');
     const assignee=typeof getGanttTaskMemberName==='function'?getGanttTaskMemberName(task?.assignee_member_id):'';
+    const isDone=isGanttTaskCompleted(task);
     const delayDays=typeof getGanttTaskOverdueDays==='function'?getGanttTaskOverdueDays(task):0;
     const dateText=task?.due_date?('마감 '+task.due_date+(delayDays?' · 지연 D+'+delayDays:'')):(task?.start_date?('시작 '+task.start_date):'일정 미정');
     const statusText=String(task?.status||'상태 없음').trim()||'상태 없음';
@@ -11355,7 +11436,7 @@ function renderGanttAnnualTaskRows(project,units){
         const colSpan=rangeMeta.span;
         const labelText=colSpan>=3?task?.title||'제목 없는 업무':'';
         cells+='<td class="'+cellCls+'gantt-span-cell pg-task-span-cell" colspan="'+colSpan+'" style="position:relative">'
-          +'<div class="bar pg-task-timeline-bar pg-annual-task-bar'+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+          +'<div class="bar pg-task-timeline-bar pg-annual-task-bar'+(isDone?' is-completed':'')+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" style="left:4px;right:4px" data-task-id="'+esc(task?.id||'')+'" title="'+esc((task?.title||'제목 없는 업무')+' | '+statusText+' | '+dateText)+'" onclick="event.stopPropagation();openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
           +'<span class="pg-task-bar-label">'+esc(labelText)+'</span>'
           +'</div>'
           +'</td>';
@@ -11364,9 +11445,9 @@ function renderGanttAnnualTaskRows(project,units){
         cells+='<td class="'+cellCls+' pg-task-empty-cell" style="position:relative"></td>';
       }
     }
-    return '<tr class="pg-task-row pg-annual-task-row'+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" data-client-id="'+esc(project?.client_id||'__none__')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
+    return '<tr class="pg-task-row pg-annual-task-row'+(isDone?' is-completed':'')+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" data-client-id="'+esc(project?.client_id||'__none__')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<td class="row-label pg-task-label">'
-      +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
+      +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(isDone?'<span class="pg-task-complete-pill">완료</span>':'')+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
       +'</td>'
       +cells
       +'</tr>';

@@ -683,6 +683,26 @@ function renderGanttDelayGroupCountHtml(counts,clientId=''){
     +'</span>';
 }
 
+renderGanttDelayGroupCountHtml=function(counts,clientId=''){
+  const safeClientId=getGanttInlineJsString(clientId);
+  const projectCount=Number(counts?.total||0);
+  const overdueProjects=Number(counts?.overdueProjects??counts?.overdue??0);
+  const overdueTasks=Number(counts?.overdueTasks||0);
+  const completedCount=Number(counts?.completed||0);
+  const showCompleted=completedCount>0&&(
+    (typeof shouldIncludeCompletedInGanttView==='function'&&shouldIncludeCompletedInGanttView())
+    ||String(ganttStatusFilter||'all')==='execution_done'
+  );
+  return ''
+    +'<span class="pg-client-group-count">'
+      +' · 프로젝트 '+projectCount
+      +' · 진행 '+Number(counts?.active||0)
+      +(showCompleted?' · 완료 '+completedCount:'')
+      +' <button type="button" class="gantt-group-delay-badge'+(overdueProjects?' is-overdue':'')+'" title="마감일이 지났지만 완료되지 않은 프로젝트입니다." onclick="pulseGanttClientDelayRows(\''+safeClientId+'\',\'project\',event)">지연P '+overdueProjects+'</button>'
+      +' <button type="button" class="gantt-group-delay-badge'+(overdueTasks?' is-overdue':'')+'" title="마감일이 지났지만 완료되지 않은 태스크입니다." onclick="pulseGanttClientDelayRows(\''+safeClientId+'\',\'task\',event)">지연T '+overdueTasks+'</button>'
+    +'</span>';
+};
+
 function pulseGanttClientDelayRows(clientId,type='project',event){
   if(event){
     event.preventDefault();
@@ -6052,7 +6072,7 @@ function projectMatchesTopFilters(project){
   if(ganttStatusFilter==='in_progress'&&lifecycleMeta.key!=='in_progress'&&lifecycleMeta.key!=='overdue')return false;
   if(ganttStatusFilter==='overdue'&&lifecycleMeta.key!=='overdue')return false;
   if(ganttStatusFilter==='due_today'&&!isGanttProjectDueToday(project))return false;
-  if(ganttStatusFilter==='execution_done'&&lifecycleMeta.key!=='execution_done')return false;
+  if(ganttStatusFilter==='execution_done'&&!['execution_done','follow_up','fully_closed'].includes(lifecycleMeta.key))return false;
   if(ganttStatusFilter==='follow_up'&&lifecycleMeta.key!=='follow_up')return false;
   if(ganttStatusFilter==='fully_closed'&&lifecycleMeta.key!=='fully_closed')return false;
   const typeFilterValue=getGanttTypeFilterValue();
