@@ -37,12 +37,13 @@ async function renderHomeRiskSummary(){
       return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
     });
     const [issueRows,pendingDocs]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
         :Promise.resolve([]),
       api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
@@ -270,6 +271,7 @@ function getHomeAssignedProjectMembers(project){
 }
 
 function isHomeProjectAssignedToCurrentMember(project){
+  if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return true;
   if(!currentMember)return false;
   const assignedMembers=getHomeAssignedProjectMembers(project);
   if(assignedMembers.length){
@@ -468,7 +470,8 @@ function isHomeDateInRange(startValue,endValue,today){
 }
 
 function getHomeTodayScheduleItems(today){
-  if(!currentMember?.name)return [];
+  const useAllInternalScope=typeof canViewAllInternalData==='function'&&canViewAllInternalData();
+  if(!useAllInternalScope&&!currentMember?.name)return [];
   const projectItems=(projects||[])
     .filter(project=>isHomeProjectAssignedToCurrentMember(project)&&!isHomeCompletedProject(project))
     .filter(project=>isHomeDateInRange(project.start||project.start_date,project.end||project.end_date,today))
@@ -477,7 +480,7 @@ function getHomeTodayScheduleItems(today){
       return {...item,todaySortGroup:item.dueMeta?.diff===0?0:1};
     });
   const scheduleItems=(schedules||[])
-    .filter(schedule=>scheduleHasMember(schedule,currentMember.name))
+    .filter(schedule=>useAllInternalScope||scheduleHasMember(schedule,currentMember.name))
     .filter(schedule=>isHomeDateInRange(schedule.start||schedule.start_date,schedule.end||schedule.end_date,today))
     .map(schedule=>({...buildHomeDailyScheduleItem(schedule,today),todaySortGroup:2}));
   return [...projectItems,...scheduleItems];
@@ -562,6 +565,7 @@ function getHomeAttentionTaskMeta(task,today){
 }
 
 function isHomeTaskRelevantToCurrentMember(task){
+  if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return true;
   if(!currentMember)return true;
   if(String(task?.assignee_member_id||'')===String(currentMember.id||''))return true;
   if(!String(task?.assignee_member_id||'').trim())return true;
@@ -1943,7 +1947,7 @@ renderHomeRiskSummary = async function(){
   try{
     const today=getHomeBaseDate();
     const [issueRows,taskRows]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,project_id,title,content,status,priority,assignee_member_id,assignee_name,created_at').catch(()=>[])
         :Promise.resolve([]),
       loadHomeProjectTaskRows()
@@ -1953,6 +1957,7 @@ renderHomeRiskSummary = async function(){
     const todayDueWorkItems=getHomeTodayDueWorkItemsFromAttention(attentionItems);
     const overdueWorkItems=getHomeOverdueWorkItemsFromAttention(attentionItems);
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
@@ -2604,13 +2609,14 @@ async function renderHomeRiskSummaryLegacy(){
     });
 
     const [issueRows,pendingDocs]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,status,is_pinned,priority,assignee_member_id,assignee_name').catch(()=>[])
         :Promise.resolve([]),
       api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
 
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
@@ -3122,13 +3128,14 @@ async function renderHomeRiskSummary(){
     });
 
     const [issueRows,pendingDocs]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,status,is_pinned,priority,assignee_member_id,assignee_name').catch(()=>[])
         :Promise.resolve([]),
       api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
 
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
@@ -3376,12 +3383,13 @@ renderHomeRiskSummary = async function(){
       return String(a?.name||'').localeCompare(String(b?.name||''),'ko');
     });
     const [issueRows,pendingDocs]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
         :Promise.resolve([]),
       api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
@@ -3893,7 +3901,7 @@ renderHomeRiskSummary = async function(){
   try{
     const today=getHomeBaseDate();
     const [issueRows,taskRows]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,project_id,title,content,status,priority,assignee_member_id,assignee_name,created_at').catch(()=>[])
         :Promise.resolve([]),
       loadHomeProjectTaskRows()
@@ -3903,6 +3911,7 @@ renderHomeRiskSummary = async function(){
     const todayDueWorkItems=getHomeTodayDueWorkItemsFromAttention(attentionItems);
     const overdueWorkItems=getHomeOverdueWorkItemsFromAttention(attentionItems);
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);

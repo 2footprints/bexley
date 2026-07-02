@@ -185,8 +185,9 @@ function getCurrentMemberProjectTeamId(){
 }
 
 function canViewAllProjectTeams(){
+  if(typeof canViewAllInternalData==='function')return canViewAllInternalData();
   const role=typeof normalizeAppRole==='function'?normalizeAppRole(currentRole):String(currentRole||'').trim().toLowerCase();
-  return role==='admin'||role==='partner';
+  return ['observer','staff','manager','team_lead','partner','admin'].includes(role);
 }
 
 function getVisibleProjectTeamRows(){

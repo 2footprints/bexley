@@ -3,6 +3,7 @@
   window.__STABILIZE_TEAM_DASHBOARD_LOADED__ = true;
 
   function assignedToCurrentMember(project){
+    if(typeof canViewAllInternalData === 'function' && canViewAllInternalData()) return true;
     if(typeof projectAssignedToCurrentMember === 'function'){
       return projectAssignedToCurrentMember(project);
     }
@@ -45,7 +46,9 @@
 
   function myIssueTotal(){
     return (projects || [])
-      .filter(function(project){ return assignedToCurrentMember(project); })
+      .filter(function(project){
+        return (typeof canViewAllInternalData === 'function' && canViewAllInternalData()) || assignedToCurrentMember(project);
+      })
       .reduce(function(total, project){
         return total + (openIssuesByProject[project.id] || 0);
       }, 0);
@@ -59,13 +62,14 @@
   };
 
   window.getHomeTodayItems = function(limit){
-    if(!currentMember) return [];
+    const useAllInternalScope = typeof canViewAllInternalData === 'function' && canViewAllInternalData();
+    if(!useAllInternalScope&&!currentMember) return [];
     const today = getTodayBase();
     const items = [];
 
     (projects || [])
       .filter(function(project){
-        return assignedToCurrentMember(project) &&
+        return (useAllInternalScope || assignedToCurrentMember(project)) &&
           project.status !== '완료' &&
           toDate(project.start) <= today &&
           toDate(project.end) >= today;
@@ -84,8 +88,7 @@
 
     (schedules || [])
       .filter(function(schedule){
-        return currentMember?.name &&
-          schedule.member_name === currentMember.name &&
+        return (useAllInternalScope || (currentMember?.name && schedule.member_name === currentMember.name)) &&
           toDate(schedule.start) <= today &&
           toDate(schedule.end) >= today;
       })
@@ -108,7 +111,8 @@
   };
 
   window.getHomeIssueItems = function(limit){
-    const mine = (projects || []).filter(function(project){
+    const useAllInternalScope = typeof canViewAllInternalData === 'function' && canViewAllInternalData();
+    const mine = useAllInternalScope ? [] : (projects || []).filter(function(project){
       return assignedToCurrentMember(project) && (openIssuesByProject[project.id] || 0) > 0;
     });
     const source = mine.length ? mine : (projects || []).filter(function(project){

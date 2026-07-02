@@ -87,12 +87,13 @@ renderHomeRiskSummary = async function(){
       return endDateRaw&&toDate(endDateRaw)<today;
     });
     const [issueRows,pendingDocs]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,project_id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
         :Promise.resolve([]),
       api('GET','document_requests?status=eq.pending&select=id,project_id,title,due_date').catch(()=>[])
     ]);
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);
@@ -259,6 +260,7 @@ function getHomeConsoleTaskDueDate(task){
 }
 
 function isHomeConsoleTaskMine(task){
+  if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return true;
   if(!currentMember)return false;
   return (currentMember?.id&&String(task?.assignee_member_id||task?.owner_member_id||'')===String(currentMember.id))
     ||(currentMember?.name&&String(task?.assignee_name||'').trim()===String(currentMember.name).trim());
@@ -303,10 +305,10 @@ renderHomeRiskSummary = async function(){
       return endDateRaw&&toDate(endDateRaw).getTime()===today.getTime();
     });
     const [issueRows,taskRows]=await Promise.all([
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_issues?select=id,project_id,status,priority,assignee_member_id,assignee_name').catch(()=>[])
         :Promise.resolve([]),
-      (currentMember?.id||currentMember?.name)
+      ((typeof canViewAllInternalData==='function'&&canViewAllInternalData())||currentMember?.id||currentMember?.name)
         ?api('GET','project_tasks?select=id,project_id,title,status,due_date,assignee_member_id,assignee_name,owner_member_id,actual_done_at').catch(()=>[])
         :Promise.resolve([])
     ]);
@@ -320,6 +322,7 @@ renderHomeRiskSummary = async function(){
       return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
     });
     const myOpenIssues=(issueRows||[]).filter(issue=>{
+      if(typeof canViewAllInternalData==='function'&&canViewAllInternalData())return isIssueActiveStatus(issue?.status);
       const matchesAssignee=(currentMember?.id&&String(issue?.assignee_member_id||'')===String(currentMember.id))
         ||(currentMember?.name&&issue?.assignee_name===currentMember.name);
       return matchesAssignee&&isIssueActiveStatus(issue?.status);

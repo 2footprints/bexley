@@ -23,6 +23,7 @@
   }
 
   function projectAssignedToCurrentMember(project){
+    if(typeof canViewAllInternalData === 'function' && canViewAllInternalData()) return true;
     if(!project || !currentMember) return false;
     if(currentMember.id && projectMemberIds(project).includes(currentMember.id)) return true;
     if(currentMember.name && projectMemberNames(project).includes(currentMember.name)) return true;
