@@ -5231,24 +5231,86 @@ function getGanttTaskCreatedSortValue(task){
   return Number.isNaN(timestamp)?Number.MAX_SAFE_INTEGER:timestamp;
 }
 
+function normalizeProjectTaskSortDateValue(value){
+  const normalized=getGanttTaskDateValue(value);
+  if(normalized)return normalized;
+  const raw=String(value||'').trim();
+  const isoDate=raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return isoDate?isoDate[1]:'';
+}
+
+function getProjectTaskStableDateValue(task,fields){
+  for(const field of fields){
+    const value=normalizeProjectTaskSortDateValue(task?.[field]);
+    if(value)return value;
+  }
+  return '';
+}
+
+function getProjectTaskCompletionDateValue(task){
+  return getProjectTaskStableDateValue(task,['actual_done_at','completed_at','completedAt','done_at','doneAt','due_date','dueDate','deadline','endDate']);
+}
+
+function isProjectTaskDisplayCompleted(task){
+  const status=String(task?.status||'').trim().toLowerCase();
+  return status==='\uC644\uB8CC'||status==='completed'||status==='done'||!!String(task?.actual_done_at||task?.completed_at||task?.completedAt||task?.done_at||task?.doneAt||'').trim();
+}
+
+function getProjectTaskDueSortValue(task){
+  return getProjectTaskStableDateValue(task,['due_date','dueDate','deadline','end_date','endDate']);
+}
+
+function getProjectTaskStartSortValue(task){
+  return getProjectTaskStableDateValue(task,['start_date','startDate','start']);
+}
+
+function getProjectTaskTodaySortValue(baseDate=(typeof getHomeBaseDate==='function'?getHomeBaseDate():new Date())){
+  const today=new Date(baseDate.getFullYear(),baseDate.getMonth(),baseDate.getDate());
+  return today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+}
+
+function getProjectTaskDisplayBucket(task){
+  if(isProjectTaskDisplayCompleted(task))return 4;
+  const dueValue=getProjectTaskDueSortValue(task);
+  if(!dueValue)return 3;
+  const todayValue=getProjectTaskTodaySortValue();
+  if(dueValue<todayValue)return 0;
+  if(dueValue===todayValue)return 1;
+  return 2;
+}
+
+function compareTaskByUrgencyAndDueDate(a,b){
+  const bucketDiff=getProjectTaskDisplayBucket(a)-getProjectTaskDisplayBucket(b);
+  if(bucketDiff)return bucketDiff;
+  const aDone=isProjectTaskDisplayCompleted(a);
+  const bDone=isProjectTaskDisplayCompleted(b);
+  if(aDone&&bDone){
+    const aCompleted=getProjectTaskCompletionDateValue(a);
+    const bCompleted=getProjectTaskCompletionDateValue(b);
+    if(aCompleted&&bCompleted&&aCompleted!==bCompleted)return bCompleted.localeCompare(aCompleted);
+    if(aCompleted!==bCompleted)return aCompleted?-1:1;
+  }
+  const aDue=getProjectTaskDueSortValue(a);
+  const bDue=getProjectTaskDueSortValue(b);
+  if(aDue&&bDue&&aDue!==bDue)return aDue.localeCompare(bDue);
+  if(aDue!==bDue)return aDue?-1:1;
+  const aStart=getProjectTaskStartSortValue(a);
+  const bStart=getProjectTaskStartSortValue(b);
+  if(aStart&&bStart&&aStart!==bStart)return aStart.localeCompare(bStart);
+  if(aStart!==bStart)return aStart?-1:1;
+  const createdDiff=getGanttTaskCreatedSortValue(a)-getGanttTaskCreatedSortValue(b);
+  if(createdDiff)return createdDiff;
+  const orderDiff=Number(a?.sort_order||0)-Number(b?.sort_order||0);
+  if(orderDiff)return orderDiff;
+  return String(a?.id||a?.title||'').localeCompare(String(b?.id||b?.title||''),'ko',{numeric:true,sensitivity:'base'});
+}
+
+function sortProjectTasksForDisplay(tasks){
+  return [...(Array.isArray(tasks)?tasks:[])].sort(compareTaskByUrgencyAndDueDate);
+}
+
 function getGanttTaskDisplayRows(projectId){
-  return [...getGanttProjectTasks(projectId)].sort((a,b)=>{
-    const rankDiff=getGanttTaskUrgencySortRank(a)-getGanttTaskUrgencySortRank(b);
-    if(rankDiff)return rankDiff;
-    const aDue=getGanttTaskDateValue(a?.due_date);
-    const bDue=getGanttTaskDateValue(b?.due_date);
-    if(aDue&&bDue&&aDue!==bDue)return aDue.localeCompare(bDue);
-    if(aDue!==bDue)return aDue?-1:1;
-    const priorityDiff=getGanttTaskPrioritySortRank(a)-getGanttTaskPrioritySortRank(b);
-    if(priorityDiff)return priorityDiff;
-    const assigneeDiff=Number(!String(a?.assignee_member_id||'').trim())-Number(!String(b?.assignee_member_id||'').trim());
-    if(assigneeDiff)return assigneeDiff;
-    const createdDiff=getGanttTaskCreatedSortValue(a)-getGanttTaskCreatedSortValue(b);
-    if(createdDiff)return createdDiff;
-    const orderDiff=Number(a?.sort_order||0)-Number(b?.sort_order||0);
-    if(orderDiff)return orderDiff;
-    return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
-  });
+  return sortProjectTasksForDisplay(getGanttProjectTasks(projectId));
 }
 
 function getGanttProjectNextActionTask(projectId){

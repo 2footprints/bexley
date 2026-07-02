@@ -3519,7 +3519,17 @@ function getGanttHierarchyExpandLevel(){
   return Number(ganttHierarchyExpandLevel||0);
 }
 function renderGanttHierarchyToggleIcon(isCollapsed,label){
-  return '<button type="button" class="pg-project-task-toggle pg-hierarchy-toggle" aria-label="'+esc(label||'펼침 상태 변경')+'" aria-expanded="'+(!isCollapsed)+'" title="'+esc(label||'펼침 상태 변경')+'"><span>'+(isCollapsed?'▶':'▼')+'</span></button>';
+  return '<button type="button" class="pg-project-task-toggle pg-hierarchy-toggle" aria-label="'+esc(label||'펼침 상태 변경')+'" aria-expanded="'+(!isCollapsed)+'" title="'+esc(label||'펼침 상태 변경')+'"><span class="pg-toggle-chevron">'+(isCollapsed?'▶':'▼')+'</span></button>';
+}
+function renderGanttClientGroupTreeHead(clientName,groupCounts,clientId,isCollapsed){
+  const countHtml=typeof renderGanttDelayGroupCountHtml==='function'
+    ?renderGanttDelayGroupCountHtml(groupCounts,clientId)
+    :'<span class="pg-client-group-count">· 프로젝트 '+(groupCounts.total||0)+' · 진행 '+groupCounts.active+' · 지연P '+(groupCounts.overdueProjects||groupCounts.overdue||0)+' · 완료 '+groupCounts.completed+'</span>';
+  return '<div class="pg-tree-row pg-tree-row--client">'
+    +renderGanttHierarchyToggleIcon(isCollapsed,isCollapsed?'거래처 프로젝트 펼치기':'거래처 프로젝트 접기')
+    +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
+    +countHtml
+    +'</div>';
 }
 function setGanttHierarchyExpandLevel(level){
   const nextLevel=Math.max(1,Math.min(3,Number(level)||2));
@@ -3547,6 +3557,7 @@ function toggleGanttGroup(clientId,event){
 window.getGanttHierarchyExpandLevel=getGanttHierarchyExpandLevel;
 window.setGanttHierarchyExpandLevel=setGanttHierarchyExpandLevel;
 window.renderGanttHierarchyToggleIcon=renderGanttHierarchyToggleIcon;
+window.renderGanttClientGroupTreeHead=renderGanttClientGroupTreeHead;
 
 function renderIssueFeedSafe(el,pinned,recent){
   try{
@@ -7264,8 +7275,9 @@ window.gRow=function(p,days){
     '기간: '+(startText||p.start||'-')+' ~ '+(endText||p.end||'-'),
     ...(projectDelayDays?['지연 프로젝트: D+'+projectDelayDays]:[])
   ].join('\n');
-  const finalLabelHtml='<div class="pg-annual-project-cell pg-timeline-project-cell">'
-    +(hasTimelineTasks?'<button type="button" class="pg-project-task-toggle" onclick="toggleGanttProjectTasks(\''+projectKeyJs+'\',event)" aria-expanded="'+(!taskRowsCollapsed)+'" title="'+(taskRowsCollapsed?'하위 업무 펼치기':'하위 업무 접기')+'"><span>'+(taskRowsCollapsed?'▶':'▼')+'</span></button>':'<span class="pg-project-task-toggle-spacer"></span>')
+  const finalLabelHtml='<div class="pg-annual-project-cell pg-timeline-project-cell pg-tree-row pg-tree-row--project">'
+    +'<span class="pg-tree-elbow" aria-hidden="true"></span>'
+    +(hasTimelineTasks?'<button type="button" class="pg-project-task-toggle pg-hierarchy-toggle" onclick="toggleGanttProjectTasks(\''+projectKeyJs+'\',event)" aria-expanded="'+(!taskRowsCollapsed)+'" title="'+(taskRowsCollapsed?'하위 업무 펼치기':'하위 업무 접기')+'"><span class="pg-toggle-chevron">'+(taskRowsCollapsed?'▶':'▼')+'</span></button>':'<span class="pg-project-task-toggle-spacer"></span>')
     +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
     +'<span class="pg-item-info">'
     +'<span class="pg-item-name-row" title="'+esc(rowTooltip)+'"><span class="pg-item-title'+(isCompleted?' is-completed':'')+'">'+esc(p.name)+'</span><span class="pg-item-assignee" title="'+esc(memberText)+'">'+esc(memberSummary)+'</span><span class="pg-status-pill pg-status-pill--'+statusMeta.tone+'">'+esc(compactStatusLabel)+'</span>'+(projectDelayDays?'<span class="pg-delay-pill" title="마감일이 지났지만 완료되지 않은 프로젝트입니다.">지연 D+'+projectDelayDays+'</span>':'')+'</span>'
@@ -7442,17 +7454,11 @@ function getGanttTimelineOpenTasks(projectId,rangeStart=null,rangeEnd=null){
   const dateList=(!rangeStart||!rangeEnd)?getGanttDailyTimelineDateList(curYear,curMonth):[];
   const visibleRangeStart=rangeStart||dateList[0]||new Date(curYear,curMonth-1,1);
   const visibleRangeEnd=rangeEnd||dateList[dateList.length-1]||new Date(curYear,curMonth,0);
-  return getGanttProjectTasks(projectId)
-    .filter(task=>taskMatchesGanttCompletionVisibility(task,visibleRangeStart,visibleRangeEnd))
-    .sort((a,b)=>{
-      const sortA=Number(a?.sort_order);
-      const sortB=Number(b?.sort_order);
-      if(Number.isFinite(sortA)||Number.isFinite(sortB))return (Number.isFinite(sortA)?sortA:999999)-(Number.isFinite(sortB)?sortB:999999);
-      const dueA=String(a?.due_date||'9999-12-31');
-      const dueB=String(b?.due_date||'9999-12-31');
-      if(dueA!==dueB)return dueA.localeCompare(dueB);
-      return String(a?.title||'').localeCompare(String(b?.title||''),'ko');
-    });
+  const visibleTasks=getGanttProjectTasks(projectId)
+    .filter(task=>taskMatchesGanttCompletionVisibility(task,visibleRangeStart,visibleRangeEnd));
+  return typeof sortProjectTasksForDisplay==='function'
+    ?sortProjectTasksForDisplay(visibleTasks)
+    :visibleTasks.sort((a,b)=>String(a?.due_date||'9999-12-31').localeCompare(String(b?.due_date||'9999-12-31')));
 }
 
 function ensureGanttTimelineTaskData(projs){
@@ -7482,7 +7488,7 @@ function renderGanttTimelineTaskRows(project,days){
   if(!hasLoadedTasks){
     if(loadMeta?.loading){
       const loadingCells=buildGanttSpanCells(days,{visible:false},({cls})=>'<td class="'+cls+'"></td>',({cls})=>'<td class="'+cls+'"></td>');
-      return '<tr class="pg-task-row is-loading"><td class="row-label pg-task-label"><div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-name">업무 불러오는 중</span></div></td>'+loadingCells+'</tr>';
+      return '<tr class="pg-task-row is-loading"><td class="row-label pg-task-label"><div class="pg-task-cell pg-tree-row pg-tree-row--task"><span class="pg-task-rail"></span><span class="pg-task-name">업무 불러오는 중</span></div></td>'+loadingCells+'</tr>';
     }
     return '';
   }
@@ -7511,7 +7517,7 @@ function renderGanttTimelineTaskRows(project,days){
     },({cls})=>'<td class="'+cls+' pg-task-empty-cell" style="position:relative"></td>');
     return '<tr class="pg-task-row'+(isDone?' is-completed':'')+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" data-client-id="'+esc(project?.client_id||'__none__')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<td class="row-label pg-task-label">'
-      +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(isDone?'<span class="pg-task-complete-pill">완료</span>':'')+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
+      +'<div class="pg-task-cell pg-tree-row pg-tree-row--task"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(isDone?'<span class="pg-task-complete-pill">완료</span>':'')+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
       +'</td>'
       +cells
       +'</tr>';
@@ -7627,8 +7633,9 @@ function renderGanttAnnualProjectRow(project,units){
     '기간: '+(project.start||'-')+' ~ '+(project.end||'-'),
     ...(projectDelayDays?['지연 프로젝트: D+'+projectDelayDays]:[])
   ].join('\n');
-  const labelHtml='<div class="pg-annual-project-cell">'
-    +(hasTimelineTasks?'<button type="button" class="pg-project-task-toggle" onclick="toggleGanttProjectTasks(\''+projectKeyJs+'\',event)" aria-expanded="'+(!taskRowsCollapsed)+'" title="'+(taskRowsCollapsed?'하위 업무 펼치기':'하위 업무 접기')+'"><span>'+(taskRowsCollapsed?'▶':'▼')+'</span></button>':'<span class="pg-project-task-toggle-spacer"></span>')
+  const labelHtml='<div class="pg-annual-project-cell pg-tree-row pg-tree-row--project">'
+    +'<span class="pg-tree-elbow" aria-hidden="true"></span>'
+    +(hasTimelineTasks?'<button type="button" class="pg-project-task-toggle pg-hierarchy-toggle" onclick="toggleGanttProjectTasks(\''+projectKeyJs+'\',event)" aria-expanded="'+(!taskRowsCollapsed)+'" title="'+(taskRowsCollapsed?'하위 업무 펼치기':'하위 업무 접기')+'"><span class="pg-toggle-chevron">'+(taskRowsCollapsed?'▶':'▼')+'</span></button>':'<span class="pg-project-task-toggle-spacer"></span>')
     +'<span class="pg-type-dot pg-type-dot--'+typeMeta.tone+'" title="'+esc(typeMeta.label)+'"></span>'
     +'<span class="pg-item-info">'
     +'<span class="pg-item-name-row" title="'+esc(rowTooltip)+'"><span class="pg-item-title'+(isCompleted?' is-completed':'')+'">'+esc(project.name)+'</span><span class="pg-item-assignee" title="'+esc(memberText)+'">'+esc(memberSummary)+'</span><span class="pg-status-pill pg-status-pill--'+statusMeta.tone+'">'+esc(compactStatusLabel)+'</span>'+(projectDelayDays?'<span class="pg-delay-pill" title="마감일이 지났지만 완료되지 않은 프로젝트입니다.">지연 D+'+projectDelayDays+'</span>':'')+'</span>'
@@ -7667,7 +7674,7 @@ function renderGanttAnnualTaskRows(project,units){
   if(!hasLoadedTasks){
     if(loadMeta?.loading){
       const loadingCells=units.map(unit=>'<td class="cell pg-annual-cell '+(unit.isTodayUnit?'pg-annual-today-week ':'')+'" style="position:relative"></td>').join('');
-      return '<tr class="pg-task-row pg-annual-task-row is-loading"><td class="row-label pg-task-label"><div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-name">업무 불러오는 중</span></div></td>'+loadingCells+'</tr>';
+      return '<tr class="pg-task-row pg-annual-task-row is-loading"><td class="row-label pg-task-label"><div class="pg-task-cell pg-tree-row pg-tree-row--task"><span class="pg-task-rail"></span><span class="pg-task-name">업무 불러오는 중</span></div></td>'+loadingCells+'</tr>';
     }
     return '';
   }
@@ -7705,7 +7712,7 @@ function renderGanttAnnualTaskRows(project,units){
     }
     return '<tr class="pg-task-row pg-annual-task-row'+(isDone?' is-completed':'')+(isParentActive?' is-parent-active':'')+(delayDays?' is-overdue-task':'')+'" data-client-id="'+esc(project?.client_id||'__none__')+'" onclick="openProjectTaskModal(\''+projectKey+'\',\''+taskKey+'\')">'
       +'<td class="row-label pg-task-label">'
-      +'<div class="pg-task-cell"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(isDone?'<span class="pg-task-complete-pill">완료</span>':'')+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
+      +'<div class="pg-task-cell pg-tree-row pg-tree-row--task"><span class="pg-task-rail"></span><span class="pg-task-copy"><span class="pg-task-name">'+esc(task?.title||'제목 없는 업무')+'</span><span class="pg-task-meta">'+esc([statusText,assignee||'담당자 미지정',dateText].filter(Boolean).join(' · '))+'</span></span>'+(isDone?'<span class="pg-task-complete-pill">완료</span>':'')+(delayDays?'<span class="pg-task-delay-pill">지연</span>':'')+'</div>'
       +'</td>'
       +cells
       +'</tr>';
@@ -7755,11 +7762,9 @@ function renderGanttAnnualTimeline(projs){
       const isCollapsed=!!ganttCollapsed[clientId];
       html+='<tr class="sec-row pg-timeline-group-row pg-annual-group-row'+(clientId==='__none__'?' muted':'')+((groupCounts.overdueProjects||groupCounts.overdueTasks)?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\',event)">'
         +'<td colspan="'+(units.length+1)+'">'
-        +'<span onclick="toggleGanttGroup(\''+clientId+'\',event)">'+(typeof renderGanttHierarchyToggleIcon==='function'?renderGanttHierarchyToggleIcon(isCollapsed,isCollapsed?'거래처 프로젝트 펼치기':'거래처 프로젝트 접기'):'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>')+'</span>'
-        +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
-        +(typeof renderGanttDelayGroupCountHtml==='function'
-          ?renderGanttDelayGroupCountHtml(groupCounts,clientId)
-          :'<span class="pg-client-group-count">· 프로젝트 '+clientProjects.length+' · 진행 '+groupCounts.active+' · 지연P '+(groupCounts.overdueProjects||groupCounts.overdue||0)+' · 완료 '+groupCounts.completed+'</span>')
+        +(typeof renderGanttClientGroupTreeHead==='function'
+          ?renderGanttClientGroupTreeHead(clientName,groupCounts,clientId,isCollapsed)
+          :'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span><span class="pg-client-group-name">'+esc(clientName)+'</span><span class="pg-client-group-count">· 프로젝트 '+clientProjects.length+' · 진행 '+groupCounts.active+' · 지연P '+(groupCounts.overdueProjects||groupCounts.overdue||0)+' · 완료 '+groupCounts.completed+'</span>')
         +'</td></tr>';
       if(!isCollapsed)clientProjects.forEach(project=>{html+=renderGanttAnnualProjectRow(project,units)+renderGanttAnnualTaskRows(project,units);});
     });
@@ -7839,11 +7844,9 @@ function renderFilteredGanttTimeline(projs,schs){
         const isCollapsed=!!ganttCollapsed[clientId];
         html+='<tr class="sec-row pg-timeline-group-row'+(clientId==='__none__'?' muted':'')+((groupCounts.overdueProjects||groupCounts.overdueTasks)?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\',event)">'
           +'<td colspan="'+(days+1)+'">'
-          +'<span onclick="toggleGanttGroup(\''+clientId+'\',event)">'+(typeof renderGanttHierarchyToggleIcon==='function'?renderGanttHierarchyToggleIcon(isCollapsed,isCollapsed?'거래처 프로젝트 펼치기':'거래처 프로젝트 접기'):'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>')+'</span>'
-          +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
-          +(typeof renderGanttDelayGroupCountHtml==='function'
-            ?renderGanttDelayGroupCountHtml(groupCounts,clientId)
-            :'<span class="pg-client-group-count">· 프로젝트 '+clientProjects.length+' · 진행 '+groupCounts.active+' · 지연P '+(groupCounts.overdueProjects||groupCounts.overdue||0)+' · 완료 '+groupCounts.completed+'</span>')
+          +(typeof renderGanttClientGroupTreeHead==='function'
+            ?renderGanttClientGroupTreeHead(clientName,groupCounts,clientId,isCollapsed)
+            :'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span><span class="pg-client-group-name">'+esc(clientName)+'</span><span class="pg-client-group-count">· 프로젝트 '+clientProjects.length+' · 진행 '+groupCounts.active+' · 지연P '+(groupCounts.overdueProjects||groupCounts.overdue||0)+' · 완료 '+groupCounts.completed+'</span>')
           +'</td></tr>';
         if(!isCollapsed)clientProjects.forEach(project=>{html+=gRow(project,days)+renderGanttTimelineTaskRows(project,days);});
       });
