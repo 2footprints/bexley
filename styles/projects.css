@@ -9004,6 +9004,51 @@ body.gantt-resizing *{
   min-height:11px!important;
   max-height:11px!important;
 }
+#pageGantt .pg-hierarchy-toggle{
+  margin-right:6px!important;
+  vertical-align:middle!important;
+}
+#pageGantt .pg-timeline-group-row .pg-project-task-toggle,
+#pageGantt .pg-annual-group-row .pg-project-task-toggle{
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  margin-right:6px!important;
+}
+#pageGantt .gantt-hierarchy-depth-group{
+  gap:6px!important;
+}
+#pageGantt .gantt-hierarchy-depth-control{
+  display:inline-flex!important;
+  align-items:center!important;
+  height:32px!important;
+  padding:2px!important;
+  border:1px solid rgba(15,23,42,.1)!important;
+  border-radius:7px!important;
+  background:#fff!important;
+}
+#pageGantt .gantt-hierarchy-depth-btn{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:28px!important;
+  height:26px!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  color:#64748B!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  cursor:pointer!important;
+}
+#pageGantt .gantt-hierarchy-depth-btn:hover{
+  background:#F8FAFC!important;
+  color:#0F172A!important;
+}
+#pageGantt .gantt-hierarchy-depth-btn.active{
+  background:#0F172A!important;
+  color:#fff!important;
+}
 
 /* Stronger Gantt selection context */
 #pageGantt .gantt-project-row.is-task-expanded:not(.is-active)>.row-label{

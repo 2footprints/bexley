@@ -7187,12 +7187,47 @@ function updateIssueBadge(count){
 
 // ── 간트 접기/펼치기 상태 ──
 const ganttCollapsed={};
+let ganttHierarchyExpandLevel=0;
 let issueFeedCache={pinned:[],recent:[]};
 let issueFeedRequestSeq=0;
-function toggleGanttGroup(clientId){
+function getGanttHierarchyClientIds(){
+  return [...new Set((projects||[]).map(project=>String(project?.client_id||'__none__')).filter(Boolean))];
+}
+function getGanttHierarchyProjectIds(){
+  return [...new Set((projects||[]).map(project=>String(project?.id||'')).filter(Boolean))];
+}
+function getGanttHierarchyExpandLevel(){
+  return Number(ganttHierarchyExpandLevel||0);
+}
+function renderGanttHierarchyToggleIcon(isCollapsed,label){
+  return '<button type="button" class="pg-project-task-toggle pg-hierarchy-toggle" aria-label="'+esc(label||'펼침 상태 변경')+'" aria-expanded="'+(!isCollapsed)+'" title="'+esc(label||'펼침 상태 변경')+'"><span>'+(isCollapsed?'▶':'▼')+'</span></button>';
+}
+function setGanttHierarchyExpandLevel(level){
+  const nextLevel=Math.max(1,Math.min(3,Number(level)||2));
+  ganttHierarchyExpandLevel=nextLevel;
+  getGanttHierarchyClientIds().forEach(clientId=>{
+    ganttCollapsed[clientId]=nextLevel===1;
+  });
+  if(typeof ganttCollapsedProjectTaskIds!=='undefined'){
+    ganttCollapsedProjectTaskIds.clear();
+    if(nextLevel<3)getGanttHierarchyProjectIds().forEach(projectId=>ganttCollapsedProjectTaskIds.add(projectId));
+    persistGanttCollapsedProjectTaskIds();
+  }
+  if(typeof renderGanttTopFilterBar==='function')renderGanttTopFilterBar();
+  renderGantt();
+}
+function toggleGanttGroup(clientId,event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  ganttHierarchyExpandLevel=0;
   ganttCollapsed[clientId]=!ganttCollapsed[clientId];
   renderGantt();
 }
+window.getGanttHierarchyExpandLevel=getGanttHierarchyExpandLevel;
+window.setGanttHierarchyExpandLevel=setGanttHierarchyExpandLevel;
+window.renderGanttHierarchyToggleIcon=renderGanttHierarchyToggleIcon;
 
 function renderIssueFeedSafe(el,pinned,recent){
   try{
@@ -10936,9 +10971,11 @@ function toggleGanttProjectTasks(projectId,event){
   }
   const key=String(projectId||'');
   if(!key)return;
+  ganttHierarchyExpandLevel=0;
   if(ganttCollapsedProjectTaskIds.has(key))ganttCollapsedProjectTaskIds.delete(key);
   else ganttCollapsedProjectTaskIds.add(key);
   persistGanttCollapsedProjectTaskIds();
+  if(typeof renderGanttTopFilterBar==='function')renderGanttTopFilterBar();
   if(typeof renderGantt==='function')renderGantt();
 }
 window.toggleGanttProjectTasks=toggleGanttProjectTasks;
@@ -11377,9 +11414,9 @@ function renderGanttAnnualTimeline(projs){
       const clientProjects=clientGroups[clientId].sort((a,b)=>toDate(a.end)-toDate(b.end));
       const groupCounts=typeof getGanttClientGroupCounts==='function'?getGanttClientGroupCounts(clientProjects):{total:clientProjects.length,active:0,overdue:0,overdueProjects:0,overdueTasks:0,completed:0};
       const isCollapsed=!!ganttCollapsed[clientId];
-      html+='<tr class="sec-row pg-timeline-group-row pg-annual-group-row'+(clientId==='__none__'?' muted':'')+((groupCounts.overdueProjects||groupCounts.overdueTasks)?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
+      html+='<tr class="sec-row pg-timeline-group-row pg-annual-group-row'+(clientId==='__none__'?' muted':'')+((groupCounts.overdueProjects||groupCounts.overdueTasks)?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\',event)">'
         +'<td colspan="'+(units.length+1)+'">'
-        +'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>'
+        +'<span onclick="toggleGanttGroup(\''+clientId+'\',event)">'+(typeof renderGanttHierarchyToggleIcon==='function'?renderGanttHierarchyToggleIcon(isCollapsed,isCollapsed?'거래처 프로젝트 펼치기':'거래처 프로젝트 접기'):'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>')+'</span>'
         +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
         +(typeof renderGanttDelayGroupCountHtml==='function'
           ?renderGanttDelayGroupCountHtml(groupCounts,clientId)
@@ -11461,9 +11498,9 @@ function renderFilteredGanttTimeline(projs,schs){
           ?getGanttClientGroupCounts(clientProjects)
           :{total:clientProjects.length,active:0,overdue:0,overdueProjects:0,overdueTasks:0,completed:0};
         const isCollapsed=!!ganttCollapsed[clientId];
-        html+='<tr class="sec-row pg-timeline-group-row'+(clientId==='__none__'?' muted':'')+((groupCounts.overdueProjects||groupCounts.overdueTasks)?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\')">'
+        html+='<tr class="sec-row pg-timeline-group-row'+(clientId==='__none__'?' muted':'')+((groupCounts.overdueProjects||groupCounts.overdueTasks)?' is-risk':'')+'" style="cursor:pointer" onclick="toggleGanttGroup(\''+clientId+'\',event)">'
           +'<td colspan="'+(days+1)+'">'
-          +'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>'
+          +'<span onclick="toggleGanttGroup(\''+clientId+'\',event)">'+(typeof renderGanttHierarchyToggleIcon==='function'?renderGanttHierarchyToggleIcon(isCollapsed,isCollapsed?'거래처 프로젝트 펼치기':'거래처 프로젝트 접기'):'<span class="pg-group-chev">'+(isCollapsed?'▸':'▾')+'</span>')+'</span>'
           +'<span class="pg-client-group-name">'+esc(clientName)+'</span>'
           +(typeof renderGanttDelayGroupCountHtml==='function'
             ?renderGanttDelayGroupCountHtml(groupCounts,clientId)

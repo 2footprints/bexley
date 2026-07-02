@@ -7007,6 +7007,21 @@ function resetGanttTopFilters(){
   renderGantt();
 }
 
+function renderGanttHierarchyDepthControl(){
+  const activeLevel=typeof getGanttHierarchyExpandLevel==='function'?Number(getGanttHierarchyExpandLevel()||0):0;
+  const levels=[
+    {value:1,label:'1',title:'1단계: 거래처만 보기'},
+    {value:2,label:'2',title:'2단계: 프로젝트까지 보기'},
+    {value:3,label:'3',title:'3단계: 업무까지 모두 보기'}
+  ];
+  return '<div class="pg-filter-field gantt-top-filter-group gantt-hierarchy-depth-group">'
+    +'<span class="gantt-top-filter-label">계층</span>'
+    +'<div class="gantt-hierarchy-depth-control" role="group" aria-label="간트 계층 펼침 수준">'
+      +levels.map(level=>'<button type="button" class="gantt-hierarchy-depth-btn'+(activeLevel===level.value?' active':'')+'" title="'+esc(level.title)+'" aria-pressed="'+(activeLevel===level.value?'true':'false')+'" onclick="setGanttHierarchyExpandLevel('+level.value+')">'+level.label+'</button>').join('')
+    +'</div>'
+  +'</div>';
+}
+
 renderGanttTopFilterBar=function(){
   const bar=ensureGanttTopFilterBar();
   if(!bar)return;
@@ -7030,6 +7045,7 @@ renderGanttTopFilterBar=function(){
         +'<button type="button" class="btn sm" id="gvp" onclick="setGView(\'project\')" '+(basisDisabled?'disabled':'')+'>프로젝트</button>'
         +'<button type="button" class="btn sm" id="gvm" onclick="setGView(\'member\')" '+(basisDisabled?'disabled':'')+'>인력</button>'
       +'</div>'
+      +(curGanttLayout==='timeline'&&curGView==='project'?renderGanttHierarchyDepthControl():'')
       +'<label class="pg-filter-field gantt-top-filter-group gantt-type-group">'
         +'<span class="gantt-top-filter-label">유형</span>'
         +'<select id="ganttTopTypeFilterSelect">'
